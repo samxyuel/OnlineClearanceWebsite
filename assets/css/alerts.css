@@ -1,0 +1,276 @@
+/* Alert System Styles */
+.alert-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.alert-modal-overlay.active {
+  opacity: 1;
+}
+
+.alert-modal-window {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  transform: scale(0.9);
+  transition: transform 0.3s ease;
+}
+
+.alert-modal-overlay.active .alert-modal-window {
+  transform: scale(1);
+}
+
+.alert-modal-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--light-blue-gray);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.alert-modal-header.alert-info {
+  background: linear-gradient(
+    135deg,
+    var(--medium-muted-blue),
+    var(--darker-saturated-blue)
+  );
+  color: white;
+  border-radius: 8px 8px 0 0;
+}
+
+.alert-modal-header.alert-warning {
+  background: linear-gradient(135deg, #f39c12, #e67e22);
+  color: white;
+  border-radius: 8px 8px 0 0;
+}
+
+.alert-modal-header.alert-danger {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+  border-radius: 8px 8px 0 0;
+}
+
+.alert-modal-header i {
+  font-size: 1.5rem;
+}
+
+.alert-modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.alert-modal-body {
+  padding: 20px 24px;
+}
+
+.alert-modal-body p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--medium-muted-blue);
+}
+
+.alert-modal-actions {
+  padding: 16px 24px 20px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.alert-modal-actions .btn {
+  min-width: 100px;
+  padding: 10px 20px;
+  font-weight: 500;
+}
+
+/* Toast Container */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10001;
+  pointer-events: none;
+}
+
+/* Toast Notifications */
+.toast-notification {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 300px;
+  max-width: 400px;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  border-left: 4px solid;
+  margin-bottom: 10px;
+  pointer-events: auto;
+}
+
+.toast-notification.active {
+  transform: translateX(0);
+}
+
+.toast-notification.toast-success {
+  border-left-color: #27ae60;
+  background: linear-gradient(135deg, #d5f4e6, #f8fdf9);
+}
+
+.toast-notification.toast-error {
+  border-left-color: #e74c3c;
+  background: linear-gradient(135deg, #fadbd8, #fdf2f2);
+}
+
+.toast-notification.toast-warning {
+  border-left-color: #f39c12;
+  background: linear-gradient(135deg, #fdeaa7, #fef9e7);
+}
+
+.toast-notification.toast-info {
+  border-left-color: var(--medium-muted-blue);
+  background: linear-gradient(135deg, #d6eaf8, #f8fbfd);
+}
+
+.toast-notification i {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.toast-notification.toast-success i {
+  color: #27ae60;
+}
+
+.toast-notification.toast-error i {
+  color: #e74c3c;
+}
+
+.toast-notification.toast-warning i {
+  color: #f39c12;
+}
+
+.toast-notification.toast-info i {
+  color: var(--medium-muted-blue);
+}
+
+.toast-notification span {
+  flex: 1;
+  font-size: 0.95rem;
+  color: var(--medium-muted-blue);
+  font-weight: 500;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--medium-muted-blue);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+}
+
+.toast-close:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Button Styles for Alerts */
+.btn-danger {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #c0392b, #a93226);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+}
+
+/* Info button styling for graduated action */
+.btn-info {
+  background: linear-gradient(135deg, #17a2b8, #138496);
+  color: white;
+  border: none;
+}
+
+.btn-info:hover {
+  background: linear-gradient(135deg, #138496, #117a8b);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(23, 162, 184, 0.3);
+}
+
+/* Responsive Design for Alerts */
+@media (max-width: 768px) {
+  .alert-modal-window {
+    width: 95%;
+    margin: 20px;
+  }
+
+  .alert-modal-header {
+    padding: 16px 20px 12px;
+  }
+
+  .alert-modal-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .alert-modal-body {
+    padding: 16px 20px;
+  }
+
+  .alert-modal-actions {
+    padding: 12px 20px 16px;
+    flex-direction: column;
+  }
+
+  .alert-modal-actions .btn {
+    width: 100%;
+  }
+
+  .toast-notification {
+    right: 10px;
+    left: 10px;
+    min-width: auto;
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .alert-modal-window {
+    width: 98%;
+    margin: 10px;
+  }
+
+  .toast-notification {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    padding: 12px 16px;
+  }
+
+  .toast-notification span {
+    font-size: 0.9rem;
+  }
+}
