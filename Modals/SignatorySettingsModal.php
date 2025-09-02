@@ -23,7 +23,7 @@
                     <div class="settings-section-header">
                         <h3><i class="fas fa-flag"></i> Required First Signatory</h3>
                         <div class="toggle-switch">
-                            <input type="checkbox" id="requiredFirstEnabled" name="requiredFirstEnabled" checked>
+                            <input type="checkbox" id="requiredFirstEnabled" name="requiredFirstEnabled">
                             <label for="requiredFirstEnabled" class="toggle-label"></label>
                         </div>
                     </div>
@@ -35,16 +35,9 @@
                             <label for="requiredFirstPosition">Required First Position</label>
                             <select id="requiredFirstPosition" name="requiredFirstPosition">
                                 <option value="">Select Position</option>
-                                <option value="Cashier" selected>Cashier</option>
-                                <option value="Accountant">Accountant</option>
-                                <option value="Program Head">Program Head</option>
-                                <option value="Registrar">Registrar</option>
-                                <option value="Academic Head">Academic Head</option>
-                                <option value="School Administrator">School Administrator</option>
+                                <!-- Options will be populated dynamically -->
                             </select>
                         </div>
-                        
-
                     </div>
                 </div>
                 
@@ -53,7 +46,7 @@
                     <div class="settings-section-header">
                         <h3><i class="fas fa-flag-checkered"></i> Required Last Signatory</h3>
                         <div class="toggle-switch">
-                            <input type="checkbox" id="requiredLastEnabled" name="requiredLastEnabled" checked>
+                            <input type="checkbox" id="requiredLastEnabled" name="requiredLastEnabled">
                             <label for="requiredLastEnabled" class="toggle-label"></label>
                         </div>
                     </div>
@@ -65,16 +58,9 @@
                             <label for="requiredLastPosition">Required Last Position</label>
                             <select id="requiredLastPosition" name="requiredLastPosition">
                                 <option value="">Select Position</option>
-                                <option value="Registrar" selected>Registrar</option>
-                                <option value="Cashier">Cashier</option>
-                                <option value="Accountant">Accountant</option>
-                                <option value="Program Head">Program Head</option>
-                                <option value="Academic Head">Academic Head</option>
-                                <option value="School Administrator">School Administrator</option>
+                                <!-- Options will be populated dynamically -->
                             </select>
                         </div>
-                        
-
                     </div>
                 </div>
                 
@@ -100,10 +86,16 @@
 </div>
 
 <script>
-// Global variable to track current clearance type
+// Global variable to track current clearance type and designations
 if (typeof window.currentClearanceType === 'undefined') {
     window.currentClearanceType = '';
 }
+if (typeof window.designationsData === 'undefined') {
+    window.designationsData = [];
+}
+
+// Debug: Log that modal script is loading
+console.log('🔧 SignatorySettingsModal script is loading...');
 
 // Open signatory settings modal
 window.openSignatorySettingsModal = function(clearanceType) {
@@ -120,7 +112,6 @@ window.openSignatorySettingsModal = function(clearanceType) {
         console.error('signatorySettingsTitle element not found');
     }
     
-    // Note: settingsType element was removed, so we skip that
     const clearanceTypeInput = document.getElementById('settingsClearanceType');
     if (clearanceTypeInput) {
         clearanceTypeInput.value = clearanceType;
@@ -128,8 +119,10 @@ window.openSignatorySettingsModal = function(clearanceType) {
         console.error('settingsClearanceType element not found');
     }
     
-    // Load current settings based on clearance type
-    loadSignatorySettings(clearanceType);
+    // Load designations and current settings
+    loadDesignations().then(() => {
+        loadSignatorySettings(clearanceType);
+    });
     
     // Show modal
     const modal = document.querySelector('.signatory-settings-modal-overlay');
@@ -142,79 +135,229 @@ window.openSignatorySettingsModal = function(clearanceType) {
     }
 };
 
+// Debug: Log that functions are being defined
+console.log('🔧 Defining other functions...');
+
 // Close signatory settings modal
 window.closeSignatorySettingsModal = function() {
-    document.querySelector('.signatory-settings-modal-overlay').style.display = 'none';
-    document.body.style.overflow = 'auto';
+    const modal = document.querySelector('.signatory-settings-modal-overlay');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
 };
 
-// Load signatory settings
-function loadSignatorySettings(clearanceType) {
-    // This would typically load from database
-    // For now, using default values based on clearance type
-    
-    if (clearanceType === 'student') {
-        document.getElementById('requiredFirstPosition').value = 'Cashier';
-        document.getElementById('requiredLastPosition').value = 'Registrar';
-    } else {
-        document.getElementById('requiredFirstPosition').value = 'Accountant';
-        document.getElementById('requiredLastPosition').value = 'Registrar';
+// Load designations from database
+async function loadDesignations() {
+    try {
+        console.log('🔧 loadDesignations called for:', window.currentClearanceType);
+        
+        // Get the current clearance type to load the right signatories
+        const clearanceType = window.currentClearanceType;
+        
+        // Fetch assigned signatories for this specific scope
+        const response = await fetch(`/OnlineClearanceWebsite/api/signatories/list.php?clearance_type=${clearanceType}`);
+        if (!response.ok) throw new Error('Failed to fetch signatories');
+        
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message || 'Failed to load signatories');
+        
+        // Store designations data globally for ID mapping
+        window.designationsData = data.signatories;
+        
+        // Extract unique designations from assigned signatories
+        const designations = [...new Set(data.signatories.map(s => s.designation_name))].filter(d => d && d !== 'Program Head');
+        
+        // Populate both dropdowns
+        const firstSelect = document.getElementById('requiredFirstPosition');
+        const lastSelect = document.getElementById('requiredLastPosition');
+        
+        // Clear existing options except the first one
+        firstSelect.innerHTML = '<option value="">Select Position</option>';
+        lastSelect.innerHTML = '<option value="">Select Position</option>';
+        
+        // Add designation options
+        designations.forEach(designation => {
+            const firstOption = document.createElement('option');
+            firstOption.value = designation;
+            firstOption.textContent = designation;
+            firstSelect.appendChild(firstOption);
+            
+            const lastOption = document.createElement('option');
+            lastOption.value = designation;
+            lastOption.textContent = designation;
+            lastSelect.appendChild(lastOption);
+        });
+        
+        // If no designations found, show a message
+        if (designations.length === 0) {
+            firstSelect.innerHTML = '<option value="">No signatories assigned to this scope</option>';
+            lastSelect.innerHTML = '<option value="">No signatories assigned to this scope</option>';
+            showToast('No signatories are currently assigned to this scope. Please add signatories first.', 'warning');
+        }
+        
+    } catch (error) {
+        console.error('Error loading designations:', error);
+        showToast('Failed to load designations. Please try again.', 'error');
+        
+        // Set placeholder text
+        const firstSelect = document.getElementById('requiredFirstPosition');
+        const lastSelect = document.getElementById('requiredLastPosition');
+        firstSelect.innerHTML = '<option value="">Error loading designations</option>';
+        lastSelect.innerHTML = '<option value="">Error loading designations</option>';
     }
-    
-    // Enable/disable content based on toggle states
-    updateSettingsContent();
 }
 
-// Update settings content visibility based on toggle states
+// Load signatory settings from API
+async function loadSignatorySettings(clearanceType) {
+    try {
+        console.log('🔧 loadSignatorySettings called for:', clearanceType);
+        
+        const response = await fetch(`/OnlineClearanceWebsite/api/signatories/scope_settings.php?clearance_type=${clearanceType}`);
+        if (!response.ok) throw new Error('Failed to fetch settings');
+        
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message || 'Failed to load settings');
+        
+        const settings = data.settings;
+        
+        // Set toggle states
+        document.getElementById('requiredFirstEnabled').checked = settings.required_first_enabled == 1;
+        document.getElementById('requiredLastEnabled').checked = settings.required_last_enabled == 1;
+        
+        // Set selected positions (need to find designation name by ID)
+        if (settings.required_first_designation_id) {
+            await setPositionByDesignationId('requiredFirstPosition', settings.required_first_designation_id);
+        }
+        if (settings.required_last_designation_id) {
+            await setPositionByDesignationId('requiredLastPosition', settings.required_last_designation_id);
+        }
+        
+        // Update UI
+        updateSettingsContent();
+        
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        showToast('Failed to load settings. Using defaults.', 'warning');
+        
+        // Set defaults
+        document.getElementById('requiredFirstEnabled').checked = false;
+        document.getElementById('requiredLastEnabled').checked = false;
+        updateSettingsContent();
+    }
+}
+
+// Helper function to set position by designation ID
+async function setPositionByDesignationId(selectId, designationId) {
+    try {
+        // Find the designation name by ID from our cached data
+        const designation = window.designationsData.find(d => d.designation_id === designationId);
+        if (designation) {
+            const select = document.getElementById(selectId);
+            if (select) {
+                select.value = designation.designation_name;
+            }
+        }
+    } catch (error) {
+        console.error('Error setting position by designation ID:', error);
+    }
+}
+
+// Update content visibility based on toggle states
 function updateSettingsContent() {
-    const requiredFirstEnabled = document.getElementById('requiredFirstEnabled').checked;
-    const requiredLastEnabled = document.getElementById('requiredLastEnabled').checked;
+    const requiredFirstEnabled = document.getElementById('requiredFirstEnabled')?.checked;
+    const requiredLastEnabled = document.getElementById('requiredLastEnabled')?.checked;
     
     const requiredFirstContent = document.getElementById('requiredFirstContent');
     const requiredLastContent = document.getElementById('requiredLastContent');
     
-    requiredFirstContent.style.opacity = requiredFirstEnabled ? '1' : '0.5';
-    requiredFirstContent.style.pointerEvents = requiredFirstEnabled ? 'auto' : 'none';
+    if (requiredFirstContent) {
+        requiredFirstContent.style.display = requiredFirstEnabled ? 'block' : 'none';
+    }
     
-    requiredLastContent.style.opacity = requiredLastEnabled ? '1' : '0.5';
-    requiredLastContent.style.pointerEvents = requiredLastEnabled ? 'auto' : 'none';
+    if (requiredLastContent) {
+        requiredLastContent.style.display = requiredLastEnabled ? 'block' : 'none';
+    }
 }
 
 // Save signatory settings
-window.saveSignatorySettings = function() {
+async function saveSignatorySettings() {
     const form = document.getElementById('signatorySettingsForm');
+    if (!form) {
+        showToast('Form not found', 'error');
+        return;
+    }
+    
     const formData = new FormData(form);
     
-    // Add clearance type to form data
-    formData.append('clearanceType', window.currentClearanceType);
-    
-    // Validate form
+    // Validate settings
     if (!validateSignatorySettings(formData)) {
         return;
     }
     
-    // Show loading state
+    // Get save button and disable it
     const saveBtn = document.querySelector('.modal-actions .btn-primary');
-    const originalText = saveBtn.textContent;
-    saveBtn.textContent = 'Saving...';
-    saveBtn.disabled = true;
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        const originalText = saveBtn.textContent;
+        saveBtn.textContent = 'Saving...';
+        
+        try {
+            const settingsData = {
+                clearance_type: window.currentClearanceType,
+                include_program_head: false, // Keep existing value, we're only updating required fields
+                required_first_enabled: formData.get('requiredFirstEnabled') === 'on',
+                required_first_designation_id: getDesignationIdByName(formData.get('requiredFirstPosition')),
+                required_last_enabled: formData.get('requiredLastEnabled') === 'on',
+                required_last_designation_id: getDesignationIdByName(formData.get('requiredLastPosition'))
+            };
+            
+            // Send to API
+            const response = await fetch('/OnlineClearanceWebsite/api/signatories/scope_settings.php', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(settingsData)
+            });
+            
+            if (!response.ok) throw new Error('Failed to save settings');
+            
+            const data = await response.json();
+            if (!data.success) throw new Error(data.message || 'Failed to save settings');
+            
+            // Show success message
+            showToast('Signatory settings saved successfully!', 'success');
+            
+            // Update the signatory list in real-time
+            if (typeof loadScopeSignatories === 'function') {
+                loadScopeSignatories(window.currentClearanceType);
+            }
+            
+            // Close modal
+            closeSignatorySettingsModal();
+            
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            showToast('Failed to save settings: ' + error.message, 'error');
+        } finally {
+            // Reset button
+            saveBtn.textContent = originalText;
+            saveBtn.disabled = false;
+        }
+    }
+}
+
+// Helper function to get designation ID by name
+function getDesignationIdByName(designationName) {
+    if (!designationName || !window.designationsData || window.designationsData.length === 0) {
+        return null;
+    }
     
-    // Simulate API call
-    setTimeout(() => {
-        // Here you would typically send the data to the server
-        console.log('Saving signatory settings:', Object.fromEntries(formData));
-        
-        // Show success message
-        showToast('Signatory settings saved successfully!', 'success');
-        
-        // Close modal
-        closeSignatorySettingsModal();
-        
-        // Reset button
-        saveBtn.textContent = originalText;
-        saveBtn.disabled = false;
-    }, 1000);
-};
+    // Find the designation in our cached data
+    const designation = window.designationsData.find(d => d.designation_name === designationName);
+    return designation ? designation.designation_id : null;
+}
 
 // Validate signatory settings
 function validateSignatorySettings(formData) {
@@ -264,4 +407,10 @@ document.addEventListener('DOMContentLoaded', function() {
         requiredLastToggle.addEventListener('change', updateSettingsContent);
     }
 });
-</script> 
+
+// Debug: Log that all functions are defined
+console.log('🔧 All SignatorySettingsModal functions defined successfully!');
+
+// Debug: Log that all functions are defined
+console.log('🔧 All SignatorySettingsModal functions defined successfully!');
+</script>

@@ -1,0 +1,32 @@
+[
+  {
+    "employee_number": "LCA123P",
+    "last_name": "Santos",
+    "first_name": "Maria",
+    "middle_name": "",
+    "employment_status": "FT",
+    "account_status": "active",
+    "email": "maria.santos@example.com",
+    "contact_number": "+63 912 345 6789"
+  },
+  {
+    "employee_number": "LCA124P",
+    "last_name": "Dela Cruz",
+    "first_name": "Juan",
+    "middle_name": "Santos",
+    "employment_status": "PT",
+    "account_status": "active",
+    "email": "juan.delacruz@example.com",
+    "contact_number": ""
+  },
+  {
+    "employee_number": "LCA125P",
+    "last_name": "Rodriguez",
+    "first_name": "Ana",
+    "middle_name": "",
+    "employment_status": "PTFL",
+    "account_status": "inactive",
+    "email": "",
+    "contact_number": ""
+  }
+]

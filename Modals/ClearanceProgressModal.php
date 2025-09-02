@@ -1,0 +1,439 @@
+<?php
+// Clearance Progress Modal - View Detailed Clearance Progress
+// This modal is included in StudentManagement.php and FacultyManagement.php
+?>
+<!-- Include Modal Styles -->
+<link rel="stylesheet" href="../../assets/css/modals.css">
+
+<div class="modal-overlay clearance-progress-modal-overlay" id="clearanceProgressModal">
+    <div class="modal-window" style="max-width: 800px;">
+        <!-- Close Button -->
+        <button class="modal-close" onclick="closeClearanceProgressModal()">&times;</button>
+        
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <h2 class="modal-title">
+                <i class="fas fa-tasks"></i> Clearance Progress Details - <span id="progressPersonName">Student Name</span>
+            </h2>
+            <div class="modal-supporting-text">View detailed clearance progress and signatory status</div>
+        </div>
+        
+        <!-- Content Area -->
+        <div class="modal-content-area">
+            <!-- Overall Progress Section -->
+            <div class="progress-overview-section">
+                <h3 class="section-title">
+                    <i class="fas fa-chart-line"></i> Overall Progress
+                </h3>
+                
+                <div class="progress-summary">
+                    <div class="progress-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Completion</span>
+                            <span class="stat-value" id="completionPercentage">75%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Status</span>
+                            <span class="status-badge" id="overallStatusBadge">In Progress</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Signatories</span>
+                            <span class="stat-value" id="signatoriesSummary">3 of 5 completed</span>
+                        </div>
+                    </div>
+                    
+                    <div class="progress-bar-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 75%;"></div>
+                        </div>
+                        <div class="progress-text">
+                            <span id="progressText">3 of 5 signatories completed</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Signatories List Section -->
+            <div class="signatories-section">
+                <h3 class="section-title">
+                    <i class="fas fa-users"></i> Signatories Status
+                </h3>
+                
+                <div class="signatories-list" id="signatoriesList">
+                    <!-- Signatories will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal Actions -->
+        <div class="modal-actions">
+            <button class="modal-action-secondary" onclick="closeClearanceProgressModal()">
+                <i class="fas fa-times"></i> Close
+            </button>
+            <button class="modal-action-primary" onclick="exportProgressReport()">
+                <i class="fas fa-download"></i> Export Report
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Clearance Progress Modal Specific Styles */
+.clearance-progress-modal-overlay .modal-window {
+    max-width: 800px;
+    max-height: 90vh;
+}
+
+.progress-overview-section,
+.signatories-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: var(--very-light-off-white);
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--deep-navy-blue);
+}
+
+.section-title i {
+    color: var(--medium-muted-blue);
+}
+
+.progress-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.progress-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--medium-muted-blue);
+    margin-bottom: 0.25rem;
+}
+
+.stat-value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--deep-navy-blue);
+}
+
+.progress-bar-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 12px;
+    background: #e5e7eb;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+    border-radius: 6px;
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--medium-muted-blue);
+}
+
+.signatories-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.signatory-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease;
+}
+
+.signatory-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.signatory-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.signatory-position {
+    font-size: 0.85rem;
+    color: var(--medium-muted-blue);
+    font-weight: 500;
+}
+
+.signatory-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--deep-navy-blue);
+}
+
+.signatory-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge.pending {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.status-badge.approved {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.status-badge.rejected {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.status-badge.in-progress {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.status-badge.complete {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.status-badge.unapplied {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.status-badge.applied {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .clearance-progress-modal-overlay .modal-window {
+        max-width: 95vw;
+        margin: 1rem;
+    }
+    
+    .progress-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .signatory-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+    
+    .signatory-status {
+        align-self: flex-end;
+    }
+}
+</style>
+
+<script>
+// Clearance Progress Modal Functions
+function openClearanceProgressModal(personId, personType, personName) {
+    const modal = document.getElementById('clearanceProgressModal');
+    const personNameElement = document.getElementById('progressPersonName');
+    
+    // Set the person name in the modal header
+    personNameElement.textContent = personName;
+    
+    // Load clearance progress data
+    loadClearanceProgressData(personId, personType);
+    
+    // Show the modal
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+}
+
+function closeClearanceProgressModal() {
+    const modal = document.getElementById('clearanceProgressModal');
+    modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
+function loadClearanceProgressData(personId, personType) {
+    fetch(`../../api/clearance/status_user.php?employee_number=${encodeURIComponent(personId)}`,{credentials:'include'})
+        .then(r=>r.json())
+        .then(res=>{
+            if(!res.success){throw new Error(res.message||'Failed to load progress');}
+
+            const approved = res.approved || 0;
+            const total    = res.total   || 0;
+            const completionPercentage = total>0 ? Math.round((approved/total)*100) : 0;
+
+            const signatories = (res.signatories||[]).map(s=>({
+                position: s.designation_name,
+                name: s.signatory_name||'-',
+                status: (s.action||'unapplied').toLowerCase().replace(' ','-'),
+                statusText: s.action||'Unapplied'
+            }));
+
+            const payload={
+                signatories,
+                completionPercentage,
+                completedCount: approved,
+                totalCount: total,
+                overallStatus: (res.overall_status||'Unapplied').toLowerCase().replace(' ','-')
+            };
+            updateProgressDisplay(payload);
+        })
+        .catch(err=>{console.error(err);showToastNotification(err.message||'Network error','error');});
+}
+
+function generateMockClearanceData(personId, personType) {
+    // Mock data structure - in a real application, this would come from the server
+    const signatories = [
+        {
+            position: 'Department Head',
+            name: 'Dr. Maria Santos',
+            status: 'approved',
+            statusText: 'Approved'
+        },
+        {
+            position: 'Program Head',
+            name: 'Prof. Juan Dela Cruz',
+            status: 'pending',
+            statusText: 'Pending'
+        },
+        {
+            position: 'Library',
+            name: 'Ms. Ana Rodriguez',
+            status: 'approved',
+            statusText: 'Approved'
+        },
+        {
+            position: 'Accounting',
+            name: 'Mr. Carlos Lopez',
+            status: 'in-progress',
+            statusText: 'In Progress'
+        },
+        {
+            position: 'Registrar',
+            name: 'Ms. Sofia Martinez',
+            status: 'unapplied',
+            statusText: 'Unapplied'
+        }
+    ];
+    
+    const completedCount = signatories.filter(s => s.status === 'approved').length;
+    const totalCount = signatories.length;
+    const completionPercentage = Math.round((completedCount / totalCount) * 100);
+    
+    // Determine overall status
+    let overallStatus = 'unapplied';
+    if (completedCount === totalCount) {
+        overallStatus = 'complete';
+    } else if (completedCount > 0) {
+        overallStatus = 'in-progress';
+    } else if (signatories.some(s => s.status === 'pending' || s.status === 'in-progress')) {
+        overallStatus = 'applied';
+    }
+    
+    return {
+        signatories,
+        completionPercentage,
+        completedCount,
+        totalCount,
+        overallStatus
+    };
+}
+
+function updateProgressDisplay(data) {
+    // Update overall progress
+    document.getElementById('completionPercentage').textContent = `${data.completionPercentage}%`;
+    document.getElementById('signatoriesSummary').textContent = `${data.completedCount} of ${data.totalCount} completed`;
+    document.getElementById('progressText').textContent = `${data.completedCount} of ${data.totalCount} signatories completed`;
+    document.getElementById('progressFill').style.width = `${data.completionPercentage}%`;
+    
+    // Update overall status badge
+    const overallStatusBadge = document.getElementById('overallStatusBadge');
+    overallStatusBadge.textContent = data.overallStatus.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    overallStatusBadge.className = `status-badge ${data.overallStatus}`;
+    
+    // Update signatories list
+    const signatoriesList = document.getElementById('signatoriesList');
+    signatoriesList.innerHTML = '';
+    
+    data.signatories.forEach(signatory => {
+        const signatoryItem = document.createElement('div');
+        signatoryItem.className = 'signatory-item';
+        signatoryItem.innerHTML = `
+            <div class="signatory-info">
+                <div class="signatory-position">${signatory.position}</div>
+                <div class="signatory-name">${signatory.name}</div>
+            </div>
+            <div class="signatory-status">
+                <span class="status-badge ${signatory.status}">${signatory.statusText}</span>
+            </div>
+        `;
+        signatoriesList.appendChild(signatoryItem);
+    });
+}
+
+function exportProgressReport() {
+    const personName = document.getElementById('progressPersonName').textContent;
+    showToastNotification(`Exporting clearance progress report for ${personName}...`, 'info');
+    // In a real application, this would generate and download a PDF/Excel report
+}
+
+// Make functions globally available
+window.openClearanceProgressModal = openClearanceProgressModal;
+window.closeClearanceProgressModal = closeClearanceProgressModal;
+window.exportProgressReport = exportProgressReport;
+</script>

@@ -10,11 +10,11 @@
     <!-- Close Button -->
     <button class="modal-close" onclick="closeExportModal()">&times;</button>
     
-    <!-- Modal Title -->
-    <h2 class="modal-title">📊 Export Student Data</h2>
-    
-    <!-- Supporting Text -->
-    <div class="modal-supporting-text">Select export format, scope, and data to include in your export.</div>
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <h2 class="modal-title">📊 Export Student Data</h2>
+      <div class="modal-supporting-text">Select export format, scope, and data to include in your export.</div>
+    </div>
     
     <!-- Content Area -->
     <div class="modal-content-area">

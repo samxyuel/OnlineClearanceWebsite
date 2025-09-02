@@ -35,26 +35,28 @@
           <input type="text" id="middleName" name="middleName" placeholder="Enter middle name (optional)">
         </div>
         <div class="form-group">
-          <label for="email">Email *</label>
-          <input type="email" id="email" name="email" required placeholder="Enter email address">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" placeholder="Enter email address">
         </div>
         <div class="form-group">
-          <label for="contactNumber">Contact Number *</label>
-          <input type="text" id="contactNumber" name="contactNumber" required placeholder="e.g., +63 912 345 6789">
+          <label for="contactNumber">Contact Number</label>
+          <input type="text" id="contactNumber" name="contactNumber" placeholder="e.g., +63 912 345 6789">
         </div>
       </form>
     </div>
     <div class="modal-actions">
       <button class="modal-action-secondary" onclick="closeFacultyRegistrationModal()">Cancel</button>
-      <button class="modal-action-primary" onclick="submitFacultyRegistrationForm()">Add Faculty</button>
+      <button class="modal-action-primary" onclick="submitFacultyRegistrationForm()">Generate Credentials</button>
     </div>
   </div>
 </div>
 
+<?php include __DIR__ . '/GeneratedCredentialsModal.php'; ?>
+
 <script>
   // Form validation and submission
   function validateFacultyForm() {
-    const requiredFields = ['employeeNumber', 'employmentStatus', 'lastName', 'firstName', 'email', 'contactNumber'];
+    const requiredFields = ['employeeNumber', 'employmentStatus', 'lastName', 'firstName'];
     let isValid = true;
     
     requiredFields.forEach(fieldId => {
@@ -142,20 +144,82 @@
     });
   };
   
-  window.submitFacultyRegistrationForm = function() {
+  function submitFacultyRegistrationForm() {
     if (!validateFacultyForm()) {
       showToastNotification('Please correct the errors in the form', 'error');
       return;
     }
-    
-    // Simulate form submission
-    showToastNotification('Faculty registration submitted successfully!', 'success');
-    window.closeFacultyRegistrationModal();
-    
-    // In a real application, you would submit the form data to the server
-    // const form = document.getElementById('facultyRegistrationForm');
-    // form.submit();
-  };
+
+    // Generate credentials
+    const empId = document.getElementById('employeeNumber').value.trim();
+    const lastName = document.getElementById('lastName').value.trim().replace(/\s+/g, '');
+    const username = empId;
+    const password = `${lastName}${empId}`;
+
+    document.getElementById('generatedUsername').value = username;
+    document.getElementById('generatedPassword').value = password;
+    document.getElementById('credentialModal').style.display = 'flex';
+  }
+
+  function closeCredentialModal() {
+    document.getElementById('credentialModal').style.display = 'none';
+  }
+
+  function copyCredentials() {
+    const u = document.getElementById('generatedUsername').value;
+    const p = document.getElementById('generatedPassword').value;
+    const txt = `Username: ${u}\nPassword: ${p}`;
+    navigator.clipboard?.writeText(txt).then(()=>{
+        showToastNotification('Credentials copied','success');
+    }).catch(()=>{
+        // fallback
+        const temp=document.createElement('textarea');
+        temp.value=txt;document.body.appendChild(temp);temp.select();document.execCommand('copy');document.body.removeChild(temp);
+        showToastNotification('Credentials copied','success');
+    });
+  }
+
+  function confirmFacultyCreation() {
+    const form = document.getElementById('facultyRegistrationForm');
+    const data = {
+      employee_number: form.employeeNumber.value.trim(),
+      employment_status: form.employmentStatus.value,
+      first_name: form.firstName.value.trim(),
+      last_name: form.lastName.value.trim(),
+      middle_name: form.middleName.value.trim(),
+      email: form.email.value.trim(),
+      contact_number: form.contactNumber.value.trim(),
+      username: document.getElementById('generatedUsername').value,
+      password: document.getElementById('generatedPassword').value
+    };
+
+    document.getElementById('confirmFacultyCreateBtn').disabled = true;
+
+    fetch('../../api/users/create_faculty.php', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    .then(r=>r.json())
+    .then(res=>{
+        if(res.success){
+            showToastNotification('Faculty registered successfully','success');
+            closeCredentialModal();
+            closeFacultyRegistrationModal();
+            // notify parent page
+            document.dispatchEvent(new CustomEvent('faculty-added',{detail:{employee_number:data.employee_number}}));
+        } else {
+            showToastNotification(res.message||'Error registering faculty','error');
+            document.getElementById('confirmFacultyCreateBtn').disabled = false;
+        }
+    })
+    .catch(err=>{
+        console.error(err);
+        showToastNotification('Network error','error');
+        document.getElementById('confirmFacultyCreateBtn').disabled = false;
+    });
+  }
   
   // Add event listeners
   document.addEventListener('DOMContentLoaded', function() {

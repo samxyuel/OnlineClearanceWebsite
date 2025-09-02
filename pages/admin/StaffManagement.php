@@ -14,7 +14,17 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
+    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Responsive visibility for tab pills vs dropdown (mobile-first) */
+        .tab-banner-wrapper .tab-nav { display: none; }
+        .tab-banner-wrapper .tab-nav-mobile { display: block; }
+        @media (min-width: 769px) {
+            .tab-banner-wrapper .tab-nav { display: flex; }
+            .tab-banner-wrapper .tab-nav-mobile { display: none; }
+        }
+    </style>
 </head>
 <body>
     <!-- Top Bar -->
@@ -52,12 +62,27 @@ $adminName = 'Admin User'; // Temporary admin name for testing
         
         <!-- Main Content -->
         <div class="main-content">
-        <div class="content-wrapper">
-            <!-- Page Header -->
-            <div class="page-header">
-                <h2><i class="fas fa-users-cog"></i> Staff Management</h2>
-                <p>Manage administrative personnel and signatories for the clearance system</p>
-            </div>
+            <div class="dashboard-layout">
+                <!-- LEFT SIDE: Main Content -->
+                <div class="dashboard-main">
+                    <div class="content-wrapper">
+                        <!-- Page Header -->
+                        <div class="page-header">
+                            <h2><i class="fas fa-users-cog"></i> Staff Management</h2>
+                            <p>Manage administrative personnel and signatories for the clearance system</p>
+                        </div>
+
+                        
+
+                        <!-- Unassigned Drawer -->
+                        <div id="unassignedDrawer" style="display:none; position:fixed; right:0; top:0; height:100vh; width:380px; background:#fff; border-left:1px solid #e1e5e9; box-shadow:-4px 0 12px rgba(0,0,0,0.06); z-index:1000;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #e1e5e9;">
+                                <div style="font-weight:700; color:var(--deep-navy-blue)"><i class="fas fa-exclamation-circle"></i> Unassigned Departments</div>
+                                <button class="btn btn-sm btn-outline" onclick="closeUnassigned()"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div style="padding:12px 16px; color:#666" id="unassignedSectorLabel">Sector: -</div>
+                            <div id="unassignedList" style="padding:8px 16px; overflow:auto; height: calc(100vh - 110px);"></div>
+                        </div>
 
             <!-- Statistics Dashboard -->
             <div class="stats-dashboard">
@@ -142,11 +167,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                                         <option value="School Administrator">School Administrator</option>
                                         <option value="HR">HR</option>
                                     </select>
-                    <select id="statusFilter" class="filter-select">
-                        <option value="">All Status</option>
-                        <option value="essential">Essential</option>
-                        <option value="optional">Optional</option>
-                    </select>
+                    
                 </div>
                 
                 <div class="filter-actions">
@@ -159,44 +180,92 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 </div>
             </div>
 
+            <!-- Coverage Strip: Program Head coverage per sector -->
+            <div class="coverage-strip" id="coverageStrip" style="margin:12px 0 16px 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+                <div style="font-weight:600; color: var(--deep-navy-blue);"><i class="fas fa-clipboard-check"></i> PH Coverage:</div>
+                <div class="coverage-item" data-sector="College" style="background:#f8fafc; border:1px solid #e1e5e9; border-radius:8px; padding:8px 12px;">
+                    College: <span class="val" id="covCollege">-</span>
+                    <button class="btn btn-sm btn-outline-primary" style="margin-left:8px;" onclick="openUnassigned('College')">Unassigned</button>
+                </div>
+                <div class="coverage-item" data-sector="Senior High School" style="background:#f8fafc; border:1px solid #e1e5e9; border-radius:8px; padding:8px 12px;">
+                    Senior High School: <span class="val" id="covSHS">-</span>
+                    <button class="btn btn-sm btn-outline-primary" style="margin-left:8px;" onclick="openUnassigned('Senior High School')">Unassigned</button>
+                </div>
+                <div class="coverage-item" data-sector="Faculty" style="background:#f8fafc; border:1px solid #e1e5e9; border-radius:8px; padding:8px 12px;">
+                    Faculty: <span class="val" id="covFaculty">-</span>
+                    <button class="btn btn-sm btn-outline-primary" style="margin-left:8px;" onclick="openUnassigned('Faculty')">Unassigned</button>
+                </div>
+            </div>
+
+            <!-- Tabs (consistent with FacultyManagement) -->
+            <div class="tab-banner-wrapper" style="margin-bottom: 12px;">
+                <div class="tab-nav" id="staffTabNav">
+                    <button class="tab-pill active" data-tab="ph" onclick="switchStaffTab(this)"><i class="fas fa-user-tie"></i> Program Heads</button>
+                    <button class="tab-pill" data-tab="sa" onclick="switchStaffTab(this)"><i class="fas fa-user-shield"></i> School Administrator</button>
+                    <button class="tab-pill" data-tab="regular" onclick="switchStaffTab(this)"><i class="fas fa-users"></i> Regular Staff</button>
+                </div>
+                <div class="tab-nav-mobile" id="staffTabSelectWrapper">
+                    <select id="staffTabSelect" class="tab-select" onchange="handleStaffTabSelectChange(this)">
+                        <option value="ph" selected>Program Heads</option>
+                        <option value="sa">School Administrator</option>
+                        <option value="regular">Regular Staff</option>
+                    </select>
+                </div>
+            </div>
+
             <!-- Staff Cards Container -->
             <div class="staff-cards-container">
                 <div class="staff-section">
-                    <h3><i class="fas fa-shield-alt"></i> Essential Staff</h3>
-                    <div class="staff-cards" id="essentialStaffCards">
-                        <!-- Essential staff cards will be populated here -->
+                    <h3><i class="fas fa-user-tie"></i> Program Heads</h3>
+                    <div class="staff-cards" id="phStaffCards">
+                        <!-- Program Head cards will be populated here -->
                     </div>
                 </div>
 
                 <div class="staff-section">
-                    <h3><i class="fas fa-user-plus"></i> Optional Staff</h3>
-                    <div class="staff-cards" id="optionalStaffCards">
-                        <!-- Optional staff cards will be populated here -->
+                    <h3><i class="fas fa-user-shield"></i> School Administrator</h3>
+                    <div class="staff-cards" id="saStaffCards">
+                        <!-- School Administrator card(s) will be populated here -->
                     </div>
                 </div>
-            </div>
 
-            <!-- Pagination -->
-            <div class="pagination-container">
-                <div class="pagination-info">
-                    <span>Showing <span id="startEntry">1</span>-<span id="endEntry">8</span> of <span id="totalEntries">26</span> entries</span>
-                </div>
-                <div class="pagination-controls">
-                    <button class="pagination-btn" onclick="previousPage()" id="prevBtn">
-                        <i class="fas fa-chevron-left"></i> Previous
-                    </button>
-                    <div class="page-numbers" id="pageNumbers">
-                        <button class="page-number active">1</button>
-                        <button class="page-number">2</button>
-                        <button class="page-number">3</button>
+                <div class="staff-section">
+                    <h3><i class="fas fa-users"></i> Regular Staff</h3>
+                    <div class="staff-cards" id="regularStaffCards">
+                        <!-- Regular staff cards will be populated here -->
                     </div>
-                    <button class="pagination-btn" onclick="nextPage()" id="nextBtn">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
                 </div>
             </div>
         </div>
-    </main>
+
+        <!-- Pagination -->
+        <div class="pagination-container">
+            <div class="pagination-info">
+                <span>Showing <span id="startEntry">1</span>-<span id="endEntry">8</span> of <span id="totalEntries">26</span> entries</span>
+            </div>
+            <div class="pagination-controls">
+                <button class="pagination-btn" onclick="previousPage()" id="prevBtn">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </button>
+                <div class="page-numbers" id="pageNumbers">
+                    <button class="page-number active">1</button>
+                    <button class="page-number">2</button>
+                    <button class="page-number">3</button>
+                </div>
+                <button class="pagination-btn" onclick="nextPage()" id="nextBtn">
+                    Next <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- RIGHT SIDE: Activity Tracker -->
+    <div class="dashboard-sidebar">
+        <?php include '../../includes/components/activity-tracker.php'; ?>
+    </div>
+</div>
+</div>
+</main>
 
     <!-- Include Modals -->
     <?php 
@@ -210,133 +279,128 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     <?php include '../../includes/components/alerts.php'; ?>
 
     <script src="../../assets/js/alerts.js"></script>
+    
+    <!-- Include Activity Tracker JavaScript -->
+    <script src="../../assets/js/activity-tracker.js"></script>
+    
     <script>
-        // Sample staff data
-        const staffData = [
-            {
-                id: 'LCA123P',
-                name: 'John Smith',
-                position: 'Registrar',
-                status: 'essential',
-                email: 'john.smith@gosti.edu.ph',
-                contact: '+63 912 345 6789',
-                department: 'Administration'
-            },
-            {
-                id: 'LCA124P',
-                name: 'Maria Garcia',
-                position: 'Cashier',
-                status: 'optional',
-                email: 'maria.garcia@gosti.edu.ph',
-                contact: '+63 912 345 6790',
-                department: 'Finance'
-            },
-            {
-                id: 'LCA125P',
-                name: 'David Lee',
-                position: 'Program Head',
-                status: 'essential',
-                email: 'david.lee@gosti.edu.ph',
-                contact: '+63 912 345 6791',
-                department: 'MIT'
-            },
-            {
-                id: 'LCA126P',
-                name: 'Sarah Chen',
-                position: 'School Administrator',
-                status: 'essential',
-                email: 'sarah.chen@gosti.edu.ph',
-                contact: '+63 912 345 6792',
-                department: 'Administration'
-            },
-                                    {
-                            id: 'LCA127P',
-                            name: 'Mike Wilson',
-                            position: 'Guidance',
-                            status: 'essential',
-                            email: 'mike.wilson@gosti.edu.ph',
-                            contact: '+63 912 345 6793',
-                            department: 'Student Services'
-                        },
-            {
-                id: 'LCA128P',
-                name: 'Lisa Brown',
-                position: 'Accountant',
-                status: 'optional',
-                email: 'lisa.brown@gosti.edu.ph',
-                contact: '+63 912 345 6794',
-                department: 'Finance'
-            },
-            {
-                id: 'LCA129P',
-                name: 'Tom Davis',
-                position: 'Librarian',
-                status: 'optional',
-                email: 'tom.davis@gosti.edu.ph',
-                contact: '+63 912 345 6795',
-                department: 'Library'
-            },
-                                    {
-                            id: 'LCA130P',
-                            name: 'Amy Johnson',
-                            position: 'MIS/IT',
-                            status: 'optional',
-                            email: 'amy.johnson@gosti.edu.ph',
-                            contact: '+63 912 345 6796',
-                            department: 'IT'
-                        },
-                        {
-                            id: 'LCA131P',
-                            name: 'Robert Chen',
-                            position: 'Disciplinary Officer',
-                            status: 'essential',
-                            email: 'robert.chen@gosti.edu.ph',
-                            contact: '+63 912 345 6797',
-                            department: 'Student Services'
-                        },
-                        {
-                            id: 'LCA132P',
-                            name: 'Maria Santos',
-                            position: 'Clinic',
-                            status: 'essential',
-                            email: 'maria.santos@gosti.edu.ph',
-                            contact: '+63 912 345 6798',
-                            department: 'Health Services'
-                        }
-        ];
+        // Live staff data – start empty; cards appear only after real registration or fetch
+        const staffData = [];
 
         let currentPage = 1;
         const cardsPerPage = 8;
         let filteredData = [...staffData];
 
         // Initialize the page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
+            try { await loadStaffFromApi(); } catch (e) { console.warn('loadStaffFromApi failed', e); }
             renderStaffCards();
             updatePagination();
+            loadCoverage();
+        });
+
+        async function loadStaffFromApi(){
+            const res = await fetch('../../api/signatories/list.php?limit=500', { credentials: 'include' });
+            const data = await res.json();
+            if (!res.ok || !data || data.success !== true) { throw new Error(data && data.message || 'Failed to load staff'); }
+            const rows = data.signatories || [];
+            const map = new Map();
+            rows.forEach(r => {
+                const emp = r.employee_number || r.username;
+                if (!emp) return;
+                const key = String(emp);
+                const fullName = [r.first_name, r.last_name].filter(Boolean).join(' ');
+                if (!map.has(key)) {
+                    map.set(key, {
+                        id: key,
+                        name: fullName || '—',
+                        position: r.designation_name || '',
+                        department: r.department_name || '',
+                        departments: r.department_name ? [r.department_name] : []
+                    });
+                } else {
+                    const obj = map.get(key);
+                    if (r.department_name && (!obj.departments || !obj.departments.includes(r.department_name))) {
+                        obj.departments = obj.departments || [];
+                        obj.departments.push(r.department_name);
+                    }
+                }
+            });
+            // Reset and load
+            staffData.length = 0;
+            map.forEach(v => staffData.push(v));
+            filteredData.length = 0;
+            Array.prototype.push.apply(filteredData, staffData);
+            currentPage = 1;
+        }
+
+        // Listen for successful staff registration to add a card live
+        document.addEventListener('staff-added', function(e){
+            const d = e.detail || {};
+            const fullName = (d.name && d.name.trim().length) ? d.name : [d.first_name, d.middle_name, d.last_name].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+            const newStaff = {
+                id: d.employee_id || d.employeeId || '',
+                name: fullName || 'New Staff',
+                position: d.designation || d.position || '',
+                department: Array.isArray(d.departments) && d.departments.length ? d.departments.join(', ') : ''
+            };
+            if (!newStaff.id) return;
+            staffData.push(newStaff);
+            filteredData = [...staffData];
+            currentPage = 1;
+            renderStaffCards();
+            updatePagination();
+            loadCoverage();
+            showToastNotification('Staff registered. Card added.', 'success');
         });
 
         // Render staff cards
         function renderStaffCards() {
-            const essentialContainer = document.getElementById('essentialStaffCards');
-            const optionalContainer = document.getElementById('optionalStaffCards');
+            const phContainer = document.getElementById('phStaffCards');
+            const saContainer = document.getElementById('saStaffCards');
+            const regularContainer = document.getElementById('regularStaffCards');
             
-            essentialContainer.innerHTML = '';
-            optionalContainer.innerHTML = '';
+            phContainer.innerHTML = '';
+            saContainer.innerHTML = '';
+            regularContainer.innerHTML = '';
 
+            const tabData = getTabFilteredData();
             const startIndex = (currentPage - 1) * cardsPerPage;
             const endIndex = startIndex + cardsPerPage;
-            const pageData = filteredData.slice(startIndex, endIndex);
+            const pageData = tabData.slice(startIndex, endIndex);
+
+            const currentTab = window.currentStaffTab || 'ph';
 
             pageData.forEach(staff => {
                 const card = createStaffCard(staff);
-                if (staff.status === 'essential') {
-                    essentialContainer.appendChild(card);
-                } else {
-                    optionalContainer.appendChild(card);
+                const positionLower = (staff.position || '').toLowerCase();
+                if (currentTab === 'ph' && positionLower === 'program head') {
+                    const chips = document.createElement('div');
+                    chips.className = 'ph-dept-chips';
+                    chips.style.marginTop = '8px';
+                    chips.innerHTML = '<span class="chip">Dept A</span> <span class="chip">Dept B</span>';
+                    const body = card.querySelector('.staff-card-body');
+                    if (body) body.appendChild(chips);
+                    phContainer.appendChild(card);
+                } else if (currentTab === 'sa' && positionLower === 'school administrator') {
+                    saContainer.appendChild(card);
+                } else if (currentTab === 'regular' && positionLower !== 'program head' && positionLower !== 'school administrator') {
+                    regularContainer.appendChild(card);
                 }
             });
 
             updatePaginationInfo();
+            toggleStaffSectionsVisibility();
+        }
+
+        function getTabFilteredData(){
+            const tab = window.currentStaffTab || 'ph';
+            return filteredData.filter(staff => {
+                const pos = (staff.position || '').toLowerCase();
+                if (tab === 'ph') return pos === 'program head';
+                if (tab === 'sa') return pos === 'school administrator';
+                return pos !== 'program head' && pos !== 'school administrator';
+            });
         }
 
         // Create staff card
@@ -345,45 +409,54 @@ $adminName = 'Admin User'; // Temporary admin name for testing
             card.className = 'staff-card';
             card.setAttribute('data-staff-id', staff.id);
             
-            const statusIcon = staff.status === 'essential' ? 
-                '<i class="fa-solid fa-lock"></i>' : 
-                '<i class="fa-solid fa-unlock"></i>';
-            const statusClass = staff.status === 'essential' ? 'essential' : 'optional';
+            const positionLower = (staff.position || '').toLowerCase();
+            const isSpecial = (positionLower === 'program head' || positionLower === 'school administrator');
+            const headerIcon = isSpecial ? '<i class="fas fa-user-shield"></i>' : '<i class="fas fa-id-badge"></i>';
+            const headerClass = isSpecial ? 'special' : 'regular';
             
             card.innerHTML = `
-                <div class="staff-card-header ${statusClass}">
-                    <span class="status-indicator">${statusIcon}</span>
+                <div class="staff-card-header ${headerClass}">
+                    <span class="status-indicator">${headerIcon}</span>
                     <span class="employee-id">${staff.id}</span>
                 </div>
                 <div class="staff-card-body">
                     <h4 class="staff-name">${staff.name}</h4>
                     <p class="staff-position">${staff.position}</p>
-                    <p class="staff-department">${staff.department}</p>
+                    <p class="staff-department">${staff.department || ''}</p>
                 </div>
                 <div class="staff-card-actions">
                     <button class="btn btn-sm btn-outline-primary" onclick="openEditStaffModal('${staff.id}')">
                         <i class="fas fa-edit"></i> Edit
                     </button>
-                    ${staff.status === 'optional' ? 
-                        `<button class="btn btn-sm btn-outline-danger" onclick="deleteStaff('${staff.id}')">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>` : 
-                        '<span class="essential-note">Essential - Cannot Delete</span>'
-                    }
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteStaff('${staff.id}')">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
                 </div>
             `;
             
+            if (positionLower === 'program head') {
+                const chips = document.createElement('div');
+                chips.className = 'ph-dept-chips';
+                chips.style.marginTop = '8px';
+                const depts = Array.isArray(staff.departments) ? staff.departments : (staff.department ? [staff.department] : []);
+                chips.innerHTML = depts.length ? depts.map(d => `<span class=\"chip\">${d}</span>`).join(' ') : '';
+                const body = card.querySelector('.staff-card-body');
+                if (body && chips.innerHTML) body.appendChild(chips);
+            }
+
             return card;
         }
 
         // Search functionality
         document.getElementById('searchInput').addEventListener('input', function() {
             const searchTerm = this.value.toLowerCase();
-            filteredData = staffData.filter(staff => 
-                staff.name.toLowerCase().includes(searchTerm) ||
-                staff.id.toLowerCase().includes(searchTerm) ||
-                staff.position.toLowerCase().includes(searchTerm)
-            );
+            filteredData = staffData.filter(staff => {
+                return (
+                    staff.name.toLowerCase().includes(searchTerm) ||
+                    staff.id.toLowerCase().includes(searchTerm) ||
+                    (staff.position||'').toLowerCase().includes(searchTerm)
+                );
+            });
             currentPage = 1;
             renderStaffCards();
             updatePagination();
@@ -392,12 +465,10 @@ $adminName = 'Admin User'; // Temporary admin name for testing
         // Filter functionality
         function applyFilters() {
             const positionFilter = document.getElementById('positionFilter').value;
-            const statusFilter = document.getElementById('statusFilter').value;
             
             filteredData = staffData.filter(staff => {
                 const positionMatch = !positionFilter || staff.position === positionFilter;
-                const statusMatch = !statusFilter || staff.status === statusFilter;
-                return positionMatch && statusMatch;
+                return positionMatch;
             });
             
             currentPage = 1;
@@ -407,7 +478,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
 
         function clearFilters() {
             document.getElementById('positionFilter').value = '';
-            document.getElementById('statusFilter').value = '';
             document.getElementById('searchInput').value = '';
             filteredData = [...staffData];
             currentPage = 1;
@@ -417,7 +487,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
 
         // Pagination functions
         function updatePagination() {
-            const totalPages = Math.ceil(filteredData.length / cardsPerPage);
+            const totalPages = Math.ceil(getTabFilteredData().length / cardsPerPage);
             const pageNumbers = document.getElementById('pageNumbers');
             
             pageNumbers.innerHTML = '';
@@ -458,30 +528,123 @@ $adminName = 'Admin User'; // Temporary admin name for testing
         }
 
         function updatePaginationInfo() {
-            const startEntry = (currentPage - 1) * cardsPerPage + 1;
-            const endEntry = Math.min(currentPage * cardsPerPage, filteredData.length);
+            const tabDataLen = getTabFilteredData().length;
+            const startEntry = tabDataLen === 0 ? 0 : (currentPage - 1) * cardsPerPage + 1;
+            const endEntry = Math.min(currentPage * cardsPerPage, tabDataLen);
             
             document.getElementById('startEntry').textContent = startEntry;
             document.getElementById('endEntry').textContent = endEntry;
-            document.getElementById('totalEntries').textContent = filteredData.length;
+            document.getElementById('totalEntries').textContent = tabDataLen;
+        }
+
+        // Tabs logic (consistent with FacultyManagement)
+        window.currentStaffTab = 'ph';
+
+        function switchStaffTab(btn){
+            const newTab = btn.getAttribute('data-tab');
+            const currentTab = window.currentStaffTab || 'ph';
+            if (newTab === currentTab) return;
+            performStaffTabSwitch(btn, newTab);
+        }
+
+        function performStaffTabSwitch(btn, newTab){
+            document.querySelectorAll('#staffTabNav .tab-pill').forEach(p=>p.classList.remove('active'));
+            btn.classList.add('active');
+            window.currentStaffTab = newTab;
+            currentPage = 1;
+            renderStaffCards();
+            updatePagination();
+            toggleStaffSectionsVisibility();
+        }
+
+        function handleStaffTabSelectChange(sel){
+            const newTab = sel.value;
+            const currentTab = window.currentStaffTab || 'ph';
+            if (newTab === currentTab) return;
+            document.querySelectorAll('#staffTabNav .tab-pill').forEach(b=>{
+                b.classList.toggle('active', b.getAttribute('data-tab') === newTab);
+            });
+            window.currentStaffTab = newTab;
+            currentPage = 1;
+            renderStaffCards();
+            updatePagination();
+            toggleStaffSectionsVisibility();
+        }
+
+        function toggleStaffSectionsVisibility(){
+            const phSection = document.getElementById('phStaffCards')?.parentElement;
+            const saSection = document.getElementById('saStaffCards')?.parentElement;
+            const regularSection = document.getElementById('regularStaffCards')?.parentElement;
+            const tab = window.currentStaffTab || 'ph';
+            if (phSection) phSection.style.display = (tab === 'ph') ? '' : 'none';
+            if (saSection) saSection.style.display = (tab === 'sa') ? '' : 'none';
+            if (regularSection) regularSection.style.display = (tab === 'regular') ? '' : 'none';
         }
 
         // Staff actions
-        function deleteStaff(staffId) {
+        async function deleteStaff(staffId) {
             showConfirmationModal(
                 'Delete Staff Member',
                 `Are you sure you want to delete staff member ${staffId}? This action cannot be undone.`,
                 'Delete',
                 'Cancel',
-                () => {
-                    // Remove from data
-                    const index = staffData.findIndex(staff => staff.id === staffId);
-                    if (index > -1) {
-                        staffData.splice(index, 1);
+                async () => {
+                    try {
+                        // First attempt: fail if PH has assignments (to show prompt)
+                        let r = await fetch('../../api/signatories/delete_staff.php', {
+                            method:'POST',
+                            headers:{'Content-Type':'application/json'},
+                            credentials:'include',
+                            body: JSON.stringify({ employee_id: staffId })
+                        });
+                        let res = await r.json();
+                        if (r.status === 409 && res && Array.isArray(res.departments)) {
+                            // Program Head assigned to departments – prompt to unassign then delete
+                            const depCount = res.departments.length;
+                            showConfirmationModal(
+                                'Unassign Program Head',
+                                `This Program Head is assigned to ${depCount} department(s). Unassign and proceed with deletion?`,
+                                'Unassign and Delete',
+                                'Cancel',
+                                async () => {
+                                    try {
+                                        const r2 = await fetch('../../api/signatories/delete_staff.php', {
+                                            method:'POST',
+                                            headers:{'Content-Type':'application/json'},
+                                            credentials:'include',
+                                            body: JSON.stringify({ employee_id: staffId, ph_resolution: 'unassign' })
+                                        });
+                                        const res2 = await r2.json();
+                                        if (!r2.ok || !res2.success) {
+                                            throw new Error(res2.message || 'Delete failed');
+                                        }
+                                        // Remove from UI lists
+                                        const index = staffData.findIndex(staff => staff.id === staffId);
+                                        if (index > -1) staffData.splice(index, 1);
+                                        filteredData = filteredData.filter(staff => staff.id !== staffId);
+                                        renderStaffCards();
+                                        updatePagination();
+                                        showToastNotification('Staff member deleted (PH unassigned).', 'success');
+                                    } catch (e) {
+                                        showToastNotification(e.message || 'Delete failed', 'error');
+                                    }
+                                },
+                                'warning'
+                            );
+                            return;
+                        }
+                        if (!r.ok || !res.success) {
+                            throw new Error(res.message || 'Delete failed');
+                        }
+                        // Success – remove from UI lists
+                        const index = staffData.findIndex(staff => staff.id === staffId);
+                        if (index > -1) staffData.splice(index, 1);
                         filteredData = filteredData.filter(staff => staff.id !== staffId);
                         renderStaffCards();
                         updatePagination();
                         showToastNotification('Staff member deleted successfully!', 'success');
+                    } catch (err) {
+                        showToastNotification(err.message || 'Delete failed', 'error');
                     }
                 },
                 'danger'
@@ -574,6 +737,65 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 }
             }
         }
+        
+        // Initialize Activity Tracker when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
+                window.activityTrackerInstance = new ActivityTracker();
+                console.log('Activity Tracker initialized');
+            }
+        });
+
+        // Coverage & Unassigned drawer logic
+        async function loadCoverage(){
+            try{
+                const r = await fetch('../../api/departments/coverage.php', { credentials: 'include' });
+                const data = await r.json();
+                if (!data || data.success !== true) return;
+                const cov = data.coverage || {};
+                const mk = (s)=>{
+                    const c = cov[s] || { total:0, assigned:0, unassigned:0 };
+                    return `${c.assigned}/${c.total} (${c.unassigned} unassigned)`;
+                };
+                const elC = document.getElementById('covCollege');
+                const elS = document.getElementById('covSHS');
+                const elF = document.getElementById('covFaculty');
+                if (elC) elC.textContent = mk('College');
+                if (elS) elS.textContent = mk('Senior High School');
+                if (elF) elF.textContent = mk('Faculty');
+            }catch(e){ console.warn('coverage load failed'); }
+        }
+
+        async function openUnassigned(sector){
+            const drawer = document.getElementById('unassignedDrawer');
+            const label = document.getElementById('unassignedSectorLabel');
+            const list = document.getElementById('unassignedList');
+            if (!drawer || !label || !list) return;
+            label.textContent = `Sector: ${sector}`;
+            list.innerHTML = '<div style="color:#6c757d">Loading...</div>';
+            drawer.style.display = 'block';
+            try{
+                const r = await fetch(`../../api/departments/unassigned.php?sector=${encodeURIComponent(sector)}`, { credentials: 'include' });
+                const data = await r.json();
+                list.innerHTML = '';
+                if (!data || data.success !== true) { list.innerHTML = '<div style="color:#dc3545">Failed to load</div>'; return; }
+                const rows = data.departments || [];
+                if (rows.length === 0) { list.innerHTML = '<div style="color:#6c757d">No unassigned departments</div>'; return; }
+                rows.forEach(d => {
+                    const item = document.createElement('div');
+                    item.style.cssText = 'border:1px solid #e1e5e9;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;';
+                    item.innerHTML = `<span>${d.department_name}</span>`;
+                    list.appendChild(item);
+                });
+            }catch(e){ list.innerHTML = '<div style="color:#dc3545">Failed to load</div>'; }
+        }
+        function closeUnassigned(){
+            const drawer = document.getElementById('unassignedDrawer');
+            if (drawer) drawer.style.display = 'none';
+        }
     </script>
+    
+    <!-- Include Audit Functions -->
+    <?php include '../../includes/functions/audit_functions.php'; ?>
 </body>
 </html> 

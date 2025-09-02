@@ -67,6 +67,13 @@
               <span class="checkmark"></span>
               Send welcome emails to new faculty
             </label>
+            <label class="checkbox-label policy-label">
+              <span>Import policy:</span>
+              <select name="importPolicy" style="margin-left: 8px;">
+                <option value="partial" selected>Partial (skip conflicts)</option>
+                <option value="strict">Strict (all-or-nothing)</option>
+              </select>
+            </label>
           </div>
         </div>
         
@@ -137,6 +144,8 @@
                     <th>First Name</th>
                     <th>Email</th>
                     <th>Contact Number</th>
+                    <th>Action</th>
+                    <th>Issues</th>
                   </tr>
                 </thead>
                 <tbody id="facultyPreviewBody">
@@ -362,6 +371,34 @@
     opacity: 0.5;
   }
   
+  /* Import Policy styling */
+  .policy-label {
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .policy-label span {
+    font-weight: 600;
+    color: var(--deep-navy-blue);
+  }
+  .policy-label select {
+    padding: 8px 12px;
+    border: 1px solid var(--light-blue-gray);
+    border-radius: 6px;
+    background: #fff;
+    font-size: 0.9rem;
+    color: var(--deep-navy-blue);
+  }
+  @media (max-width: 768px) {
+    .policy-label {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .policy-label select {
+      width: 100%;
+      margin-left: 0 !important;
+    }
+  }
+  
   @media (max-width: 768px) {
     .mapping-grid {
       grid-template-columns: 1fr;
@@ -374,6 +411,72 @@
     .upload-content i {
       font-size: 2rem;
     }
+  }
+
+  /* Results modal styles */
+  .results-summary {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin: 10px 0 16px 0;
+  }
+  .results-pill {
+    background: var(--very-light-off-white);
+    border: 1px solid var(--light-blue-gray);
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--deep-navy-blue);
+  }
+  .results-table-wrapper {
+    max-height: 260px;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid var(--light-blue-gray);
+    border-radius: 8px;
+    background: #fff;
+  }
+  .results-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 720px;
+  }
+  .results-table th, .results-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--light-blue-gray);
+    text-align: left;
+    font-size: 0.86rem;
+  }
+  .results-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+  }
+  .download-btn {
+    background: var(--medium-muted-blue);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+  .download-btn:hover { background: var(--darker-saturated-blue); }
+
+  /* Responsive tweaks for results modal */
+  @media (max-width: 768px) {
+    #importResultsModal .modal-window {
+      max-width: 95% !important;
+      width: 95%;
+      margin: 12px;
+    }
+    #importResultsModal .modal-content-area {
+      padding: 12px;
+    }
+    .results-summary { gap: 8px; }
+    .results-table-wrapper { max-height: 50vh; }
+    .results-table { min-width: 600px; }
+    .results-table th, .results-table td { padding: 8px 10px; }
   }
 </style>
 
@@ -420,39 +523,78 @@
       return;
     }
     
-    // Simulate file validation and preview
-    generateFacultySamplePreview(file);
+    const form = document.getElementById('facultyImportForm');
+    const formData = new FormData();
+    formData.append('type', 'faculty_import');
+    formData.append('importMode', (form.querySelector('input[name="importMode"]:checked')?.value) || 'skip');
+    formData.append('validateData', 'on');
+    formData.append('validateOnly', '1');
+    formData.append('importFile', file);
+    const policySel = document.querySelector('select[name="importPolicy"]');
+    if (policySel) formData.append('importPolicy', policySel.value || 'partial');
+    
+    const submitBtn = document.getElementById('facultyImportSubmitBtn');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validating...';
+    submitBtn.disabled = true;
+    
+    fetch('../../controllers/importData.php', { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.success) { throw new Error(res.message || 'Validation failed'); }
+        window.facultyValidationSummary = res.summary || {};
+        window.facultyValidationRows = res.rows || [];
+        renderFacultyPreview(window.facultyValidationRows, window.facultyValidationSummary);
+        const hasErrors = Array.isArray(res.summary?.errors) && res.summary.errors.length > 0;
+        if (hasErrors) {
+          showToastNotification(`Validation found ${res.summary.errors.length} issue(s). Fix or remove invalid rows to proceed.`, 'warning');
+        } else {
+          showToastNotification('Validation passed. Ready to import.', 'success');
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        showToastNotification(err.message || 'Validation error', 'error');
+      })
+      .finally(() => {
+        submitBtn.innerHTML = originalText;
+        const hasErrors = Array.isArray(window.facultyValidationSummary?.errors) && window.facultyValidationSummary.errors.length > 0;
+        submitBtn.disabled = !!hasErrors;
+      });
   }
-  
-  function generateFacultySamplePreview(file) {
+
+  function renderFacultyPreview(rows, summary){
     const previewContainer = document.getElementById('facultyPreviewContainer');
     const noPreview = document.getElementById('facultyNoPreview');
     const previewBody = document.getElementById('facultyPreviewBody');
+    const maxRows = 100;
     
-    // Sample faculty data for preview
-    const sampleData = [
-      { employeeNumber: 'EMP001', employmentStatus: 'Full-time', lastName: 'Santos', firstName: 'Maria', email: 'maria.santos@example.com', contactNumber: '+63 912 345 6789' },
-      { employeeNumber: 'EMP002', employmentStatus: 'Part-time', lastName: 'Dela Cruz', firstName: 'Juan', email: 'juan.delacruz@example.com', contactNumber: '+63 923 456 7890' },
-      { employeeNumber: 'EMP003', employmentStatus: 'Contract', lastName: 'Rodriguez', firstName: 'Ana', email: 'ana.rodriguez@example.com', contactNumber: '+63 934 567 8901' }
-    ];
-    
-    // Generate preview table
     previewBody.innerHTML = '';
-    sampleData.forEach(row => {
+    const toRender = rows.slice(0, maxRows);
+    toRender.forEach(r => {
       const tr = document.createElement('tr');
+      const issues = (r.issues && r.issues.length) ? r.issues.join('; ') : '';
+      const actionLabel = (r.action === 'create') ? 'Create' : (r.action === 'update') ? 'Update' : 'Error';
       tr.innerHTML = `
-        <td>${row.employeeNumber}</td>
-        <td>${row.employmentStatus}</td>
-        <td>${row.lastName}</td>
-        <td>${row.firstName}</td>
-        <td>${row.email}</td>
-        <td>${row.contactNumber}</td>
+        <td>${r.employee_number || ''}</td>
+        <td>${r.employment_status || ''}</td>
+        <td>${r.last_name || ''}</td>
+        <td>${r.first_name || ''}</td>
+        <td>${r.email || ''}</td>
+        <td>${r.contact_number || ''}</td>
+        <td>${actionLabel}</td>
+        <td>${issues}</td>
       `;
       previewBody.appendChild(tr);
     });
     
     previewContainer.style.display = 'block';
     noPreview.style.display = 'none';
+    
+    // Optional: display a small note if truncated
+    if (rows.length > maxRows) {
+      showToastNotification(`Showing first ${maxRows} of ${rows.length} rows (+${rows.length - maxRows} more)`, 'info');
+    }
   }
   
   function validateFacultyImportForm() {
@@ -524,6 +666,11 @@
     if (!validateFacultyImportForm()) {
       return;
     }
+    // Block import if validation exists and has errors
+    if (window.facultyValidationSummary && Array.isArray(window.facultyValidationSummary.errors) && window.facultyValidationSummary.errors.length > 0) {
+      showToastNotification('Cannot import while there are validation errors. Fix them or re-upload a corrected file.', 'error');
+      return;
+    }
     
     const importMode = document.querySelector('input[name="importMode"]:checked').value;
     const fileName = document.getElementById('facultyFileName').textContent;
@@ -547,17 +694,208 @@
       'Import Data',
       'Cancel',
       () => {
-        // Simulate import process
-        showToastNotification('Importing faculty data...', 'info');
-        
-        setTimeout(() => {
-          showToastNotification('Faculty data imported successfully!', 'success');
-          window.closeFacultyImportModal();
-        }, 2000);
+        // Perform actual import
+        performFacultyImport();
       },
       'info'
     );
   };
   
+  function performFacultyImport() {
+    const form = document.getElementById('facultyImportForm');
+    const formData = new FormData(form);
+    // Include policy explicitly
+    const policySel = document.querySelector('select[name="importPolicy"]');
+    if (policySel && !formData.get('importPolicy')) {
+      formData.append('importPolicy', policySel.value || 'partial');
+    }
+    
+    // Show loading state
+    const submitBtn = document.getElementById('facultyImportSubmitBtn');
+    let originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importing...';
+    submitBtn.disabled = true;
+    
+    // Show progress notification
+    showToastNotification('Importing faculty data...', 'info');
+    
+    fetch('../../controllers/importData.php', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Show success message with summary
+        const summary = data.summary;
+        // Optional: show per-row outcomes if returned
+        if (Array.isArray(data.rows)) { console.table(data.rows); renderImportResults(data.rows, summary); }
+        const message = `Import completed successfully!\n\n` +
+                       `Total records: ${summary.total}\n` +
+                       `Imported: ${summary.imported}\n` +
+                       `Updated: ${summary.updated}\n` +
+                       `Skipped: ${summary.skipped}`;
+        
+        if (summary.errors && summary.errors.length > 0) {
+          message += `\n\nErrors: ${summary.errors.length}`;
+        }
+        
+        showToastNotification(message, 'success');
+        // Add view details link
+        try { openImportResultsModal(); } catch(e) { console.warn('results modal open failed', e); }
+        
+        // Close modal and refresh faculty list
+        setTimeout(() => {
+          window.closeFacultyImportModal();
+          // Refresh the faculty table if refresh function exists
+          if (typeof refreshFacultyTable === 'function') {
+            refreshFacultyTable();
+          } else {
+            // Fallback: reload the page
+            location.reload();
+          }
+        }, 2000);
+        
+      } else {
+        // If backend returns detailed summary with errors
+        if (data.summary && Array.isArray(data.summary.errors) && data.summary.errors.length) {
+          console.table(data.summary.errors);
+        }
+        if (Array.isArray(data.rows)) { console.table(data.rows); renderImportResults(data.rows, data.summary || {}); try { openImportResultsModal(); } catch(e){} }
+        showToastNotification('Import failed: ' + data.message, 'error');
+      }
+    })
+    .catch(error => {
+      console.error('Import error:', error);
+      showToastNotification('Import failed: Network error', 'error');
+    })
+    .finally(() => {
+      // Restore button state
+      submitBtn.innerHTML = originalText;
+      submitBtn.disabled = false;
+    });
+  }
+  
   document.addEventListener('DOMContentLoaded', setupFacultyDragAndDrop);
 </script> 
+
+<!-- Import Results Modal -->
+<div class="modal-overlay" id="importResultsModal" style="display: none;">
+  <div class="modal-window" style="max-width: 850px;">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="fas fa-list-alt"></i> Import Results</h3>
+      <button class="modal-close" onclick="closeImportResultsModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-content-area">
+      <div class="results-summary" id="importResultsSummary"></div>
+      <div class="results-table-wrapper">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Employee Number</th>
+              <th>Name</th>
+              <th>Action</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody id="importResultsBody"></tbody>
+        </table>
+      </div>
+      <div class="results-actions">
+        <button class="download-btn" onclick="downloadImportReportCSV()"><i class="fas fa-download"></i> Download CSV report</button>
+        <div></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-action-secondary" onclick="closeImportResultsModal()">Close</button>
+    </div>
+  </div>
+  
+  <script>
+    window._lastImportReport = { rows: [], summary: {} };
+
+    function openImportResultsModal() {
+      const m = document.getElementById('importResultsModal');
+      if (m) { m.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+    }
+    function closeImportResultsModal() {
+      const m = document.getElementById('importResultsModal');
+      if (m) { m.style.display = 'none'; document.body.style.overflow = 'auto'; }
+      // Clear report UI (no persistence)
+      const body = document.getElementById('importResultsBody');
+      const summary = document.getElementById('importResultsSummary');
+      if (body) body.innerHTML = '';
+      if (summary) summary.innerHTML = '';
+      window._lastImportReport = { rows: [], summary: {} };
+    }
+    function renderImportResults(rows, summary) {
+      window._lastImportReport = { rows: rows || [], summary: summary || {} };
+      const body = document.getElementById('importResultsBody');
+      const summaryDiv = document.getElementById('importResultsSummary');
+      if (!body || !summaryDiv) return;
+      body.innerHTML = '';
+      summaryDiv.innerHTML = '';
+      // Summary pills
+      const pills = [
+        { label: 'Total', value: summary.total },
+        { label: 'Imported', value: summary.imported },
+        { label: 'Updated', value: summary.updated },
+        { label: 'Skipped', value: summary.skipped },
+        { label: 'Errors', value: (summary.errors || []).length }
+      ];
+      pills.forEach(p => {
+        const span = document.createElement('span');
+        span.className = 'results-pill';
+        span.textContent = `${p.label}: ${p.value ?? 0}`;
+        summaryDiv.appendChild(span);
+      });
+      // Rows
+      (rows || []).forEach(r => {
+        const tr = document.createElement('tr');
+        const name = buildName(r);
+        tr.innerHTML = `
+          <td>${r.rowNumber ?? ''}</td>
+          <td>${r.employee_number ?? ''}</td>
+          <td>${name}</td>
+          <td>${(r.action || '').toUpperCase()}</td>
+          <td>${r.reason || (Array.isArray(r.issues) ? r.issues.join('; ') : '') || ''}</td>
+        `;
+        body.appendChild(tr);
+      });
+    }
+    function buildName(r) {
+      const ln = (r.last_name || '').trim();
+      const fn = (r.first_name || '').trim();
+      const mn = (r.middle_name || '').trim();
+      return ln && fn ? `${ln}, ${fn}${mn ? ' ' + mn : ''}` : (ln || fn || '');
+    }
+    function downloadImportReportCSV() {
+      const { rows, summary } = window._lastImportReport || { rows: [], summary: {} };
+      const headers = ['rowNumber','employee_number','last_name','first_name','middle_name','action','reason'];
+      const lines = [headers.join(',')];
+      (rows || []).forEach(r => {
+        const reason = r.reason || (Array.isArray(r.issues) ? r.issues.join('; ') : '') || '';
+        const vals = [
+          r.rowNumber ?? '',
+          r.employee_number ?? '',
+          (r.last_name ?? '').replaceAll(',', ' '),
+          (r.first_name ?? '').replaceAll(',', ' '),
+          (r.middle_name ?? '').replaceAll(',', ' '),
+          (r.action ?? '').toUpperCase(),
+          (reason || '').replaceAll('\n',' ').replaceAll(',', ' ')
+        ];
+        lines.push(vals.join(','));
+      });
+      const csv = lines.join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const pad = n => String(n).padStart(2,'0');
+      const d = new Date();
+      const fname = `faculty_import_report_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}.csv`;
+      a.href = url; a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</div>

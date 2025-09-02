@@ -11,7 +11,141 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
+    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Bulk Selection Modal Styles */
+        .bulk-selection-modal {
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .filter-sections {
+            padding: 20px 0;
+        }
+        
+        .filter-section-label {
+            font-weight: 600;
+            color: var(--dark-blue);
+            margin-bottom: 12px;
+            display: block;
+            font-size: 14px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .custom-checkbox {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+        
+        .custom-checkbox input[type="checkbox"] {
+            margin-right: 10px;
+            width: 16px;
+            height: 16px;
+        }
+        
+        .custom-checkbox.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .custom-checkbox.disabled input[type="checkbox"] {
+            cursor: not-allowed;
+        }
+        
+        .bulk-selection-filters-btn {
+            margin-right: 15px;
+        }
+        
+        .clear-selection-btn {
+            margin-right: 15px;
+        }
+        
+        .clear-selection-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        /* Style for clear button in table header */
+        .checkbox-column .clear-selection-btn {
+            margin: 0;
+            padding: 6px 12px;
+            font-size: 12px;
+            min-width: auto;
+        }
+        
+        .selection-counter-display {
+            display: flex;
+            align-items: center;
+            margin-left: 15px;
+            margin-right: 20px;
+            padding: 8px 20px;
+            background-color: var(--very-light-cool-white, #e7eff4);
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            color: var(--dark-primary, #1c3faa);
+            min-width: 180px;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(231, 239, 244, 0.3);
+            transition: all 0.2s ease;
+        }
+        
+        .selection-counter-display span {
+            font-size: 13px;
+            letter-spacing: 0.3px;
+        }
+        
+        /* Hover effect for subtle interactivity */
+        .selection-counter-display:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(231, 239, 244, 0.4);
+        }
+        
+        /* State-based styling */
+        .selection-counter-display.has-selections {
+            background-color: var(--darker-saturated-blue, #175d97);
+            box-shadow: 0 2px 4px rgba(23, 93, 151, 0.2);
+            cursor: pointer;
+        }
+        
+        .selection-counter-display.has-selections:hover {
+            box-shadow: 0 3px 8px rgba(23, 93, 151, 0.25);
+        }
+        
+        .selection-counter-display.all-selected {
+            background-color: var(--bright-golden-yellow, #e7c01d);
+            color: var(--deep-navy-blue, #0c5591);
+            box-shadow: 0 2px 4px rgba(231, 192, 29, 0.2);
+            cursor: pointer;
+        }
+        
+        .selection-counter-display.all-selected:hover {
+            box-shadow: 0 3px 8px rgba(231, 192, 29, 0.25);
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .bulk-selection-modal {
+                width: 95%;
+                margin: 20px;
+            }
+            
+            .checkbox-group {
+                gap: 8px;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- Header -->
@@ -47,340 +181,390 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
         <?php include '../../includes/components/sidebar.php'; ?>
         
         <div class="main-content">
-            <div class="content-wrapper">
-                <!-- Page Header -->
-                <div class="page-header">
-                    <h2><i class="fas fa-chalkboard-teacher"></i> Faculty Management</h2>
-                    <p>Manage faculty accounts and monitor employment status</p>
-                </div>
+            <div class="dashboard-layout">
+                <!-- LEFT SIDE: Main Content -->
+                <div class="dashboard-main">
+                    <div class="content-wrapper">
+                        <!-- Page Header -->
+                        <div class="page-header">
+                            <h2><i class="fas fa-chalkboard-teacher"></i> Faculty Management</h2>
+                            <p>Manage faculty accounts and monitor employment status</p>
+                        </div>
 
-                <!-- Statistics Dashboard -->
-                <div class="stats-dashboard">
-                    <div class="stat-card">
-                        <div class="stat-icon active">
-                            <i class="fas fa-users"></i>
+                        <!-- Statistics Dashboard -->
+                        <div class="stats-dashboard">
+                            <div class="stat-card">
+                                <div class="stat-icon active">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3 id="totalFaculty">6</h3>
+                                    <p>Total Faculty</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon active">
+                                    <i class="fas fa-user-check"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3 id="activeFaculty">4</h3>
+                                    <p>Active</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon inactive">
+                                    <i class="fas fa-user-times"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3 id="inactiveFaculty">1</h3>
+                                    <p>Inactive</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon graduated">
+                                    <i class="fas fa-user-slash"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3 id="resignedFaculty">1</h3>
+                                    <p>Resigned</p>
+                                </div>
+                            </div>
                         </div>
-                        <div class="stat-content">
-                            <h3 id="totalFaculty">6</h3>
-                            <p>Total Faculty</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon active">
-                            <i class="fas fa-user-check"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3 id="activeFaculty">4</h3>
-                            <p>Active</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon inactive">
-                            <i class="fas fa-user-times"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3 id="inactiveFaculty">1</h3>
-                            <p>Inactive</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon graduated">
-                            <i class="fas fa-user-slash"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3 id="resignedFaculty">1</h3>
-                            <p>Resigned</p>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Quick Actions Section -->
-                <div class="quick-actions-section">
-                    <div class="action-buttons">
-                        <button class="btn btn-primary add-faculty-btn" onclick="openAddFacultyModal()">
-                            <i class="fas fa-plus"></i> Add Faculty
-                        </button>
-                        <button class="btn btn-secondary import-btn" onclick="triggerImportModal()">
-                            <i class="fas fa-file-import"></i> Import
-                        </button>
-                        <button class="btn btn-secondary export-btn" onclick="triggerExportModal()">
-                            <i class="fas fa-file-export"></i> Export
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Search and Filters Section -->
-                <div class="search-filters-section">
-                    <div class="search-box">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="searchInput" placeholder="Search faculty by name, ID, or department...">
-                    </div>
-                    
-                    <div class="filter-dropdowns">
-                        <!-- Employment Status Filter -->
-                        <select id="employmentStatusFilter" class="filter-select">
-                            <option value="">All Employment Status</option>
-                            <option value="full-time">Full Time</option>
-                            <option value="part-time">Part Time</option>
-                            <option value="part-time-full-load">Part Time - Full Load</option>
-                        </select>
-                        
-                        <!-- Clearance Status Filter -->
-                        <select id="clearanceStatusFilter" class="filter-select">
-                            <option value="">All Clearance Status</option>
-                            <option value="unapplied">Unapplied</option>
-                            <option value="pending">Pending</option>
-                            <option value="in-progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                            <option value="rejected">Rejected</option>
-                        </select>
-                        
-                        <!-- School Term Filter -->
-                        <select id="schoolTermFilter" class="filter-select" onchange="updateStatisticsByTerm()">
-                            <option value="">All School Terms</option>
-                            <option value="2024-2025-1st">2024-2025 1st Semester</option>
-                            <option value="2024-2025-2nd">2024-2025 2nd Semester</option>
-                            <option value="2024-2025-summer">2024-2025 Summer</option>
-                            <option value="2023-2024-1st">2023-2024 1st Semester</option>
-                            <option value="2023-2024-2nd">2023-2024 2nd Semester</option>
-                            <option value="2023-2024-summer">2023-2024 Summer</option>
-                        </select>
-                        
-                        <!-- Account Status Filter -->
-                        <select id="accountStatusFilter" class="filter-select">
-                            <option value="">All Account Status</option>
-                            <option value="active">Active Only</option>
-                            <option value="inactive">Inactive Only</option>
-                            <option value="resigned">Resigned Only</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Apply Filters Button -->
-                    <div class="filter-actions">
-                        <button class="btn btn-primary apply-filters-btn" onclick="applyFilters()">
-                            <i class="fas fa-filter"></i> Apply Filters
-                        </button>
-                        <button class="btn btn-secondary clear-filters-btn" onclick="clearFilters()">
-                            <i class="fas fa-times"></i> Clear All
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Faculty Table with Integrated Bulk Actions -->
-                <div class="table-container">
-                    <!-- Table Header with Bulk Actions -->
-                    <div class="table-header-section">
-                        <div class="bulk-controls">
-                            <label class="select-all-checkbox">
-                                <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                <span class="checkmark"></span>
-                                Select All
-                            </label>
-                            <div class="bulk-buttons">
-                                <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
-                                    <i class="fas fa-undo"></i> Undo
+                        <!-- Quick Actions Section -->
+                        <div class="quick-actions-section">
+                            <div class="action-buttons">
+                                <button class="btn btn-primary add-faculty-btn" onclick="openAddFacultyModal()">
+                                    <i class="fas fa-plus"></i> Add Faculty
                                 </button>
-                                <button class="btn btn-success" onclick="activateSelected()" disabled>
-                                    <i class="fas fa-user-check"></i> Activate
+                                <button class="btn btn-secondary import-btn" onclick="triggerImportModal()">
+                                    <i class="fas fa-file-import"></i> Import
                                 </button>
-                                <button class="btn btn-warning" onclick="deactivateSelected()" disabled>
-                                    <i class="fas fa-user-times"></i> Deactivate
+                                <button class="btn btn-secondary export-btn" onclick="triggerExportModal()">
+                                    <i class="fas fa-file-export"></i> Export
                                 </button>
-                                <button class="btn btn-info" onclick="markResigned()" disabled>
-                                    <i class="fas fa-user-slash"></i> Resigned
-                                </button>
-                                <button class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
-                                    <i class="fas fa-redo"></i> Reset Clearance
-                                </button>
-                                <button class="btn btn-danger" onclick="deleteSelected()" disabled>
-                                    <i class="fas fa-trash"></i> Delete
+                            </div>
+                            <div class="override-actions">
+                                <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
+                                    <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
                         </div>
-                        <div class="table-controls">
-                            <button class="btn btn-outline-primary scroll-to-top-btn" onclick="scrollToTop()" id="scrollToTopBtn" style="display: none;">
-                                <i class="fas fa-arrow-up"></i> Top
-                            </button>
+
+                        <!-- Search and Filters Section -->
+                        <div class="search-filters-section">
+                            <div class="search-box">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="searchInput" placeholder="Search faculty by name, ID, or department...">
+                            </div>
+                            
+                            <div class="filter-dropdowns">
+                                <!-- Employment Status Filter -->
+                                <select id="employmentStatusFilter" class="filter-select">
+                                    <option value="">All Employment Status</option>
+                                    <option value="full-time">Full Time</option>
+                                    <option value="part-time">Part Time</option>
+                                    <option value="part-time-full-load">Part Time - Full Load</option>
+                                </select>
+                                
+                                <!-- Clearance Status Filter -->
+                                <select id="clearanceStatusFilter" class="filter-select">
+                                    <option value="">All Clearance Status</option>
+                                    <option value="unapplied">Unapplied</option>
+                                    <option value="applied">Applied</option>
+                                    <option value="in-progress">In Progress</option>
+                                    <option value="complete">Complete</option>
+                                </select>
+                                
+                                <!-- School Term Filter -->
+                                <select id="schoolTermFilter" class="filter-select" onchange="updateStatisticsByTerm()">
+                                    <option value="">All School Terms</option>
+                                    <option value="2024-2025-1st">2024-2025 1st Semester</option>
+                                    <option value="2024-2025-2nd">2024-2025 2nd Semester</option>
+                                    <option value="2024-2025-summer">2024-2025 Summer</option>
+                                    <option value="2023-2024-1st">2023-2024 1st Semester</option>
+                                    <option value="2023-2024-2nd">2023-2024 2nd Semester</option>
+                                    <option value="2023-2024-summer">2023-2024 Summer</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Apply Filters Button -->
+                            <div class="filter-actions">
+                                <button class="btn btn-primary apply-filters-btn" onclick="applyFilters()">
+                                    <i class="fas fa-filter"></i> Apply Filters
+                                </button>
+                                <button class="btn btn-secondary clear-filters-btn" onclick="clearFilters()">
+                                    <i class="fas fa-times"></i> Clear All
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="table-responsive">
-                        <div class="students-table-wrapper" id="facultyTableWrapper">
-                            <table id="facultyTable" class="students-table">
-                                <thead>
-                                    <tr>
-                                        <th class="checkbox-column">
-                                            <span id="selectionCounter">0 selected</span>
-                                        </th>
-                                        <th>Employee Number</th>
-                                        <th>Name</th>
-                                        <th>Employment Status</th>
-                                        <th>Account Status</th>
-                                        <th>Clearance Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="facultyTableBody">
-                                    <!-- Sample data - will be populated by JavaScript -->
-                                    <tr data-term="2024-2025-1st">
-                                        <td><input type="checkbox" class="faculty-checkbox" data-id="LCA123P"></td>
-                                        <td>LCA123P</td>
-                                        <td>Dr. Maria Santos</td>
-                                        <td><span class="status-badge employment-full-time">Full Time</span></td>
-                                        <td><span class="status-badge account-active">Active</span></td>
-                                        <td><span class="status-badge clearance-pending">Pending</span></td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-icon edit-btn" onclick="editFaculty('LCA123P')" title="Edit">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                    <i class="fas fa-toggle-on"></i>
-                                                </button>
-                                                <button class="btn-icon delete-btn" onclick="deleteFaculty('LCA123P')" title="Delete">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr data-term="2024-2025-1st">
-                                        <td><input type="checkbox" class="faculty-checkbox" data-id="MTH456A"></td>
-                                        <td>MTH456A</td>
-                                        <td>Prof. Juan Dela Cruz</td>
-                                        <td><span class="status-badge employment-part-time">Part Time</span></td>
-                                        <td><span class="status-badge account-active">Active</span></td>
-                                        <td><span class="status-badge clearance-completed">Completed</span></td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-icon edit-btn" onclick="editFaculty('MTH456A')" title="Edit">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                    <i class="fas fa-toggle-on"></i>
-                                                </button>
-                                                <button class="btn-icon delete-btn" onclick="deleteFaculty('MTH456A')" title="Delete">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr data-term="2024-2025-2nd">
-                                        <td><input type="checkbox" class="faculty-checkbox" data-id="ENG789B"></td>
-                                        <td>ENG789B</td>
-                                        <td>Dr. Ana Rodriguez</td>
-                                        <td><span class="status-badge employment-part-time-full-load">Part Time - Full Load</span></td>
-                                        <td><span class="status-badge account-inactive">Inactive</span></td>
-                                        <td><span class="status-badge clearance-unapplied">Unapplied</span></td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-icon edit-btn" onclick="editFaculty('ENG789B')" title="Edit">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn-icon status-toggle-btn inactive" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                    <i class="fas fa-toggle-off"></i>
-                                                </button>
-                                                <button class="btn-icon delete-btn" onclick="deleteFaculty('ENG789B')" title="Delete">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr data-term="2023-2024-2nd">
-                                        <td><input type="checkbox" class="faculty-checkbox" data-id="CSC321D"></td>
-                                        <td>CSC321D</td>
-                                        <td>Prof. Carlos Mendoza</td>
-                                        <td><span class="status-badge employment-full-time">Full Time</span></td>
-                                        <td><span class="status-badge account-resigned">Resigned</span></td>
-                                        <td><span class="status-badge clearance-completed">Completed</span></td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-icon edit-btn" onclick="editFaculty('CSC321D')" title="Edit">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn-icon status-toggle-btn resigned" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                    <i class="fas fa-user-slash"></i>
-                                                </button>
-                                                <button class="btn-icon delete-btn" onclick="deleteFaculty('CSC321D')" title="Delete">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr data-term="2024-2025-1st">
-                                        <td><input type="checkbox" class="faculty-checkbox" data-id="BIO654E"></td>
-                                        <td>BIO654E</td>
-                                        <td>Prof. Sarah Johnson</td>
-                                        <td><span class="status-badge employment-part-time">Part Time</span></td>
-                                        <td><span class="status-badge account-active">Active</span></td>
-                                        <td><span class="status-badge clearance-in-progress">In Progress</span></td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-icon edit-btn" onclick="editFaculty('BIO654E')" title="Edit">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                    <i class="fas fa-toggle-on"></i>
-                                                </button>
-                                                <button class="btn-icon delete-btn" onclick="deleteFaculty('BIO654E')" title="Delete">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr data-term="2024-2025-2nd">
-                                        <td><input type="checkbox" class="faculty-checkbox" data-id="PHY987F"></td>
-                                        <td>PHY987F</td>
-                                        <td>Dr. Michael Chen</td>
-                                        <td><span class="status-badge employment-part-time-full-load">Part Time - Full Load</span></td>
-                                        <td><span class="status-badge account-active">Active</span></td>
-                                        <td><span class="status-badge clearance-completed">Completed</span></td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn-icon edit-btn" onclick="editFaculty('PHY987F')" title="Edit">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                    <i class="fas fa-toggle-on"></i>
-                                                </button>
-                                                <button class="btn-icon delete-btn" onclick="deleteFaculty('PHY987F')" title="Delete">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+
+                        <!-- Tabs + Current Period Wrapper -->
+                        <div class="tab-banner-wrapper">
+                            <!-- Tab Navigation for quick status views -->
+                            <div class="tab-nav" id="facultyTabNav">
+                                <button class="tab-pill active" data-status="" onclick="switchFacultyTab(this)">Overall</button>
+                                <button class="tab-pill" data-status="active" onclick="switchFacultyTab(this)">Active</button>
+                                <button class="tab-pill" data-status="inactive" onclick="switchFacultyTab(this)">Inactive</button>
+                                <button class="tab-pill" data-status="resigned" onclick="switchFacultyTab(this)">Resigned</button>
+                            </div>
+                            <!-- Mobile dropdown alternative -->
+                            <div class="tab-nav-mobile" id="facultyTabSelectWrapper">
+                                <select id="facultyTabSelect" class="tab-select" onchange="handleTabSelectChange(this)">
+                                    <option value="" selected>Overall</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="resigned">Resigned</option>
+                                </select>
+                            </div>
+                            <!-- Current Period Banner -->
+                            <div id="currentPeriodBanner" class="current-period-banner">
+                                <i class="fas fa-calendar-alt banner-icon" aria-hidden="true"></i>
+                                <span id="currentPeriodText">Loading current period...</span>
+                            </div>
+                        </div>
+
+                        <!-- Faculty Table with Integrated Bulk Actions -->
+                        <div class="table-container">
+                            <!-- Table Header with Bulk Actions -->
+                            <div class="table-header-section">
+                                <div class="bulk-controls">
+                                    <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
+                                        <i class="fas fa-filter"></i> Bulk Selection Filters
+                                    </button>
+                                    <button class="selection-counter-display" id="selectionCounterPill" type="button" title="">
+                                        <span id="selectionCounter">0 selected</span>
+                                    </button>
+                                    <div class="bulk-buttons">
+                                        <!-- Undo button removed as per workflow update -->
+                                        <button id="bulkActivateBtn" class="btn btn-success" onclick="activateSelected()" disabled>
+                                            <i class="fas fa-user-check"></i> Activate
+                                        </button>
+                                        <button id="bulkDeactivateBtn" class="btn btn-warning" onclick="deactivateSelected()" disabled>
+                                            <i class="fas fa-user-times"></i> Deactivate
+                                        </button>
+                                        <button class="btn btn-info" onclick="markResigned()" disabled id="bulkResignedBtn">
+                                            <i class="fas fa-user-slash"></i> Resigned
+                                        </button>
+                                        <button id="bulkResetBtn" class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
+                                            <i class="fas fa-redo"></i> Reset Clearance
+                                        </button>
+                                        <button id="bulkDeleteBtn" class="btn btn-danger" onclick="deleteSelected()" disabled>
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="table-controls">
+                                    <button class="btn btn-outline-primary scroll-to-top-btn" onclick="scrollToTop()" id="scrollToTopBtn" style="display: none;">
+                                        <i class="fas fa-arrow-up"></i> Top
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <div class="students-table-wrapper" id="facultyTableWrapper">
+                                    <table id="facultyTable" class="students-table">
+                                        <thead>
+                                            <tr>
+                                                <th class="checkbox-column">
+                                                    <button class="btn btn-outline-secondary clear-selection-btn" onclick="clearAllSelections()" id="clearSelectionBtn" disabled>
+                                                        <i class="fas fa-times"></i> Clear All Selection
+                                                    </button>
+                                                </th>
+                                                <th>Employee Number</th>
+                                                <th>Name</th>
+                                                <th>Employment Status</th>
+                                                <th>Account Status</th>
+                                                <th>Clearance Progress Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="facultyTableBody">
+                                            <!-- Sample data - will be populated by JavaScript -->
+                                            <tr data-term="2024-2025-1st">
+                                                <td><input type="checkbox" class="faculty-checkbox" data-id="LCA123P"></td>
+                                                <td>LCA123P</td>
+                                                <td>Dr. Maria Santos</td>
+                                                <td><span class="status-badge employment-full-time">Full Time</span></td>
+                                                <td><span class="status-badge account-active">Active</span></td>
+                                                <td><span class="status-badge clearance-in-progress">In Progress</span></td>
+                                                <td>
+                                                    <div class="action-buttons">
+                                                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('LCA123P')" title="View Clearance Progress">
+                                                            <i class="fas fa-tasks"></i>
+                                                        </button>
+                                                        <button class="btn-icon edit-btn" onclick="editFaculty('LCA123P')" title="Edit">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
+                                                            <i class="fas fa-toggle-on"></i>
+                                                        </button>
+                                                        <button class="btn-icon delete-btn" onclick="deleteFaculty('LCA123P')" title="Delete">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr data-term="2024-2025-1st">
+                                                <td><input type="checkbox" class="faculty-checkbox" data-id="MTH456A"></td>
+                                                <td>MTH456A</td>
+                                                <td>Prof. Juan Dela Cruz</td>
+                                                <td><span class="status-badge employment-part-time">Part Time</span></td>
+                                                <td><span class="status-badge account-active">Active</span></td>
+                                                <td><span class="status-badge clearance-complete">Complete</span></td>
+                                                <td>
+                                                    <div class="action-buttons">
+                                                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('MTH456A')" title="View Clearance Progress">
+                                                            <i class="fas fa-tasks"></i>
+                                                        </button>
+                                                        <button class="btn-icon edit-btn" onclick="editFaculty('MTH456A')" title="Edit">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
+                                                            <i class="fas fa-toggle-on"></i>
+                                                        </button>
+                                                        <button class="btn-icon delete-btn" onclick="deleteFaculty('MTH456A')" title="Delete">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr data-term="2024-2025-2nd">
+                                                <td><input type="checkbox" class="faculty-checkbox" data-id="ENG789B"></td>
+                                                <td>ENG789B</td>
+                                                <td>Dr. Ana Rodriguez</td>
+                                                <td><span class="status-badge employment-part-time-full-load">Part Time - Full Load</span></td>
+                                                <td><span class="status-badge account-inactive">Inactive</span></td>
+                                                <td><span class="status-badge clearance-unapplied">Unapplied</span></td>
+                                                <td>
+                                                    <div class="action-buttons">
+                                                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('ENG789B')" title="View Clearance Progress">
+                                                            <i class="fas fa-tasks"></i>
+                                                        </button>
+                                                        <button class="btn-icon edit-btn" onclick="editFaculty('ENG789B')" title="Edit">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button class="btn-icon status-toggle-btn inactive" onclick="toggleFacultyStatus(this)" title="Toggle Status">
+                                                            <i class="fas fa-toggle-off"></i>
+                                                        </button>
+                                                        <button class="btn-icon delete-btn" onclick="deleteFaculty('ENG789B')" title="Delete">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr data-term="2023-2024-2nd">
+                                                <td><input type="checkbox" class="faculty-checkbox" data-id="CSC321D"></td>
+                                                <td>CSC321D</td>
+                                                <td>Prof. Carlos Mendoza</td>
+                                                <td><span class="status-badge employment-full-time">Full Time</span></td>
+                                                <td><span class="status-badge account-resigned">Resigned</span></td>
+                                                <td><span class="status-badge clearance-complete">Complete</span></td>
+                                                <td>
+                                                    <div class="action-buttons">
+                                                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('CSC321D')" title="View Clearance Progress">
+                                                            <i class="fas fa-tasks"></i>
+                                                        </button>
+                                                        <button class="btn-icon edit-btn" onclick="editFaculty('CSC321D')" title="Edit">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button class="btn-icon status-toggle-btn resigned" onclick="toggleFacultyStatus(this)" title="Toggle Status">
+                                                            <i class="fas fa-user-slash"></i>
+                                                        </button>
+                                                        <button class="btn-icon delete-btn" onclick="deleteFaculty('CSC321D')" title="Delete">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr data-term="2024-2025-1st">
+                                                <td><input type="checkbox" class="faculty-checkbox" data-id="BIO654E"></td>
+                                                <td>BIO654E</td>
+                                                <td>Prof. Sarah Johnson</td>
+                                                <td><span class="status-badge employment-part-time">Part Time</span></td>
+                                                <td><span class="status-badge account-active">Active</span></td>
+                                                <td><span class="status-badge clearance-in-progress">In Progress</span></td>
+                                                <td>
+                                                    <div class="action-buttons">
+                                                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('BIO654E')" title="View Clearance Progress">
+                                                            <i class="fas fa-tasks"></i>
+                                                        </button>
+                                                        <button class="btn-icon edit-btn" onclick="editFaculty('BIO654E')" title="Edit">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
+                                                            <i class="fas fa-toggle-on"></i>
+                                                        </button>
+                                                        <button class="btn-icon delete-btn" onclick="deleteFaculty('BIO654E')" title="Delete">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr data-term="2024-2025-2nd">
+                                                <td><input type="checkbox" class="faculty-checkbox" data-id="PHY987F"></td>
+                                                <td>PHY987F</td>
+                                                <td>Dr. Michael Chen</td>
+                                                <td><span class="status-badge employment-part-time-full-load">Part Time - Full Load</span></td>
+                                                <td><span class="status-badge account-active">Active</span></td>
+                                                <td><span class="status-badge clearance-complete">Complete</span></td>
+                                                <td>
+                                                    <div class="action-buttons">
+                                                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('PHY987F')" title="View Clearance Progress">
+                                                            <i class="fas fa-tasks"></i>
+                                                        </button>
+                                                        <button class="btn-icon edit-btn" onclick="editFaculty('PHY987F')" title="Edit">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
+                                                            <i class="fas fa-toggle-on"></i>
+                                                        </button>
+                                                        <button class="btn-icon delete-btn" onclick="deleteFaculty('PHY987F')" title="Delete">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pagination Section -->
+                        <div class="pagination-section">
+                            <div class="pagination-info">
+                                <span id="paginationInfo">Showing 1 to 4 of 4 entries</span>
+                            </div>
+                            <div class="pagination-controls">
+                                <button class="pagination-btn" id="prevPage" onclick="changePage('prev')" disabled>
+                                    <i class="fas fa-chevron-left"></i> Previous
+                                </button>
+                                <div class="page-numbers" id="pageNumbers">
+                                    <button class="pagination-btn active">1</button>
+                                </div>
+                                <button class="pagination-btn" id="nextPage" onclick="changePage('next')" disabled>
+                                    Next <i class="fas fa-chevron-right"></i>
+                                </button>
+                            </div>
+                            <div class="entries-per-page">
+                                <label for="entriesPerPage">Show:</label>
+                                <select id="entriesPerPage" onchange="changeEntriesPerPage()">
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="20" selected>20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                                <span>entries</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Pagination Section -->
-                <div class="pagination-section">
-                    <div class="pagination-info">
-                        <span id="paginationInfo">Showing 1 to 4 of 4 entries</span>
-                    </div>
-                    <div class="pagination-controls">
-                        <button class="pagination-btn" id="prevPage" onclick="changePage('prev')" disabled>
-                            <i class="fas fa-chevron-left"></i> Previous
-                        </button>
-                        <div class="page-numbers" id="pageNumbers">
-                            <button class="pagination-btn active">1</button>
-                        </div>
-                        <button class="pagination-btn" id="nextPage" onclick="changePage('next')" disabled>
-                            Next <i class="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
-                    <div class="entries-per-page">
-                        <label for="entriesPerPage">Show:</label>
-                        <select id="entriesPerPage" onchange="changeEntriesPerPage()">
-                            <option value="5">5</option>
-                            <option value="10">10</option>
-                            <option value="20" selected>20</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                        <span>entries</span>
-                    </div>
+                <!-- RIGHT SIDE: Activity Tracker -->
+                <div class="dashboard-sidebar">
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
                 </div>
             </div>
         </div>
@@ -394,6 +578,229 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
     <?php include '../../Modals/EditFacultyModal.php'; ?>
                <?php include '../../Modals/FacultyExportModal.php'; ?>
            <?php include '../../Modals/FacultyImportModal.php'; ?>
+    <?php include '../../Modals/ClearanceProgressModal.php'; ?>
+
+    <!-- Bulk Selection Filters Modal -->
+    <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
+        <div class="modal-window bulk-selection-modal">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-filter"></i> Bulk Selection Filters</h3>
+                <button class="modal-close" onclick="closeBulkSelectionModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content-area">
+                <div class="filter-sections">
+                    <!-- Account Status Section -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Account Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterActive" value="active">
+                                <span class="checkmark"></span>
+                                with "active"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterInactive" value="inactive">
+                                <span class="checkmark"></span>
+                                with "inactive"
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Clearance Progress Section -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Clearance Progress:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterApplied" value="applied">
+                                <span class="checkmark"></span>
+                                with "applied"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterInProgress" value="in-progress">
+                                <span class="checkmark"></span>
+                                with "in progress"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterComplete" value="complete">
+                                <span class="checkmark"></span>
+                                with "Complete"
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-secondary" onclick="closeBulkSelectionModal()">Cancel</button>
+                <button class="modal-action-primary" onclick="applyBulkSelection()">
+                    <i class="fas fa-check"></i> Select All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rejection Remarks Modal -->
+    <div id="rejectionRemarksModal" class="modal-overlay" style="display: none;">
+        <div class="modal-window rejection-remarks-modal">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-comment-slash"></i> Rejection Remarks</h3>
+                <button class="modal-close" onclick="closeRejectionRemarksModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content-area">
+                <div class="rejection-info">
+                    <h4 id="rejectionTargetName">Rejecting: [Faculty Name]</h4>
+                    <p class="rejection-type">Type: <span id="rejectionType">Faculty</span></p>
+                </div>
+                
+                <div class="remarks-section">
+                    <div class="form-group">
+                        <label for="rejectionReason">Reason for Rejection:</label>
+                        <select id="rejectionReason" class="form-control" onchange="handleReasonChange()">
+                            <option value="">Select a reason...</option>
+                            <option value="incomplete_documents">Incomplete Documents</option>
+                            <option value="unpaid_obligations">Unpaid Obligations</option>
+                            <option value="employment_requirements">Employment Requirements Not Met</option>
+                            <option value="disciplinary_issues">Disciplinary Issues</option>
+                            <option value="missing_clearance">Missing Clearance Items</option>
+                            <option value="contract_issues">Contract/Employment Issues</option>
+                            <option value="other">Other (Please specify below)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="additionalRemarks">Additional Remarks (Optional):</label>
+                        <textarea id="additionalRemarks" class="form-control" rows="4" 
+                                placeholder="Provide additional details or specific instructions..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-secondary" onclick="closeRejectionRemarksModal()">Cancel</button>
+                <button class="modal-action-primary" onclick="submitRejection()">Reject Clearance</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Signatory Override Modal -->
+    <div id="signatoryOverrideModal" class="modal-overlay" style="display: none;">
+        <div class="modal-window override-modal">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-user-shield"></i> Signatory Override</h3>
+                <button class="modal-close" onclick="closeSignatoryOverrideModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content-area">
+                <div class="position-selection-section">
+                    <h4>Select Staff Position to Override</h4>
+                    <div class="position-selector">
+                        <select id="staffPositionSelect" class="form-control">
+                            <option value="">Choose position...</option>
+                            <option value="mis_it">MIS/IT</option>
+                            <option value="cashier">Cashier</option>
+                            <option value="registrar">Registrar</option>
+                            <option value="library">Library</option>
+                            <option value="accounting">Accounting</option>
+                            <option value="student_affairs">Student Affairs</option>
+                        </select>
+                        <div class="custom-position-input">
+                            <input type="text" id="customPositionInput" class="form-control" placeholder="Or type custom position...">
+                        </div>
+                    </div>
+                    
+                    <div class="position-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span id="warningText">Staff account will be temporarily disabled during override session</span>
+                    </div>
+                    
+                    <div class="pending-clearances-preview">
+                        <h5><i class="fas fa-list"></i> Pending Faculty Clearances for Selected Position</h5>
+                        <div id="pendingClearancesList" class="clearances-preview-list">
+                            <!-- Dynamic content will be populated -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-secondary" onclick="closeSignatoryOverrideModal()">Cancel</button>
+                <button class="modal-action-primary" onclick="proceedWithOverride()">Proceed with Override</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Override Session Interface -->
+    <div id="overrideSessionInterface" class="override-session" style="display: none;">
+        <div class="override-header">
+            <div class="override-status">
+                <i class="fas fa-user-shield"></i>
+                <span id="overridePositionDisplay">Signing as: [Position]</span>
+                <span class="session-timer" id="sessionTimer">Session: 00:00:00</span>
+            </div>
+            <button class="btn btn-danger" onclick="endOverrideSession()">
+                <i class="fas fa-times"></i> End Session
+            </button>
+        </div>
+        
+        <div class="override-search-filters">
+            <div class="search-section">
+                <input type="text" id="overrideSearchInput" class="form-control" placeholder="Search faculty...">
+                <button class="btn btn-primary" onclick="searchOverrideClearances()">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            
+            <div class="filter-section">
+                <select id="overrideDepartmentFilter" class="form-control">
+                    <option value="">All Departments</option>
+                    <option value="ICT">ICT Department</option>
+                    <option value="Business">Business Department</option>
+                    <option value="Engineering">Engineering Department</option>
+                </select>
+                <select id="overrideEmploymentFilter" class="form-control">
+                    <option value="">All Employment Types</option>
+                    <option value="full-time">Full Time</option>
+                    <option value="part-time">Part Time</option>
+                    <option value="part-time-full-load">Part Time - Full Load</option>
+                </select>
+                <select id="overrideStatusFilter" class="form-control">
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="override-bulk-actions">
+            <div class="bulk-controls">
+                <label class="select-all-checkbox">
+                    <input type="checkbox" id="overrideSelectAll" onchange="toggleOverrideSelectAll()">
+                    <span class="checkmark"></span>
+                    Select All
+                </label>
+                <div class="bulk-buttons">
+                    <button class="btn btn-success" onclick="bulkApproveOverride()" disabled>
+                        <i class="fas fa-check"></i> Bulk Approve
+                    </button>
+                    <button class="btn btn-danger" onclick="bulkRejectOverride()" disabled>
+                        <i class="fas fa-times"></i> Bulk Reject
+                    </button>
+                    <button class="btn btn-info" onclick="exportOverrideReport()" disabled>
+                        <i class="fas fa-file-export"></i> Export
+                    </button>
+                </div>
+            </div>
+            <div class="override-stats">
+                <span id="overrideStats">Selected: 0 | Approved: 0 | Rejected: 0</span>
+            </div>
+        </div>
+        
+        <div class="override-clearances-list" id="overrideClearancesList">
+            <!-- Dynamic content will be populated -->
+        </div>
+    </div>
 
     <script>
         // Toggle sidebar
@@ -424,30 +831,48 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
             }
         }
 
-        // Select all functionality
-        function toggleSelectAll() {
-            const selectAllCheckbox = document.getElementById('selectAll');
-            const facultyCheckboxes = document.querySelectorAll('.faculty-checkbox');
-            const bulkButtons = document.querySelectorAll('.bulk-buttons button');
-            
-            facultyCheckboxes.forEach(checkbox => {
-                checkbox.checked = selectAllCheckbox.checked;
-            });
-            
-            updateBulkButtons();
-        }
+        // Bulk selection functionality (replaces old select all)
+        // The new bulk selection modal handles all selection logic
 
         function updateSelectionCounter() {
             const selectedCount = getSelectedCount();
             const totalCount = document.querySelectorAll('.faculty-checkbox').length;
             const counter = document.getElementById('selectionCounter');
+            const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+            const selectionDisplay = document.getElementById('selectionCounterPill');
             
             if (selectedCount === 0) {
                 counter.textContent = '0 selected';
+                // Disable clear selection button when no selections
+                if (clearSelectionBtn) clearSelectionBtn.disabled = true;
+                // Reset selection counter styling
+                if (selectionDisplay) {
+                    selectionDisplay.classList.remove('has-selections', 'all-selected');
+                    selectionDisplay.setAttribute('aria-disabled','true');
+                    selectionDisplay.title = '';
+                }
             } else if (selectedCount === totalCount) {
                 counter.textContent = `All ${totalCount} selected`;
+                // Enable clear selection button when there are selections
+                if (clearSelectionBtn) clearSelectionBtn.disabled = false;
+                // Apply all selected styling
+                if (selectionDisplay) {
+                    selectionDisplay.classList.remove('has-selections');
+                    selectionDisplay.classList.add('all-selected');
+                    selectionDisplay.removeAttribute('aria-disabled');
+                    selectionDisplay.title = 'Clear selection';
+                }
             } else {
                 counter.textContent = `${selectedCount} selected`;
+                // Enable clear selection button when there are selections
+                if (clearSelectionBtn) clearSelectionBtn.disabled = false;
+                // Apply partial selection styling
+                if (selectionDisplay) {
+                    selectionDisplay.classList.remove('all-selected');
+                    selectionDisplay.classList.add('has-selections');
+                    selectionDisplay.removeAttribute('aria-disabled');
+                    selectionDisplay.title = 'Clear selection';
+                }
             }
         }
 
@@ -465,23 +890,69 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
 
         function updateBulkButtons() {
             const checkedBoxes = document.querySelectorAll('.faculty-checkbox:checked');
-            const bulkButtons = document.querySelectorAll('.bulk-buttons button');
-            
-            bulkButtons.forEach(button => {
-                button.disabled = checkedBoxes.length === 0;
+            const selectedCount = checkedBoxes.length;
+            // Counters
+            let activeCount = 0, inactiveCount = 0, resignedCount = 0, eligibleReset = 0;
+            checkedBoxes.forEach(cb=>{
+                const row = cb.closest('tr');
+                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
+                const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-applied, .status-badge.clearance-in-progress, .status-badge.clearance-complete');
+                if(accountBadge){
+                    if(accountBadge.classList.contains('account-active')) activeCount++;
+                    else if(accountBadge.classList.contains('account-inactive')) inactiveCount++;
+                    else if(accountBadge.classList.contains('account-resigned')) resignedCount++;
+                }
+                if(clearanceBadge && (clearanceBadge.classList.contains('clearance-applied') || clearanceBadge.classList.contains('clearance-in-progress') || clearanceBadge.classList.contains('clearance-complete'))){
+                    eligibleReset++;
+                }
             });
+            // Tab context
+            const tabStatus = window.currentTabStatus || '';
+            const activateBtn   = document.getElementById('bulkActivateBtn');
+            const deactivateBtn = document.getElementById('bulkDeactivateBtn');
+            const resignedBtn   = document.getElementById('bulkResignedBtn');
+            const resetBtn      = document.getElementById('bulkResetBtn');
+            const deleteBtn     = document.getElementById('bulkDeleteBtn');
+
+            // Default disable all
+            activateBtn.disabled = deactivateBtn.disabled = resignedBtn.disabled = resetBtn.disabled = deleteBtn.disabled = true;
+            deleteBtn.disabled = selectedCount === 0;
             
+            // Smart button enablement based on selection and tab context
+            if(tabStatus === 'active'){
+                // In Active tab: only deactivate and other actions enabled
+                deactivateBtn.disabled = selectedCount === 0;
+                resignedBtn.disabled = selectedCount === 0;
+            } else if(tabStatus === 'inactive'){
+                // In Inactive tab: only activate and other actions enabled
+                activateBtn.disabled = selectedCount === 0;
+                resignedBtn.disabled = selectedCount === 0;
+            } else { // overall tab
+                // Smart logic for mixed selections
+                if(activeCount > 0 && inactiveCount === 0 && resignedCount === 0){
+                    // All selected are active - can only deactivate
+                    deactivateBtn.disabled = false;
+                } else if(inactiveCount > 0 && activeCount === 0 && resignedCount === 0){
+                    // All selected are inactive - can only activate
+                    activateBtn.disabled = false;
+                } else if(activeCount > 0 && inactiveCount > 0){
+                    // Mixed active/inactive - both buttons disabled
+                    activateBtn.disabled = true;
+                    deactivateBtn.disabled = true;
+                }
+                // Resigned button always available in overall tab
+                resignedBtn.disabled = selectedCount === 0;
+            }
+            
+            // Reset clearance enable - works across all tabs
+            resetBtn.disabled = !(selectedCount > 0 && eligibleReset > 0);
+
             updateSelectionCounter();
         }
 
         // Enhanced notification function (using external alert system)
         function showNotification(message, type = 'info') {
             showToastNotification(message, type);
-        }
-
-        // Undo last action function
-        function undoLastAction() {
-            showToastNotification('Undo functionality will be implemented in the next version', 'info');
         }
 
         // Show info toast function
@@ -606,32 +1077,43 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
 
         // Reset clearance status for new term
         function resetClearanceForNewTerm() {
-            const selectedCount = getSelectedCount();
-            if (selectedCount === 0) {
-                showToastNotification('Please select faculty to reset clearance status', 'warning');
-                return;
-            }
-            
+            const selectedCheckboxes=document.querySelectorAll('.faculty-checkbox:checked');
+            if(selectedCheckboxes.length===0){showToastNotification('Please select faculty to reset clearance','warning');return;}
+            // Filter eligible rows (applied/in-progress/complete)
+            const eligible=[], ignored=[];
+            selectedCheckboxes.forEach(cb=>{
+                const row=cb.closest('tr');
+                const badge=row.querySelector('.status-badge.clearance-applied, .status-badge.clearance-in-progress, .status-badge.clearance-complete, .status-badge.clearance-unapplied');
+                if(badge && (badge.classList.contains('clearance-applied')||badge.classList.contains('clearance-in-progress')||badge.classList.contains('clearance-complete'))){
+                    eligible.push(cb.getAttribute('data-id'));
+                }else{
+                    ignored.push(cb.getAttribute('data-id'));
+                }
+            });
+            if(eligible.length===0){showToastNotification('No eligible faculty selected for clearance reset','info');return;}
+
             showConfirmationModal(
                 'Reset Clearance Status',
-                `Are you sure you want to reset clearance status to "Unapplied" for ${selectedCount} selected faculty? This will reset their clearance progress for the new term.`,
+                `The clearance status for ${eligible.length} faculty will be reverted to "Unapplied". Proceed?`,
                 'Reset Clearance',
                 'Cancel',
-                () => {
-                    // Perform clearance reset
-                    const selectedRows = document.querySelectorAll('.faculty-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-completed, .status-badge.clearance-rejected, .status-badge.clearance-in-progress');
-                        
-                        if (clearanceBadge) {
-                            clearanceBadge.textContent = 'Unapplied';
-                            clearanceBadge.classList.remove('clearance-pending', 'clearance-completed', 'clearance-rejected', 'clearance-in-progress');
-                            clearanceBadge.classList.add('clearance-unapplied');
-                        }
-                    });
-                    
-                    showToastNotification(`✓ Successfully reset clearance status for ${selectedCount} faculty`, 'success');
+                ()=>{
+                    fetch('../../api/clearance/reset_selected.php',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({employee_ids:eligible})})
+                    .then(r=>r.json()).then(res=>{
+                        if(!res.success) throw new Error(res.message||'Reset failed');
+                        // update eligible rows UI
+                        eligible.forEach(id=>{
+                            const row=document.querySelector(`.faculty-checkbox[data-id="${id}"]`).closest('tr');
+                            const badge=row.querySelector('.status-badge.clearance-applied, .status-badge.clearance-in-progress, .status-badge.clearance-complete');
+                            if(badge){
+                                badge.textContent='Unapplied';
+                                badge.classList.remove('clearance-applied','clearance-in-progress','clearance-complete');
+                                badge.classList.add('clearance-unapplied');
+                            }
+                        });
+                        showToastNotification(`✓ Clearance reset for ${res.reset_count} faculty`, 'success');
+                        refreshFacultyTable().then(()=>initializePagination());
+                    }).catch(err=>{console.error(err);showToastNotification(err.message,'error');});
                 },
                 'warning'
             );
@@ -704,8 +1186,55 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
         }
 
         // Individual faculty actions
+        async function populateEditFormLive(empId){
+            try{
+                const res = await fetch(`../../api/users/get_faculty.php?employee_number=${encodeURIComponent(empId)}`,{credentials:'include'});
+                const data = await res.json();
+                if(!data.success){showToastNotification(data.message||'Failed to load faculty','error');return;}
+                const f = data.faculty;
+                document.getElementById('editFacultyId').value = empId;
+                document.getElementById('editEmployeeNumber').value = empId;
+                document.getElementById('editEmploymentStatus').value = f.employment_status.toLowerCase().replace(/ /g,'-');
+                document.getElementById('editLastName').value = f.last_name;
+                document.getElementById('editFirstName').value = f.first_name;
+                document.getElementById('editMiddleName').value = f.middle_name||'';
+                document.getElementById('editEmail').value = f.email||'';
+                document.getElementById('editContactNumber').value = f.contact_number||'';
+                document.getElementById('editAccountStatus').value = f.status;
+            }catch(err){console.error(err);showToastNotification('Network error','error');}
+        }
+
         function editFaculty(facultyId) {
             openEditFacultyModal(facultyId);
+            populateEditFormLive(facultyId);
+        }
+
+        // intercept update faculty submit
+        window.submitEditFacultyForm = function(){
+            const btn=document.getElementById('editSubmitBtn');
+            const form=document.getElementById('editFacultyForm');
+            const data={
+                employee_number: form.editEmployeeNumber.value,
+                email: form.editEmail.value,
+                contact_number: form.editContactNumber.value,
+                status: form.editAccountStatus.value
+            };
+
+            // Only include employment_status if the dropdown has a value (admin actually selected or populated)
+            const empVal = form.editEmploymentStatus.value;
+            if(empVal!=='' && empVal!==null){
+                data.employment_status = empVal;
+            }
+
+            btn.disabled=true;btn.textContent='Updating...';
+            fetch('../../api/users/update_faculty.php',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+            .then(r=>r.json())
+            .then(res=>{
+                if(res.success){showToastNotification('Faculty updated','success');closeEditFacultyModal();refreshFacultyTable().then(()=>initializePagination());}
+                else showToastNotification(res.message,'error');
+            })
+            .catch(err=>{console.error(err);showToastNotification('Network error','error');})
+            .finally(()=>{btn.disabled=false;btn.textContent='Update Faculty';});
         }
 
         function toggleFacultyStatus(button) {
@@ -713,64 +1242,54 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
             const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
             const facultyId = row.querySelector('.faculty-checkbox').getAttribute('data-id');
             
-            if (statusBadge.classList.contains('account-active')) {
-                // Deactivate
-                showConfirmationModal(
-                    'Deactivate Faculty',
-                    `Are you sure you want to deactivate ${statusBadge.textContent}?`,
-                    'Deactivate',
-                    'Cancel',
-                    () => {
-                        statusBadge.textContent = 'Inactive';
-                        statusBadge.classList.remove('account-active');
-                        statusBadge.classList.add('account-inactive');
-                        button.classList.remove('active');
-                        button.classList.add('inactive');
-                        button.querySelector('i').classList.remove('fa-toggle-on');
-                        button.querySelector('i').classList.add('fa-toggle-off');
-                        showToastNotification('Faculty deactivated successfully', 'success');
-                    },
-                    'warning'
-                );
-            } else if (statusBadge.classList.contains('account-inactive')) {
-                // Activate
-                showConfirmationModal(
-                    'Activate Faculty',
-                    `Are you sure you want to activate ${statusBadge.textContent}?`,
-                    'Activate',
-                    'Cancel',
-                    () => {
-                        statusBadge.textContent = 'Active';
-                        statusBadge.classList.remove('account-inactive');
-                        statusBadge.classList.add('account-active');
-                        button.classList.remove('inactive');
-                        button.classList.add('active');
-                        button.querySelector('i').classList.remove('fa-toggle-off');
-                        button.querySelector('i').classList.add('fa-toggle-on');
-                        showToastNotification('Faculty activated successfully', 'success');
-                    },
-                    'info'
-                );
-            } else if (statusBadge.classList.contains('account-resigned')) {
-                // Reactivate from resigned
-                showConfirmationModal(
-                    'Reactivate Faculty',
-                    `Are you sure you want to reactivate ${statusBadge.textContent}?`,
-                    'Reactivate',
-                    'Cancel',
-                    () => {
-                        statusBadge.textContent = 'Active';
-                        statusBadge.classList.remove('account-resigned');
-                        statusBadge.classList.add('account-active');
-                        button.classList.remove('resigned');
-                        button.classList.add('active');
-                        button.querySelector('i').classList.remove('fa-user-slash');
-                        button.querySelector('i').classList.add('fa-toggle-on');
-                        showToastNotification('Faculty reactivated successfully', 'success');
-                    },
-                    'info'
-                );
-            }
+            const currentActive = statusBadge.classList.contains('account-active');
+            const newStatus = currentActive ? 'inactive' : 'active';
+
+            const confirmTitle = currentActive ? 'Deactivate Faculty' : 'Activate Faculty';
+            const confirmMsg   = `Are you sure you want to ${newStatus} ${facultyId}?`;
+
+            showConfirmationModal(
+                confirmTitle,
+                confirmMsg,
+                currentActive ? 'Deactivate' : 'Activate',
+                'Cancel',
+                () => {
+                    // call backend
+                    fetch('../../api/users/update_faculty.php',{
+                        method:'POST',
+                        credentials:'include',
+                        headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({employee_number:facultyId,status:newStatus})
+                    })
+                    .then(r=>r.json())
+                    .then(res=>{
+                        if(!res.success){ throw new Error(res.message||'Update failed'); }
+
+                        // update UI
+                        if(currentActive){
+                            statusBadge.textContent='Inactive';
+                            statusBadge.classList.remove('account-active');
+                            statusBadge.classList.add('account-inactive');
+                            button.classList.remove('active');
+                            button.classList.add('inactive');
+                            button.querySelector('i').classList.remove('fa-toggle-on');
+                            button.querySelector('i').classList.add('fa-toggle-off');
+                            showToastNotification('Faculty deactivated successfully','success');
+                        }else{
+                            statusBadge.textContent='Active';
+                            statusBadge.classList.remove('account-inactive');
+                            statusBadge.classList.add('account-active');
+                            button.classList.remove('inactive');
+                            button.classList.add('active');
+                            button.querySelector('i').classList.remove('fa-toggle-off');
+                            button.querySelector('i').classList.add('fa-toggle-on');
+                            showToastNotification('Faculty activated successfully','success');
+                        }
+                    })
+                    .catch(err=>{console.error(err);showToastNotification(err.message||'Network error','error');});
+                },
+                currentActive ? 'warning' : 'info'
+            );
         }
 
         function deleteFaculty(facultyId) {
@@ -783,8 +1302,17 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
                 'Delete Permanently',
                 'Cancel',
                 () => {
-                    row.remove();
-                    showToastNotification('Faculty deleted successfully', 'success');
+                    // call backend
+                    fetch('../../api/users/delete_faculty.php',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({employee_number:facultyId})})
+                    .then(r=>r.json())
+                    .then(res=>{
+                        if(!res.success){throw new Error(res.message||'Delete failed');}
+                        // remove row and refresh stats
+                        row.remove();
+                        showToastNotification('Faculty deleted successfully','success');
+                        refreshFacultyTable().then(()=>initializePagination());
+                    })
+                    .catch(err=>{console.error(err);showToastNotification(err.message,'error');});
                 },
                 'danger'
             );
@@ -800,7 +1328,7 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const employmentStatus = document.getElementById('employmentStatusFilter').value;
             const clearanceStatus = document.getElementById('clearanceStatusFilter').value;
-            const accountStatus = document.getElementById('accountStatusFilter').value;
+            const accountStatus = window.currentTabStatus || '';
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             
             const tableRows = document.querySelectorAll('#facultyTableBody tr');
@@ -809,7 +1337,7 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
             tableRows.forEach(row => {
                 const facultyName = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
                 const employmentBadge = row.querySelector('.status-badge.employment-full-time, .status-badge.employment-part-time, .status-badge.employment-contract');
-                const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-completed, .status-badge.clearance-rejected, .status-badge.clearance-in-progress');
+                const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-applied, .status-badge.clearance-complete, .status-badge.clearance-in-progress');
                 const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
                 
                 let shouldShow = true;
@@ -864,17 +1392,8 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
 
         // Clear all filters
         function clearFilters() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('employmentStatusFilter').value = '';
-            document.getElementById('clearanceStatusFilter').value = '';
-            document.getElementById('accountStatusFilter').value = '';
-            document.getElementById('schoolTermFilter').value = '';
-            
-            // Show all rows
-            const tableRows = document.querySelectorAll('#facultyTableBody tr');
-            tableRows.forEach(row => {
-                row.style.display = '';
-            });
+            // Use the comprehensive clearing function
+            clearAllSelectionsAndFilters();
             
             // Update pagination with all entries
             updateFilteredEntries();
@@ -955,6 +1474,59 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
         let entriesPerPage = 20;
         let totalEntries = 0;
         let filteredEntries = [];
+
+        // Fetch faculty list from backend and build table body
+        async function refreshFacultyTable(){
+            try{
+                const res = await fetch('../../api/users/faculty_list.php?limit=500',{credentials:'include'});
+                const data = await res.json();
+                if(!data.success){console.error(data);return;}
+                const tbody=document.getElementById('facultyTableBody');
+                tbody.innerHTML='';
+                let total=0,active=0,inactive=0,resigned=0;
+                data.faculty.forEach(f=>{
+                    const tr=document.createElement('tr');
+                    tr.setAttribute('data-term',''); // term unknown for now
+                    const statusRaw = f.clearance_status;
+                    let clearanceKey = 'unapplied';
+                    if(statusRaw==='Completed' || statusRaw==='Complete') clearanceKey='complete';
+                    else if(statusRaw==='Applied') clearanceKey='applied';
+                    else if(statusRaw==='In Progress' || statusRaw==='Pending') clearanceKey='in-progress';
+                    else if(statusRaw==='Rejected') clearanceKey='rejected';
+
+                    const accountStatus = f.status.toLowerCase();
+                    const clearanceStatus=clearanceKey;
+                    tr.innerHTML=`<td><input type=\"checkbox\" class=\"faculty-checkbox\" data-id=\"${f.employee_number}\"></td>
+                                <td>${f.employee_number}</td>
+                                <td>${f.first_name} ${f.last_name}</td>
+                                <td><span class="status-badge employment-${f.employment_status.toLowerCase().replace(/ /g,'-')}">${f.employment_status}</span></td>
+                                <td><span class="status-badge account-${accountStatus}">${accountStatus.charAt(0).toUpperCase()+accountStatus.slice(1)}</span></td>
+                                <td><span class="status-badge clearance-${clearanceStatus}">${statusRaw}</span></td>
+                                <td><div class="action-buttons">
+                                        <button class=\"btn-icon view-progress-btn\" onclick=\"viewClearanceProgress('${f.employee_number}')\" title=\"View Clearance Progress\"><i class=\"fas fa-tasks\"></i></button>
+                                        <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
+                                        <button class="btn-icon status-toggle-btn ${accountStatus==='active'?'active':'inactive'}" onclick="toggleFacultyStatus(this)" title="Toggle Status"><i class="fas ${accountStatus==='active'?'fa-toggle-on':'fa-toggle-off'}"></i></button>
+                                        <button class=\"btn-icon delete-btn\" onclick=\"deleteFaculty('${f.employee_number}')\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>
+                                   </div></td>`;
+
+                    if(accountStatus!=='active'){
+                        tr.classList.add('row-disabled');
+                        // Keep checkbox enabled; bulk logic will govern action button states
+                    }
+                    tbody.appendChild(tr);
+                    // stats counting
+                    total++;
+                    if(accountStatus==='active') active++;
+                    else if(accountStatus==='inactive') inactive++;
+                    else if(accountStatus==='resigned') resigned++;
+                });
+                // update stats dashboard
+                document.getElementById('totalFaculty').textContent=total;
+                document.getElementById('activeFaculty').textContent=active;
+                document.getElementById('inactiveFaculty').textContent=inactive;
+                document.getElementById('resignedFaculty').textContent=resigned;
+            }catch(err){console.error(err);}
+        }
 
         // Initialize pagination
         function initializePagination() {
@@ -1138,11 +1710,434 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
             }
         }
 
+        // Signatory Override Modal Functions
+        function openSignatoryOverrideModal() {
+            const modal = document.getElementById('signatoryOverrideModal');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSignatoryOverrideModal() {
+            const modal = document.getElementById('signatoryOverrideModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function proceedWithOverride() {
+            const positionSelect = document.getElementById('staffPositionSelect');
+            const customInput = document.getElementById('customPositionInput');
+            
+            let selectedPosition = positionSelect.value;
+            if (!selectedPosition && customInput.value.trim()) {
+                selectedPosition = customInput.value.trim();
+            }
+            
+            if (!selectedPosition) {
+                showToastNotification('Please select or enter a position', 'warning');
+                return;
+            }
+            
+            // Close modal and start override session
+            closeSignatoryOverrideModal();
+            startOverrideSession(selectedPosition);
+        }
+
+        function startOverrideSession(position) {
+            // Hide main content and show override interface
+            document.querySelector('.main-content').style.display = 'none';
+            document.getElementById('overrideSessionInterface').style.display = 'block';
+            
+            // Update position display
+            document.getElementById('overridePositionDisplay').textContent = `Signing as: ${position}`;
+            
+            // Start session timer
+            startSessionTimer();
+            
+            // Load pending clearances for the position
+            loadOverrideClearances(position);
+            
+            showToastNotification(`Override session started for ${position} position`, 'success');
+        }
+
+        function endOverrideSession() {
+            showConfirmationModal(
+                'End Override Session',
+                'Are you sure you want to end the override session? All unsaved changes will be lost.',
+                'End Session',
+                'Cancel',
+                () => {
+                    // Hide override interface and show main content
+                    document.getElementById('overrideSessionInterface').style.display = 'none';
+                    document.querySelector('.main-content').style.display = 'block';
+                    
+                    // Stop session timer
+                    stopSessionTimer();
+                    
+                    // Reset override interface
+                    resetOverrideInterface();
+                    
+                    showToastNotification('Override session ended', 'info');
+                },
+                'warning'
+            );
+        }
+
+        function loadOverrideClearances(position) {
+            // Simulate loading clearances for the selected position
+            const clearancesList = document.getElementById('overrideClearancesList');
+            clearancesList.innerHTML = `
+                <div class="clearance-item">
+                    <div class="clearance-info">
+                        <h4>Dr. Maria Santos</h4>
+                        <p>ICT Department - Full Time</p>
+                        <span class="status-badge clearance-in-progress">In Progress</span>
+                    </div>
+                    <div class="clearance-actions">
+                        <input type="checkbox" class="override-checkbox" data-id="1">
+                        <button class="btn btn-success btn-sm" onclick="approveOverrideClearance(1)">
+                            <i class="fas fa-check"></i> Approve
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="rejectOverrideClearance(1)">
+                            <i class="fas fa-times"></i> Reject
+                        </button>
+                    </div>
+                </div>
+                <div class="clearance-item">
+                    <div class="clearance-info">
+                        <h4>Prof. Juan Dela Cruz</h4>
+                        <p>Business Department - Part Time</p>
+                        <span class="status-badge clearance-in-progress">In Progress</span>
+                    </div>
+                    <div class="clearance-actions">
+                        <input type="checkbox" class="override-checkbox" data-id="2">
+                        <button class="btn btn-success btn-sm" onclick="approveOverrideClearance(2)">
+                            <i class="fas fa-check"></i> Approve
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="rejectOverrideClearance(2)">
+                            <i class="fas fa-times"></i> Reject
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Update pending clearances preview
+            updatePendingClearancesPreview(position);
+        }
+
+        function updatePendingClearancesPreview(position) {
+            const previewList = document.getElementById('pendingClearancesList');
+            previewList.innerHTML = `
+                <div class="preview-item">Dr. Maria Santos - ICT (In Progress)</div>
+                <div class="preview-item">Prof. Juan Dela Cruz - Business (In Progress)</div>
+                <div class="preview-item">Dr. Ana Rodriguez - Engineering (In Progress)</div>
+            `;
+        }
+
+        function startSessionTimer() {
+            let seconds = 0;
+            window.sessionTimer = setInterval(() => {
+                seconds++;
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = seconds % 60;
+                document.getElementById('sessionTimer').textContent = 
+                    `Session: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function stopSessionTimer() {
+            if (window.sessionTimer) {
+                clearInterval(window.sessionTimer);
+                window.sessionTimer = null;
+            }
+        }
+
+        function resetOverrideInterface() {
+            document.getElementById('staffPositionSelect').value = '';
+            document.getElementById('customPositionInput').value = '';
+            document.getElementById('overrideSelectAll').checked = false;
+            document.getElementById('overrideStats').textContent = 'Selected: 0 | Approved: 0 | Rejected: 0';
+        }
+
+        function toggleOverrideSelectAll() {
+            const selectAllCheckbox = document.getElementById('overrideSelectAll');
+            const overrideCheckboxes = document.querySelectorAll('.override-checkbox');
+            
+            overrideCheckboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            
+            updateOverrideBulkButtons();
+        }
+
+        function updateOverrideBulkButtons() {
+            const checkedBoxes = document.querySelectorAll('.override-checkbox:checked');
+            const bulkButtons = document.querySelectorAll('.override-bulk-actions .bulk-buttons .btn');
+            
+            bulkButtons.forEach(button => {
+                button.disabled = checkedBoxes.length === 0;
+            });
+            
+            updateOverrideStats();
+        }
+
+        function updateOverrideStats() {
+            const selectedCount = document.querySelectorAll('.override-checkbox:checked').length;
+            const approvedCount = document.querySelectorAll('.status-badge.clearance-complete').length;
+            const rejectedCount = document.querySelectorAll('.status-badge.clearance-in-progress').length;
+            
+            document.getElementById('overrideStats').textContent = 
+                `Selected: ${selectedCount} | Approved: ${approvedCount} | Rejected: ${rejectedCount}`;
+        }
+
+        function bulkApproveOverride() {
+            const selectedCheckboxes = document.querySelectorAll('.override-checkbox:checked');
+            
+            if (selectedCheckboxes.length === 0) {
+                showToastNotification('Please select clearances to approve', 'warning');
+                return;
+            }
+            
+            showConfirmationModal(
+                'Bulk Approve Clearances',
+                `Are you sure you want to approve ${selectedCheckboxes.length} selected clearances?`,
+                'Approve All',
+                'Cancel',
+                () => {
+                    selectedCheckboxes.forEach(checkbox => {
+                        const id = checkbox.getAttribute('data-id');
+                        approveOverrideClearance(id);
+                    });
+                    showToastNotification(`${selectedCheckboxes.length} clearances approved successfully`, 'success');
+                },
+                'success'
+            );
+        }
+
+        function bulkRejectOverride() {
+            const selectedCheckboxes = document.querySelectorAll('.override-checkbox:checked');
+            
+            if (selectedCheckboxes.length === 0) {
+                showToastNotification('Please select clearances to reject', 'warning');
+                return;
+            }
+            
+            // Get selected clearance IDs
+            const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.getAttribute('data-id'));
+            
+            // Open rejection remarks modal for bulk override rejection
+            openRejectionRemarksModal(null, null, 'faculty', true, selectedIds);
+        }
+
+        function approveOverrideClearance(id) {
+            const clearanceItem = document.querySelector(`.override-checkbox[data-id="${id}"]`).closest('.clearance-item');
+            const statusBadge = clearanceItem.querySelector('.status-badge');
+            
+            statusBadge.textContent = 'Complete';
+            statusBadge.classList.remove('clearance-in-progress', 'clearance-applied');
+            statusBadge.classList.add('clearance-complete');
+            
+            showToastNotification('Clearance approved successfully', 'success');
+            updateOverrideStats();
+        }
+
+        function rejectOverrideClearance(id) {
+            const clearanceItem = document.querySelector(`.override-checkbox[data-id="${id}"]`).closest('.clearance-item');
+            const facultyName = clearanceItem.querySelector('h4').textContent;
+            
+            // Open rejection remarks modal for override rejection
+            openRejectionRemarksModal(id, facultyName, 'faculty', false);
+        }
+
+        function exportOverrideReport() {
+            showToastNotification('Override report export functionality will be implemented', 'info');
+        }
+
+        function searchOverrideClearances() {
+            const searchTerm = document.getElementById('overrideSearchInput').value.toLowerCase();
+            const clearanceItems = document.querySelectorAll('.clearance-item');
+            
+            clearanceItems.forEach(item => {
+                const facultyName = item.querySelector('h4').textContent.toLowerCase();
+                if (facultyName.includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Clearance Progress Modal Function
+        function viewClearanceProgress(facultyId) {
+            // Get faculty name from the table row
+            const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
+            const facultyName = row.querySelector('td:nth-child(3)').textContent;
+            
+            // Open the clearance progress modal
+            openClearanceProgressModal(facultyId, 'faculty', facultyName);
+        }
+
+        // Rejection Remarks Modal Functions
+        let currentRejectionData = {
+            targetId: null,
+            targetName: null,
+            targetType: 'faculty',
+            isBulk: false,
+            targetIds: []
+        };
+
+        function openRejectionRemarksModal(targetId, targetName, targetType = 'faculty', isBulk = false, targetIds = []) {
+            currentRejectionData = {
+                targetId: targetId,
+                targetName: targetName,
+                targetType: targetType,
+                isBulk: isBulk,
+                targetIds: targetIds
+            };
+
+            // Update modal content based on target type
+            const modal = document.getElementById('rejectionRemarksModal');
+            const targetNameElement = document.getElementById('rejectionTargetName');
+            const targetTypeElement = document.getElementById('rejectionType');
+            const reasonSelect = document.getElementById('rejectionReason');
+            const remarksTextarea = document.getElementById('additionalRemarks');
+
+            // Reset form
+            reasonSelect.value = '';
+            remarksTextarea.value = '';
+
+            // Update display
+            if (isBulk) {
+                targetNameElement.textContent = `Rejecting: ${targetIds.length} Selected ${targetType === 'student' ? 'Students' : 'Faculty'}`;
+            } else {
+                targetNameElement.textContent = `Rejecting: ${targetName}`;
+            }
+            targetTypeElement.textContent = targetType === 'student' ? 'Student' : 'Faculty';
+
+            // Show modal
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeRejectionRemarksModal() {
+            const modal = document.getElementById('rejectionRemarksModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            
+            // Reset current rejection data
+            currentRejectionData = {
+                targetId: null,
+                targetName: null,
+                targetType: 'faculty',
+                isBulk: false,
+                targetIds: []
+            };
+        }
+
+        function handleReasonChange() {
+            const reasonSelect = document.getElementById('rejectionReason');
+            const remarksTextarea = document.getElementById('additionalRemarks');
+            
+            // If "Other" is selected, focus on remarks textarea
+            if (reasonSelect.value === 'other') {
+                remarksTextarea.focus();
+                remarksTextarea.placeholder = 'Please specify the reason for rejection...';
+            } else {
+                remarksTextarea.placeholder = 'Provide additional details or specific instructions...';
+            }
+        }
+
+        function submitRejection() {
+            const reasonSelect = document.getElementById('rejectionReason');
+            const remarksTextarea = document.getElementById('additionalRemarks');
+            
+            // Get rejection data
+            const rejectionReason = reasonSelect.value;
+            const additionalRemarks = remarksTextarea.value.trim();
+            
+            // Demo: Show rejection summary
+            let rejectionSummary = '';
+            if (currentRejectionData.isBulk) {
+                rejectionSummary = `Rejected ${currentRejectionData.targetIds.length} ${currentRejectionData.targetType === 'student' ? 'students' : 'faculty'}`;
+            } else {
+                rejectionSummary = `Rejected ${currentRejectionData.targetName}`;
+            }
+            
+            if (rejectionReason) {
+                const reasonText = reasonSelect.options[reasonSelect.selectedIndex].text;
+                rejectionSummary += `\nReason: ${reasonText}`;
+            }
+            
+            if (additionalRemarks) {
+                rejectionSummary += `\nAdditional Remarks: ${additionalRemarks}`;
+            }
+            
+            // Demo: Update UI and show success message
+            if (currentRejectionData.isBulk) {
+                // Update override clearance items
+                currentRejectionData.targetIds.forEach(id => {
+                    const clearanceItem = document.querySelector(`.override-checkbox[data-id="${id}"]`);
+                    if (clearanceItem) {
+                        const clearanceItemRow = clearanceItem.closest('.clearance-item');
+                        if (clearanceItemRow) {
+                            const statusBadge = clearanceItemRow.querySelector('.status-badge');
+                            if (statusBadge) {
+                                statusBadge.textContent = 'Rejected';
+                                statusBadge.classList.remove('clearance-pending', 'clearance-in-progress', 'clearance-complete');
+                                statusBadge.classList.add('clearance-rejected');
+                            }
+                        }
+                    }
+                });
+                
+                // Uncheck all override checkboxes
+                document.getElementById('overrideSelectAll').checked = false;
+                currentRejectionData.targetIds.forEach(id => {
+                    const checkbox = document.querySelector(`.override-checkbox[data-id="${id}"]`);
+                    if (checkbox) checkbox.checked = false;
+                });
+                updateOverrideBulkButtons();
+                
+                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} faculty with remarks`, 'success');
+            } else {
+                // Update override clearance item
+                const clearanceItem = document.querySelector(`.override-checkbox[data-id="${currentRejectionData.targetId}"]`);
+                if (clearanceItem) {
+                    const clearanceItemRow = clearanceItem.closest('.clearance-item');
+                    if (clearanceItemRow) {
+                        const statusBadge = clearanceItemRow.querySelector('.status-badge');
+                        if (statusBadge) {
+                            statusBadge.textContent = 'Rejected';
+                            statusBadge.classList.remove('clearance-pending', 'clearance-in-progress', 'clearance-complete');
+                            statusBadge.classList.add('clearance-rejected');
+                        }
+                    }
+                }
+                
+                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
+            }
+            
+            // Close modal
+            closeRejectionRemarksModal();
+            
+            // Demo: Log rejection data (in real implementation, this would be sent to server)
+            console.log('Rejection Data:', {
+                target: currentRejectionData,
+                reason: rejectionReason,
+                additionalRemarks: additionalRemarks,
+                timestamp: new Date().toISOString()
+            });
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
-            initializePagination();
-            updateSelectionCounter(); // Initialize the counter
-            
+            // Load faculty list from backend then initialize pagination
+            refreshFacultyTable().then(()=>{
+                showToastNotification('Faculty table refreshed','success');
+                initializePagination();
+                updateSelectionCounter();
+            });
+
             // Add event listeners for checkboxes
             document.addEventListener('change', function(e) {
                 if (e.target.classList.contains('faculty-checkbox')) {
@@ -1150,8 +2145,436 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
                     updateSelectionCounter();
                 }
             });
+            
+            // Add event listeners for filter checkboxes in bulk selection modal
+            document.addEventListener('change', function(e) {
+                if (e.target.id && e.target.id.startsWith('filter')) {
+                    // Update any real-time feedback if needed
+                }
+            });
+
+            // Listen for new faculty event from modal
+            document.addEventListener('faculty-added',function(e){
+                refreshFacultyTable().then(()=>{
+                    showToastNotification('Faculty table refreshed','success');
+                    initializePagination();
+                });
+            });
+
+            // load current clearance period for banner (map 1st/2nd -> Term 1/Term 2)
+            fetch('../../api/clearance/periods.php', { credentials: 'include' })
+                .then(r => r.json())
+                .then(per => {
+                    const bannerEl = document.getElementById('currentPeriodText');
+                    if (!bannerEl) return;
+                    if (per.success && per.active_period) {
+                        const p = per.active_period;
+                        const termMap = { '1st': 'Term 1', '2nd': 'Term 2', '3rd': 'Term 3' };
+                        const semLabel = termMap[p.semester_name] || p.semester_name || '';
+                        bannerEl.textContent = `${p.school_year} • ${semLabel}`;
+                    } else {
+                        bannerEl.textContent = 'No active clearance period';
+                    }
+                })
+                .catch(() => {
+                    const bannerEl = document.getElementById('currentPeriodText');
+                    if (bannerEl) bannerEl.textContent = 'Unable to load period';
+                });
+              
+            // Add click outside modal functionality for bulk selection modal
+            document.addEventListener('click', function(e) {
+                const modal = document.getElementById('bulkSelectionModal');
+                if (modal && modal.style.display === 'flex') {
+                    if (e.target === modal) {
+                        closeBulkSelectionModal();
+                    }
+                }
+            });
+            
+            // Add keyboard support for bulk selection modal
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const modal = document.getElementById('bulkSelectionModal');
+                    if (modal && modal.style.display === 'flex') {
+                        closeBulkSelectionModal();
+                    }
+                }
+            });
+
+            // Make selection counter pill act as Clear Selection when active
+            const pill = document.getElementById('selectionCounterPill');
+            if (pill) {
+                pill.addEventListener('click', function() {
+                    if (!pill.classList.contains('has-selections') && !pill.classList.contains('all-selected')) return;
+                    clearAllSelections();
+                });
+                pill.addEventListener('keydown', function(e){
+                    if ((e.key === 'Enter' || e.key === ' ') && (pill.classList.contains('has-selections') || pill.classList.contains('all-selected'))){
+                        e.preventDefault();
+                        clearAllSelections();
+                    }
+                });
+            }
+        });
+
+        // Tab switch helper: shows confirmation, clears selections/filters, then switches
+        function switchFacultyTab(btn){
+            const newTabStatus = btn.getAttribute('data-status');
+            const currentTabStatus = window.currentTabStatus || '';
+            
+            // If switching to the same tab, do nothing
+            if (newTabStatus === currentTabStatus) {
+                return;
+            }
+            
+            // Check if there are any active selections or filters
+            const hasSelections = getSelectedCount() > 0;
+            const hasFilters = hasActiveFilters();
+            
+            if (hasSelections || hasFilters) {
+                // Show confirmation dialog
+                showConfirmationModal(
+                    'Switch Tab',
+                    'Switching tabs will clear your current selection and bulk selection filters. Continue?',
+                    'Continue',
+                    'Cancel',
+                    () => {
+                        // User confirmed - proceed with tab switch
+                        performTabSwitch(btn, newTabStatus);
+                    },
+                    'warning'
+                );
+            } else {
+                // No selections or filters - switch immediately
+                performTabSwitch(btn, newTabStatus);
+            }
+        }
+        
+        function performTabSwitch(btn, newTabStatus) {
+            // Update tab UI
+            document.querySelectorAll('#facultyTabNav .tab-pill').forEach(p=>p.classList.remove('active'));
+            btn.classList.add('active');
+            window.currentTabStatus = newTabStatus;
+            
+            // Clear all selections and filters
+            clearAllSelectionsAndFilters();
+            
+            // Apply filters for new tab context
+            applyFilters();
+            
+            // Show confirmation message
+            showToastNotification('Selection and filters cleared for new tab view', 'info');
+        }
+
+        // track currently selected account-status cohort from tab nav
+        window.currentTabStatus = '';
+
+        // dropdown handler for mobile tab select
+        function handleTabSelectChange(sel){
+            const newTabStatus = sel.value;
+            const currentTabStatus = window.currentTabStatus || '';
+            
+            // If switching to the same tab, do nothing
+            if (newTabStatus === currentTabStatus) {
+                return;
+            }
+            
+            // Check if there are any active selections or filters
+            const hasSelections = getSelectedCount() > 0;
+            const hasFilters = hasActiveFilters();
+            
+            if (hasSelections || hasFilters) {
+                // Show confirmation dialog
+                showConfirmationModal(
+                    'Switch Tab',
+                    'Switching tabs will clear your current selection and bulk selection filters. Continue?',
+                    'Continue',
+                    'Cancel',
+                    () => {
+                        // User confirmed - proceed with tab switch
+                        performMobileTabSwitch(sel, newTabStatus);
+                    },
+                    'warning'
+                );
+            } else {
+                // No selections or filters - switch immediately
+                performMobileTabSwitch(sel, newTabStatus);
+            }
+        }
+        
+        function performMobileTabSwitch(sel, newTabStatus) {
+            // Update tab state
+            window.currentTabStatus = newTabStatus;
+            
+            // Sync pill active state for when user switches back to desktop
+            document.querySelectorAll('#facultyTabNav .tab-pill').forEach(btn=>{
+                btn.classList.toggle('active', btn.getAttribute('data-status')===newTabStatus);
+            });
+            
+            // Clear all selections and filters
+            clearAllSelectionsAndFilters();
+            
+            // Apply filters for new tab context
+            applyFilters();
+            
+            // Show confirmation message
+            showToastNotification('Selection and filters cleared for new tab view', 'info');
+        }
+
+        // Bulk Selection Modal Functions
+        function openBulkSelectionModal() {
+            const modal = document.getElementById('bulkSelectionModal');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            
+            // Reset all checkboxes
+            resetBulkSelectionFilters();
+            
+            // Apply tab-based restrictions
+            applyTabBasedRestrictions();
+        }
+
+        function closeBulkSelectionModal() {
+            const modal = document.getElementById('bulkSelectionModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function resetBulkSelectionFilters() {
+            // Reset all filter checkboxes
+            document.getElementById('filterActive').checked = false;
+            document.getElementById('filterInactive').checked = false;
+            document.getElementById('filterApplied').checked = false;
+            document.getElementById('filterInProgress').checked = false;
+            document.getElementById('filterComplete').checked = false;
+        }
+
+        function applyTabBasedRestrictions() {
+            const currentTab = window.currentTabStatus || '';
+            const activeCheckbox = document.getElementById('filterActive');
+            const inactiveCheckbox = document.getElementById('filterInactive');
+            
+            // Reset all checkboxes to enabled state first
+            activeCheckbox.disabled = false;
+            inactiveCheckbox.disabled = false;
+            activeCheckbox.parentElement.classList.remove('disabled');
+            inactiveCheckbox.parentElement.classList.remove('disabled');
+            
+            // Apply tab-based restrictions
+            if (currentTab === 'active') {
+                // In Active tab, disable "inactive" checkbox
+                inactiveCheckbox.disabled = true;
+                inactiveCheckbox.parentElement.classList.add('disabled');
+            } else if (currentTab === 'inactive') {
+                // In Inactive tab, disable "active" checkbox
+                activeCheckbox.disabled = true;
+                activeCheckbox.parentElement.classList.add('disabled');
+            }
+            // Overall tab has no restrictions
+        }
+
+        function applyBulkSelection() {
+            const selectedFilters = getSelectedFilters();
+            
+            if (Object.values(selectedFilters).every(filter => !filter)) {
+                // No filters means select all visible rows (wildcard)
+                selectAllVisibleRows();
+                closeBulkSelectionModal();
+                updateBulkButtons();
+                updateSelectionCounter();
+                showToastNotification('All visible rows selected', 'success');
+                return;
+            }
+            
+            // Apply the filters to select faculty
+            selectFacultyByFilters(selectedFilters);
+            
+            // Close the modal
+            closeBulkSelectionModal();
+            
+            // Update bulk buttons based on new selection
+            updateBulkButtons();
+            updateSelectionCounter();
+            
+            showToastNotification('Bulk selection applied successfully', 'success');
+        }
+
+        // Select all visible rows; if include-all-pages is desired in future, we can extend this
+        function selectAllVisibleRows(){
+            const rows = document.querySelectorAll('#facultyTableBody tr');
+            let count = 0;
+            rows.forEach(r=>{
+                if (r.style.display === 'none') return; // only visible scope
+                const cb = r.querySelector('.faculty-checkbox');
+                if (cb){ cb.checked = true; count++; }
+            });
+            showInfoToast(`Selected ${count} faculty`);
+        }
+
+        function getSelectedFilters() {
+            return {
+                active: document.getElementById('filterActive').checked,
+                inactive: document.getElementById('filterInactive').checked,
+                applied: document.getElementById('filterApplied').checked,
+                inProgress: document.getElementById('filterInProgress').checked,
+                complete: document.getElementById('filterComplete').checked
+            };
+        }
+
+        function selectFacultyByFilters(filters) {
+            const tableRows = document.querySelectorAll('#facultyTableBody tr');
+            let selectedCount = 0;
+            
+            tableRows.forEach(row => {
+                const shouldSelect = shouldRowBeSelected(row, filters);
+                const checkbox = row.querySelector('.faculty-checkbox');
+                
+                if (checkbox) {
+                    checkbox.checked = shouldSelect;
+                    if (shouldSelect) selectedCount++;
+                }
+            });
+            
+            // Update selection counter
+            updateSelectionCounter();
+            
+            // Show results count
+            showInfoToast(`Selected ${selectedCount} faculty based on filters`);
+        }
+
+        function shouldRowBeSelected(row, filters) {
+            // Get row data
+            const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
+            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-applied, .status-badge.clearance-in-progress, .status-badge.clearance-complete');
+            
+            let accountMatch = false;
+            let clearanceMatch = false;
+            
+            // Check account status filters
+            if (filters.active || filters.inactive) {
+                if (filters.active && accountBadge && accountBadge.classList.contains('account-active')) {
+                    accountMatch = true;
+                }
+                if (filters.inactive && accountBadge && accountBadge.classList.contains('account-inactive')) {
+                    accountMatch = true;
+                }
+            } else {
+                // If no account filters selected, consider it a match (wildcard)
+                accountMatch = true;
+            }
+            
+            // Check clearance progress filters
+            if (filters.applied || filters.inProgress || filters.complete) {
+                if (filters.applied && clearanceBadge && clearanceBadge.classList.contains('clearance-applied')) {
+                    clearanceMatch = true;
+                }
+                if (filters.inProgress && clearanceBadge && clearanceBadge.classList.contains('clearance-in-progress')) {
+                    clearanceMatch = true;
+                }
+                if (filters.complete && clearanceBadge && clearanceBadge.classList.contains('clearance-complete')) {
+                    clearanceMatch = true;
+                }
+            } else {
+                // If no clearance filters selected, consider it a match (wildcard)
+                clearanceMatch = true;
+            }
+            
+            // Row should be selected if it matches both account and clearance filters
+            return accountMatch && clearanceMatch;
+        }
+        
+        // Helper function to check if there are any active filters
+        function hasActiveFilters() {
+            const searchInput = document.getElementById('searchInput');
+            const employmentFilter = document.getElementById('employmentStatusFilter');
+            const clearanceFilter = document.getElementById('clearanceStatusFilter');
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            
+            return (searchInput && searchInput.value.trim() !== '') ||
+                   (employmentFilter && employmentFilter.value !== '') ||
+                   (clearanceFilter && clearanceFilter.value !== '') ||
+                   (schoolTermFilter && schoolTermFilter.value !== '');
+        }
+        
+        // Function to clear all selections and filters
+        function clearAllSelectionsAndFilters() {
+            // Clear all faculty checkboxes
+            const facultyCheckboxes = document.querySelectorAll('.faculty-checkbox');
+            facultyCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            
+            // Clear search input
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.value = '';
+            
+            // Clear filter dropdowns
+            const employmentFilter = document.getElementById('employmentStatusFilter');
+            const clearanceFilter = document.getElementById('clearanceStatusFilter');
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            
+            if (employmentFilter) employmentFilter.value = '';
+            if (clearanceFilter) clearanceFilter.value = '';
+            if (schoolTermFilter) schoolTermFilter.value = '';
+            
+            // Reset bulk selection modal filters (if modal is open)
+            resetBulkSelectionFilters();
+            
+            // Update UI states
+            updateSelectionCounter();
+            updateBulkButtons();
+            
+            // Show all rows (remove any filter-based hiding)
+            const tableRows = document.querySelectorAll('#facultyTableBody tr');
+            tableRows.forEach(row => {
+                row.style.display = '';
+            });
+            
+            // Disable clear selection button (since no selections)
+            const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+            if (clearSelectionBtn) clearSelectionBtn.disabled = true;
+        }
+
+        // Function to clear all faculty selections only (keeps filters)
+        function clearAllSelections() {
+            const selectedCount = getSelectedCount();
+            
+            if (selectedCount === 0) {
+                showToastNotification('No selections to clear', 'info');
+                return;
+            }
+            
+            // Clear all faculty checkboxes
+            const facultyCheckboxes = document.querySelectorAll('.faculty-checkbox');
+            facultyCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            
+            // Update UI states
+            updateSelectionCounter();
+            updateBulkButtons();
+            
+            showToastNotification(`Cleared ${selectedCount} selections`, 'success');
+        }
+    </script>
+    <!-- Include Alert System JavaScript -->
+    <script src="../../assets/js/alerts.js"></script>
+    
+    <!-- Include Activity Tracker JavaScript -->
+    <script src="../../assets/js/activity-tracker.js"></script>
+    
+    <!-- Initialize Activity Tracker -->
+    <script>
+        // Initialize Activity Tracker when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
+                window.activityTrackerInstance = new ActivityTracker();
+                console.log('Activity Tracker initialized');
+            }
         });
     </script>
-    <script src="../../assets/js/alerts.js"></script>
+    
+    <!-- TEMPORARILY DISABLED: Include Audit Functions -->
+    <!-- <?php include '../../includes/functions/audit_functions.php'; ?> -->
 </body>
 </html> 

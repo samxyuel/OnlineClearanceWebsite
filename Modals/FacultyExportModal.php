@@ -141,6 +141,16 @@
             <label for="exportFileName">File Name</label>
             <input type="text" id="exportFileName" name="fileName" placeholder="faculty_data_export" value="faculty_data_export">
           </div>
+          <div class="form-group" id="pdfLayoutSection" style="display: none;">
+            <label for="pdfPageSize">Layout Size (PDF)</label>
+            <select id="pdfPageSize" name="pdfPageSize">
+              <option value="A4" selected>A4 (210 × 297 mm)</option>
+              <option value="LETTER">Letter (8.5 × 11 in)</option>
+              <option value="LEGAL">Legal (8.5 × 14 in)</option>
+              <option value="A5">A5 (148 × 210 mm)</option>
+              <option value="A3">A3 (297 × 420 mm)</option>
+            </select>
+          </div>
           <div class="checkbox-group">
             <label class="checkbox-label">
               <input type="checkbox" name="includeHeaders" checked>
@@ -288,6 +298,14 @@
     return true;
   }
   
+  function updatePdfOptionsVisibility() {
+    const format = document.querySelector('input[name="exportFormat"]:checked')?.value;
+    const pdfSection = document.getElementById('pdfLayoutSection');
+    if (pdfSection) {
+      pdfSection.style.display = (format === 'pdf') ? 'block' : 'none';
+    }
+  }
+
 
   
   // Make functions globally accessible
@@ -300,6 +318,10 @@
     scopeRadios.forEach(radio => {
       radio.addEventListener('change', updateFacultyExportScope);
     });
+
+    const formatRadios = document.querySelectorAll('input[name="exportFormat"]');
+    formatRadios.forEach(r => r.addEventListener('change', updatePdfOptionsVisibility));
+    updatePdfOptionsVisibility();
   };
   
   window.closeFacultyExportModal = function() {
@@ -313,43 +335,78 @@
   };
   
   window.submitFacultyExportForm = function() {
-    if (!validateFacultyExportForm()) {
-      return;
-    }
-    
+    if (!validateFacultyExportForm()) return;
+
     const exportFormat = document.querySelector('input[name="exportFormat"]:checked').value;
     const exportScope = document.querySelector('input[name="exportScope"]:checked').value;
     const fileName = document.getElementById('exportFileName').value.trim();
-    
-    let scopeText = '';
-    switch (exportScope) {
-      case 'all':
-        scopeText = 'all faculty';
-        break;
-      case 'filtered':
-        scopeText = 'filtered faculty';
-        break;
-      case 'selected':
-        scopeText = 'selected faculty';
-        break;
+
+    // Build payload
+    const form = document.getElementById('facultyExportForm');
+    const fd = new FormData(form);
+
+    // Column order: capture checked include checkboxes in DOM order
+    const keyMap = {
+      includeEmployeeNumber: 'employee_number',
+      includeEmploymentStatus: 'employment_status',
+      includeName: 'name',
+      includeEmail: 'email',
+      includeContactNumber: 'contact_number',
+      includeAccountStatus: 'account_status',
+      includeClearanceStatus: 'clearance_status',
+      includeSchoolTerm: 'school_term'
+    };
+    const includeBoxes = document.querySelectorAll('input[type="checkbox"][name^="include"]');
+    includeBoxes.forEach(cb => {
+      if (cb.checked) {
+        const key = keyMap[cb.name];
+        if (key) fd.append('columns[]', key);
+      }
+    });
+
+    // Include page context for filtered scope
+    if (exportScope === 'filtered') {
+      fd.append('employmentStatus', (document.getElementById('exportEmploymentStatus')?.value) || '');
+      fd.append('accountStatus', (document.getElementById('exportAccountStatus')?.value) || '');
+      fd.append('clearanceStatus', (document.getElementById('exportClearanceStatus')?.value) || '');
+      // current tab status if any
+      if (window.currentTabStatus) fd.append('tabStatus', window.currentTabStatus);
     }
-    
-    showConfirmationModal(
-      'Export Faculty Data',
-      `Are you sure you want to export ${scopeText} data as ${exportFormat.toUpperCase()} format with filename "${fileName}"?`,
-      'Export Data',
-      'Cancel',
-      () => {
-        // Simulate export process
-        showToastNotification('Preparing faculty data export...', 'info');
-        
-        setTimeout(() => {
-          showToastNotification('Faculty data exported successfully!', 'success');
-          window.closeFacultyExportModal();
-        }, 2000);
-      },
-      'info'
-    );
+
+    // Selected scope: collect selected employee_numbers from table
+    if (exportScope === 'selected') {
+      const selected = Array.from(document.querySelectorAll('.faculty-checkbox:checked')).map(cb=>cb.getAttribute('data-id'));
+      if (selected.length === 0) {
+        showToastNotification('No faculty selected', 'warning');
+        return;
+      }
+      fd.append('selected', selected.join(','));
+    }
+
+    // Column includes
+    // (already captured by form inputs)
+
+    // Kick off download
+    showToastNotification('Preparing faculty data export...', 'info');
+    fetch('../../controllers/exportData.php', { method:'POST', body: fd, credentials:'include' })
+      .then(async resp => {
+        if (!resp.ok) throw new Error('Export failed');
+        const disp = resp.headers.get('Content-Disposition') || '';
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        // Try to parse filename from header; fallback
+        const match = /filename\s*=\s*([^;]+)/i.exec(disp);
+        const suggested = match ? match[1].replace(/\"/g,'').trim() : `${fileName}.${exportFormat}`;
+        a.href = url; a.download = suggested; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        window.closeFacultyExportModal();
+        showToastNotification('Faculty data exported successfully!', 'success');
+      })
+      .catch(err => {
+        console.error(err);
+        showToastNotification(err.message || 'Export failed', 'error');
+      });
   };
   
   // Add event listeners
@@ -358,5 +415,9 @@
     scopeRadios.forEach(radio => {
       radio.addEventListener('change', updateFacultyExportScope);
     });
+
+    const formatRadios = document.querySelectorAll('input[name="exportFormat"]');
+    formatRadios.forEach(r => r.addEventListener('change', updatePdfOptionsVisibility));
+    updatePdfOptionsVisibility();
   });
 </script> 

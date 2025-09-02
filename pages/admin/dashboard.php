@@ -9,6 +9,7 @@
     <title>Admin Dashboard - Online Clearance System</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
+    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -56,174 +57,184 @@
         
         <!-- Main Content -->
         <div class="main-content">
+            <div class="dashboard-layout">
+                <!-- LEFT SIDE: Main Content -->
+                <div class="dashboard-main">
             <div class="content-wrapper">
-                <!-- Page Header -->
-                <div class="page-header">
-                    <h2><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h2>
-                    <p>Welcome to the admin dashboard. Monitor system status and manage clearance operations.</p>
-                </div>
+                        <!-- Page Header -->
+                        <div class="page-header">
+                            <h2><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h2>
+                            <p>Welcome to the admin dashboard. Monitor system status and manage clearance operations.</p>
+                        </div>
 
-                <!-- Active Period Status -->
-                <div class="card active-period-status">
-                    <div class="status-content">
-                        <div class="status-info">
-                            <h3><i class="fas fa-calendar-check"></i> 2024-2025 Term 1 (ACTIVE)</h3>
-                            <p>Duration: 45 days | Started: Jan 15, 2024</p>
-                            <div class="period-stats">
-                                <span class="stat-item">
-                                    <i class="fas fa-user-graduate"></i> Students: 45 applied, 32 completed (71%)
-                                </span>
-                                <span class="stat-item">
-                                    <i class="fas fa-chalkboard-teacher"></i> Faculty: 12 applied, 8 completed (67%)
-                                </span>
+                    <!-- Active Period Status -->
+                    <div class="card active-period-status">
+                        <div class="status-content">
+                            <div class="status-info">
+                                <h3><i class="fas fa-calendar-check"></i> 2024-2025 Term 1 (ACTIVE)</h3>
+                                <p>Duration: 45 days | Started: Jan 15, 2024</p>
+                                <div class="period-stats">
+                                    <span class="stat-item">
+                                        <i class="fas fa-user-graduate"></i> Students: 45 applied, 32 completed (71%)
+                                    </span>
+                                    <span class="stat-item">
+                                        <i class="fas fa-chalkboard-teacher"></i> Faculty: 12 applied, 8 completed (67%)
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="status-actions">
+                                <button class="btn btn-warning" onclick="deactivateCurrentTerm()">
+                                    <i class="fas fa-pause"></i> Deactivate
+                                </button>
+                                <button class="btn btn-danger" onclick="endCurrentTerm()">
+                                    <i class="fa-solid fa-clipboard-check"></i> End Term
+                                </button>
+                                <a href="ClearanceManagement.php" class="btn btn-primary">
+                                    <i class="fas fa-cog"></i> Manage Clearance
+                                </a>
                             </div>
                         </div>
-                        <div class="status-actions">
-                            <button class="btn btn-warning" onclick="deactivateCurrentTerm()">
-                                <i class="fas fa-pause"></i> Deactivate
-                            </button>
-                            <button class="btn btn-danger" onclick="endCurrentTerm()">
-                                <i class="fa-solid fa-clipboard-check"></i> End Term
-                            </button>
-                            <a href="ClearanceManagement.php" class="btn btn-primary">
-                                <i class="fas fa-cog"></i> Manage Clearance
+                    </div>
+
+                    <!-- Quick Stats Dashboard -->
+                    <div class="stats-dashboard">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>1,234</h3>
+                                <p>Total Students</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon active">
+                                <i class="fas fa-chalkboard-teacher"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>89</h3>
+                                <p>Total Faculty</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-user-cog"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>26</h3>
+                                <p>Total Staff</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-clipboard-check"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>57</h3>
+                                <p>Active Clearances</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="management-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+                        </div>
+                        <div class="quick-actions-grid">
+                            <a href="StudentManagement.php" class="action-card">
+                                <div class="action-icon">
+                                    <i class="fas fa-user-graduate"></i>
+                                </div>
+                                <div class="action-content">
+                                    <h4>Manage Students</h4>
+                                    <p>View and manage student accounts</p>
+                                </div>
+                            </a>
+                            <a href="FacultyManagement.php" class="action-card">
+                                <div class="action-icon">
+                                    <i class="fas fa-chalkboard-teacher"></i>
+                                </div>
+                                <div class="action-content">
+                                    <h4>Manage Faculty</h4>
+                                    <p>View and manage faculty accounts</p>
+                                </div>
+                            </a>
+                            <a href="StaffManagement.php" class="action-card">
+                                <div class="action-icon">
+                                    <i class="fas fa-user-cog"></i>
+                                </div>
+                                <div class="action-content">
+                                    <h4>Manage Staff</h4>
+                                    <p>View and manage staff accounts</p>
+                                </div>
+                            </a>
+                            <a href="ClearanceManagement.php" class="action-card">
+                                <div class="action-icon">
+                                    <i class="fas fa-clipboard-check"></i>
+                                </div>
+                                <div class="action-content">
+                                    <h4>Clearance Management</h4>
+                                    <p>Manage clearance periods and signatories</p>
+                                </div>
                             </a>
                         </div>
                     </div>
-                </div>
 
-                <!-- Quick Stats Dashboard -->
-                <div class="stats-dashboard">
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-users"></i>
+                    <!-- Recent Activity -->
+                    <div class="management-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-history"></i> Recent Activity</h3>
                         </div>
-                        <div class="stat-content">
-                            <h3>1,234</h3>
-                            <p>Total Students</p>
+                        <div class="activity-list">
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    <i class="fas fa-user-plus"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <h4>New Student Registration</h4>
+                                    <p>John Smith registered for clearance</p>
+                                    <span class="activity-time">2 minutes ago</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <h4>Clearance Completed</h4>
+                                    <p>Maria Garcia completed her clearance</p>
+                                    <span class="activity-time">15 minutes ago</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    <i class="fas fa-pause-circle"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <h4>Term Deactivated</h4>
+                                    <p>2024-2025 Term 1 was deactivated</p>
+                                    <span class="activity-time">1 hour ago</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    <i class="fas fa-user-edit"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <h4>Staff Updated</h4>
+                                    <p>Dr. Emily Brown's information was updated</p>
+                                    <span class="activity-time">2 hours ago</span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon active">
-                            <i class="fas fa-chalkboard-teacher"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3>89</h3>
-                            <p>Total Faculty</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-user-cog"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3>26</h3>
-                            <p>Total Staff</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-clipboard-check"></i>
-                        </div>
-                        <div class="stat-content">
-                            <h3>57</h3>
-                            <p>Active Clearances</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Quick Actions -->
-                <div class="management-section">
-                    <div class="section-header">
-                        <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
-                    </div>
-                    <div class="quick-actions-grid">
-                        <a href="StudentManagement.php" class="action-card">
-                            <div class="action-icon">
-                                <i class="fas fa-user-graduate"></i>
-                            </div>
-                            <div class="action-content">
-                                <h4>Manage Students</h4>
-                                <p>View and manage student accounts</p>
-                            </div>
-                        </a>
-                        <a href="FacultyManagement.php" class="action-card">
-                            <div class="action-icon">
-                                <i class="fas fa-chalkboard-teacher"></i>
-                            </div>
-                            <div class="action-content">
-                                <h4>Manage Faculty</h4>
-                                <p>View and manage faculty accounts</p>
-                            </div>
-                        </a>
-                        <a href="StaffManagement.php" class="action-card">
-                            <div class="action-icon">
-                                <i class="fas fa-user-cog"></i>
-                            </div>
-                            <div class="action-content">
-                                <h4>Manage Staff</h4>
-                                <p>View and manage staff accounts</p>
-                            </div>
-                        </a>
-                        <a href="ClearanceManagement.php" class="action-card">
-                            <div class="action-icon">
-                                <i class="fas fa-clipboard-check"></i>
-                            </div>
-                            <div class="action-content">
-                                <h4>Clearance Management</h4>
-                                <p>Manage clearance periods and signatories</p>
-                            </div>
-                        </a>
                     </div>
                 </div>
-
-                <!-- Recent Activity -->
-                <div class="management-section">
-                    <div class="section-header">
-                        <h3><i class="fas fa-history"></i> Recent Activity</h3>
-                    </div>
-                    <div class="activity-list">
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="fas fa-user-plus"></i>
-                            </div>
-                            <div class="activity-content">
-                                <h4>New Student Registration</h4>
-                                <p>John Smith registered for clearance</p>
-                                <span class="activity-time">2 minutes ago</span>
-                            </div>
-                        </div>
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="fas fa-check-circle"></i>
-                            </div>
-                            <div class="activity-content">
-                                <h4>Clearance Completed</h4>
-                                <p>Maria Garcia completed her clearance</p>
-                                <span class="activity-time">15 minutes ago</span>
-                            </div>
-                        </div>
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="fas fa-pause-circle"></i>
-                            </div>
-                            <div class="activity-content">
-                                <h4>Term Deactivated</h4>
-                                <p>2024-2025 Term 1 was deactivated</p>
-                                <span class="activity-time">1 hour ago</span>
-                            </div>
-                        </div>
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="fas fa-user-edit"></i>
-                            </div>
-                            <div class="activity-content">
-                                <h4>Staff Updated</h4>
-                                <p>Dr. Emily Brown's information was updated</p>
-                                <span class="activity-time">2 hours ago</span>
-                            </div>
-                        </div>
-                    </div>
+                </div>
+                
+                <!-- RIGHT SIDE: Activity Tracker -->
+                <div class="dashboard-sidebar">
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
                 </div>
             </div>
         </div>
@@ -231,6 +242,11 @@
 
     <!-- Scripts -->
     <script src="../../assets/js/alerts.js"></script>
+    <script src="../../assets/js/activity-tracker.js"></script>
+    
+    <!-- Include Audit Functions -->
+    <?php include '../../includes/functions/audit_functions.php'; ?>
+    
     <script>
         function deactivateCurrentTerm() {
             showConfirmation(
@@ -269,20 +285,92 @@
         // Sidebar toggle function
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
             const mainContent = document.querySelector('.main-content');
             
             if (sidebar) {
-                sidebar.classList.toggle('collapsed');
-            }
-            
-            if (mainContent) {
-                mainContent.classList.toggle('full-width');
+                if (window.innerWidth <= 768) {
+                    // Mobile: toggle sidebar overlay with backdrop
+                    sidebar.classList.toggle('active');
+                    
+                    // Handle backdrop only on mobile
+                    if (backdrop) {
+                        if (sidebar.classList.contains('active')) {
+                            backdrop.style.display = 'block';
+                            backdrop.classList.add('active');
+                        } else {
+                            backdrop.style.display = 'none';
+                            backdrop.classList.remove('active');
+                        }
+                    }
+                } else {
+                    // Desktop: toggle sidebar collapsed state without backdrop
+                    sidebar.classList.toggle('collapsed');
+                    if (mainContent) {
+                        mainContent.classList.toggle('full-width');
+                    }
+                    
+                    // Ensure backdrop is hidden on desktop
+                    if (backdrop) {
+                        backdrop.style.display = 'none';
+                        backdrop.classList.remove('active');
+                    }
+                }
             }
         }
+        
+        // Add backdrop click handler for mobile
+        document.addEventListener('DOMContentLoaded', function() {
+            const backdrop = document.getElementById('sidebar-backdrop');
+            if (backdrop) {
+                backdrop.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        const sidebar = document.querySelector('.sidebar');
+                        if (sidebar) {
+                            sidebar.classList.remove('active');
+                        }
+                        this.style.display = 'none';
+                        this.classList.remove('active');
+                    }
+                });
+            }
+        });
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Admin Dashboard loaded');
+
+            // Mark that this page handles sidebar functionality
+            window.sidebarHandledByPage = true;
+
+            // Initialize Activity Tracker (only if not already initialized)
+            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
+                window.activityTrackerInstance = new ActivityTracker();
+                console.log('Activity Tracker initialized');
+            }
+            
+            // Handle responsive sidebar behavior
+            function handleResize() {
+                const sidebar = document.querySelector('.sidebar');
+                const backdrop = document.getElementById('sidebar-backdrop');
+                
+                if (window.innerWidth > 768) {
+                    // Desktop: remove mobile active state
+                    if (sidebar) {
+                        sidebar.classList.remove('active');
+                    }
+                    if (backdrop) {
+                        backdrop.style.display = 'none';
+                        backdrop.classList.remove('active');
+                    }
+                }
+            }
+            
+            // Add resize listener
+            window.addEventListener('resize', handleResize);
+            
+            // Initial call
+            handleResize();
         });
     </script>
 </body>

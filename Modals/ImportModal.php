@@ -10,11 +10,11 @@
     <!-- Close Button -->
     <button class="modal-close" onclick="closeImportModal()">&times;</button>
     
-    <!-- Modal Title -->
-    <h2 class="modal-title">📥 Import Student Data</h2>
-    
-    <!-- Supporting Text -->
-    <div class="modal-supporting-text">Upload a file to import student data. Supported formats: Excel (.xlsx, .xls), CSV (.csv), JSON (.json), XML (.xml)</div>
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <h2 class="modal-title">📥 Import Student Data</h2>
+      <div class="modal-supporting-text">Upload a file to import student data. Supported formats: Excel (.xlsx, .xls), CSV (.csv), JSON (.json), XML (.xml)</div>
+    </div>
     
     <!-- Content Area -->
     <div class="modal-content-area">

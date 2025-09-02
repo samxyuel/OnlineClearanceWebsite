@@ -41,6 +41,7 @@
                                 </div>
                             </label>
                         </div>
+                        <!-- 3 Terms is not supported yet
                         <div class="radio-option">
                             <input type="radio" id="threeTerms" name="termCount" value="3">
                             <label for="threeTerms">
@@ -53,6 +54,7 @@
                                 </div>
                             </label>
                         </div>
+                        -->
                     </div>
                 </div>
                 
@@ -68,10 +70,12 @@
                             <span class="preview-label">Term 2:</span>
                             <span class="preview-value">[Inactive] - Will be activated manually</span>
                         </div>
+                        <!--
                         <div class="preview-item" id="term3Preview" style="display: none;">
                             <span class="preview-label">Term 3:</span>
                             <span class="preview-value">[Inactive] - Will be activated manually</span>
                         </div>
+                        -->
                     </div>
                     <small class="form-help">Terms will be created but remain inactive until you manually activate them when ready.</small>
                 </div>
@@ -118,7 +122,11 @@ window.showAddSchoolYearModal = function() {
     
     document.getElementById('schoolYearName').value = schoolYearName;
     
-    // Initialize term preview
+    // Force 2-term selection and initialize preview
+    const twoTerms = document.getElementById('twoTerms');
+    const threeTerms = document.getElementById('threeTerms');
+    if (twoTerms) twoTerms.checked = true;
+    if (threeTerms) threeTerms.checked = false;
     updateTermPreview();
     
     // Add event listeners
@@ -136,14 +144,8 @@ window.closeAddSchoolYearModal = function() {
 
 // Update term preview based on selection
 function updateTermPreview() {
-    const termCount = document.querySelector('input[name="termCount"]:checked').value;
     const term3Preview = document.getElementById('term3Preview');
-    
-    if (termCount === '3') {
-        term3Preview.style.display = 'flex';
-    } else {
-        term3Preview.style.display = 'none';
-    }
+    if (term3Preview) term3Preview.style.display = 'none';
 }
 
 // Add event listeners for the modal
@@ -221,7 +223,7 @@ function updateRadioVisualState(radio) {
 }
 
 // Create school year
-window.createSchoolYear = function() {
+window.createSchoolYear = async function() {
     const form = document.getElementById('addSchoolYearForm');
     const formData = new FormData(form);
     
@@ -236,27 +238,38 @@ window.createSchoolYear = function() {
     createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
     createBtn.disabled = true;
     
-    // Simulate creation process
-    setTimeout(() => {
+    try {
         const schoolYearName = formData.get('schoolYearName');
         const termCount = formData.get('termCount');
-        
-        // Here you would typically send the data to the server
-        console.log('Creating school year:', { schoolYearName, termCount });
-        
-        // Add to local data structure (for demo purposes)
-        addSchoolYearToData(schoolYearName, parseInt(termCount));
-        
-        // Show success message
+        // Always create exactly 2 terms on backend; keep 3-term UI non-functional
+        const resp = await fetch('../../api/clearance/years.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ year: schoolYearName })
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.success === false) {
+            throw new Error(data.message || 'Failed to create school year');
+        }
+
+        // Refresh main page data
+        if (typeof loadCurrentYearAndTerms === 'function') {
+            await loadCurrentYearAndTerms();
+            if (typeof updateSchoolYearDisplay === 'function') {
+                updateSchoolYearDisplay();
+            }
+        }
+
         showToast(`School Year ${schoolYearName} created successfully!`, 'success');
-        
-        // Close modal
         closeAddSchoolYearModal();
-        
-        // Reset button
+    } catch (e) {
+        console.error(e);
+        showToast(e.message || 'Failed to create school year', 'error');
+    } finally {
         createBtn.innerHTML = originalText;
         createBtn.disabled = false;
-    }, 1500);
+    }
 };
 
 // Validate school year form

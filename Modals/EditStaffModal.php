@@ -62,7 +62,7 @@
                     </div>
                 </div>
                 
-                <div class="form-group">
+                <div class="form-group" id="editRegularDepartmentGroup">
                     <label for="editStaffDepartment">Department</label>
                     <select id="editStaffDepartment" name="staffDepartment" required>
                         <option value="">Select Department</option>
@@ -77,6 +77,28 @@
                         <option value="Health Services">Health Services</option>
                         <option value="Alumni Relations">Alumni Relations</option>
                     </select>
+                </div>
+                
+                <!-- Program Head Assignment Section (Hidden by default) -->
+                <div id="editProgramHeadAssignmentSection" class="program-head-assignment-section" style="display: none;">
+                    <div class="form-group">
+                        <label for="editProgramHeadCategory">Program Head Assignment <span class="required-asterisk">*</span></label>
+                        <select id="editProgramHeadCategory" name="programHeadCategory" onchange="updateEditDepartmentCheckboxes()">
+                            <option value="">Select Category</option>
+                            <option value="College">College</option>
+                            <option value="Senior High School">Senior High School</option>
+                            <option value="Faculty">Faculty</option>
+                        </select>
+                        <small class="form-help">Select the category this Program Head will manage</small>
+                    </div>
+                    
+                    <div id="editDepartmentCheckboxesContainer" class="department-checkboxes-container" style="display: none;">
+                        <label class="checkbox-section-label">Available Departments <span class="required-asterisk">*</span></label>
+                        <small class="form-help">Select at least one department for Program Head assignment</small>
+                        <div id="editDepartmentCheckboxesList" class="checkbox-group">
+                            <!-- Checkboxes will be populated dynamically -->
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -99,6 +121,42 @@
                         <option value="optional">Optional Staff</option>
                     </select>
                     <small class="form-help">Essential staff cannot be deleted and are critical for clearance workflow.</small>
+                </div>
+                
+                <!-- Faculty Section Divider -->
+                <div class="form-section-divider">
+                    <hr>
+                    <span class="divider-text">Faculty Registration (Optional)</span>
+                </div>
+                
+                <!-- Is also a faculty checkbox -->
+                <div class="form-group">
+                    <div class="checkbox-container">
+                        <input type="checkbox" id="editIsAlsoFaculty" name="isAlsoFaculty" onchange="toggleEditFacultySection()">
+                        <label for="editIsAlsoFaculty" class="checkbox-label">Is also a faculty</label>
+                    </div>
+                    <small class="form-help">Check this if the staff member should also have faculty access</small>
+                </div>
+                
+                <!-- Faculty Fields Section (Hidden by default) -->
+                <div id="editFacultyFieldsSection" class="faculty-fields-section" style="display: none;">
+                    <div class="form-group">
+                        <label for="editFacultyEmploymentStatus">Faculty Employment Status <span class="required-asterisk">*</span></label>
+                        <select id="editFacultyEmploymentStatus" name="facultyEmploymentStatus">
+                            <option value="">Select Employment Status</option>
+                            <option value="Part Time - Full Load">Part Time - Full Load</option>
+                            <option value="Part Time">Part Time</option>
+                            <option value="Full Time">Full Time</option>
+                        </select>
+                        <small class="form-help">Required when "Is also a faculty" is checked</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editFacultyEmployeeNumber">Employee Number</label>
+                        <input type="text" id="editFacultyEmployeeNumber" name="facultyEmployeeNumber" readonly 
+                               style="background-color: #f8f9fa; color: #6c757d;">
+                        <small class="form-help">Auto-filled from Employee ID (read-only)</small>
+                    </div>
                 </div>
             </form>
         </div>
@@ -149,6 +207,39 @@ window.submitEditStaffForm = function() {
     const finalPosition = standardPosition || customPosition;
     formData.set('staffPosition', finalPosition);
     
+    // Handle faculty validation
+    const isAlsoFaculty = document.getElementById('editIsAlsoFaculty').checked;
+    const facultyEmploymentStatus = document.getElementById('editFacultyEmploymentStatus').value;
+    
+    if (isAlsoFaculty && !facultyEmploymentStatus) {
+        showToast('Faculty Employment Status is required when "Is also a faculty" is checked.', 'error');
+        document.getElementById('editFacultyEmploymentStatus').focus();
+        return;
+    }
+    
+    // Handle Program Head validation
+    const editValidationPositionSelect = document.getElementById('editStaffPosition');
+    const editValidationCustomPositionInput = document.getElementById('editCustomPosition');
+    const editValidationStandardPosition = editValidationPositionSelect ? editValidationPositionSelect.value.trim() : '';
+    const editValidationCustomPosition = editValidationCustomPositionInput ? editValidationCustomPositionInput.value.trim() : '';
+    const editValidationFinalPosition = editValidationStandardPosition || editValidationCustomPosition;
+    
+    if (editValidationFinalPosition === 'Program Head') {
+        const programHeadCategory = document.getElementById('editProgramHeadCategory').value;
+        const assignedDepartments = document.querySelectorAll('input[name="assignedDepartments[]"]:checked');
+        
+        if (!programHeadCategory) {
+            showToast('Please select a category for Program Head assignment.', 'error');
+            document.getElementById('editProgramHeadCategory').focus();
+            return;
+        }
+        
+        if (assignedDepartments.length === 0) {
+            showToast('Please select at least one department for Program Head assignment.', 'error');
+            return;
+        }
+    }
+    
     // Validate form
     if (!form.checkValidity()) {
         form.reportValidity();
@@ -161,6 +252,7 @@ window.submitEditStaffForm = function() {
         jsonData[key] = value;
     });
     jsonData['role_id'] = 4; // Staff role
+    jsonData['is_also_faculty'] = isAlsoFaculty;
     
     // Submit form
     fetch(form.dataset.endpoint, {
@@ -186,6 +278,153 @@ window.submitEditStaffForm = function() {
         showToast('An error occurred while updating staff member.', 'error');
     });
 };
+
+    // Toggle edit faculty section visibility
+    window.toggleEditFacultySection = function() {
+        const isAlsoFaculty = document.getElementById('editIsAlsoFaculty');
+        const facultySection = document.getElementById('editFacultyFieldsSection');
+        const facultyEmploymentStatus = document.getElementById('editFacultyEmploymentStatus');
+        const employeeId = document.getElementById('editEmployeeId');
+        const facultyEmployeeNumber = document.getElementById('editFacultyEmployeeNumber');
+        
+        if (isAlsoFaculty.checked) {
+            // Show faculty section
+            facultySection.style.display = 'block';
+            facultySection.style.opacity = '0';
+            
+            // Auto-fill employee number
+            if (employeeId.value) {
+                facultyEmployeeNumber.value = employeeId.value;
+            }
+            
+            // Make employment status required
+            facultyEmploymentStatus.required = true;
+            
+            // Animate in
+            setTimeout(() => {
+                facultySection.style.opacity = '1';
+            }, 10);
+        } else {
+            // Hide faculty section
+            facultySection.style.opacity = '0';
+            setTimeout(() => {
+                facultySection.style.display = 'none';
+            }, 300);
+            
+            // Clear and unrequire employment status
+            facultyEmploymentStatus.value = '';
+            facultyEmploymentStatus.required = false;
+            facultyEmployeeNumber.value = '';
+        }
+    };
+
+    // Toggle edit Program Head assignment section
+    window.toggleEditProgramHeadAssignment = function() {
+        const editProgramHeadPositionSelect = document.getElementById('editStaffPosition');
+        const editProgramHeadCustomPositionInput = document.getElementById('editCustomPosition');
+        const regularDepartmentGroup = document.getElementById('editRegularDepartmentGroup');
+        const programHeadSection = document.getElementById('editProgramHeadAssignmentSection');
+        
+        // Get the final position value
+        const editProgramHeadStandardPosition = editProgramHeadPositionSelect ? editProgramHeadPositionSelect.value.trim() : '';
+        const editProgramHeadCustomPosition = editProgramHeadCustomPositionInput ? editProgramHeadCustomPositionInput.value.trim() : '';
+        const editProgramHeadFinalPosition = editProgramHeadStandardPosition || editProgramHeadCustomPosition;
+        
+        if (editProgramHeadFinalPosition === 'Program Head') {
+            // Hide regular department field
+            regularDepartmentGroup.style.display = 'none';
+            
+            // Show Program Head assignment section
+            programHeadSection.style.display = 'block';
+            programHeadSection.style.opacity = '0';
+            
+            // Animate in
+            setTimeout(() => {
+                programHeadSection.style.opacity = '1';
+            }, 10);
+        } else {
+            // Show regular department field
+            regularDepartmentGroup.style.display = 'block';
+            
+            // Hide Program Head assignment section
+            programHeadSection.style.opacity = '0';
+            setTimeout(() => {
+                programHeadSection.style.display = 'none';
+            }, 300);
+            
+            // Clear Program Head fields
+            clearEditProgramHeadFields();
+        }
+    };
+
+    // Update edit department checkboxes based on selected category
+    window.updateEditDepartmentCheckboxes = function() {
+        const categorySelect = document.getElementById('editProgramHeadCategory');
+        const checkboxesContainer = document.getElementById('editDepartmentCheckboxesContainer');
+        const checkboxesList = document.getElementById('editDepartmentCheckboxesList');
+        
+        if (!categorySelect || !checkboxesContainer || !checkboxesList) return;
+        
+        const selectedCategory = categorySelect.value;
+        
+        if (!selectedCategory) {
+            checkboxesContainer.style.display = 'none';
+            return;
+        }
+        
+        // Define department mappings
+        const categoryDepartments = {
+            "College": [
+                "ICT Department",
+                "THM Department",
+                "BSA Department",
+                "Computer Science Department"
+            ],
+            "Senior High School": [
+                "Home Economics",
+                "Academic Track",
+                "Technological Vocational Livelihood"
+            ],
+            "Faculty": [
+                "General Education"
+            ]
+        };
+        
+        const departments = categoryDepartments[selectedCategory] || [];
+        
+        // Clear existing checkboxes
+        checkboxesList.innerHTML = '';
+        
+        // Create checkboxes for each department
+        departments.forEach(department => {
+            const checkboxOption = document.createElement('div');
+            checkboxOption.className = 'checkbox-option';
+            checkboxOption.innerHTML = `
+                <input type="checkbox" id="edit_dept_${department.replace(/\s+/g, '_')}" 
+                       name="assignedDepartments[]" value="${department}">
+                <label for="edit_dept_${department.replace(/\s+/g, '_')}">${department}</label>
+            `;
+            checkboxesList.appendChild(checkboxOption);
+        });
+        
+        // Show checkboxes container
+        checkboxesContainer.style.display = 'block';
+        checkboxesContainer.style.opacity = '0';
+        setTimeout(() => {
+            checkboxesContainer.style.opacity = '1';
+        }, 10);
+    };
+
+    // Clear edit Program Head fields
+    function clearEditProgramHeadFields() {
+        const categorySelect = document.getElementById('editProgramHeadCategory');
+        const checkboxesContainer = document.getElementById('editDepartmentCheckboxesContainer');
+        const checkboxesList = document.getElementById('editDepartmentCheckboxesList');
+        
+        if (categorySelect) categorySelect.value = '';
+        if (checkboxesContainer) checkboxesContainer.style.display = 'none';
+        if (checkboxesList) checkboxesList.innerHTML = '';
+    }
 
 // Form validation
 document.addEventListener('DOMContentLoaded', function() {
@@ -213,6 +452,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (this.value.trim()) {
                 customPositionInput.value = '';
             }
+            // Toggle Program Head assignment section
+            toggleEditProgramHeadAssignment();
         });
         
         // Clear standard position when custom position is entered
@@ -220,6 +461,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (this.value.trim()) {
                 positionSelect.value = '';
             }
+            // Toggle Program Head assignment section
+            toggleEditProgramHeadAssignment();
         });
     }
 });

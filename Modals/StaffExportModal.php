@@ -80,7 +80,7 @@
                     <h4><i class="fas fa-columns"></i> Column Selection</h4>
                     <div class="checkbox-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" name="columns[]" value="employee_id" checked>
+                            <input type="checkbox" name="columns[]" value="employee_number" checked>
                             Employee ID
                         </label>
                         <label class="checkbox-label">

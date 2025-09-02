@@ -1,0 +1,4 @@
+employee_number,last_name,first_name,middle_name,employment_status,account_status,email,contact_number
+LCA123P,Santos,Maria,,FT,active,maria.santos@example.com,+63 912 345 6789
+LCA124P,Dela Cruz,Juan,Santos,PT,active,juan.delacruz@example.com,
+LCA125P,Rodriguez,Ana,,PTFL,inactive,,
