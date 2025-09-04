@@ -460,14 +460,14 @@ session_start();
                                     </div>
                                     <div class="department-card-body">
                                         <h4 class="department-name">General Education</h4>
-                                        <p class="department-courses">0 Courses</p>
+                                    <!--    <p class="department-courses">0 Courses</p> -->
                                         <p class="department-status">Active</p>
                                         <div class="department-content-spacer"></div>
                                     </div>
                                     <div class="department-card-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAddCourseModal('GENERAL_EDUCATION')">
+                                    <!--    <button class="btn btn-sm btn-outline-primary" onclick="openAddCourseModal('GENERAL_EDUCATION')">
                                             <i class="fas fa-plus"></i> Add Course
-                                        </button>
+                                        </button> -->
                                         <button class="btn btn-sm btn-outline-secondary" onclick="openEditDepartmentModal('GENERAL_EDUCATION')">
                                             <i class="fas fa-edit"></i> Edit
                                         </button>
@@ -479,16 +479,16 @@ session_start();
                                         </button>
                                     </div>
                                     <!-- Course Preview Section -->
-                                    <div class="course-preview">
+                                <!--    <div class="course-preview">
                                         <div class="course-preview-content">
                                             <div class="course-preview-title">
                                                 <i class="fas fa-book"></i> Courses
                                             </div>
                                             <div class="course-preview-list">
-                                                <!-- No courses initially -->
+                                                <!- No courses initially ->
                                                 </div>
                                             </div>
-                                        </div>
+                                        </div> -->
                                     </div>
                                 </div>
                             </div>

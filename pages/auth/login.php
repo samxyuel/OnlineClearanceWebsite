@@ -42,14 +42,14 @@
                     <input type="password" id="password" name="password" class="form-control" required>
                 </div>
                 
-                <div class="form-group checkbox-group">
+            <!--    <div class="form-group checkbox-group">
                     <label class="checkbox-label">
                         <input type="checkbox" name="remember" id="remember">
                         <span class="checkmark"></span>
                         Remember Me
                     </label>
                 </div>
-                
+                -->
                 <div class="form-group">
                     <button type="submit" class="btn btn-primary login-btn" id="loginBtn">
                         <span id="loginBtnText">Login</span>
@@ -59,11 +59,13 @@
                     </button>
                 </div>
                 
+            <!--   
                 <div class="form-group text-center">
                     <a href="forgot_password.php" class="forgot-link">Forgot Password?</a>
                 </div>
             </form>
-            
+            -->
+
             <!-- Login Result Messages -->
             <div id="loginResult" style="display: none;"></div>
         </div>

@@ -120,10 +120,10 @@ $sidebarLinks = [
             ['icon' => 'fas fa-user-graduate', 'text' => 'Manage Students', 'link' => '../../pages/admin/StudentManagement.php'],
             ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Manage Faculty', 'link' => '../../pages/admin/FacultyManagement.php'],
             ['icon' => 'fas fa-users', 'text' => 'Manage Staff', 'link' => '../../pages/admin/StaffManagement.php'],
-            ['icon' => 'fas fa-file-alt', 'text' => 'Clearance Forms', 'link' => '../../pages/admin/ClearanceManagement.php'],
+            ['icon' => 'fas fa-file-alt', 'text' => 'Clearance Management', 'link' => '../../pages/admin/ClearanceManagement.php'],
             ['icon' => 'fas fa-book', 'text' => 'Manage Courses', 'link' => '../../pages/admin/CourseManagement.php'],
             ['icon' => 'fas fa-comment-dots', 'text' => 'Feedback', 'link' => '../../pages/admin/feedback.php'],
-            ['icon' => 'fas fa-user-plus', 'text' => 'Create Users', 'link' => '../../pages/admin/create-users.php'],
+            // ['icon' => 'fas fa-user-plus', 'text' => 'Create Users', 'link' => '../../pages/admin/create-users.php'],
             ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
         'bottom' => [

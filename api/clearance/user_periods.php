@@ -34,32 +34,78 @@ $userId = $auth->getUserId();
 try {
     $pdo = Database::getInstance()->getConnection();
 
-    // Fetch periods where user has clearance forms
-    $sql = "SELECT 
-                cf.clearance_form_id,
-                cf.status as form_status,
-                cf.created_at as form_created,
-                ay.year as school_year,
-                s.semester_name,
-                cp.start_date,
-                cp.end_date,
-                cp.status as period_status,
-                cp.is_active
-            FROM clearance_forms cf
-            JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
-            JOIN semesters s ON cf.semester_id = s.semester_id
-            LEFT JOIN clearance_periods cp ON cp.academic_year_id = cf.academic_year_id 
-                AND cp.semester_id = cf.semester_id
-            WHERE cf.user_id = ?
-            ORDER BY cf.created_at DESC";
+    // NEW APPROACH: Show active periods even without clearance forms
+    // 1. Get active period
+    $activeSql = "SELECT 
+                      cp.academic_year_id,
+                      cp.semester_id,
+                      ay.year as school_year,
+                      s.semester_name,
+                      cp.start_date,
+                      cp.end_date,
+                      cp.status as period_status,
+                      cp.is_active
+                  FROM clearance_periods cp
+                  JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id
+                  JOIN semesters s ON cp.semester_id = s.semester_id
+                  WHERE cp.is_active = 1
+                  LIMIT 1";
     
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$userId]);
-    $periods = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Format the response
+    $activeStmt = $pdo->query($activeSql);
+    $activePeriod = $activeStmt->fetch(PDO::FETCH_ASSOC);
+    
     $formattedPeriods = [];
-    foreach($periods as $period) {
+    
+    if ($activePeriod) {
+        // 2. Check if user has existing clearance form for this period
+        $formStmt = $pdo->prepare("
+            SELECT clearance_form_id, status, created_at 
+            FROM clearance_forms 
+            WHERE user_id = ? AND academic_year_id = ? AND semester_id = ?
+        ");
+        $formStmt->execute([$userId, $activePeriod['academic_year_id'], $activePeriod['semester_id']]);
+        $existingForm = $formStmt->fetch(PDO::FETCH_ASSOC);
+        
+        // 3. Add active period (with or without existing form)
+        $formattedPeriods[] = [
+            'clearance_form_id' => $existingForm ? $existingForm['clearance_form_id'] : null,
+            'school_year' => $activePeriod['school_year'],
+            'semester_name' => $activePeriod['semester_name'],
+            'period_text' => $activePeriod['school_year'] . ' ' . $activePeriod['semester_name'],
+            'form_status' => $existingForm ? $existingForm['status'] : 'Unapplied',
+            'period_status' => $activePeriod['period_status'],
+            'is_active' => (bool)$activePeriod['is_active'],
+            'start_date' => $activePeriod['start_date'],
+            'end_date' => $activePeriod['end_date'],
+            'form_created' => $existingForm ? $existingForm['created_at'] : null,
+            'has_existing_form' => $existingForm ? true : false
+        ];
+    }
+    
+    // 4. Also include any historical periods where user has clearance forms
+    $historicalSql = "SELECT 
+                        cf.clearance_form_id,
+                        cf.status as form_status,
+                        cf.created_at as form_created,
+                        ay.year as school_year,
+                        s.semester_name,
+                        cp.start_date,
+                        cp.end_date,
+                        cp.status as period_status,
+                        cp.is_active
+                    FROM clearance_forms cf
+                    JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
+                    JOIN semesters s ON cf.semester_id = s.semester_id
+                    LEFT JOIN clearance_periods cp ON cp.academic_year_id = cf.academic_year_id 
+                        AND cp.semester_id = cf.semester_id
+                    WHERE cf.user_id = ? AND (cp.is_active = 0 OR cp.is_active IS NULL)
+                    ORDER BY cf.created_at DESC";
+    
+    $historicalStmt = $pdo->prepare($historicalSql);
+    $historicalStmt->execute([$userId]);
+    $historicalPeriods = $historicalStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    foreach($historicalPeriods as $period) {
         $formattedPeriods[] = [
             'clearance_form_id' => $period['clearance_form_id'],
             'school_year' => $period['school_year'],
@@ -70,7 +116,8 @@ try {
             'is_active' => (bool)$period['is_active'],
             'start_date' => $period['start_date'],
             'end_date' => $period['end_date'],
-            'form_created' => $period['form_created']
+            'form_created' => $period['form_created'],
+            'has_existing_form' => true
         ];
     }
 

@@ -25,11 +25,22 @@ $search = $_GET['search']??'';
 
 $pdo = Database::getInstance()->getConnection();
 
-// Determine active academic year & semester
-$ayId = $pdo->query("SELECT academic_year_id FROM academic_years WHERE is_active=1 LIMIT 1")->fetchColumn();
-$semStmt = $pdo->prepare("SELECT semester_id FROM semesters WHERE academic_year_id=? AND is_active=1 LIMIT 1");
-$semStmt->execute([$ayId]);
-$semId = $semStmt->fetchColumn();
+// Determine active academic year & semester (same logic as clearance APIs)
+$activePeriodStmt = $pdo->query("
+    SELECT academic_year_id, semester_id 
+    FROM clearance_periods 
+    WHERE is_active = 1 
+    LIMIT 1
+");
+$activePeriod = $activePeriodStmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$activePeriod) {
+    echo json_encode(['success'=>false,'message'=>'No active clearance period']);
+    exit;
+}
+
+$ayId = $activePeriod['academic_year_id'];
+$semId = $activePeriod['semester_id'];
 
 $where="";
 $params=[];
@@ -43,7 +54,14 @@ $totalStmt->execute($params);
 $total=$totalStmt->fetchColumn();
 
 $select="SELECT f.employee_number, f.employment_status, u.user_id, u.username, u.first_name, u.last_name, u.status,
-        COALESCE(NULLIF(cf.status,''),'Unapplied') AS clearance_status";
+        CASE 
+            WHEN cf.clearance_form_id IS NULL THEN 'Unapplied'
+            WHEN cf.status = 'Unapplied' THEN 'Unapplied'
+            WHEN cf.status = 'Applied' OR cf.status = 'In Progress' THEN 'In Progress'
+            WHEN cf.status = 'Complete' THEN 'Complete'
+            WHEN cf.status = 'Incomplete' THEN 'Incomplete'
+            ELSE 'Unapplied'
+        END AS clearance_status";
 
 $join="FROM faculty f JOIN users u ON u.user_id=f.user_id
         LEFT JOIN clearance_forms cf ON cf.user_id=u.user_id AND cf.academic_year_id = ? AND cf.semester_id = ?";

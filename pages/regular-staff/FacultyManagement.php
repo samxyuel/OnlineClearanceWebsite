@@ -454,23 +454,47 @@ try {
                 'Cancel',
                 async () => {
                     const selectedRows = document.querySelectorAll('.faculty-checkbox:checked');
+                    let successCount = 0;
+                    let errorCount = 0;
+                    
                     for (const checkbox of selectedRows) {
-                        const row = checkbox.closest('tr');
-                        const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
-                        
-                        if (clearanceBadge) {
-                            clearanceBadge.textContent = 'Completed';
-                            clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
-                            clearanceBadge.classList.add('clearance-completed');
-                        }
                         try {
                             const eid = checkbox.getAttribute('data-id');
                             const uid = await resolveUserIdFromEmployeeNumber(eid);
-                            if (uid) { await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Approved'); }
-                        } catch (e) {}
+                            
+                            if (uid) {
+                                const result = await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Approved');
+                                
+                                if (result.success) {
+                                    const row = checkbox.closest('tr');
+                                    const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
+                                    
+                                    if (clearanceBadge) {
+                                        clearanceBadge.textContent = 'Completed';
+                                        clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
+                                        clearanceBadge.classList.add('clearance-completed');
+                                    }
+                                    successCount++;
+                                } else {
+                                    errorCount++;
+                                    console.error('Failed to approve clearance for', eid, ':', result.message);
+                                }
+                            } else {
+                                errorCount++;
+                                console.error('Could not resolve user ID for', eid);
+                            }
+                        } catch (e) {
+                            errorCount++;
+                            console.error('Error approving clearance for', eid, ':', e);
+                        }
                     }
                     
-                    showToastNotification(`✓ Successfully approved clearance for ${selectedCount} faculty`, 'success');
+                    if (successCount > 0) {
+                        showToastNotification(`✓ Successfully approved clearance for ${successCount} faculty`, 'success');
+                    }
+                    if (errorCount > 0) {
+                        showToastNotification(`Failed to approve clearance for ${errorCount} faculty`, 'error');
+                    }
                 },
                 'success'
             );
@@ -495,6 +519,98 @@ try {
             return document.querySelectorAll('.faculty-checkbox:checked').length;
         }
 
+        // Load faculty data from API
+        async function loadFacultyData() {
+            try {
+                const response = await fetch('../../api/users/faculty_list.php?limit=500', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (!data.success) {
+                    showToastNotification('Failed to load faculty data: ' + data.message, 'error');
+                    return;
+                }
+                
+                populateFacultyTable(data.faculty);
+                updateStatistics(data.faculty);
+                
+            } catch (error) {
+                console.error('Error loading faculty data:', error);
+                showToastNotification('Failed to load faculty data', 'error');
+            }
+        }
+        
+        function populateFacultyTable(facultyList) {
+            const tbody = document.getElementById('facultyTableBody');
+            tbody.innerHTML = '';
+            
+            facultyList.forEach(faculty => {
+                const row = createFacultyRow(faculty);
+                tbody.appendChild(row);
+            });
+            
+            // Update pagination
+            updatePagination();
+        }
+        
+        function createFacultyRow(faculty) {
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-term', ''); // term unknown for now
+            
+            const statusRaw = faculty.clearance_status;
+            let clearanceKey = 'unapplied';
+            if (statusRaw === 'Completed' || statusRaw === 'Complete') clearanceKey = 'completed';
+            else if (statusRaw === 'Applied') clearanceKey = 'pending';
+            else if (statusRaw === 'In Progress' || statusRaw === 'Pending') clearanceKey = 'in-progress';
+            else if (statusRaw === 'Rejected') clearanceKey = 'rejected';
+            
+            const accountStatus = faculty.status.toLowerCase();
+            const clearanceStatus = clearanceKey;
+            
+            tr.innerHTML = `
+                <td><input type="checkbox" class="faculty-checkbox" data-id="${faculty.employee_number}"></td>
+                <td>${faculty.employee_number}</td>
+                <td>${faculty.first_name} ${faculty.last_name}</td>
+                <td><span class="status-badge employment-${faculty.employment_status.toLowerCase().replace(/ /g, '-')}">${faculty.employment_status}</span></td>
+                <td><span class="status-badge account-${accountStatus}">${accountStatus.charAt(0).toUpperCase() + accountStatus.slice(1)}</span></td>
+                <td><span class="status-badge clearance-${clearanceStatus}">${statusRaw}</span></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${faculty.employee_number}')" title="Approve Clearance">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('${faculty.employee_number}')" title="Reject Clearance">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            if (accountStatus !== 'active') {
+                tr.classList.add('row-disabled');
+            }
+            
+            return tr;
+        }
+        
+        function updateStatistics(facultyList) {
+            let total = facultyList.length;
+            let active = 0, inactive = 0, resigned = 0;
+            
+            facultyList.forEach(faculty => {
+                const status = faculty.status.toLowerCase();
+                if (status === 'active') active++;
+                else if (status === 'inactive') inactive++;
+                else if (status === 'resigned') resigned++;
+            });
+            
+            document.getElementById('totalFaculty').textContent = total;
+            document.getElementById('activeFaculty').textContent = active;
+            document.getElementById('inactiveFaculty').textContent = inactive;
+            document.getElementById('resignedFaculty').textContent = resigned;
+        }
+        
         // Individual faculty actions - Staff can only approve/reject clearances
         async function approveFacultyClearance(facultyId) {
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
@@ -502,7 +618,7 @@ try {
             const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
             
             if (!clearanceBadge) {
-                showToastNotification('No clearance to approve', 'warning');
+                showToastNotification('No clearance to approve for this faculty', 'warning');
                 return;
             }
             
@@ -512,32 +628,198 @@ try {
                 'Approve',
                 'Cancel',
                 async () => {
-                    clearanceBadge.textContent = 'Completed';
-                    clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
-                    clearanceBadge.classList.add('clearance-completed');
                     try {
-                        const uid = await resolveUserIdFromEmployeeNumber(facultyId);
-                        if (uid) { await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Approved'); }
-                    } catch (e) {}
-                    showToastNotification('Faculty clearance approved successfully', 'success');
+                        // Get user ID from employee number
+                        const userId = await resolveUserIdFromEmployeeNumber(facultyId);
+                        if (!userId) {
+                            showToastNotification('Could not find user ID for this faculty', 'error');
+                            return;
+                        }
+                        
+                        // Send approval to API
+                        const response = await fetch('../../api/clearance/signatory_action.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                applicant_user_id: userId,
+                                designation_name: CURRENT_STAFF_POSITION,
+                                action: 'Approved'
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            // Update UI
+                            clearanceBadge.textContent = 'Completed';
+                            clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
+                            clearanceBadge.classList.add('clearance-completed');
+                            
+                            showToastNotification(`✓ Successfully approved clearance for ${facultyName}`, 'success');
+                        } else {
+                            showToastNotification('Failed to approve clearance: ' + data.message, 'error');
+                        }
+                        
+                    } catch (error) {
+                        console.error('Error approving clearance:', error);
+                        showToastNotification('Failed to approve clearance', 'error');
+                    }
                 },
                 'success'
             );
         }
-
-        function rejectFacultyClearance(facultyId) {
+        
+        async function rejectFacultyClearance(facultyId) {
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-completed');
             
-            if (!clearanceBadge) {
-                showToastNotification('No clearance to reject', 'warning');
-                return;
-            }
-            
-            // Open rejection remarks modal for individual rejection
+            // Open rejection remarks modal
             openRejectionRemarksModal(facultyId, facultyName, 'faculty', false);
         }
+        
+        // Helper function to resolve user ID from employee number
+        async function resolveUserIdFromEmployeeNumber(employeeNumber) {
+            try {
+                const response = await fetch(`../../api/users/get_faculty.php?employee_number=${encodeURIComponent(employeeNumber)}`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success && data.faculty) {
+                    return data.faculty.user_id;
+                }
+                return null;
+            } catch (error) {
+                console.error('Error resolving user ID:', error);
+                return null;
+            }
+        }
+        
+        // Send signatory action to API
+        async function sendSignatoryAction(userId, designationName, action, remarks = null) {
+            try {
+                const response = await fetch('../../api/clearance/signatory_action.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        applicant_user_id: userId,
+                        designation_name: designationName,
+                        action: action,
+                        remarks: remarks
+                    })
+                });
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error sending signatory action:', error);
+                return { success: false, message: 'Network error' };
+            }
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load faculty data on page load
+            loadFacultyData();
+            
+            // Add event listeners for checkboxes
+            document.addEventListener('change', function(e) {
+                if (e.target.classList.contains('faculty-checkbox')) {
+                    updateBulkButtons();
+                    updateSelectionCounter();
+                }
+            });
+        });
+        
+        // Pagination functions (simplified for now)
+        function updatePagination() {
+            const totalRows = document.querySelectorAll('#facultyTableBody tr').length;
+            document.getElementById('paginationInfo').textContent = `Showing 1 to ${totalRows} of ${totalRows} entries`;
+        }
+        
+        function changePage(direction) {
+            // Simplified pagination - could be enhanced later
+            console.log('Page change:', direction);
+        }
+        
+        function changeEntriesPerPage() {
+            // Simplified pagination - could be enhanced later
+            console.log('Entries per page changed');
+        }
+        
+        function scrollToTop() {
+            const tableWrapper = document.getElementById('facultyTableWrapper');
+            tableWrapper.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+        
+        // Show scroll to top button when scrolled
+        document.getElementById('facultyTableWrapper').addEventListener('scroll', function() {
+            const scrollBtn = document.getElementById('scrollToTopBtn');
+            if (this.scrollTop > 200) {
+                scrollBtn.style.display = 'block';
+            } else {
+                scrollBtn.style.display = 'none';
+            }
+        });
+        
+        // Filter functions (simplified for now)
+        function applyFilters() {
+            // Simplified filtering - could be enhanced later
+            console.log('Applying filters');
+        }
+        
+        function clearFilters() {
+            // Simplified filtering - could be enhanced later
+            console.log('Clearing filters');
+        }
+        
+        function updateStatisticsByTerm() {
+            // Simplified statistics - could be enhanced later
+            console.log('Updating statistics by term');
+        }
+        
+        function undoLastAction() {
+            showToastNotification('Undo functionality not implemented yet', 'info');
+        }
+        
+        function triggerExportModal() {
+            showToastNotification('Export functionality not implemented yet', 'info');
+        }
+        
+        // Global variable for current staff position (should be set by backend)
+        let CURRENT_STAFF_POSITION = 'Unknown'; // This should be populated from the backend
+        
+        // Load current staff designation
+        async function loadCurrentStaffDesignation() {
+            try {
+                const response = await fetch('../../api/users/get_current_staff_designation.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    CURRENT_STAFF_POSITION = data.designation_name;
+                    console.log('Current staff position:', CURRENT_STAFF_POSITION);
+                } else {
+                    console.error('Failed to load staff designation:', data.message);
+                    CURRENT_STAFF_POSITION = 'Unknown';
+                }
+            } catch (error) {
+                console.error('Error loading staff designation:', error);
+                CURRENT_STAFF_POSITION = 'Unknown';
+            }
+        }
+        
+        // Initialize staff position on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load current staff designation
+            loadCurrentStaffDesignation();
+        });
 
         // Filter functions
         function applyFilters() {

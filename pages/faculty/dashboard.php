@@ -303,7 +303,15 @@
     </main>
 
     <script>
-    // Apply for faculty clearance function
+    // SIMPLIFIED: Navigate to faculty clearance page (no mass apply)
+    function applyForFacultyClearance() {
+        // Simply redirect to clearance page
+        window.location.href = 'clearance.php';
+    }
+
+    /* COMMENTED OUT - MASS APPLY FUNCTIONALITY (REMOVED FOR SIMPLICITY)
+    
+    // Apply for faculty clearance function - ORIGINAL MASS APPLY VERSION
     function applyForFacultyClearance() {
         const btn   = document.getElementById('applyClearanceBtn');
         const text  = document.getElementById('applyBtnText');
@@ -333,6 +341,8 @@
         })
         .catch(()=>{showToast('Network error','error'); btn.innerHTML=origHTML; btn.disabled=false;});
     }
+    
+    */
 
     async function isClearancePeriodOpenAsync() {
         try{
@@ -347,9 +357,37 @@
     // const clearanceStartDate = new Date('2024-12-01');
     // const clearanceEndDate   = new Date('2024-12-31');
 
+    // SIMPLIFIED BUTTON INITIALIZATION - NO MASS APPLY LOGIC
+    async function initializeClearanceButton() {
+        const applyBtn  = document.getElementById('applyClearanceBtn');
+        const text      = document.getElementById('applyBtnText');
+        const desc      = document.getElementById('actionDescription');
+        const info      = document.getElementById('clearancePeriodInfo');
+
+        const periodOpen = await isClearancePeriodOpenAsync();
+
+        if (periodOpen) {
+            // Period is open - always show "Go to My Clearance"
+            text.textContent = 'Go to My Clearance';
+            applyBtn.querySelector('i').className = 'fas fa-eye';
+            desc.textContent = 'View your faculty clearance status and progress';
+            applyBtn.disabled = false;
+            info.style.display = 'block';
+        } else {
+            // Period is closed
+            applyBtn.disabled = true;
+            text.textContent = 'Clearance Period Closed';
+            applyBtn.querySelector('i').className = 'fas fa-clock';
+            desc.textContent = 'Clearance period is currently closed';
+        }
+    }
+
+    /* COMMENTED OUT - COMPLEX MASS APPLY BUTTON LOGIC (REMOVED FOR SIMPLICITY)
+    
     // Check if user has already applied for clearance
     function hasAppliedForClearance() { return false; }
 
+    // Original complex button initialization - COMMENTED OUT
     async function initializeClearanceButton() {
         const applyBtn  = document.getElementById('applyClearanceBtn');
         const text      = document.getElementById('applyBtnText');
@@ -402,6 +440,8 @@
             info.style.display='block';
         }
     }
+    
+    */
     
     // Navigation function
     function navigateTo(page) {
@@ -516,26 +556,16 @@
         initializeClearanceButton();
     });
 
-    // Test all APIs to see what's working
+    // SIMPLIFIED DEBUG FUNCTIONS - ONLY PERIOD CHECKING
     async function testAPIs() {
         const debugOutput = document.getElementById('debugOutput');
         debugOutput.innerHTML = '<p>Testing APIs...</p>';
         
         try {
-            // Test periods API
+            // Test periods API only
             const periodsRes = await fetch('/OnlineClearanceWebsite/api/clearance/periods.php', {credentials: 'same-origin'});
             const periodsData = await periodsRes.json();
             debugOutput.innerHTML += `<p><strong>Periods API:</strong> ${JSON.stringify(periodsData, null, 2)}</p>`;
-            
-            // Test user periods API
-            const userPeriodsRes = await fetch('/OnlineClearanceWebsite/api/clearance/user_periods.php', {credentials: 'same-origin'});
-            const userPeriodsData = await userPeriodsRes.json();
-            debugOutput.innerHTML += `<p><strong>User Periods API:</strong> ${JSON.stringify(userPeriodsData, null, 2)}</p>`;
-            
-            // Test status API
-            const statusRes = await fetch('/OnlineClearanceWebsite/api/clearance/status.php', {credentials: 'same-origin'});
-            const statusData = await statusRes.json();
-            debugOutput.innerHTML += `<p><strong>Status API:</strong> ${JSON.stringify(statusData, null, 2)}</p>`;
             
         } catch (error) {
             debugOutput.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
@@ -572,6 +602,36 @@
             debugOutput.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
         }
     }
+
+    /* COMMENTED OUT - MASS APPLY DEBUG FUNCTIONS (REMOVED FOR SIMPLICITY)
+    
+    // Test all APIs to see what's working - ORIGINAL VERSION WITH MASS APPLY APIS
+    async function testAPIs() {
+        const debugOutput = document.getElementById('debugOutput');
+        debugOutput.innerHTML = '<p>Testing APIs...</p>';
+        
+        try {
+            // Test periods API
+            const periodsRes = await fetch('/OnlineClearanceWebsite/api/clearance/periods.php', {credentials: 'same-origin'});
+            const periodsData = await periodsRes.json();
+            debugOutput.innerHTML += `<p><strong>Periods API:</strong> ${JSON.stringify(periodsData, null, 2)}</p>`;
+            
+            // Test user periods API
+            const userPeriodsRes = await fetch('/OnlineClearanceWebsite/api/clearance/user_periods.php', {credentials: 'same-origin'});
+            const userPeriodsData = await userPeriodsRes.json();
+            debugOutput.innerHTML += `<p><strong>User Periods API:</strong> ${JSON.stringify(userPeriodsData, null, 2)}</p>`;
+            
+            // Test status API
+            const statusRes = await fetch('/OnlineClearanceWebsite/api/clearance/status.php', {credentials: 'same-origin'});
+            const statusData = await statusRes.json();
+            debugOutput.innerHTML += `<p><strong>Status API:</strong> ${JSON.stringify(statusData, null, 2)}</p>`;
+            
+        } catch (error) {
+            debugOutput.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
+        }
+    }
+    
+    */
     </script>
 </body>
 </html> 

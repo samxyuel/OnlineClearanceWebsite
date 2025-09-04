@@ -244,7 +244,10 @@ function handleUpdatePeriod($connection) {
                 $stmt = $connection->prepare("UPDATE clearance_periods SET is_active = 0, status = 'deactivated' WHERE period_id != ? AND academic_year_id = ?");
                 $stmt->execute([$periodId, $existingPeriod['academic_year_id']]);
 
-                echo json_encode(['success' => true, 'message' => 'Period activated']);
+                // NEW: Reset all clearance forms for new term
+                resetClearanceFormsForNewTerm($connection, $existingPeriod['academic_year_id'], $existingPeriod['semester_id']);
+
+                echo json_encode(['success' => true, 'message' => 'Period activated and clearance forms reset']);
                 return;
             } elseif ($action === 'deactivate') {
                 $stmt = $connection->prepare("UPDATE clearance_periods SET is_active = 0, status = 'deactivated' WHERE period_id = ?");
@@ -365,6 +368,65 @@ function handleDeletePeriod($connection) {
     } catch (PDOException $e) {
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+// Helper function to reset all clearance forms for new term
+function resetClearanceFormsForNewTerm($connection, $academicYearId, $semesterId) {
+    try {
+        // 1. Delete all existing clearance forms for this period
+        $deleteFormsStmt = $connection->prepare("DELETE FROM clearance_forms WHERE academic_year_id = ? AND semester_id = ?");
+        $deleteFormsStmt->execute([$academicYearId, $semesterId]);
+        
+        // 2. Get all active users (faculty and students)
+        $usersStmt = $connection->prepare("
+            SELECT u.user_id, r.role_name 
+            FROM users u 
+            JOIN roles r ON u.role_id = r.role_id 
+            WHERE u.status = 'active'
+        ");
+        $usersStmt->execute();
+        $users = $usersStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // 3. Create fresh clearance forms for all active users
+        $insertFormStmt = $connection->prepare("
+            INSERT INTO clearance_forms (user_id, academic_year_id, semester_id, clearance_type, status, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, 'Unapplied', NOW(), NOW())
+        ");
+        
+        $insertSignatoryStmt = $connection->prepare("
+            INSERT INTO clearance_signatories (clearance_form_id, designation_id, action, created_at, updated_at) 
+            VALUES (?, ?, 'Unapplied', NOW(), NOW())
+        ");
+        
+        foreach ($users as $user) {
+            $clearanceType = ($user['role_name'] === 'Faculty') ? 'Faculty' : 'Student';
+            
+            // Insert clearance form
+            $insertFormStmt->execute([$user['user_id'], $academicYearId, $semesterId, $clearanceType]);
+            $formId = $connection->lastInsertId();
+            
+            // Get assigned signatories for this clearance type
+            $signatoriesStmt = $connection->prepare("
+                SELECT DISTINCT sa.designation_id 
+                FROM signatory_assignments sa
+                JOIN designations d ON d.designation_id = sa.designation_id
+                WHERE sa.clearance_type = ? 
+                AND sa.is_active = 1 
+                AND d.is_active = 1
+            ");
+            $signatoriesStmt->execute([$clearanceType]);
+            $signatories = $signatoriesStmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            // Create signatory entries for all assigned designations
+            foreach ($signatories as $designationId) {
+                $insertSignatoryStmt->execute([$formId, $designationId]);
+            }
+        }
+        
+    } catch (Exception $e) {
+        // Log error but don't fail the activation
+        error_log("Error resetting clearance forms for new term: " . $e->getMessage());
     }
 }
 ?>

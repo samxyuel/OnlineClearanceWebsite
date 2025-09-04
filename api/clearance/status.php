@@ -42,16 +42,22 @@ try {
         $ayId = $form['academic_year_id'];
         $semId = $form['semester_id'];
     } else {
-        // Active academic year & semester
-        $ayId = $pdo->query("SELECT academic_year_id FROM academic_years WHERE is_active=1 LIMIT 1")->fetchColumn();
-        $semIdStmt = $pdo->prepare("SELECT semester_id FROM semesters WHERE academic_year_id=? AND is_active=1 LIMIT 1");
-        $semIdStmt->execute([$ayId]);
-        $semId = $semIdStmt->fetchColumn();
+        // Get active clearance period (same logic as user_periods.php)
+        $activePeriodStmt = $pdo->query("
+            SELECT academic_year_id, semester_id 
+            FROM clearance_periods 
+            WHERE is_active = 1 
+            LIMIT 1
+        ");
+        $activePeriod = $activePeriodStmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!$ayId || !$semId) {
-            echo json_encode(['success'=>true,'applied'=>false,'message'=>'No active academic year/semester']);
+        if (!$activePeriod) {
+            echo json_encode(['success'=>false,'message'=>'No active clearance period']);
             exit;
         }
+        
+        $ayId = $activePeriod['academic_year_id'];
+        $semId = $activePeriod['semester_id'];
 
         // Clearance form (if any)
         $formStmt = $pdo->prepare("SELECT clearance_form_id, status FROM clearance_forms WHERE user_id=? AND academic_year_id=? AND semester_id=? LIMIT 1");
@@ -59,12 +65,38 @@ try {
         $form = $formStmt->fetch(PDO::FETCH_ASSOC);
     }
 
+    // NEW APPROACH: Show signatories even without clearance form
     if (!$form) {
-        echo json_encode(['success'=>true,'applied'=>false]);
+        // Get user's role to determine clearance type
+        // First try to get primary role, if not found, get any role
+        $roleStmt = $pdo->prepare("SELECT r.role_name FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id WHERE u.user_id = ? AND ur.is_primary = 1");
+        $roleStmt->execute([$userId]);
+        $role = $roleStmt->fetchColumn();
+        
+        // If no primary role found, get any role for this user
+        if (!$role) {
+            $roleStmt = $pdo->prepare("SELECT r.role_name FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id WHERE u.user_id = ? LIMIT 1");
+            $roleStmt->execute([$userId]);
+            $role = $roleStmt->fetchColumn();
+        }
+        
+        $clearanceType = ($role === 'Faculty') ? 'Faculty' : 'Student';
+        
+        // Get assigned signatories for this clearance type
+        $signatories = getAssignedSignatories($pdo, $clearanceType);
+        
+        echo json_encode([
+            'success' => true,
+            'applied' => false,
+            'clearance_form_id' => null,
+            'overall_status' => 'Unapplied',
+            'signatories' => $signatories,
+            'period_status' => getPeriodStatus($pdo, $ayId, $semId)
+        ]);
         exit;
     }
 
-    // Fetch signatories
+    // Fetch signatories from existing clearance form
     $sigStmt = $pdo->prepare("SELECT cs.designation_id, d.designation_name, cs.action, cs.updated_at, cs.remarks,
         CONCAT(u.first_name,' ',u.last_name) AS signatory_name
         FROM clearance_signatories cs
@@ -94,13 +126,13 @@ try {
 
         if ($activeCnt === 0) {
             $overall = 'Unapplied';
-        } elseif ($approvedCnt === 0 && $rejectedCnt === 0 && $pendingCnt > 0) {
-            // User has applied (rows exist / pending) but no approvals/rejections yet
-            $overall = 'Applied';
         } elseif ($approvedCnt === $total) {
             $overall = 'Complete';
-        } else {
+        } elseif ($activeCnt > 0) {
+            // User has applied to one or more signatories
             $overall = 'In Progress';
+        } else {
+            $overall = 'Unapplied';
         }
 
         // Persist change if status differs
@@ -127,5 +159,43 @@ try {
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success'=>false,'message'=>$e->getMessage()]);
+}
+
+// Helper function to get assigned signatories for a clearance type
+function getAssignedSignatories($pdo, $clearanceType) {
+    $sql = "SELECT 
+                d.designation_id,
+                d.designation_name,
+                CONCAT(u.first_name,' ',u.last_name) AS signatory_name
+            FROM signatory_assignments sa
+            JOIN designations d ON d.designation_id = sa.designation_id
+            LEFT JOIN staff s ON s.designation_id = d.designation_id AND s.is_active = 1
+            LEFT JOIN users u ON u.user_id = s.user_id
+            WHERE sa.clearance_type = ? 
+            AND sa.is_active = 1 
+            AND d.is_active = 1
+            ORDER BY d.designation_id";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$clearanceType]);
+    $signatories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Add default values for signatories without clearance form
+    foreach ($signatories as &$signatory) {
+        $signatory['action'] = null;
+        $signatory['updated_at'] = null;
+        $signatory['remarks'] = null;
+    }
+    
+    return $signatories;
+}
+
+// Helper function to get period status
+function getPeriodStatus($pdo, $ayId, $semId) {
+    $stmt = $pdo->prepare("SELECT status, is_active FROM clearance_periods WHERE academic_year_id = ? AND semester_id = ? LIMIT 1");
+    $stmt->execute([$ayId, $semId]);
+    $period = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    return $period ? $period['status'] : 'inactive';
 }
 ?>

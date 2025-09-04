@@ -119,7 +119,10 @@ try {
     $formStmt=$pdo->prepare("SELECT clearance_form_id FROM clearance_forms WHERE user_id=? AND academic_year_id=? AND semester_id=? LIMIT 1");
     $formStmt->execute([$userId,$ayId,$semId]);
     $formId=$formStmt->fetchColumn();
+    $isNewForm = false;
+    
     if(!$formId){
+        $isNewForm = true;
         $ctype = ($auth->getRoleName()==='Faculty') ? 'Faculty' : 'Student';
         $pdo->prepare("INSERT INTO clearance_forms (user_id, academic_year_id, semester_id, clearance_type, status, created_at, updated_at) VALUES (?,?,?,?, 'Unapplied', NOW(), NOW())")
             ->execute([$userId,$ayId,$semId,$ctype]);
@@ -127,6 +130,9 @@ try {
         $formStmt->execute([$userId,$ayId,$semId]);
         $formId = $formStmt->fetchColumn();
         if(!$formId) throw new Exception('Failed to create clearance form');
+        
+        // NEW: Create all signatory entries for new form
+        createAllSignatoryEntries($pdo, $formId, $ctype);
     }
 
     // Upsert signatory row
@@ -145,4 +151,30 @@ try {
     echo json_encode(['success'=>true,'message'=>'Applied to signatory','clearance_form_id'=>$formId]);
 
 }catch(Exception $e){ http_response_code(500); echo json_encode(['success'=>false,'message'=>$e->getMessage()]); }
+
+// Helper function to create all signatory entries for a new clearance form
+function createAllSignatoryEntries($pdo, $formId, $clearanceType) {
+    // Get all assigned signatories for this clearance type
+    $sql = "SELECT DISTINCT sa.designation_id 
+            FROM signatory_assignments sa
+            JOIN designations d ON d.designation_id = sa.designation_id
+            WHERE sa.clearance_type = ? 
+            AND sa.is_active = 1 
+            AND d.is_active = 1
+            ORDER BY sa.designation_id";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$clearanceType]);
+    $designations = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    // Create signatory entries for all assigned designations
+    $insertStmt = $pdo->prepare("
+        INSERT INTO clearance_signatories (clearance_form_id, designation_id, action, created_at, updated_at) 
+        VALUES (?, ?, 'Unapplied', NOW(), NOW())
+    ");
+    
+    foreach ($designations as $designationId) {
+        $insertStmt->execute([$formId, $designationId]);
+    }
+}
 // -----------------------------------------------------------------------------

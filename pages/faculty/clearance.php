@@ -206,20 +206,6 @@
         event.target.classList.add('active');
     }
     
-    // Update clearance data based on period selection
-    function updateClearanceData() {
-        const selectedPeriod = document.getElementById('schoolYearTerm').value;
-        // Here you would typically fetch data for the selected period
-        console.log('Updating faculty clearance data for period:', selectedPeriod);
-        
-        // Show loading state
-        showToast('Loading faculty clearance data...', 'info');
-        
-        // Simulate data loading
-        setTimeout(() => {
-            showToast('Faculty clearance data updated', 'success');
-        }, 1000);
-    }
     
     // View details function
     function viewDetails(signatory) {
@@ -229,15 +215,30 @@
 
     // Apply / Re-apply to a specific signatory (real API integration)
     function applyToSignatory(signatory) {
-        const designationCodeMap = {
-            'program-head': 'PROGRAM_HEAD',
-            'librarian': 'LIBRARIAN',
-            'registrar': 'REGISTRAR',
-            'cashier': 'CASHIER'
+        const designationNameMap = {
+            'program-head': 'Program Head',
+            'librarian': 'Librarian', 
+            'registrar': 'Registrar',
+            'cashier': 'Cashier',
+            'accountant': 'Accountant',
+            'clinic': 'Clinic',
+            'guidance': 'Guidance',
+            'mis-it': 'MIS/IT',
+            'building-administrator': 'Building Administrator',
+            'hr': 'HR',
+            'student-affairs-officer': 'Student Affairs Officer',
+            'school-administrator': 'School Administrator',
+            'pamo': 'PAMO',
+            'petty-cash-custodian': 'Petty Cash Custodian',
+            'disciplinary-officer': 'Disciplinary Officer',
+            'alumni-placement-officer': 'Alumni Placement Officer'
         };
 
-        const designationCode = designationCodeMap[signatory];
-        if (!designationCode) { showToast('Unknown signatory: '+signatory, 'error'); return; }
+        const designationName = designationNameMap[signatory];
+        if (!designationName) { 
+            showToast('Unknown signatory: '+signatory, 'error'); 
+            return; 
+        }
 
         const applyBtn = event.target.closest('.apply-btn');
         const originalHTML = applyBtn.innerHTML;
@@ -248,7 +249,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ designation_code: designationCode })
+            body: JSON.stringify({ designation_name: designationName })
         })
         .then(res=>res.json())
         .then(data=>{
@@ -256,13 +257,27 @@
                 applyBtn.innerHTML = '<i class="fas fa-check"></i> Applied';
                 applyBtn.classList.remove('btn-primary');
                 applyBtn.classList.add('btn-success');
-                updateSignatoryStatus(signatory,'pending');
-                showToast('Application submitted!', 'success');
-                checkAndUpdateDashboardButton(); // Call the new function
-            }else{ throw new Error(data.message||'Failed'); }
+                applyBtn.disabled = true; // Keep disabled after successful application
+                
+                // Update the signatory status to 'Pending'
+                updateSignatoryStatus(signatory, 'Pending');
+                
+                // Refresh the entire clearance data to get updated status
+                setTimeout(() => {
+                    updateClearanceData();
+                }, 500); // Small delay to ensure database is updated
+                
+                showToast('Application submitted successfully!', 'success');
+            }else{ 
+                throw new Error(data.message||'Failed to apply'); 
+            }
         })
-        .catch(err=>{ console.error(err); showToast(err.message,'error'); applyBtn.innerHTML = originalHTML; })
-        .finally(()=>{ applyBtn.disabled = false; });
+        .catch(err=>{ 
+            console.error('Apply error:', err); 
+            showToast(err.message || 'Failed to apply to signatory', 'error'); 
+            applyBtn.innerHTML = originalHTML; 
+            applyBtn.disabled = false;
+        });
     }
 
     // Update signatory status across all views
@@ -405,7 +420,8 @@
                 
                 data.periods.forEach(period => {
                     const option = document.createElement('option');
-                    option.value = period.clearance_form_id;
+                    // Use a placeholder value if no clearance_form_id exists
+                    option.value = period.clearance_form_id || 'new-form';
                     option.textContent = period.period_text;
                     if (period.is_active) {
                         option.textContent += ' (Active)';
@@ -415,7 +431,7 @@
                 
                 // Auto-select the first period and load its data
                 if (data.periods.length > 0) {
-                    select.value = data.periods[0].clearance_form_id;
+                    select.value = data.periods[0].clearance_form_id || 'new-form';
                     updateClearanceData();
                 }
             } else {
@@ -439,10 +455,20 @@
         }
         
         try {
-            // Load clearance data for the selected form
-            const response = await fetch(`../../api/clearance/status.php?form_id=${selectedFormId}`, {
-                credentials: 'same-origin'
-            });
+            // Handle case when no clearance form exists yet
+            let response;
+            if (selectedFormId === 'new-form') {
+                // Call status.php without form_id to get signatories for new form
+                response = await fetch('../../api/clearance/status.php', {
+                    credentials: 'same-origin'
+                });
+            } else {
+                // Load clearance data for the selected form
+                response = await fetch(`../../api/clearance/status.php?form_id=${selectedFormId}`, {
+                    credentials: 'same-origin'
+                });
+            }
+            
             const data = await response.json();
             
             if (data.success) {
@@ -458,6 +484,9 @@
 
     // Update the clearance UI based on data
     function updateClearanceUI(data) {
+        // Store period status for button logic
+        window.currentPeriodStatus = data.period_status || 'active';
+        
         // Update overall status
         const overallStatus = document.querySelector('.overall-status-badge');
         if (overallStatus) {
@@ -494,11 +523,11 @@
             <div class="card-content">
                 <div class="status-info">
                     <span class="status-label">Status:</span>
-                    <span class="status-value ${getStatusClass(signatory.action)}">${signatory.action || 'Pending'}</span>
+                    <span class="status-value ${getStatusClass(signatory.action)}">${signatory.action === 'Pending' ? 'Applied' : (signatory.action || 'Pending')}</span>
                 </div>
                 <div class="date-info">
                     <span class="date-label">Date Signed:</span>
-                    <span class="date-value">${signatory.updated_at ? new Date(signatory.updated_at).toLocaleDateString() : 'N/A'}</span>
+                    <span class="date-value">${(signatory.action === 'Approved' || signatory.action === 'Rejected') && signatory.updated_at ? new Date(signatory.updated_at).toLocaleDateString() : 'N/A'}</span>
                 </div>
                 <div class="remarks-info">
                     <span class="remarks-label">Remarks:</span>
@@ -535,8 +564,8 @@
         row.innerHTML = `
             <td>${signatory.designation_name}</td>
             <td class="signatory-name">${signatory.signatory_name || 'N/A'}</td>
-            <td><span class="status-badge ${getStatusClass(signatory.action)}">${signatory.action || 'Pending'}</span></td>
-            <td>${signatory.updated_at ? new Date(signatory.updated_at).toLocaleDateString() : 'N/A'}</td>
+            <td><span class="status-badge ${getStatusClass(signatory.action)}">${signatory.action === 'Pending' ? 'Applied' : (signatory.action || 'Pending')}</span></td>
+            <td>${(signatory.action === 'Approved' || signatory.action === 'Rejected') && signatory.updated_at ? new Date(signatory.updated_at).toLocaleDateString() : 'N/A'}</td>
             <td>${signatory.remarks || 'None'}</td>
             <td>
                 <div class="action-buttons">
@@ -553,7 +582,7 @@
     // Helper functions
     function getStatusDescription(action) {
         if (!action || action === '') return 'Awaiting Application';
-        if (action === 'Pending') return 'Awaiting Signatory';
+        if (action === 'Pending') return 'Applied - Awaiting Signatory';
         if (action === 'Approved') return 'Approved';
         if (action === 'Rejected') return 'Rejected';
         return 'Unknown Status';
@@ -563,15 +592,27 @@
         if (!action || action === '') return 'pending';
         if (action === 'Approved') return 'approved';
         if (action === 'Rejected') return 'rejected';
+        if (action === 'Pending') return 'applied'; // Show as "applied" when pending
         return 'pending';
     }
 
     function getActionButton(signatory) {
+        // Check if term is ended
+        const periodStatus = window.currentPeriodStatus || 'active';
+        
+        if (periodStatus === 'ended') {
+            return '<button class="btn btn-sm btn-secondary" disabled><i class="fas fa-ban"></i> Term Ended</button>';
+        }
+        
         if (signatory.action === 'Approved') {
             return '<button class="btn btn-sm btn-success" disabled><i class="fas fa-check"></i> Approved</button>';
         } else if (signatory.action === 'Rejected') {
             return `<button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}')" data-signatory="${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}">
                         <i class="fas fa-paper-plane"></i> Re-apply
+                    </button>`;
+        } else if (signatory.action === 'Pending') {
+            return `<button class="btn btn-sm btn-success apply-btn" disabled data-signatory="${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}">
+                        <i class="fas fa-check"></i> Applied
                     </button>`;
         } else {
             return `<button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}')" data-signatory="${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}">
@@ -618,7 +659,8 @@
                 
                 data.periods.forEach(period => {
                     const option = document.createElement('option');
-                    option.value = period.clearance_form_id;
+                    // Use a placeholder value if no clearance_form_id exists
+                    option.value = period.clearance_form_id || 'new-form';
                     option.textContent = period.period_text;
                     if (period.is_active) {
                         option.textContent += ' (Active)';
@@ -628,7 +670,7 @@
                 
                 // Auto-select the first period and load its data
                 if (data.periods.length > 0) {
-                    select.value = data.periods[0].clearance_form_id;
+                    select.value = data.periods[0].clearance_form_id || 'new-form';
                     updateClearanceData();
                 }
             } else {
@@ -652,10 +694,20 @@
         }
         
         try {
-            // Load clearance data for the selected form
-            const response = await fetch(`../../api/clearance/status.php?form_id=${selectedFormId}`, {
-                credentials: 'same-origin'
-            });
+            // Handle case when no clearance form exists yet
+            let response;
+            if (selectedFormId === 'new-form') {
+                // Call status.php without form_id to get signatories for new form
+                response = await fetch('../../api/clearance/status.php', {
+                    credentials: 'same-origin'
+                });
+            } else {
+                // Load clearance data for the selected form
+                response = await fetch(`../../api/clearance/status.php?form_id=${selectedFormId}`, {
+                    credentials: 'same-origin'
+                });
+            }
+            
             const data = await response.json();
             
             if (data.success) {
@@ -671,6 +723,9 @@
 
     // Update the clearance UI based on data
     function updateClearanceUI(data) {
+        // Store period status for button logic
+        window.currentPeriodStatus = data.period_status || 'active';
+        
         // Update overall status
         const overallStatus = document.querySelector('.overall-status-badge');
         if (overallStatus) {
@@ -698,7 +753,66 @@
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
         loadUserPeriods();
+        
+        // Add debug button for testing
+        const debugBtn = document.createElement('button');
+        debugBtn.textContent = 'Debug APIs';
+        debugBtn.style.position = 'fixed';
+        debugBtn.style.top = '10px';
+        debugBtn.style.right = '10px';
+        debugBtn.style.zIndex = '9999';
+        debugBtn.style.padding = '10px';
+        debugBtn.style.backgroundColor = '#007bff';
+        debugBtn.style.color = 'white';
+        debugBtn.style.border = 'none';
+        debugBtn.style.borderRadius = '5px';
+        debugBtn.style.cursor = 'pointer';
+        debugBtn.onclick = debugAPIs;
+        document.body.appendChild(debugBtn);
     });
+    
+    // Debug function to test APIs
+    async function debugAPIs() {
+        console.log('=== DEBUGGING FACULTY CLEARANCE APIs ===');
+        
+        try {
+            // Test user periods API
+            console.log('1. Testing user_periods.php...');
+            const periodsRes = await fetch('../../api/clearance/user_periods.php', {credentials: 'same-origin'});
+            const periodsData = await periodsRes.json();
+            console.log('User Periods Response:', periodsData);
+            
+            if (periodsData.success && periodsData.periods.length > 0) {
+                const formId = periodsData.periods[0].clearance_form_id;
+                console.log('2. Testing status.php with form_id:', formId);
+                
+                // Test status API
+                let statusRes;
+                if (formId === null) {
+                    // Call status.php without form_id for new forms
+                    statusRes = await fetch('../../api/clearance/status.php', {credentials: 'same-origin'});
+                } else {
+                    statusRes = await fetch(`../../api/clearance/status.php?form_id=${formId}`, {credentials: 'same-origin'});
+                }
+                const statusData = await statusRes.json();
+                console.log('Status Response:', statusData);
+                
+                if (statusData.success && statusData.signatories) {
+                    console.log('3. Found signatories:', statusData.signatories.length);
+                    statusData.signatories.forEach((sig, index) => {
+                        console.log(`  ${index + 1}. ${sig.designation_name} - ${sig.action || 'No action'}`);
+                    });
+                } else {
+                    console.log('❌ No signatories found in status response');
+                }
+            } else {
+                console.log('❌ No periods found');
+            }
+            
+        } catch (error) {
+            console.error('Debug API Error:', error);
+        }
+    }
 
     // Debug functions
 async function debugClearancePage() {
