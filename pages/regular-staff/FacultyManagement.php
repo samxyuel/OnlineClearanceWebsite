@@ -1,10 +1,7 @@
 <?php
 // Online Clearance Website - Regular Staff Faculty Management
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
 
-// Page guard: Regular Staff must have faculty scope and active period
+// Permission-based access control: Regular Staff can always view faculty data
 require_once __DIR__ . '/../../includes/config/database.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
 
@@ -17,16 +14,53 @@ $userId = (int)$auth->getUserId();
 
 try {
     $pdo = Database::getInstance()->getConnection();
-    // period active?
-    $active = (int)$pdo->query("SELECT COUNT(*) FROM clearance_periods WHERE is_active=1")->fetchColumn();
-    if ($active === 0) { header('HTTP/1.1 403 Forbidden'); echo 'No active clearance period.'; exit; }
-    // staff scope faculty?
-    $sql = "SELECT COUNT(*) FROM signatory_assignments sa JOIN designations d ON sa.designation_id=d.designation_id WHERE sa.user_id=? AND sa.clearance_type='faculty' AND sa.is_active=1";
-    $st = $pdo->prepare($sql);
-    $st->execute([$userId]);
-    if ((int)$st->fetchColumn() === 0) { header('HTTP/1.1 403 Forbidden'); echo 'Access denied.'; exit; }
+    
+    // Check if user is a staff member (more robust check)
+    $staffCheck = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM staff s 
+        WHERE s.user_id = ? AND s.is_active = 1
+    ");
+    $staffCheck->execute([$userId]);
+    $isStaff = (int)$staffCheck->fetchColumn() > 0;
+    
+    // If not staff, check if user has any role that should have access
+    if (!$isStaff) {
+        $roleCheck = $pdo->prepare("
+            SELECT r.role_name 
+            FROM users u 
+            JOIN user_roles ur ON u.user_id = ur.user_id 
+            JOIN roles r ON ur.role_id = r.role_id 
+            WHERE u.user_id = ? AND r.role_name IN ('Admin', 'Program Head', 'School Administrator')
+        ");
+        $roleCheck->execute([$userId]);
+        $hasAdminRole = $roleCheck->fetchColumn();
+        
+        if (!$hasAdminRole) {
+            header('HTTP/1.1 403 Forbidden'); 
+            echo 'Access denied. Regular staff access required.'; 
+            exit; 
+        }
+    }
+    
+    // Check permission flags (for conditional UI behavior)
+    $hasActivePeriod = (int)$pdo->query("SELECT COUNT(*) FROM clearance_periods WHERE is_active=1")->fetchColumn() > 0;
+    
+    $facultySignatoryCheck = $pdo->prepare("SELECT COUNT(*) FROM signatory_assignments sa JOIN designations d ON sa.designation_id=d.designation_id WHERE sa.user_id=? AND sa.clearance_type='faculty' AND sa.is_active=1");
+    $facultySignatoryCheck->execute([$userId]);
+    $hasFacultySignatoryAccess = (int)$facultySignatoryCheck->fetchColumn() > 0;
+    
+    $canPerformSignatoryActions = $hasActivePeriod && $hasFacultySignatoryAccess;
+    
+    // Store permission flags for use in the page
+    $GLOBALS['hasActivePeriod'] = $hasActivePeriod;
+    $GLOBALS['hasFacultySignatoryAccess'] = $hasFacultySignatoryAccess;
+    $GLOBALS['canPerformSignatoryActions'] = $canPerformSignatoryActions;
+    
 } catch (Throwable $e) {
-    header('HTTP/1.1 403 Forbidden'); echo 'Access denied.'; exit;
+    header('HTTP/1.1 500 Internal Server Error'); 
+    echo 'System error. Please try again later.'; 
+    exit;
 }
 ?>
 <!DOCTYPE html>
@@ -40,34 +74,126 @@ try {
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Disabled button styling for signatory actions */
+        .btn-icon:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #f8f9fa !important;
+            color: #6c757d !important;
+            border-color: #dee2e6 !important;
+        }
+        
+        .btn-icon:disabled:hover {
+            background-color: #f8f9fa !important;
+            color: #6c757d !important;
+            border-color: #dee2e6 !important;
+            transform: none !important;
+        }
+        
+        /* Bulk action buttons disabled styling */
+        .bulk-buttons button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .bulk-buttons button:disabled:hover {
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        
+        /* Loading spinner styles */
+        .loading-row {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .loading-spinner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: var(--medium-muted-blue);
+            font-size: 14px;
+        }
+        
+        .loading-spinner i {
+            font-size: 18px;
+        }
+        
+        /* Empty state styles */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--medium-muted-blue);
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        /* Selection Counter Display Styles (matching admin's page) */
+        .selection-counter-display {
+            display: flex;
+            align-items: center;
+            margin-left: 15px;
+            margin-right: 20px;
+            padding: 8px 20px;
+            background-color: var(--very-light-cool-white, #e7eff4);
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            color: var(--dark-primary, #1c3faa);
+            min-width: 180px;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(231, 239, 244, 0.3);
+            transition: all 0.2s ease;
+        }
+        
+        .selection-counter-display span {
+            font-size: 13px;
+            letter-spacing: 0.3px;
+        }
+        
+        /* Hover effect for subtle interactivity */
+        .selection-counter-display:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(231, 239, 244, 0.4);
+        }
+        
+        /* State-based styling */
+        .selection-counter-display.has-selections {
+            background-color: var(--darker-saturated-blue, #175d97);
+            box-shadow: 0 2px 4px rgba(23, 93, 151, 0.2);
+            cursor: pointer;
+        }
+        
+        .selection-counter-display.has-selections:hover {
+            box-shadow: 0 3px 8px rgba(23, 93, 151, 0.25);
+        }
+        
+        .selection-counter-display.all-selected {
+            background-color: var(--bright-golden-yellow, #e7c01d);
+            color: var(--deep-navy-blue, #0c5591);
+            box-shadow: 0 2px 4px rgba(231, 192, 29, 0.2);
+            cursor: pointer;
+        }
+        
+        .selection-counter-display.all-selected:hover {
+            box-shadow: 0 3px 8px rgba(231, 192, 29, 0.25);
+        }
+        
+        /* Select All Button */
+        .select-all-btn {
+            margin-right: 15px;
+        }
+    </style>
 </head>
 <body>
     <!-- Header -->
-    <header class="navbar">
-        <div class="container">
-            <div class="header-content">
-                <div class="header-left">
-                    <button class="mobile-menu-toggle" onclick="toggleSidebar()">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="logo">
-                        <h1>goSTI</h1>
-                    </div>
-                </div>
-                <div class="user-info">
-                    <span class="user-name">Sarah Wilson (Regular Staff - Cashier)</span>
-                    <div class="user-dropdown">
-                        <button class="dropdown-toggle">▼</button>
-                        <div class="dropdown-menu">
-                            <a href="../../pages/shared/profile.php">Profile</a>
-                            <a href="../../pages/shared/settings.php">Settings</a>
-                            <a href="../../pages/auth/logout.php">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+    <?php include '../../includes/components/header.php'; ?>
 
     <!-- Main Content -->
     <main class="dashboard-container">
@@ -81,11 +207,33 @@ try {
                         <!-- Page Header -->
                         <div class="page-header">
                             <h2><i class="fas fa-chalkboard-teacher"></i> Faculty Management</h2>
-                            <p>Review and sign faculty clearance requests as a Cashier signatory</p>
+                            <p>Review and sign faculty clearance requests</p>
                             <div class="department-scope-info">
                                 <i class="fas fa-user-shield"></i>
-                                <span>Position: Cashier - Clearance Signatory</span>
+                                <span id="staffPositionInfo">Loading position...</span>
                             </div>
+                            
+                            <!-- Permission Status Alerts -->
+                            <?php if (!$GLOBALS['hasActivePeriod']): ?>
+                            <div class="alert alert-warning" style="margin-top: 10px;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>No Active Clearance Period:</strong> You can view faculty data but cannot perform signatory actions until a clearance period is activated.
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if (!$GLOBALS['hasFacultySignatoryAccess']): ?>
+                            <div class="alert alert-info" style="margin-top: 10px;">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>View-Only Access:</strong> You can view faculty data but are not currently assigned as a faculty signatory.
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if ($GLOBALS['canPerformSignatoryActions']): ?>
+                            <div class="alert alert-success" style="margin-top: 10px;">
+                                <i class="fas fa-check-circle"></i>
+                                <strong>Signatory Actions Available:</strong> You can approve and reject faculty clearance requests.
+                            </div>
+                            <?php endif; ?>
                         </div>
 
                         <!-- Statistics Dashboard -->
@@ -194,20 +342,26 @@ try {
                             </div>
                         </div>
 
+                        <!-- Current Period Banner -->
+                        <div class="current-period-banner-wrapper">
+                            <div id="currentPeriodBanner" class="current-period-banner">
+                                <i class="fas fa-calendar-alt banner-icon" aria-hidden="true"></i>
+                                <span id="currentPeriodText">Loading current period...</span>
+                            </div>
+                        </div>
+
                         <!-- Faculty Table with Integrated Bulk Actions -->
                         <div class="table-container">
                             <!-- Table Header with Bulk Actions -->
                             <div class="table-header-section">
                                 <div class="bulk-controls">
-                                    <label class="select-all-checkbox">
-                                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                        <span class="checkmark"></span>
-                                        Select All
-                                    </label>
+                                    <button class="btn btn-primary select-all-btn" onclick="toggleSelectAll()">
+                                        <i class="fas fa-check-square"></i> Select All
+                                    </button>
+                                    <button class="selection-counter-display" id="selectionCounterPill" type="button" title="" aria-disabled="true">
+                                        <span id="selectionCounter">0 selected</span>
+                                    </button>
                                     <div class="bulk-buttons">
-                                        <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
-                                            <i class="fas fa-undo"></i> Undo
-                                        </button>
                                         <button class="btn btn-success" onclick="approveSelected()" disabled>
                                             <i class="fas fa-check"></i> Approve
                                         </button>
@@ -229,7 +383,7 @@ try {
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
-                                                    <span id="selectionCounter">0 selected</span>
+                                                    <input type="checkbox" id="headerCheckbox" onchange="toggleHeaderCheckbox()">
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
@@ -240,40 +394,12 @@ try {
                                             </tr>
                                         </thead>
                                         <tbody id="facultyTableBody">
-                                            <!-- Sample data -->
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="faculty-checkbox" data-id="LCA123P"></td>
-                                                <td>LCA123P</td>
-                                                <td>Dr. Maria Santos</td>
-                                                <td><span class="status-badge employment-full-time">Full Time</span></td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-pending">Pending</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('LCA123P')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('LCA123P')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="faculty-checkbox" data-id="MTH456A"></td>
-                                                <td>MTH456A</td>
-                                                <td>Prof. Juan Dela Cruz</td>
-                                                <td><span class="status-badge employment-part-time">Part Time</span></td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-completed">Completed</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('MTH456A')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('MTH456A')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
+                                            <!-- Faculty data will be loaded dynamically -->
+                                            <tr>
+                                                <td colspan="7" class="loading-row">
+                                                    <div class="loading-spinner">
+                                                        <i class="fas fa-spinner fa-spin"></i>
+                                                        <span>Loading faculty data...</span>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -375,7 +501,7 @@ try {
     <script src="../../assets/js/activity-tracker.js"></script>
     <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
-        const CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'Staff'; ?>';
+        let CURRENT_STAFF_POSITION = 'Staff'; // Will be loaded dynamically
         // Toggle sidebar
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
@@ -403,37 +529,93 @@ try {
 
         // Select all functionality
         function toggleSelectAll() {
-            const selectAllCheckbox = document.getElementById('selectAll');
             const facultyCheckboxes = document.querySelectorAll('.faculty-checkbox');
-            const bulkButtons = document.querySelectorAll('.bulk-buttons button');
+            const headerCheckbox = document.getElementById('headerCheckbox');
+            const allChecked = Array.from(facultyCheckboxes).every(cb => cb.checked);
+            
+            // If all are checked, uncheck all; otherwise check all
+            const newState = !allChecked;
             
             facultyCheckboxes.forEach(checkbox => {
-                checkbox.checked = selectAllCheckbox.checked;
+                checkbox.checked = newState;
+            });
+            headerCheckbox.checked = newState;
+            
+            updateBulkButtons();
+            updateSelectionCounter();
+        }
+        
+        // Header checkbox functionality
+        function toggleHeaderCheckbox() {
+            const headerCheckbox = document.getElementById('headerCheckbox');
+            const facultyCheckboxes = document.querySelectorAll('.faculty-checkbox');
+            
+            facultyCheckboxes.forEach(checkbox => {
+                checkbox.checked = headerCheckbox.checked;
             });
             
             updateBulkButtons();
+            updateSelectionCounter();
         }
 
         function updateSelectionCounter() {
             const selectedCount = getSelectedCount();
             const totalCount = document.querySelectorAll('.faculty-checkbox').length;
             const counter = document.getElementById('selectionCounter');
+            const selectionDisplay = document.getElementById('selectionCounterPill');
             
             if (selectedCount === 0) {
                 counter.textContent = '0 selected';
+                // Reset selection counter styling
+                if (selectionDisplay) {
+                    selectionDisplay.classList.remove('has-selections', 'all-selected');
+                    selectionDisplay.setAttribute('aria-disabled', 'true');
+                    selectionDisplay.title = '';
+                }
             } else if (selectedCount === totalCount) {
                 counter.textContent = `All ${totalCount} selected`;
+                // Apply all selected styling
+                if (selectionDisplay) {
+                    selectionDisplay.classList.remove('has-selections');
+                    selectionDisplay.classList.add('all-selected');
+                    selectionDisplay.removeAttribute('aria-disabled');
+                    selectionDisplay.title = 'Clear selection';
+                }
             } else {
                 counter.textContent = `${selectedCount} selected`;
+                // Apply partial selection styling
+                if (selectionDisplay) {
+                    selectionDisplay.classList.remove('all-selected');
+                    selectionDisplay.classList.add('has-selections');
+                    selectionDisplay.removeAttribute('aria-disabled');
+                    selectionDisplay.title = 'Clear selection';
+                }
             }
         }
 
         function updateBulkButtons() {
             const checkedBoxes = document.querySelectorAll('.faculty-checkbox:checked');
             const bulkButtons = document.querySelectorAll('.bulk-buttons button');
+             
+             // Check if signatory actions are allowed
+             const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
             
             bulkButtons.forEach(button => {
-                button.disabled = checkedBoxes.length === 0;
+                 // Disable if no selections OR if signatory actions are not allowed
+                 button.disabled = checkedBoxes.length === 0 || !canPerformActions;
+                 
+                 // Add tooltip for disabled state
+                 if (!canPerformActions && checkedBoxes.length > 0) {
+                     if (button.classList.contains('btn-success')) {
+                         button.title = 'Cannot approve: <?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period" : "Not assigned as faculty signatory"; ?>';
+                     } else if (button.classList.contains('btn-danger')) {
+                         button.title = 'Cannot reject: <?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period" : "Not assigned as faculty signatory"; ?>';
+                     }
+                 } else if (checkedBoxes.length === 0) {
+                     button.title = 'Select faculty to perform actions';
+                 } else {
+                     button.title = '';
+                 }
             });
             
             updateSelectionCounter();
@@ -441,6 +623,11 @@ try {
 
         // Bulk Actions - Staff can only approve/reject clearances
         function approveSelected() {
+            // Check if signatory actions are allowed
+            if (!canPerformSignatoryActions()) {
+                return;
+            }
+            
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
                 showToastNotification('Please select faculty to approve clearance', 'warning');
@@ -466,14 +653,14 @@ try {
                                 const result = await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Approved');
                                 
                                 if (result.success) {
-                                    const row = checkbox.closest('tr');
-                                    const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
-                                    
-                                    if (clearanceBadge) {
-                                        clearanceBadge.textContent = 'Completed';
-                                        clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
-                                        clearanceBadge.classList.add('clearance-completed');
-                                    }
+                        const row = checkbox.closest('tr');
+                        const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
+                        
+                        if (clearanceBadge) {
+                            clearanceBadge.textContent = 'Completed';
+                            clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
+                            clearanceBadge.classList.add('clearance-completed');
+                        }
                                     successCount++;
                                 } else {
                                     errorCount++;
@@ -501,6 +688,11 @@ try {
         }
 
         function rejectSelected() {
+            // Check if signatory actions are allowed
+            if (!canPerformSignatoryActions()) {
+                return;
+            }
+            
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
                 showToastNotification('Please select faculty to reject clearance', 'warning');
@@ -522,12 +714,13 @@ try {
         // Load faculty data from API
         async function loadFacultyData() {
             try {
-                const response = await fetch('../../api/users/faculty_list.php?limit=500', {
+                const response = await fetch('../../api/users/staff_faculty_list.php?limit=500', {
                     credentials: 'include'
                 });
                 const data = await response.json();
                 
                 if (!data.success) {
+                    showEmptyState('Failed to load faculty data: ' + data.message);
                     showToastNotification('Failed to load faculty data: ' + data.message, 'error');
                     return;
                 }
@@ -537,7 +730,88 @@ try {
                 
             } catch (error) {
                 console.error('Error loading faculty data:', error);
+                showEmptyState('Error loading faculty data');
                 showToastNotification('Failed to load faculty data', 'error');
+            }
+        }
+        
+        // Load current clearance period for banner
+        async function loadCurrentPeriod() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                const bannerEl = document.getElementById('currentPeriodText');
+                if (!bannerEl) return;
+                
+                if (data.success && data.active_period) {
+                    const period = data.active_period;
+                    const termMap = { '1st': 'Term 1', '2nd': 'Term 2', '3rd': 'Term 3' };
+                    const semLabel = termMap[period.semester_name] || period.semester_name || '';
+                    bannerEl.textContent = `${period.school_year} • ${semLabel}`;
+                } else {
+                    bannerEl.textContent = 'No active clearance period';
+                }
+            } catch (error) {
+                console.error('Error loading current period:', error);
+                const bannerEl = document.getElementById('currentPeriodText');
+                if (bannerEl) {
+                    bannerEl.textContent = 'Unable to load period';
+                }
+            }
+        }
+        
+        // Load periods for period selector dropdown
+        async function loadPeriods() {
+            try {
+                console.log('Loading periods...');
+                const response = await fetch('../../api/clearance/periods.php', {
+                    credentials: 'include'
+                });
+                
+                console.log('Periods API response status:', response.status);
+                const data = await response.json();
+                console.log('Periods API response data:', data);
+                
+                const periodSelect = document.getElementById('schoolTermFilter');
+                if (!periodSelect) {
+                    console.error('Period selector element not found');
+                    return;
+                }
+                
+                // Clear existing options except the first one
+                periodSelect.innerHTML = '<option value="">All School Terms</option>';
+                
+                if (data.success && data.periods && data.periods.length > 0) {
+                    console.log('Found periods:', data.periods.length);
+                    data.periods.forEach(period => {
+                        const option = document.createElement('option');
+                        option.value = `${period.academic_year}-${period.semester_name}`;
+                        
+                        const termMap = { '1st': '1st Semester', '2nd': '2nd Semester', '3rd': '3rd Semester' };
+                        const semLabel = termMap[period.semester_name] || period.semester_name || '';
+                        const activeText = period.is_active ? ' (Active)' : '';
+                        
+                        option.textContent = `${period.academic_year} ${semLabel}${activeText}`;
+                        periodSelect.appendChild(option);
+                        console.log('Added period option:', option.textContent);
+                    });
+                } else {
+                    console.log('No periods found or API failed');
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No periods available';
+                    option.disabled = true;
+                    periodSelect.appendChild(option);
+                }
+            } catch (error) {
+                console.error('Error loading periods:', error);
+                const periodSelect = document.getElementById('schoolTermFilter');
+                if (periodSelect) {
+                    periodSelect.innerHTML = '<option value="">Error loading periods</option>';
+                }
             }
         }
         
@@ -545,18 +819,37 @@ try {
             const tbody = document.getElementById('facultyTableBody');
             tbody.innerHTML = '';
             
-            facultyList.forEach(faculty => {
-                const row = createFacultyRow(faculty);
-                tbody.appendChild(row);
-            });
+            if (facultyList && facultyList.length > 0) {
+                facultyList.forEach(faculty => {
+                    const row = createFacultyRow(faculty);
+                    tbody.appendChild(row);
+                });
+            } else {
+                showEmptyState('No faculty data found');
+            }
             
             // Update pagination
             updatePagination();
         }
         
+        // Show empty state
+        function showEmptyState(message) {
+            const tbody = document.getElementById('facultyTableBody');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="empty-state">
+                        <i class="fas fa-users"></i>
+                        <div>${message}</div>
+                    </td>
+                </tr>
+            `;
+        }
+        
         function createFacultyRow(faculty) {
             const tr = document.createElement('tr');
-            tr.setAttribute('data-term', ''); // term unknown for now
+            // Set data-term based on current active period (for now, we'll use a default)
+            // TODO: Enhance API to include period information in faculty data
+            tr.setAttribute('data-term', '2025-2026-1st'); // Default to current active period
             
             const statusRaw = faculty.clearance_status;
             let clearanceKey = 'unapplied';
@@ -568,6 +861,25 @@ try {
             const accountStatus = faculty.status.toLowerCase();
             const clearanceStatus = clearanceKey;
             
+            // Check if signatory actions are allowed
+            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
+            const hasActivePeriod = <?php echo $GLOBALS['hasActivePeriod'] ? 'true' : 'false'; ?>;
+            const hasFacultySignatoryAccess = <?php echo $GLOBALS['hasFacultySignatoryAccess'] ? 'true' : 'false'; ?>;
+            
+            // Determine tooltip messages
+            let approveTooltip = 'Approve Clearance';
+            let rejectTooltip = 'Reject Clearance';
+            
+            if (!canPerformActions) {
+                if (!hasActivePeriod) {
+                    approveTooltip = 'Cannot approve: No active clearance period';
+                    rejectTooltip = 'Cannot reject: No active clearance period';
+                } else if (!hasFacultySignatoryAccess) {
+                    approveTooltip = 'Cannot approve: Not assigned as faculty signatory';
+                    rejectTooltip = 'Cannot reject: Not assigned as faculty signatory';
+                }
+            }
+            
             tr.innerHTML = `
                 <td><input type="checkbox" class="faculty-checkbox" data-id="${faculty.employee_number}"></td>
                 <td>${faculty.employee_number}</td>
@@ -577,10 +889,10 @@ try {
                 <td><span class="status-badge clearance-${clearanceStatus}">${statusRaw}</span></td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${faculty.employee_number}')" title="Approve Clearance">
+                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${faculty.employee_number}')" title="${approveTooltip}" ${!canPerformActions ? 'disabled' : ''}>
                             <i class="fas fa-check"></i>
                         </button>
-                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('${faculty.employee_number}')" title="Reject Clearance">
+                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('${faculty.employee_number}')" title="${rejectTooltip}" ${!canPerformActions ? 'disabled' : ''}>
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -610,9 +922,14 @@ try {
             document.getElementById('inactiveFaculty').textContent = inactive;
             document.getElementById('resignedFaculty').textContent = resigned;
         }
-        
+
         // Individual faculty actions - Staff can only approve/reject clearances
         async function approveFacultyClearance(facultyId) {
+            // Check if signatory actions are allowed
+            if (!canPerformSignatoryActions()) {
+                return;
+            }
+            
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
             const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
@@ -652,9 +969,9 @@ try {
                         
                         if (data.success) {
                             // Update UI
-                            clearanceBadge.textContent = 'Completed';
-                            clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
-                            clearanceBadge.classList.add('clearance-completed');
+                    clearanceBadge.textContent = 'Completed';
+                    clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
+                    clearanceBadge.classList.add('clearance-completed');
                             
                             showToastNotification(`✓ Successfully approved clearance for ${facultyName}`, 'success');
                         } else {
@@ -669,13 +986,36 @@ try {
                 'success'
             );
         }
-        
+
         async function rejectFacultyClearance(facultyId) {
+            // Check if signatory actions are allowed
+            if (!canPerformSignatoryActions()) {
+                return;
+            }
+            
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
             
             // Open rejection remarks modal
             openRejectionRemarksModal(facultyId, facultyName, 'faculty', false);
+        }
+        
+        // Helper function to check if signatory actions are allowed
+        function canPerformSignatoryActions() {
+            const hasActivePeriod = <?php echo $GLOBALS['hasActivePeriod'] ? 'true' : 'false'; ?>;
+            const hasFacultySignatoryAccess = <?php echo $GLOBALS['hasFacultySignatoryAccess'] ? 'true' : 'false'; ?>;
+            
+            if (!hasActivePeriod) {
+                showToastNotification('Cannot perform signatory actions: No active clearance period', 'warning');
+                return false;
+            }
+            
+            if (!hasFacultySignatoryAccess) {
+                showToastNotification('Cannot perform signatory actions: You are not assigned as a faculty signatory', 'warning');
+                return false;
+            }
+            
+            return true;
         }
         
         // Helper function to resolve user ID from employee number
@@ -719,10 +1059,46 @@ try {
             }
         }
         
+        // Clear all selections function
+        function clearAllSelections() {
+            const selectedCount = getSelectedCount();
+            
+            if (selectedCount === 0) {
+                showToastNotification('No selections to clear', 'info');
+                return;
+            }
+            
+            // Clear all faculty checkboxes
+            const facultyCheckboxes = document.querySelectorAll('.faculty-checkbox');
+            const headerCheckbox = document.getElementById('headerCheckbox');
+            
+            facultyCheckboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            headerCheckbox.checked = false;
+            
+            // Update UI states
+            updateSelectionCounter();
+            updateBulkButtons();
+            
+            showToastNotification(`Cleared ${selectedCount} selections`, 'success');
+        }
+        
+        // Undo last action function (placeholder for now)
+        function undoLastAction() {
+            showToastNotification('Undo functionality not implemented yet', 'info');
+        }
+        
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             // Load faculty data on page load
             loadFacultyData();
+            
+            // Load current clearance period for banner
+            loadCurrentPeriod();
+            
+            // Load periods for period selector
+            loadPeriods();
             
             // Add event listeners for checkboxes
             document.addEventListener('change', function(e) {
@@ -731,6 +1107,21 @@ try {
                     updateSelectionCounter();
                 }
             });
+            
+            // Make selection counter pill act as Clear Selection when active
+            const pill = document.getElementById('selectionCounterPill');
+            if (pill) {
+                pill.addEventListener('click', function() {
+                    if (!pill.classList.contains('has-selections') && !pill.classList.contains('all-selected')) return;
+                    clearAllSelections();
+                });
+                pill.addEventListener('keydown', function(e){
+                    if ((e.key === 'Enter' || e.key === ' ') && (pill.classList.contains('has-selections') || pill.classList.contains('all-selected'))){
+                        e.preventDefault();
+                        clearAllSelections();
+                    }
+                });
+            }
         });
         
         // Pagination functions (simplified for now)
@@ -783,16 +1174,12 @@ try {
             console.log('Updating statistics by term');
         }
         
-        function undoLastAction() {
-            showToastNotification('Undo functionality not implemented yet', 'info');
-        }
-        
         function triggerExportModal() {
             showToastNotification('Export functionality not implemented yet', 'info');
         }
         
-        // Global variable for current staff position (should be set by backend)
-        let CURRENT_STAFF_POSITION = 'Unknown'; // This should be populated from the backend
+        // Global variable for current staff position (set by PHP above)
+        // Note: CURRENT_STAFF_POSITION is set by PHP and cannot be reassigned in JavaScript
         
         // Load current staff designation
         async function loadCurrentStaffDesignation() {
@@ -803,15 +1190,26 @@ try {
                 const data = await response.json();
                 
                 if (data.success) {
+                    console.log('Current staff position:', data.designation_name);
+                    
+                    // Update the global variable
                     CURRENT_STAFF_POSITION = data.designation_name;
-                    console.log('Current staff position:', CURRENT_STAFF_POSITION);
+                    
+                    // Update the position info in the header
+                    const positionInfo = document.getElementById('staffPositionInfo');
+                    if (positionInfo) {
+                        positionInfo.textContent = `Position: ${data.designation_name}`;
+                    }
                 } else {
                     console.error('Failed to load staff designation:', data.message);
-                    CURRENT_STAFF_POSITION = 'Unknown';
+                    
+                    const positionInfo = document.getElementById('staffPositionInfo');
+                    if (positionInfo) {
+                        positionInfo.textContent = 'Position: Unknown';
+                    }
                 }
             } catch (error) {
                 console.error('Error loading staff designation:', error);
-                CURRENT_STAFF_POSITION = 'Unknown';
             }
         }
         

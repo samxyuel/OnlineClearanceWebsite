@@ -38,6 +38,7 @@ if (!$input || empty($input['applicant_user_id']) || empty($input['action'])) {
     exit;
 }
 
+
 $applicantId     = (int)$input['applicant_user_id'];
 $action          = trim($input['action']);
 $remarks         = isset($input['remarks']) ? trim($input['remarks']) : null;
@@ -57,7 +58,11 @@ try {
         $stmt->execute([$designationName]);
         $designationId = (int)$stmt->fetchColumn();
     }
-    if (!$designationId) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'designation_id or designation_name required']); exit; }
+    if (!$designationId) { 
+        http_response_code(400); 
+        echo json_encode(['success'=>false,'message'=>'designation_id or designation_name required']); 
+        exit; 
+    }
 
     // Active period
     $cp = $pdo->query("SELECT academic_year_id, semester_id, status FROM clearance_periods WHERE is_active=1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
@@ -66,10 +71,12 @@ try {
     $semId = (int)$cp['semester_id'];
 
     // Applicant form
-    $formStmt = $pdo->prepare("SELECT clearance_form_id FROM clearance_forms WHERE user_id=? AND academic_year_id=? AND semester_id=? LIMIT 1");
+    $formStmt = $pdo->prepare("SELECT clearance_form_id, clearance_type FROM clearance_forms WHERE user_id=? AND academic_year_id=? AND semester_id=? LIMIT 1");
     $formStmt->execute([$applicantId,$ayId,$semId]);
-    $formId = $formStmt->fetchColumn();
-    if (!$formId) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Applicant has no form for this period']); exit; }
+    $formData = $formStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$formData) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'Applicant has no form for this period']); exit; }
+    $formId = $formData['clearance_form_id'];
+    $clearanceType = strtolower($formData['clearance_type']); // 'student' or 'faculty'
 
     // Department-aware routing for Program Head
     $actingUserId = $auth->getUserId();
@@ -103,6 +110,69 @@ try {
         $chk = $pdo->prepare("SELECT 1 FROM staff WHERE user_id=? AND designation_id=? AND is_active=1 LIMIT 1");
         $chk->execute([$actingUserId,$designationId]);
         if (!$chk->fetchColumn()) { http_response_code(403); echo json_encode(['success'=>false,'message'=>'You are not the assigned signatory for this designation']); exit; }
+    }
+
+    // Required First/Last Signatory Validation
+    $scopeSettings = $pdo->prepare("SELECT required_first_enabled, required_first_designation_id, required_last_enabled, required_last_designation_id FROM scope_settings WHERE clearance_type = ? LIMIT 1");
+    $scopeSettings->execute([$clearanceType]);
+    $scope = $scopeSettings->fetch(PDO::FETCH_ASSOC);
+    
+    if ($scope) {
+        // Check Required First validation
+        if ($scope['required_first_enabled'] && $scope['required_first_designation_id']) {
+            // Only check if the current signatory is NOT the required first signatory
+            if ($designationId != $scope['required_first_designation_id']) {
+                // Check if the required first signatory has already approved
+                $firstCheck = $pdo->prepare("SELECT action FROM clearance_signatories WHERE clearance_form_id = ? AND designation_id = ? LIMIT 1");
+                $firstCheck->execute([$formId, $scope['required_first_designation_id']]);
+                $firstAction = $firstCheck->fetchColumn();
+                
+                if (!$firstAction || $firstAction !== 'Approved') {
+                    // Get the designation name for error message
+                    $firstDesignation = $pdo->prepare("SELECT designation_name FROM designations WHERE designation_id = ? LIMIT 1");
+                    $firstDesignation->execute([$scope['required_first_designation_id']]);
+                    $firstDesignationName = $firstDesignation->fetchColumn();
+                    
+                    http_response_code(400);
+                    echo json_encode([
+                        'success' => false, 
+                        'message' => "Cannot approve: Required first signatory ({$firstDesignationName}) must approve before other signatories can act.",
+                        'required_first' => $firstDesignationName
+                    ]);
+                    exit;
+                }
+            }
+        }
+        
+        // Check Required Last validation
+        if ($scope['required_last_enabled'] && $scope['required_last_designation_id'] && $designationId == $scope['required_last_designation_id']) {
+            // Check if all other signatories have approved (except the required last)
+            $otherSignatories = $pdo->prepare("
+                SELECT cs.designation_id, cs.action, d.designation_name 
+                FROM clearance_signatories cs 
+                JOIN designations d ON d.designation_id = cs.designation_id 
+                WHERE cs.clearance_form_id = ? AND cs.designation_id != ?
+            ");
+            $otherSignatories->execute([$formId, $designationId]);
+            $otherActions = $otherSignatories->fetchAll(PDO::FETCH_ASSOC);
+            
+            $pendingSignatories = [];
+            foreach ($otherActions as $other) {
+                if (!$other['action'] || $other['action'] !== 'Approved') {
+                    $pendingSignatories[] = $other['designation_name'];
+                }
+            }
+            
+            if (!empty($pendingSignatories)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false, 
+                    'message' => "Cannot approve: All other signatories must approve before the required last signatory can act. Pending: " . implode(', ', $pendingSignatories),
+                    'pending_signatories' => $pendingSignatories
+                ]);
+                exit;
+            }
+        }
     }
 
     // Upsert signatory row and set action

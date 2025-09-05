@@ -1,14 +1,6 @@
 <?php
 // Online Clearance Website - School Administrator Dashboard
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Demo session data for testing - School Administrator
-$_SESSION['user_id'] = 5;
-$_SESSION['role_id'] = 6; // School Administrator role
-$_SESSION['first_name'] = 'Dr. Robert';
-$_SESSION['last_name'] = 'Johnson';
+// Session management handled by header component
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -22,32 +14,8 @@ $_SESSION['last_name'] = 'Johnson';
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- Top Bar -->
-    <header class="navbar">
-        <div class="container">
-            <div class="header-content">
-                <div class="header-left">
-                    <button class="mobile-menu-toggle" onclick="toggleSidebar()">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="logo">
-                        <h1>goSTI</h1>
-                    </div>
-                </div>
-                <div class="user-info">
-                    <span class="user-name">Dr. Robert Johnson (School Administrator)</span>
-                    <div class="user-dropdown">
-                        <button class="dropdown-toggle">▼</button>
-                        <div class="dropdown-menu">
-                            <a href="../../pages/shared/profile.php">Profile</a>
-                            <a href="../../pages/shared/settings.php">Settings</a>
-                            <a href="../../pages/auth/logout.php">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+    <!-- Header -->
+    <?php include '../../includes/components/header.php'; ?>
 
     <!-- Main Content Area -->
     <main class="dashboard-container">
@@ -74,7 +42,7 @@ $_SESSION['last_name'] = 'Johnson';
                 <div class="card active-period-status">
                     <div class="status-content">
                         <div class="status-info">
-                            <h3><i class="fas fa-calendar-check"></i> 2024-2025 Term 1 (ACTIVE)</h3>
+                            <h3><i class="fas fa-calendar-check"></i> <span id="currentPeriodDisplay">Loading current period...</span></h3>
                             <p>Duration: 45 days | Started: Jan 15, 2024</p>
                             <div class="period-stats">
                                 <span class="stat-item">
@@ -246,7 +214,7 @@ $_SESSION['last_name'] = 'Johnson';
                             <h4><i class="fas fa-graduation-cap"></i> Departments</h4>
                             <div class="program-stats">
                                 <div class="program-item">
-                                    <span class="program-name">ICT Department</span>
+                                    <span class="program-name">Faculty Department</span>
                                     <span class="program-count">456 students</span>
                                 </div>
                                 <div class="program-item">
@@ -303,6 +271,38 @@ $_SESSION['last_name'] = 'Johnson';
     <?php include '../../includes/functions/audit_functions.php'; ?>
     
     <script>
+        // Load current period information
+        async function loadCurrentPeriod() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success && data.active_period) {
+                    const period = data.active_period;
+                    const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
+                    
+                    if (currentPeriodDisplay) {
+                        const termMap = { '1st': 'Term 1', '2nd': 'Term 2', '3rd': 'Term 3' };
+                        const semLabel = termMap[period.semester_name] || period.semester_name || '';
+                        currentPeriodDisplay.textContent = `${period.school_year} ${semLabel} (ACTIVE)`;
+                    }
+                } else {
+                    const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
+                    if (currentPeriodDisplay) {
+                        currentPeriodDisplay.textContent = 'No active clearance period';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading current period:', error);
+                const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
+                if (currentPeriodDisplay) {
+                    currentPeriodDisplay.textContent = 'Unable to load period';
+                }
+            }
+        }
+
         function viewPendingClearances() {
             showToast('Opening pending clearances...', 'info');
             setTimeout(() => {
@@ -362,6 +362,9 @@ $_SESSION['last_name'] = 'Johnson';
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             console.log('School Administrator Dashboard loaded');
+            
+            // Load dynamic content
+            loadCurrentPeriod();
             
             // Initialize Activity Tracker with singleton pattern
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {

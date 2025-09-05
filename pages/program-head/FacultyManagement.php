@@ -1,22 +1,18 @@
 <?php
 // Online Clearance Website - Program Head Faculty Management
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Page guard: Program Head must have faculty-sector assignment
-require_once __DIR__ . '/../../includes/config/database.php';
-require_once __DIR__ . '/../../includes/classes/Auth.php';
-
-$auth = new Auth();
-if (!$auth->isLoggedIn()) {
-    header('Location: ../../pages/auth/login.php');
-    exit;
-}
-
-$userId = (int)$auth->getUserId();
+// Session management handled by header component
 
 try {
+    require_once __DIR__ . '/../../includes/config/database.php';
+    require_once __DIR__ . '/../../includes/classes/Auth.php';
+    
+    $auth = new Auth();
+    if (!$auth->isLoggedIn()) {
+        header('Location: ../../pages/auth/login.php');
+        exit;
+    }
+    
+    $userId = (int)$auth->getUserId();
     $pdo = Database::getInstance()->getConnection();
     // Verify role Program Head
     $roleOk = false;
@@ -25,17 +21,17 @@ try {
     $rn = strtolower((string)$rs->fetchColumn());
     if ($rn === 'program head') { $roleOk = true; }
 
-    // Check faculty-sector assignment
-    $sql = "SELECT COUNT(*) FROM signatory_assignments sa
-            JOIN designations des ON sa.designation_id=des.designation_id
-            JOIN departments d ON sa.department_id=d.department_id
-            JOIN sectors s ON d.sector_id=s.sector_id
-            WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name='Faculty'";
-    $st = $pdo->prepare($sql);
-    $st->execute([$userId]);
-    $hasFacultySector = ((int)$st->fetchColumn()) > 0;
+    // Check faculty-sector assignment - COMMENTED OUT TO ALLOW ALL PROGRAM HEADS ACCESS
+    // $sql = "SELECT COUNT(*) FROM signatory_assignments sa
+    //         JOIN designations des ON sa.designation_id=des.designation_id
+    //         JOIN departments d ON sa.department_id=d.department_id
+    //         JOIN sectors s ON d.sector_id=s.sector_id
+    //         WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name='Faculty'";
+    // $st = $pdo->prepare($sql);
+    // $st->execute([$userId]);
+    // $hasFacultySector = ((int)$st->fetchColumn()) > 0;
 
-    if (!$roleOk || !$hasFacultySector) {
+    if (!$roleOk) {
         // If PH has student sector only, redirect to PH StudentManagement; else to PH dashboard
         $ss = $pdo->prepare("SELECT COUNT(*) FROM signatory_assignments sa JOIN designations des ON sa.designation_id=des.designation_id JOIN departments d ON sa.department_id=d.department_id JOIN sectors s ON d.sector_id=s.sector_id WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name IN ('College','Senior High School')");
         $ss->execute([$userId]);
@@ -67,31 +63,7 @@ try {
 </head>
 <body>
     <!-- Header -->
-    <header class="navbar">
-        <div class="container">
-            <div class="header-content">
-                <div class="header-left">
-                    <button class="mobile-menu-toggle" onclick="toggleSidebar()">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="logo">
-                        <h1>goSTI</h1>
-                    </div>
-                </div>
-                <div class="user-info">
-                    <span class="user-name">Dr. Maria Santos (Program Head)</span>
-                    <div class="user-dropdown">
-                        <button class="dropdown-toggle">▼</button>
-                        <div class="dropdown-menu">
-                            <a href="../../pages/shared/profile.php">Profile</a>
-                            <a href="../../pages/shared/settings.php">Settings</a>
-                            <a href="../../pages/auth/logout.php">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+    <?php include '../../includes/components/header.php'; ?>
 
     <!-- Main Content -->
     <main class="dashboard-container">
@@ -119,7 +91,7 @@ try {
                                     <i class="fas fa-users"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="totalFaculty">4</h3>
+                                    <h3 id="totalFaculty">0</h3>
                                     <p>Total Faculty</p>
                                 </div>
                             </div>
@@ -128,7 +100,7 @@ try {
                                     <i class="fas fa-user-check"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="activeFaculty">3</h3>
+                                    <h3 id="activeFaculty">0</h3>
                                     <p>Active</p>
                                 </div>
                             </div>
@@ -137,7 +109,7 @@ try {
                                     <i class="fas fa-user-times"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="inactiveFaculty">1</h3>
+                                    <h3 id="inactiveFaculty">0</h3>
                                     <p>Inactive</p>
                                 </div>
                             </div>
@@ -196,12 +168,6 @@ try {
                                 <!-- School Term Filter -->
                                 <select id="schoolTermFilter" class="filter-select" onchange="updateStatisticsByTerm()">
                                     <option value="">All School Terms</option>
-                                    <option value="2024-2025-1st">2024-2025 1st Semester</option>
-                                    <option value="2024-2025-2nd">2024-2025 2nd Semester</option>
-                                    <option value="2024-2025-summer">2024-2025 Summer</option>
-                                    <option value="2023-2024-1st">2023-2024 1st Semester</option>
-                                    <option value="2023-2024-2nd">2023-2024 2nd Semester</option>
-                                    <option value="2023-2024-summer">2023-2024 Summer</option>
                                 </select>
                                 
                                 <!-- Account Status Filter -->
@@ -221,6 +187,14 @@ try {
                                 <button class="btn btn-secondary clear-filters-btn" onclick="clearFilters()">
                                     <i class="fas fa-times"></i> Clear All
                                 </button>
+                            </div>
+                        </div>
+
+                        <!-- Current Period Banner -->
+                        <div class="current-period-banner-wrapper">
+                            <div id="currentPeriodBanner" class="current-period-banner">
+                                <i class="fas fa-calendar-alt banner-icon" aria-hidden="true"></i>
+                                <span id="currentPeriodText">Loading current period...</span>
                             </div>
                         </div>
 
@@ -279,103 +253,7 @@ try {
                                             </tr>
                                         </thead>
                                         <tbody id="facultyTableBody">
-                                            <!-- Sample data - ICT Department faculty only -->
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="faculty-checkbox" data-id="LCA123P"></td>
-                                                <td>LCA123P</td>
-                                                <td>Dr. Maria Santos</td>
-                                                <td><span class="status-badge employment-full-time">Full Time</span></td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-pending">Pending</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon edit-btn" onclick="editFaculty('LCA123P')" title="Edit">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('LCA123P')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('LCA123P')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                        <button class="btn-icon delete-btn" onclick="deleteFaculty('LCA123P')" title="Delete">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="faculty-checkbox" data-id="MTH456A"></td>
-                                                <td>MTH456A</td>
-                                                <td>Prof. Juan Dela Cruz</td>
-                                                <td><span class="status-badge employment-part-time">Part Time</span></td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-completed">Completed</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon edit-btn" onclick="editFaculty('MTH456A')" title="Edit">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('MTH456A')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('MTH456A')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                        <button class="btn-icon delete-btn" onclick="deleteFaculty('MTH456A')" title="Delete">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-2nd">
-                                                <td><input type="checkbox" class="faculty-checkbox" data-id="ENG789B"></td>
-                                                <td>ENG789B</td>
-                                                <td>Dr. Ana Rodriguez</td>
-                                                <td><span class="status-badge employment-part-time-full-load">Part Time - Full Load</span></td>
-                                                <td><span class="status-badge account-inactive">Inactive</span></td>
-                                                <td><span class="status-badge clearance-unapplied">Unapplied</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon edit-btn" onclick="editFaculty('ENG789B')" title="Edit">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('ENG789B')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('ENG789B')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                        <button class="btn-icon delete-btn" onclick="deleteFaculty('ENG789B')" title="Delete">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="faculty-checkbox" data-id="BIO654E"></td>
-                                                <td>BIO654E</td>
-                                                <td>Prof. Sarah Johnson</td>
-                                                <td><span class="status-badge employment-part-time">Part Time</span></td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-in-progress">In Progress</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon edit-btn" onclick="editFaculty('BIO654E')" title="Edit">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('BIO654E')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('BIO654E')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                        <button class="btn-icon delete-btn" onclick="deleteFaculty('BIO654E')" title="Delete">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                            <!-- Faculty data will be loaded dynamically from database -->
                                         </tbody>
                                     </table>
                                 </div>
@@ -385,7 +263,7 @@ try {
                         <!-- Pagination Section -->
                         <div class="pagination-section">
                             <div class="pagination-info">
-                                <span id="paginationInfo">Showing 1 to 4 of 4 entries</span>
+                                <span id="paginationInfo">Loading faculty data...</span>
                             </div>
                             <div class="pagination-controls">
                                 <button class="pagination-btn" id="prevPage" onclick="changePage('prev')" disabled>
@@ -475,6 +353,86 @@ try {
     </div>
 
     <script>
+        // Load current clearance period for banner
+        async function loadCurrentPeriod() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                const bannerEl = document.getElementById('currentPeriodText');
+                if (!bannerEl) return;
+                
+                if (data.success && data.active_period) {
+                    const period = data.active_period;
+                    const termMap = { '1st': 'Term 1', '2nd': 'Term 2', '3rd': 'Term 3' };
+                    const semLabel = termMap[period.semester_name] || period.semester_name || '';
+                    bannerEl.textContent = `${period.school_year} • ${semLabel}`;
+                } else {
+                    bannerEl.textContent = 'No active clearance period';
+                }
+            } catch (error) {
+                console.error('Error loading current period:', error);
+                const bannerEl = document.getElementById('currentPeriodText');
+                if (bannerEl) {
+                    bannerEl.textContent = 'Unable to load period';
+                }
+            }
+        }
+        
+        // Load periods for period selector dropdown
+        async function loadPeriods() {
+            try {
+                console.log('Loading periods...');
+                const response = await fetch('../../api/clearance/periods.php', {
+                    credentials: 'include'
+                });
+                
+                console.log('Periods API response status:', response.status);
+                const data = await response.json();
+                console.log('Periods API response data:', data);
+                
+                const periodSelect = document.getElementById('schoolTermFilter');
+                if (!periodSelect) {
+                    console.error('Period selector element not found');
+                    return;
+                }
+                
+                // Clear existing options except the first one
+                periodSelect.innerHTML = '<option value="">All School Terms</option>';
+                
+                if (data.success && data.periods && data.periods.length > 0) {
+                    console.log('Found periods:', data.periods.length);
+                    data.periods.forEach(period => {
+                        const option = document.createElement('option');
+                        option.value = `${period.academic_year}-${period.semester_name}`;
+                        
+                        const termMap = { '1st': '1st Semester', '2nd': '2nd Semester', '3rd': '3rd Semester' };
+                        const semLabel = termMap[period.semester_name] || period.semester_name || '';
+                        const activeText = period.is_active ? ' (Active)' : '';
+                        
+                        option.textContent = `${period.academic_year} ${semLabel}${activeText}`;
+                        periodSelect.appendChild(option);
+                        console.log('Added period option:', option.textContent);
+                    });
+                } else {
+                    console.log('No periods found or API failed');
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No periods available';
+                    option.disabled = true;
+                    periodSelect.appendChild(option);
+                }
+            } catch (error) {
+                console.error('Error loading periods:', error);
+                const periodSelect = document.getElementById('schoolTermFilter');
+                if (periodSelect) {
+                    periodSelect.innerHTML = '<option value="">Error loading periods</option>';
+                }
+            }
+        }
+
         // Toggle sidebar
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
@@ -752,15 +710,42 @@ try {
                 'Approve',
                 'Cancel',
                 async () => {
-                    clearanceBadge.textContent = 'Completed';
-                    clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
-                    clearanceBadge.classList.add('clearance-completed');
-                    // Attempt server-side signatory action (Program Head)
                     try {
                         const uid = await resolveUserIdFromEmployeeNumber(facultyId);
-                        if (uid) { await sendSignatoryAction(uid, 'Program Head', 'Approved'); }
-                    } catch (e) { /* non-blocking */ }
-                    showToastNotification('Faculty clearance approved successfully', 'success');
+                        if (!uid) {
+                            showToastNotification('Could not find user ID for this faculty', 'error');
+                            return;
+                        }
+                        
+                        // Send approval to API
+                        const response = await fetch('../../api/clearance/signatory_action.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                applicant_user_id: uid,
+                                designation_name: 'Program Head',
+                                action: 'Approved'
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            // Update UI
+                            clearanceBadge.textContent = 'Completed';
+                            clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
+                            clearanceBadge.classList.add('clearance-completed');
+                            
+                            showToastNotification(`✓ Successfully approved clearance for ${facultyName}`, 'success');
+                        } else {
+                            showToastNotification('Failed to approve clearance: ' + data.message, 'error');
+                        }
+                        
+                    } catch (error) {
+                        console.error('Error approving clearance:', error);
+                        showToastNotification('Failed to approve clearance', 'error');
+                    }
                 },
                 'success'
             );
@@ -1138,10 +1123,73 @@ try {
             }
         }
 
+        // Fetch faculty list from backend and build table body
+        async function refreshFacultyTable(){
+            try{
+                const res = await fetch('../../api/users/staff_faculty_list.php?limit=500',{credentials:'include'});
+                const data = await res.json();
+                if(!data.success){console.error(data);return;}
+                const tbody=document.getElementById('facultyTableBody');
+                tbody.innerHTML='';
+                let total=0,active=0,inactive=0,resigned=0;
+                data.faculty.forEach(f=>{
+                    const tr=document.createElement('tr');
+                    tr.setAttribute('data-term',''); // term unknown for now
+                    const statusRaw = f.clearance_status;
+                    let clearanceKey = 'unapplied';
+                    if(statusRaw==='Completed' || statusRaw==='Complete') clearanceKey='completed';
+                    else if(statusRaw==='Applied') clearanceKey='pending';
+                    else if(statusRaw==='In Progress' || statusRaw==='Pending') clearanceKey='in-progress';
+                    else if(statusRaw==='Rejected') clearanceKey='rejected';
+
+                    const accountStatus = f.status.toLowerCase();
+                    const clearanceStatus=clearanceKey;
+                    tr.innerHTML=`<td><input type=\"checkbox\" class=\"faculty-checkbox\" data-id=\"${f.employee_number}\"></td>
+                                <td>${f.employee_number}</td>
+                                <td>${f.first_name} ${f.last_name}</td>
+                                <td><span class="status-badge employment-${f.employment_status.toLowerCase().replace(/ /g,'-')}">${f.employment_status}</span></td>
+                                <td><span class="status-badge account-${accountStatus}">${accountStatus.charAt(0).toUpperCase()+accountStatus.slice(1)}</span></td>
+                                <td><span class="status-badge clearance-${clearanceStatus}">${statusRaw}</span></td>
+                                <td><div class="action-buttons">
+                                        <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
+                                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${f.employee_number}')" title="Approve Clearance"><i class="fas fa-check"></i></button>
+                                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('${f.employee_number}')" title="Reject Clearance"><i class="fas fa-times"></i></button>
+                                        <button class=\"btn-icon delete-btn\" onclick=\"deleteFaculty('${f.employee_number}')\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>
+                                   </div></td>`;
+
+                    if(accountStatus!=='active'){
+                        tr.classList.add('row-disabled');
+                        // Keep checkbox enabled; bulk logic will govern action button states
+                    }
+                    tbody.appendChild(tr);
+                    // stats counting
+                    total++;
+                    if(accountStatus==='active') active++;
+                    else if(accountStatus==='inactive') inactive++;
+                    else if(accountStatus==='resigned') resigned++;
+                });
+                // update stats dashboard
+                document.getElementById('totalFaculty').textContent=total;
+                document.getElementById('activeFaculty').textContent=active;
+                document.getElementById('inactiveFaculty').textContent=inactive;
+                document.getElementById('resignedFaculty').textContent=resigned;
+            }catch(err){console.error(err);}
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
-            initializePagination();
-            updateSelectionCounter(); // Initialize the counter
+            // Load faculty list from backend then initialize pagination
+            refreshFacultyTable().then(()=>{
+                showToastNotification('Faculty table refreshed','success');
+                initializePagination();
+                updateSelectionCounter();
+            });
+            
+            // Load current clearance period for banner
+            loadCurrentPeriod();
+            
+            // Load periods for period selector
+            loadPeriods();
             
             // Add event listeners for checkboxes
             document.addEventListener('change', function(e) {

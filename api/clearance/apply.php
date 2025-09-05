@@ -154,6 +154,10 @@ try {
 
 // Helper function to create all signatory entries for a new clearance form
 function createAllSignatoryEntries($pdo, $formId, $clearanceType) {
+    // Get user's department to determine Program Head assignment
+    $userId = getUserIdFromFormId($pdo, $formId);
+    $userDepartment = getUserDepartment($pdo, $userId, $clearanceType);
+    
     // Get all assigned signatories for this clearance type
     $sql = "SELECT DISTINCT sa.designation_id 
             FROM signatory_assignments sa
@@ -167,6 +171,35 @@ function createAllSignatoryEntries($pdo, $formId, $clearanceType) {
     $stmt->execute([$clearanceType]);
     $designations = $stmt->fetchAll(PDO::FETCH_COLUMN);
     
+    // Check if Program Head should be included based on scope settings
+    $includeProgramHead = shouldIncludeProgramHead($pdo, $clearanceType);
+    
+    // If Program Head should be included and user has a department, find the appropriate Program Head
+    if ($includeProgramHead && $userDepartment) {
+        $programHeadDesignationId = getProgramHeadDesignationId($pdo);
+        if ($programHeadDesignationId) {
+            // Find Program Head assigned to user's department's sector
+            $phSql = "SELECT sa.designation_id 
+                      FROM signatory_assignments sa
+                      JOIN departments d ON d.department_id = sa.department_id
+                      WHERE sa.designation_id = ? 
+                      AND sa.department_id = ? 
+                      AND sa.is_active = 1";
+            
+            $phStmt = $pdo->prepare($phSql);
+            $phStmt->execute([$programHeadDesignationId, $userDepartment['department_id']]);
+            $phDesignationId = $phStmt->fetchColumn();
+            
+            if ($phDesignationId) {
+                $designations[] = $phDesignationId;
+            }
+        }
+    }
+    
+    // Remove duplicates and sort
+    $designations = array_unique($designations);
+    sort($designations);
+    
     // Create signatory entries for all assigned designations
     $insertStmt = $pdo->prepare("
         INSERT INTO clearance_signatories (clearance_form_id, designation_id, action, created_at, updated_at) 
@@ -176,5 +209,54 @@ function createAllSignatoryEntries($pdo, $formId, $clearanceType) {
     foreach ($designations as $designationId) {
         $insertStmt->execute([$formId, $designationId]);
     }
+}
+
+// Helper function to get user ID from form ID
+function getUserIdFromFormId($pdo, $formId) {
+    $stmt = $pdo->prepare("SELECT user_id FROM clearance_forms WHERE clearance_form_id = ? LIMIT 1");
+    $stmt->execute([$formId]);
+    return $stmt->fetchColumn();
+}
+
+// Helper function to get user's department based on clearance type
+function getUserDepartment($pdo, $userId, $clearanceType) {
+    if ($clearanceType === 'Faculty') {
+        // For faculty, get their department from staff table
+        $sql = "SELECT d.department_id, d.department_name, d.sector_id 
+                FROM staff s 
+                JOIN departments d ON d.department_id = s.department_id 
+                WHERE s.user_id = ? AND s.is_active = 1 
+                LIMIT 1";
+    } else {
+        // For students, get their department from students table
+        $sql = "SELECT d.department_id, d.department_name, d.sector_id 
+                FROM students s 
+                JOIN departments d ON d.department_id = s.department_id 
+                WHERE s.user_id = ? AND s.is_active = 1 
+                LIMIT 1";
+    }
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$userId]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+// Helper function to check if Program Head should be included based on scope settings
+function shouldIncludeProgramHead($pdo, $clearanceType) {
+    $sql = "SELECT include_program_head FROM scope_settings WHERE clearance_type = ? LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$clearanceType]);
+    $result = $stmt->fetchColumn();
+    
+    // If no setting exists, default to false
+    return $result ? (bool)$result : false;
+}
+
+// Helper function to get Program Head designation ID
+function getProgramHeadDesignationId($pdo) {
+    $sql = "SELECT designation_id FROM designations WHERE designation_name = 'Program Head' AND is_active = 1 LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    return $stmt->fetchColumn();
 }
 // -----------------------------------------------------------------------------

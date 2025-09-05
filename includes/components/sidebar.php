@@ -190,16 +190,21 @@ if ($isUserLoggedIn) {
         $pdo = Database::getInstance()->getConnection();
 
         if ($currentRole === 'program_head') {
+            // COMMENTED OUT: Allow all Program Heads to access both Student and Faculty Management
             // Determine which sectors the PH is assigned to
-            $sql = "SELECT sec.sector_name FROM staff s JOIN departments d ON s.department_id = d.department_id JOIN sectors sec ON d.sector_id = sec.sector_id WHERE s.user_id = ? AND s.staff_category = 'Program Head' AND s.is_active = 1";
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute([$userId]);
-            $rows = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
-            $hasFaculty = in_array('Faculty', $rows, true);
-            $hasStudent = in_array('College', $rows, true) || in_array('Senior High School', $rows, true);
+            // $sql = "SELECT sec.sector_name FROM staff s JOIN departments d ON s.department_id = d.department_id JOIN sectors sec ON d.sector_id = sec.sector_id WHERE s.user_id = ? AND s.staff_category = 'Program Head' AND s.is_active = 1";
+            // $stmt = $pdo->prepare($sql);
+            // $stmt->execute([$userId]);
+            // $rows = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+            // $hasFaculty = in_array('Faculty', $rows, true);
+            // $hasStudent = in_array('College', $rows, true) || in_array('Senior High School', $rows, true);
             // Enable per sector coverage
-            $enableStudentMgmt = $hasStudent;
-            $enableFacultyMgmt = $hasFaculty;
+            // $enableStudentMgmt = $hasStudent;
+            // $enableFacultyMgmt = $hasFaculty;
+            
+            // Allow all Program Heads to access both management pages
+            $enableStudentMgmt = true;
+            $enableFacultyMgmt = true;
         } elseif ($currentRole === 'staff') {
             // Disable both if no active clearance period
             $active = (int)$pdo->query("SELECT COUNT(*) FROM clearance_periods WHERE is_active = 1")->fetchColumn();

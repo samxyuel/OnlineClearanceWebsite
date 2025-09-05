@@ -1,15 +1,6 @@
 <?php
 // Online Clearance Website - Program Head Dashboard
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Demo session data for testing - Program Head
-$_SESSION['user_id'] = 4;
-$_SESSION['role_id'] = 2; // Program Head role
-$_SESSION['first_name'] = 'Dr. Maria';
-$_SESSION['last_name'] = 'Santos';
-$_SESSION['assigned_departments'] = ['Information, Communication, and Technology']; // Program Head's assigned departments
+// Session management handled by header component
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -23,32 +14,8 @@ $_SESSION['assigned_departments'] = ['Information, Communication, and Technology
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- Top Bar -->
-    <header class="navbar">
-        <div class="container">
-            <div class="header-content">
-                <div class="header-left">
-                    <button class="mobile-menu-toggle" onclick="toggleSidebar()">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="logo">
-                        <h1>goSTI</h1>
-                    </div>
-                </div>
-                <div class="user-info">
-                    <span class="user-name">Dr. Maria Santos (Program Head)</span>
-                    <div class="user-dropdown">
-                        <button class="dropdown-toggle">▼</button>
-                        <div class="dropdown-menu">
-                            <a href="../../pages/shared/profile.php">Profile</a>
-                            <a href="../../pages/shared/settings.php">Settings</a>
-                            <a href="../../pages/auth/logout.php">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+    <!-- Header -->
+    <?php include '../../includes/components/header.php'; ?>
 
     <!-- Main Content Area -->
     <main class="dashboard-container">
@@ -63,10 +30,10 @@ $_SESSION['assigned_departments'] = ['Information, Communication, and Technology
                         <!-- Page Header -->
                         <div class="page-header">
                             <h2><i class="fas fa-tachometer-alt"></i> Program Head Dashboard</h2>
-                            <p>Welcome back, Dr. Maria Santos. Monitor your department's clearance status and manage student records.</p>
+                            <p id="welcomeMessage">Welcome back! Monitor your department's clearance status and manage records.</p>
                             <div class="department-scope-info">
                                 <i class="fas fa-shield-alt"></i>
-                                <span>Scope: Information, Communication, and Technology Department</span>
+                                <span id="departmentScope">Loading department information...</span>
                             </div>
                         </div>
 
@@ -74,14 +41,14 @@ $_SESSION['assigned_departments'] = ['Information, Communication, and Technology
                         <div class="card active-period-status">
                             <div class="status-content">
                                 <div class="status-info">
-                                    <h3><i class="fas fa-calendar-check"></i> 2024-2025 Term 1 (ACTIVE)</h3>
-                                    <p>Duration: 45 days | Started: Jan 15, 2024</p>
+                                    <h3><i class="fas fa-calendar-check"></i> <span id="currentPeriodDisplay">Loading current period...</span></h3>
+                                    <p id="periodDuration">Loading period information...</p>
                                     <div class="period-stats">
                                         <span class="stat-item">
-                                            <i class="fas fa-user-graduate"></i> ICT Students: 156 applied, 142 completed (91%)
+                                            <i class="fas fa-user-graduate"></i> <span id="studentStats">Loading student statistics...</span>
                                         </span>
                                         <span class="stat-item">
-                                            <i class="fas fa-clock"></i> Pending Signatures: 14 students
+                                            <i class="fas fa-clock"></i> <span id="pendingStats">Loading pending signatures...</span>
                                         </span>
                                     </div>
                                 </div>
@@ -236,7 +203,7 @@ $_SESSION['assigned_departments'] = ['Information, Communication, and Technology
                         <!-- Department Overview -->
                         <div class="management-section">
                             <div class="section-header">
-                                <h3><i class="fas fa-building"></i> ICT Department Overview</h3>
+                                <h3><i class="fas fa-building"></i> <span id="departmentOverviewTitle">Department Overview</span></h3>
                             </div>
                             <div class="department-overview">
                                 <div class="overview-card">
@@ -299,6 +266,115 @@ $_SESSION['assigned_departments'] = ['Information, Communication, and Technology
     <script src="../../assets/js/activity-tracker.js"></script>
     <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
+        // Load user and department information
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('../../api/users/read.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success && data.user) {
+                    const user = data.user;
+                    const welcomeMessage = document.getElementById('welcomeMessage');
+                    if (welcomeMessage) {
+                        welcomeMessage.textContent = `Welcome back, ${user.first_name} ${user.last_name}! Monitor your department's clearance status and manage records.`;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading user info:', error);
+            }
+        }
+        
+        // Load department information
+        async function loadDepartmentInfo() {
+            try {
+                const response = await fetch('../../api/users/get_current_staff_designation.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success && data.designation_name) {
+                    const departmentScope = document.getElementById('departmentScope');
+                    const departmentOverviewTitle = document.getElementById('departmentOverviewTitle');
+                    
+                    if (departmentScope) {
+                        departmentScope.textContent = `Scope: ${data.designation_name}`;
+                    }
+                    if (departmentOverviewTitle) {
+                        departmentOverviewTitle.textContent = `${data.designation_name} Overview`;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading department info:', error);
+                const departmentScope = document.getElementById('departmentScope');
+                if (departmentScope) {
+                    departmentScope.textContent = 'Scope: Faculty Department';
+                }
+            }
+        }
+        
+        // Load current period information
+        async function loadCurrentPeriod() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success && data.active_period) {
+                    const period = data.active_period;
+                    const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
+                    const periodDuration = document.getElementById('periodDuration');
+                    
+                    if (currentPeriodDisplay) {
+                        const termMap = { '1st': 'Term 1', '2nd': 'Term 2', '3rd': 'Term 3' };
+                        const semLabel = termMap[period.semester_name] || period.semester_name || '';
+                        currentPeriodDisplay.textContent = `${period.school_year} ${semLabel} (ACTIVE)`;
+                    }
+                    
+                    if (periodDuration) {
+                        const startDate = new Date(period.start_date);
+                        const endDate = new Date(period.end_date);
+                        const today = new Date();
+                        const daysElapsed = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
+                        const totalDays = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
+                        
+                        periodDuration.textContent = `Duration: ${totalDays} days | Started: ${startDate.toLocaleDateString()}`;
+                    }
+                } else {
+                    const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
+                    if (currentPeriodDisplay) {
+                        currentPeriodDisplay.textContent = 'No active clearance period';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading current period:', error);
+                const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
+                if (currentPeriodDisplay) {
+                    currentPeriodDisplay.textContent = 'Unable to load period';
+                }
+            }
+        }
+        
+        // Load department statistics
+        async function loadDepartmentStats() {
+            try {
+                // This would be replaced with actual API calls to get real statistics
+                const studentStats = document.getElementById('studentStats');
+                const pendingStats = document.getElementById('pendingStats');
+                
+                if (studentStats) {
+                    studentStats.textContent = 'Faculty: 0 applied, 0 completed (0%)';
+                }
+                if (pendingStats) {
+                    pendingStats.textContent = 'Pending Signatures: 0 faculty';
+                }
+            } catch (error) {
+                console.error('Error loading department stats:', error);
+            }
+        }
+
         function viewPendingClearances() {
             showToast('Opening pending clearances...', 'info');
             setTimeout(() => {
@@ -309,7 +385,7 @@ $_SESSION['assigned_departments'] = ['Information, Communication, and Technology
         function exportClearanceReport() {
             showConfirmationModal(
                 'Export Clearance Report',
-                'Generate a comprehensive clearance report for the ICT Department?',
+                'Generate a comprehensive clearance report for your department?',
                 'Export',
                 'Cancel',
                 () => {
@@ -358,6 +434,12 @@ $_SESSION['assigned_departments'] = ['Information, Communication, and Technology
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Program Head Dashboard loaded');
+            
+            // Load dynamic content
+            loadUserInfo();
+            loadDepartmentInfo();
+            loadCurrentPeriod();
+            loadDepartmentStats();
             
             // Initialize Activity Tracker
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {

@@ -8,6 +8,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Online Clearance System</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
+    <style>
+        .login-logo img {
+            width: 50%;
+            height: 15%;
+            border-radius: 10%;
+            border: 3px var(--very-light-off-white);
+            object-fit: cover;
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            margin-bottom: 20px;
+        }
+        
+        /*
+        .login-logo img:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 123, 255, 0.3);
+        }
+        */
+        
+        /* Responsive design for smaller screens */
+        @media (max-width: 768px) {
+            .login-logo img {
+                width: 50%;
+                height: 15%;
+                border-width: 2px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .login-logo img {
+                width: 50%;
+                height: 15%;
+                border-width: 2px;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- Header -->
@@ -26,15 +62,15 @@
         <div class="login-card">
             <div class="login-header">
                 <div class="login-logo">
-                    <h2>goSTI</h2>
+                    <img src="../../assets/images/STI_Lucena_Logo.jpg" alt="STI College Lucena Logo">
                 </div>
-                <h3>Online Clearance System</h3>
+                <h3>Online Clearance Website</h3>
             </div>
             
             <form class="login-form" id="loginForm">
                 <div class="form-group">
-                    <label for="username">Username/Email</label>
-                    <input type="text" id="username" name="username" class="form-control" placeholder="e.g., LCA123P" required>
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" class="form-control" placeholder="Student or Employee Number" required>
                 </div>
                 
                 <div class="form-group">

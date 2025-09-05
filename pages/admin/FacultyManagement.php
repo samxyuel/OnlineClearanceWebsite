@@ -1,6 +1,8 @@
 <?php // Online Clearance Website - Admin Faculty Management
-if (session_status() == PHP_SESSION_NONE) { session_start(); }
-$_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'Admin'; $_SESSION['last_name'] = 'User';
+// Session management handled by header component
+
+// Start output buffering to prevent headers being sent before session_start()
+ob_start();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -149,32 +151,7 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
 </head>
 <body>
     <!-- Header -->
-    <header class="navbar">
-        <div class="container">
-            <div class="header-content">
-                <div class="header-left">
-                    <button class="mobile-menu-toggle" onclick="toggleSidebar()">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="logo">
-                        <h1>goSTI</h1>
-                        <!--<p>Online Clearance System</p>-->
-                    </div>
-                </div>
-                <div class="user-info">
-                    <span class="user-name">Admin User</span>
-                    <div class="user-dropdown">
-                        <button class="dropdown-toggle">▼</button>
-                        <div class="dropdown-menu">
-                            <a href="../../pages/shared/profile.php">Profile</a>
-                            <a href="../../pages/shared/settings.php">Settings</a>
-                            <a href="../../pages/auth/logout.php">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+    <?php include '../../includes/components/header.php'; ?>
 
     <!-- Main Content -->
     <main class="dashboard-container">
@@ -573,11 +550,11 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
     <!-- Include Alert System -->
     <?php include '../../includes/components/alerts.php'; ?>
     
-    <!-- Include Modals -->
+    <!-- Include Modals (moved after session start) -->
     <?php include '../../Modals/FacultyRegistryModal.php'; ?>
     <?php include '../../Modals/EditFacultyModal.php'; ?>
-               <?php include '../../Modals/FacultyExportModal.php'; ?>
-           <?php include '../../Modals/FacultyImportModal.php'; ?>
+    <?php include '../../Modals/FacultyExportModal.php'; ?>
+    <?php include '../../Modals/FacultyImportModal.php'; ?>
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
 
     <!-- Bulk Selection Filters Modal -->
@@ -1478,7 +1455,7 @@ $_SESSION['user_id'] = 3; $_SESSION['role_id'] = 1; $_SESSION['first_name'] = 'A
         // Fetch faculty list from backend and build table body
         async function refreshFacultyTable(){
             try{
-                const res = await fetch('../../api/users/faculty_list.php?limit=500',{credentials:'include'});
+                const res = await fetch('../../api/users/staff_faculty_list.php?limit=500',{credentials:'include'});
                 const data = await res.json();
                 if(!data.success){console.error(data);return;}
                 const tbody=document.getElementById('facultyTableBody');

@@ -21,32 +21,8 @@
     */
     ?>
     
-    <!-- Top Bar -->
-    <header class="navbar">
-        <div class="container">
-            <div class="header-content">
-                <div class="header-left">
-                    <button class="mobile-menu-toggle" onclick="toggleSidebar()">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="logo">
-                        <h1>goSTI</h1>
-                    </div>
-                </div>
-                <div class="user-info">
-                    <span class="user-name">Dr. Jane Smith</span>
-                    <div class="user-dropdown">
-                        <button class="dropdown-toggle">▼</button>
-                        <div class="dropdown-menu">
-                            <a href="profile.php">Profile</a>
-                            <a href="settings.php">Settings</a>
-                            <a href="logout.php">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+    <!-- Header -->
+    <?php include '../../includes/components/header.php'; ?>
 
     <!-- Main Content Area -->
     <main class="dashboard-container">

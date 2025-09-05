@@ -1,15 +1,6 @@
 <?php
 // Online Clearance Website - Regular Staff Dashboard
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Demo session data for testing - Regular Staff
-$_SESSION['user_id'] = 7;
-$_SESSION['role_id'] = 3; // Regular Staff role
-$_SESSION['first_name'] = 'Sarah';
-$_SESSION['last_name'] = 'Wilson';
-$_SESSION['position'] = 'Cashier'; // Staff position for clearance signing
+// Session management handled by header component
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -23,32 +14,8 @@ $_SESSION['position'] = 'Cashier'; // Staff position for clearance signing
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- Top Bar -->
-    <header class="navbar">
-        <div class="container">
-            <div class="header-content">
-                <div class="header-left">
-                    <button class="mobile-menu-toggle" onclick="toggleSidebar()">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="logo">
-                        <h1>goSTI</h1>
-                    </div>
-                </div>
-                <div class="user-info">
-                    <span class="user-name">Sarah Wilson (Regular Staff - Cashier)</span>
-                    <div class="user-dropdown">
-                        <button class="dropdown-toggle">▼</button>
-                        <div class="dropdown-menu">
-                            <a href="../../pages/shared/profile.php">Profile</a>
-                            <a href="../../pages/shared/settings.php">Settings</a>
-                            <a href="../../pages/auth/logout.php">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+    <!-- Header -->
+    <?php include '../../includes/components/header.php'; ?>
 
     <!-- Main Content Area -->
     <main class="dashboard-container">
@@ -64,10 +31,10 @@ $_SESSION['position'] = 'Cashier'; // Staff position for clearance signing
                         <!-- Page Header -->
                         <div class="page-header">
                             <h2><i class="fas fa-tachometer-alt"></i> Staff Dashboard</h2>
-                            <p>Welcome back, Sarah Wilson. Review and sign pending clearances for students and faculty.</p>
+                            <p id="welcomeMessage">Welcome back! Review and sign pending clearances for students and faculty.</p>
                             <div class="department-scope-info">
                                 <i class="fas fa-user-shield"></i>
-                                <span>Position: Cashier - Clearance Signatory</span>
+                                <span id="positionInfo">Loading position information...</span>
                             </div>
                         </div>
 
@@ -363,10 +330,54 @@ $_SESSION['position'] = 'Cashier'; // Staff position for clearance signing
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Regular Staff Dashboard loaded');
             
+            // Load user information dynamically
+            loadUserInfo();
+            
             // Initialize Activity Tracker
             window.sidebarHandledByPage = true;
             window.activityTrackerInstance = new ActivityTracker();
         });
+
+        // Load user information from session/API
+        function loadUserInfo() {
+            // Get user info from the header component (it's already loaded)
+            const userNameElement = document.querySelector('.user-name');
+            if (userNameElement) {
+                const fullName = userNameElement.textContent.trim();
+                const welcomeMessage = document.getElementById('welcomeMessage');
+                if (welcomeMessage) {
+                    welcomeMessage.textContent = `Welcome back, ${fullName}! Review and sign pending clearances for students and faculty.`;
+                }
+            }
+
+            // Load staff position information
+            loadStaffPosition();
+        }
+
+        // Load staff position information
+        function loadStaffPosition() {
+            fetch('../../api/users/get_current_staff_designation.php', {
+                credentials: 'include'
+            })
+            .then(response => response.json())
+            .then(data => {
+                const positionElement = document.getElementById('positionInfo');
+                if (positionElement) {
+                    if (data.success && data.designation) {
+                        positionElement.textContent = `Position: ${data.designation} - Clearance Signatory`;
+                    } else {
+                        positionElement.textContent = 'Position: Staff - Clearance Signatory';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error loading staff position:', error);
+                const positionElement = document.getElementById('positionInfo');
+                if (positionElement) {
+                    positionElement.textContent = 'Position: Staff - Clearance Signatory';
+                }
+            });
+        }
     </script>
 </body>
 </html>

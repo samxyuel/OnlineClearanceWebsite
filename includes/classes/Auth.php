@@ -25,9 +25,7 @@ class Auth {
             
             if ($user && password_verify($password, $user['password'])) {
                 // Start session and store user data
-                if (session_status() == PHP_SESSION_NONE) {
-                    session_start();
-                }
+                $this->ensureSessionStarted();
                 
                 $_SESSION['user_id'] = $user['user_id'];
                 $_SESSION['username'] = $user['username'];
@@ -63,10 +61,15 @@ class Auth {
     
     // Check if user is logged in
     public function isLoggedIn() {
-        if (session_status() == PHP_SESSION_NONE) {
+        $this->ensureSessionStarted();
+        return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+    }
+    
+    // Ensure session is started without causing conflicts
+    private function ensureSessionStarted() {
+        if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
-        return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
     }
     
     // Get current user data

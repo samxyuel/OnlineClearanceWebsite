@@ -69,22 +69,7 @@ $activity_types = getActivityTypes();
 </head>
 <body>
     <!-- Header -->
-    <header class="header">
-        <div class="header-content">
-            <div class="header-left">
-                <button class="sidebar-toggle" onclick="toggleSidebar()">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <h1><i class="fas fa-history"></i> Audit Trail</h1>
-            </div>
-            <div class="header-right">
-                <div class="user-info">
-                    <span><?php echo htmlspecialchars($current_user_name); ?></span>
-                    <i class="fas fa-user-circle"></i>
-                </div>
-            </div>
-        </div>
-    </header>
+    <?php include '../../includes/components/header.php'; ?>
 
     <!-- Sidebar -->
     <?php include '../../includes/components/sidebar.php'; ?>
