@@ -4,11 +4,7 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// Demo session data for testing - School Administrator
-$_SESSION['user_id'] = 5;
-$_SESSION['role_id'] = 6; // School Administrator role
-$_SESSION['first_name'] = 'Dr. Robert';
-$_SESSION['last_name'] = 'Johnson';
+// Session data is handled by authentication system
 ?>
 <!DOCTYPE html>
 <html lang="en">
