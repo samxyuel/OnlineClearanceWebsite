@@ -21,13 +21,23 @@
                 <div class="form-group">
                     <label for="editEmployeeId">Employee ID</label>
                     <input type="text" id="editEmployeeId" name="employeeId" readonly 
-                           style="background-color: #f8f9fa; color: #6c757d;">
+                           style="background-color: #f8f9fa; color: #6c757d;"
+                           pattern="LCA[0-9]{4}[A-Z]"
+                           title="Format: LCA + 4 digits + 1 letter (e.g., LCA1234P)">
                     <small class="form-help">Employee ID cannot be modified</small>
                 </div>
                 
                 <div class="form-group">
-                    <label for="editStaffName">Full Name</label>
-                    <input type="text" id="editStaffName" name="staffName" placeholder="John Smith" required>
+                    <label for="editLastName">Last Name</label>
+                    <input type="text" id="editLastName" name="lastName" placeholder="Doe" required>
+                </div>
+                <div class="form-group">
+                    <label for="editFirstName">First Name</label>
+                    <input type="text" id="editFirstName" name="firstName" placeholder="John" required>
+                </div>
+                <div class="form-group">
+                    <label for="editMiddleName">Middle Name (Optional)</label>
+                    <input type="text" id="editMiddleName" name="middleName" placeholder="A.">
                 </div>
                 
                 <div class="form-group">
@@ -181,6 +191,54 @@ window.closeEditStaffModal = function() {
     }
 };
 
+// Function to populate edit form with existing data
+window.populateEditStaffForm = function(staffData) {
+    // Populate basic fields
+    document.getElementById('editEmployeeId').value = staffData.employee_number || staffData.employeeId || '';
+    document.getElementById('editLastName').value = staffData.last_name || '';
+    document.getElementById('editFirstName').value = staffData.first_name || '';
+    document.getElementById('editMiddleName').value = staffData.middle_name || '';
+    document.getElementById('editStaffEmail').value = staffData.email || '';
+    document.getElementById('editStaffContact').value = staffData.contact_number || '';
+    document.getElementById('editStaffStatus').value = staffData.staff_status || '';
+    
+    // Handle position/designation
+    const positionSelect = document.getElementById('editStaffPosition');
+    const customPositionInput = document.getElementById('editCustomPosition');
+    const designation = staffData.designation || staffData.staff_position || '';
+    
+    // Check if it's a standard position
+    const standardPositions = Array.from(positionSelect.options).map(opt => opt.value);
+    if (standardPositions.includes(designation)) {
+        positionSelect.value = designation;
+        customPositionInput.value = '';
+    } else {
+        positionSelect.value = '';
+        customPositionInput.value = designation;
+    }
+    
+    // Handle faculty section
+    const isAlsoFaculty = staffData.is_also_faculty || false;
+    document.getElementById('editIsAlsoFaculty').checked = isAlsoFaculty;
+    if (isAlsoFaculty) {
+        document.getElementById('editFacultyEmploymentStatus').value = staffData.faculty_employment_status || '';
+        document.getElementById('editFacultyEmployeeNumber').value = staffData.employee_number || staffData.employeeId || '';
+    }
+    toggleEditFacultySection();
+    
+    // Handle Program Head assignment
+    toggleEditProgramHeadAssignment();
+    
+    // If it's a Program Head, populate department assignments
+    if (designation.toLowerCase() === 'program head') {
+        // This would need to be populated based on existing assignments
+        // For now, just show the section
+        setTimeout(() => {
+            updateEditDepartmentCheckboxes();
+        }, 100);
+    }
+};
+
 window.submitEditStaffForm = function() {
     const form = document.getElementById('editStaffForm');
     const formData = new FormData(form);
@@ -251,6 +309,21 @@ window.submitEditStaffForm = function() {
     formData.forEach((value, key) => {
         jsonData[key] = value;
     });
+    
+    // Build name parts
+    const lastName = (jsonData.lastName || '').trim();
+    const firstName = (jsonData.firstName || '').trim();
+    const middleName = (jsonData.middleName || '').trim();
+    if (!lastName || !firstName) {
+        showToast('First and Last name are required.', 'error');
+        return;
+    }
+    
+    // Map to expected backend payload for user update
+    jsonData['first_name'] = firstName;
+    jsonData['last_name'] = lastName;
+    if (middleName) jsonData['middle_name'] = middleName;
+    
     jsonData['role_id'] = 4; // Staff role
     jsonData['is_also_faculty'] = isAlsoFaculty;
     

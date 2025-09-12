@@ -1,0 +1,570 @@
+/* Loading States Design System - Online Clearance Website */
+
+/* ===== CORE LOADING STATES ===== */
+
+/* Global Loading Overlay */
+.global-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+
+.global-loading-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  min-width: 200px;
+}
+
+.global-loading-content .loading-spinner {
+  font-size: 2rem;
+  color: var(--primary-color, #007bff);
+  margin-bottom: 1rem;
+}
+
+.global-loading-content .loading-text {
+  color: #2f3a4b;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Button Loading States */
+.btn.loading {
+  pointer-events: none;
+  opacity: 0.7;
+  position: relative;
+}
+
+.btn.loading .btn-text {
+  opacity: 0;
+}
+
+.btn.loading .btn-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn.loading .btn-loading .loading-spinner {
+  font-size: 0.875rem;
+  animation: spin 1s linear infinite;
+}
+
+/* Table Loading States */
+.data-table-container {
+  position: relative;
+}
+
+.table-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 8px;
+}
+
+.table-loading-content {
+  text-align: center;
+  color: #6c757d;
+}
+
+.table-loading-content .loading-spinner {
+  font-size: 1.5rem;
+  color: var(--primary-color, #007bff);
+  margin-bottom: 0.5rem;
+}
+
+/* Term Item Loading States */
+.term-item.loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.term-item.loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.term-item.loading::before {
+  content: "⏳";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.2rem;
+  z-index: 10;
+}
+
+/* Card Loading States */
+.management-card.loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.card-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 12px;
+}
+
+.card-loading-content {
+  text-align: center;
+  color: #6c757d;
+}
+
+.card-loading-content .loading-spinner {
+  font-size: 1.5rem;
+  color: var(--primary-color, #007bff);
+  margin-bottom: 0.5rem;
+}
+
+/* ===== LOADING ANIMATIONS ===== */
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes bounce {
+  0%,
+  20%,
+  53%,
+  80%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%,
+  43% {
+    transform: translate3d(0, -8px, 0);
+  }
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+  90% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+@keyframes dots {
+  0%,
+  20% {
+    color: rgba(0, 0, 0, 0);
+    text-shadow: 0.25em 0 0 rgba(0, 0, 0, 0), 0.5em 0 0 rgba(0, 0, 0, 0);
+  }
+  40% {
+    color: var(--primary-color, #007bff);
+    text-shadow: 0.25em 0 0 rgba(0, 0, 0, 0), 0.5em 0 0 rgba(0, 0, 0, 0);
+  }
+  60% {
+    text-shadow: 0.25em 0 0 var(--primary-color, #007bff),
+      0.5em 0 0 rgba(0, 0, 0, 0);
+  }
+  80%,
+  100% {
+    text-shadow: 0.25em 0 0 var(--primary-color, #007bff),
+      0.5em 0 0 var(--primary-color, #007bff);
+  }
+}
+
+/* ===== LOADING SPINNER VARIANTS ===== */
+
+.loading-spinner.spin {
+  animation: spin 1s linear infinite;
+}
+
+.loading-spinner.pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.loading-spinner.bounce {
+  animation: bounce 1s infinite;
+}
+
+.loading-spinner.dots::after {
+  content: "...";
+  animation: dots 1.5s infinite;
+}
+
+/* ===== PROGRESS BARS ===== */
+
+.progress-container {
+  width: 100%;
+  background: #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.progress-bar {
+  height: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--primary-color, #007bff),
+    var(--success-color, #28a745)
+  );
+  border-radius: 8px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.progress-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progress-text {
+  display: block;
+  text-align: center;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+/* ===== TOAST LOADING STATES ===== */
+
+.toast.loading {
+  background: var(--info-color, #17a2b8);
+  color: white;
+  border-left: 4px solid var(--primary-color, #007bff);
+}
+
+.toast.loading .toast-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.toast.loading .loading-spinner {
+  font-size: 1rem;
+  animation: spin 1s linear infinite;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+@media (max-width: 768px) {
+  .global-loading-content {
+    margin: 1rem;
+    padding: 1.5rem;
+    min-width: auto;
+  }
+
+  .global-loading-content .loading-spinner {
+    font-size: 1.5rem;
+  }
+
+  .table-loading-content .loading-spinner,
+  .card-loading-content .loading-spinner {
+    font-size: 1.25rem;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+
+.loading-overlay[aria-hidden="true"] {
+  display: none;
+}
+
+.loading-spinner[aria-hidden="true"] {
+  display: none;
+}
+
+/* Screen reader only text */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ===== THEME VARIATIONS ===== */
+
+.loading-primary .loading-spinner {
+  color: var(--primary-color, #007bff);
+}
+
+.loading-secondary .loading-spinner {
+  color: var(--secondary-color, #6c757d);
+}
+
+.loading-success .loading-spinner {
+  color: var(--success-color, #28a745);
+}
+
+.loading-warning .loading-spinner {
+  color: var(--warning-color, #ffc107);
+}
+
+.loading-danger .loading-spinner {
+  color: var(--danger-color, #dc3545);
+}
+
+/* ===== UTILITY CLASSES ===== */
+
+.loading-hidden {
+  display: none !important;
+}
+
+.loading-visible {
+  display: flex !important;
+}
+
+.loading-inline {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loading-block {
+  display: block !important;
+}
+
+/* ===== CLEARANCE MANAGEMENT SPECIFIC ===== */
+
+.terms-list.loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.terms-list.loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 8px;
+}
+
+.terms-list.loading::before {
+  content: "⏳ Updating terms...";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1rem;
+  color: var(--primary-color, #007bff);
+  z-index: 101;
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Term Loading States */
+.term-loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(0, 123, 255, 0.1);
+  border-radius: 6px;
+  margin: 0.25rem 0;
+  font-size: 0.875rem;
+  color: var(--primary-color, #007bff);
+  font-weight: 500;
+}
+
+.term-loading-state .loading-spinner {
+  font-size: 1rem;
+  animation: spin 1s linear infinite;
+}
+
+.term-loading-state .loading-text {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+/* Term Item Loading States */
+.term-item.loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.term-item.loading .term-actions {
+  position: relative;
+}
+
+.term-item.loading .term-actions::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  z-index: 10;
+}
+
+.term-item.loading .term-actions::before {
+  content: "⏳ Processing...";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.75rem;
+  color: var(--primary-color, #007bff);
+  z-index: 11;
+  background: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Button Loading States in Terms */
+.term-actions .btn.loading {
+  pointer-events: none;
+  opacity: 0.6;
+  position: relative;
+}
+
+.term-actions .btn.loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  z-index: 1;
+}
+
+.term-actions .btn.loading::before {
+  content: "⏳";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.75rem;
+  z-index: 2;
+}
+
+/* Signatory loading states */
+.signatory-card.loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.signatory-card.loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 8px;
+}
+
+.signatory-card.loading::before {
+  content: "⏳ Loading signatories...";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.875rem;
+  color: var(--primary-color, #007bff);
+  z-index: 101;
+  background: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}

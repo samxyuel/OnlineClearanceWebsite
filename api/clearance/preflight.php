@@ -77,8 +77,8 @@ try {
             ];
         }
     } else {
-        // Activating a new/different term: block if any other term is active or deactivated
-        $stmt = $connection->prepare("SELECT COUNT(*) FROM clearance_periods WHERE academic_year_id = ? AND semester_id <> ? AND status IN ('active','deactivated')");
+        // Activating a new/different term: block if any other term is active or deactivated (but not ended)
+        $stmt = $connection->prepare("SELECT COUNT(*) FROM clearance_periods WHERE academic_year_id = ? AND semester_id <> ? AND status IN ('active','deactivated') AND ended_at IS NULL");
         $stmt->execute([$academicYearId, $semesterId]);
         if ((int)$stmt->fetchColumn() > 0) {
             $issues[] = [
@@ -102,11 +102,18 @@ try {
                 'message' => 'Term 1 is missing for this School Year.'
             ];
         } else {
-            // Check period status for Term 1
-            $stmt = $connection->prepare("SELECT status FROM clearance_periods WHERE academic_year_id = ? AND semester_id = ? ORDER BY created_at DESC LIMIT 1");
+            // Check period status for Term 1 - check for 'ended' status OR 'ended_at' timestamp
+            $stmt = $connection->prepare("SELECT status, ended_at FROM clearance_periods WHERE academic_year_id = ? AND semester_id = ? ORDER BY created_at DESC LIMIT 1");
             $stmt->execute([$academicYearId, $sem1['semester_id']]);
             $p1 = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$p1 || strtolower($p1['status']) !== 'ended') {
+            
+            // Term 1 is considered ended if status is 'ended' OR if ended_at timestamp exists
+            $isTerm1Ended = $p1 && (
+                strtolower($p1['status']) === 'ended' || 
+                !empty($p1['ended_at'])
+            );
+            
+            if (!$p1 || !$isTerm1Ended) {
                 $issues[] = [
                     'code' => 'TERM_SEQUENCE',
                     'audience' => 'global',

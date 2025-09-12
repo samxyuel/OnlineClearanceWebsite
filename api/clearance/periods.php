@@ -160,11 +160,11 @@ function handleCreatePeriod($connection) {
         
         $periodId = $connection->lastInsertId();
         
-        // If this period is active, deactivate other periods in the same academic year
+        // If this period is active, deactivate other periods in the same academic year (but not those that are already ended)
         if ($input['is_active'] ?? false) {
             $stmt = $connection->prepare("UPDATE clearance_periods 
                                           SET is_active = 0, status = 'deactivated' 
-                                          WHERE period_id != ? AND academic_year_id = ?");
+                                          WHERE period_id != ? AND academic_year_id = ? AND status != 'ended'");
             $stmt->execute([$periodId, $input['academic_year_id']]);
         }
         
@@ -240,8 +240,8 @@ function handleUpdatePeriod($connection) {
                 // Activate
                 $stmt = $connection->prepare("UPDATE clearance_periods SET is_active = 1, status = 'active', ended_at = NULL WHERE period_id = ?");
                 $stmt->execute([$periodId]);
-                // Deactivate others in same academic year
-                $stmt = $connection->prepare("UPDATE clearance_periods SET is_active = 0, status = 'deactivated' WHERE period_id != ? AND academic_year_id = ?");
+                // Deactivate others in same academic year (but not those that are already ended)
+                $stmt = $connection->prepare("UPDATE clearance_periods SET is_active = 0, status = 'deactivated' WHERE period_id != ? AND academic_year_id = ? AND status != 'ended'");
                 $stmt->execute([$periodId, $existingPeriod['academic_year_id']]);
 
                 // NEW: Reset all clearance forms for new term
@@ -262,9 +262,9 @@ function handleUpdatePeriod($connection) {
             }
         }
 
-        // If making this period active by field update, deactivate others in same academic year
+        // If making this period active by field update, deactivate others in same academic year (but not those that are already ended)
         if (isset($input['is_active']) && $input['is_active'] && !$existingPeriod['is_active']) {
-            $stmt = $connection->prepare("UPDATE clearance_periods SET is_active = 0, status = 'deactivated' WHERE period_id != ? AND academic_year_id = ?");
+            $stmt = $connection->prepare("UPDATE clearance_periods SET is_active = 0, status = 'deactivated' WHERE period_id != ? AND academic_year_id = ? AND status != 'ended'");
             $stmt->execute([$periodId, $existingPeriod['academic_year_id']]);
             // Also set status active on this period if caller forgot to include it
             $input['status'] = 'active';

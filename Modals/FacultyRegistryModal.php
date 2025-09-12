@@ -10,7 +10,7 @@
         <input type="hidden" name="type" value="faculty">
         <div class="form-group">
           <label for="employeeNumber">Employee Number *</label>
-          <input type="text" id="employeeNumber" name="employeeNumber" required placeholder="e.g., LCA123P" maxlength="7">
+          <input type="text" id="employeeNumber" name="employeeNumber" required placeholder="e.g., LCA1234P" maxlength="8">
         </div>
 
         <div class="form-group">
@@ -80,8 +80,8 @@
     
     // Employee number validation
     const employeeNumber = document.getElementById('employeeNumber').value.trim();
-    if (employeeNumber && !/^[A-Z]{3}\d{3}[A-Z]$/.test(employeeNumber)) {
-      showFieldError('employeeNumber', 'Employee number should be in format: 3 letters + 3 digits + 1 letter (e.g., LCA123P)');
+    if (employeeNumber && !/^LCA\d{4}[A-Z]$/.test(employeeNumber)) {
+      showFieldError('employeeNumber', 'Employee number should be in format: LCA + 4 digits + 1 letter (e.g., LCA1234P)');
       isValid = false;
     }
     

@@ -275,10 +275,10 @@ $adminName = 'Admin User'; // Temporary admin name for testing
         });
 
         async function loadStaffFromApi(){
-            const res = await fetch('../../api/signatories/list.php?limit=500', { credentials: 'include' });
+            const res = await fetch('../../api/staff/list.php?limit=500', { credentials: 'include' });
             const data = await res.json();
             if (!res.ok || !data || data.success !== true) { throw new Error(data && data.message || 'Failed to load staff'); }
-            const rows = data.signatories || [];
+            const rows = data.staff || [];
             const map = new Map();
             rows.forEach(r => {
                 const emp = r.employee_number || r.username;
@@ -290,15 +290,14 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                         id: key,
                         name: fullName || '—',
                         position: r.designation_name || '',
-                        department: r.department_name || '',
-                        departments: r.department_name ? [r.department_name] : []
+                        department: '', // Staff table doesn't have department directly
+                        departments: [],
+                        email: r.email || '',
+                        contact: r.contact_number || '',
+                        status: r.status || 'active',
+                        is_also_faculty: r.is_also_faculty || false,
+                        faculty_employment_status: r.faculty_employment_status || ''
                     });
-                } else {
-                    const obj = map.get(key);
-                    if (r.department_name && (!obj.departments || !obj.departments.includes(r.department_name))) {
-                        obj.departments = obj.departments || [];
-                        obj.departments.push(r.department_name);
-                    }
                 }
             });
             // Reset and load
@@ -643,9 +642,19 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 if (modal) {
                     // Set form values
                     document.getElementById('editEmployeeId').value = staff.id;
-                    document.getElementById('editStaffName').value = staff.name;
-                    document.getElementById('editStaffEmail').value = staff.email;
-                    document.getElementById('editStaffContact').value = staff.contact;
+                    
+                    // Parse name into separate fields
+                    const nameParts = (staff.name || '').split(' ');
+                    const firstName = nameParts[0] || '';
+                    const lastName = nameParts[nameParts.length - 1] || '';
+                    const middleName = nameParts.slice(1, -1).join(' ') || '';
+                    
+                    document.getElementById('editFirstName').value = firstName;
+                    document.getElementById('editLastName').value = lastName;
+                    document.getElementById('editMiddleName').value = middleName;
+                    document.getElementById('editStaffEmail').value = staff.email || '';
+                    document.getElementById('editStaffContact').value = staff.contact || '';
+                    document.getElementById('editStaffStatus').value = staff.status || '';
                     
                     // Handle position logic - check if it's a standard position
                     const standardPositions = [
@@ -661,6 +670,22 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                     } else {
                         document.getElementById('editStaffPosition').value = '';
                         document.getElementById('editCustomPosition').value = staff.position;
+                    }
+                    
+                    // Handle faculty section
+                    const isAlsoFaculty = staff.is_also_faculty || false;
+                    document.getElementById('editIsAlsoFaculty').checked = isAlsoFaculty;
+                    if (isAlsoFaculty) {
+                        document.getElementById('editFacultyEmploymentStatus').value = staff.faculty_employment_status || '';
+                        document.getElementById('editFacultyEmployeeNumber').value = staff.id;
+                    }
+                    
+                    // Trigger form updates
+                    if (typeof toggleEditFacultySection === 'function') {
+                        toggleEditFacultySection();
+                    }
+                    if (typeof toggleEditProgramHeadAssignment === 'function') {
+                        toggleEditProgramHeadAssignment();
                     }
                     
                     modal.style.display = 'flex';

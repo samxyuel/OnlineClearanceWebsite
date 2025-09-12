@@ -20,10 +20,10 @@
                 
                 <div class="form-group">
                     <label for="employeeId">Employee ID</label>
-                    <input type="text" id="employeeId" name="employeeId" placeholder="LCA123P" required 
-                           pattern="[A-Z]{3}[0-9]{3}[A-Z]" 
-                           title="Format: LLLNNNL (e.g., LCA123P)">
-                    <small class="form-help">Format: LLLNNNL (e.g., LCA123P)</small>
+                    <input type="text" id="employeeId" name="employeeId" placeholder="LCA1234P" required 
+                           pattern="LCA[0-9]{4}[A-Z]" 
+                           title="Format: LCA + 4 digits + 1 letter (e.g., LCA1234P)">
+                    <small class="form-help">Format: LCA + 4 digits + 1 letter (e.g., LCA1234P)</small>
                 </div>
                 
                 <div class="form-group">

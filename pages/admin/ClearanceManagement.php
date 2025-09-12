@@ -75,37 +75,7 @@ if (session_status() == PHP_SESSION_NONE) {
                             </div>
                             
                             <div class="terms-list">
-                                <div class="term-item active">
-                                    <div class="term-info">
-                                        <span class="term-name">Term 1</span>
-                                        <span class="term-status active">ACTIVE</span>
-                                    </div>
-                                    <div class="term-actions">
-                                        <button class="btn btn-sm btn-warning" onclick="deactivateTerm('term1')">
-                                            <i class="fas fa-pause"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="endTerm('term1')">
-                                            <i class="fa-solid fa-clipboard-check"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteTerm('term1')">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="term-item inactive">
-                                    <div class="term-info">
-                                        <span class="term-name">Term 2</span>
-                                        <span class="term-status inactive">INACTIVE</span>
-                                    </div>
-                                    <div class="term-actions">
-                                        <button class="btn btn-sm btn-success" onclick="activateTerm('term2')">
-                                            <i class="fas fa-play"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="resetTerm('term2')">
-                                            <i class="fas fa-undo"></i>
-                                        </button>
-                                    </div>
-                                </div>
+                                <!-- Terms will be populated by JavaScript -->
                             </div>
                         </div>
                     </div>
@@ -703,7 +673,15 @@ if (session_status() == PHP_SESSION_NONE) {
         let schoolYears = [];
         const API_BASE = '../../api/clearance';
 
-        function mapPeriodStatusToTermStatus(periodStatus) {
+        function mapPeriodStatusToTermStatus(periodStatus, periodData = null) {
+            // OLD LOGIC - COMMENTED OUT FOR REFERENCE
+            // If period has ended_at, it's completed regardless of status
+            // if (periodData && periodData.ended_at) {
+            //     return 'completed';
+            // }
+            
+            // NEW LOGIC - Use database status directly (after fixing data consistency)
+            // Database now ensures status = 'ended' when ended_at is set
             if (periodStatus === 'active') return 'active';
             if (periodStatus === 'ended') return 'completed';
             if (periodStatus === 'deactivated') return 'deactivated';
@@ -729,19 +707,22 @@ if (session_status() == PHP_SESSION_NONE) {
 
             const periodsResp = await fetchJSON(`${API_BASE}/periods.php`);
             const periods = periodsResp.periods || [];
+            
             function findPeriodForSemester(semId) {
                 return periods.find(p => p.academic_year_id === ayId && p.semester_id === semId) || null;
             }
             const p1 = term1SemId ? findPeriodForSemester(term1SemId) : null;
             const p2 = term2SemId ? findPeriodForSemester(term2SemId) : null;
 
+            // Status mapping for terms
+
             const yearObj = {
                 id: ctx.academic_year.year,
                 name: ctx.academic_year.year,
                 status: 'current',
                 terms: [
-                    { id: 'term1', name: 'Term 1', status: mapPeriodStatusToTermStatus(p1?.status), periodId: p1?.period_id || null, semesterId: term1SemId, students: '0/0' },
-                    { id: 'term2', name: 'Term 2', status: mapPeriodStatusToTermStatus(p2?.status), periodId: p2?.period_id || null, semesterId: term2SemId, students: '0/0' }
+                    { id: 'term1', name: 'Term 1', status: mapPeriodStatusToTermStatus(p1?.status, p1), periodId: p1?.period_id || null, semesterId: term1SemId, students: '0/0' },
+                    { id: 'term2', name: 'Term 2', status: mapPeriodStatusToTermStatus(p2?.status, p2), periodId: p2?.period_id || null, semesterId: term2SemId, students: '0/0' }
                 ],
                 canAddSchoolYear: true,
                 academicYearId: ayId
@@ -749,6 +730,364 @@ if (session_status() == PHP_SESSION_NONE) {
 
             schoolYears = [yearObj];
             currentSchoolYearIndex = 0;
+        }
+
+        // Operation Queue System
+        class TermOperationQueue {
+            constructor() {
+                this.queue = [];
+                this.currentOperation = null;
+                this.isProcessing = false;
+            }
+            
+            async enqueue(operation) {
+                // Cancel any pending operations of the same type for the same term
+                this.cancelPendingOperations(operation.type, operation.termId);
+                
+                // Add to queue
+                this.queue.push(operation);
+                
+                // Process queue
+                this.processQueue();
+            }
+            
+            cancelPendingOperations(operationType, termId) {
+                // Remove pending operations of the same type for the same term
+                this.queue = this.queue.filter(op => 
+                    !(op.type === operationType && op.termId === termId && op.state === 'pending')
+                );
+            }
+            
+            async processQueue() {
+                if (this.isProcessing || this.queue.length === 0) {
+                    return;
+                }
+                
+                this.isProcessing = true;
+                
+                while (this.queue.length > 0) {
+                    const operation = this.queue.shift();
+                    if (operation.state === 'cancelled') {
+                        continue;
+                    }
+                    
+                    try {
+                        operation.state = 'processing';
+                        this.currentOperation = operation;
+                        
+                        // Execute the operation
+                        await this.executeOperation(operation);
+                        
+                        operation.state = 'completed';
+                    } catch (error) {
+                        operation.state = 'failed';
+                        console.error('Operation failed:', error);
+                        if (operation.reject) {
+                            operation.reject(error);
+                        }
+                    } finally {
+                        this.currentOperation = null;
+                    }
+                }
+                
+                this.isProcessing = false;
+            }
+            
+            async executeOperation(operation) {
+                // This will be implemented with the actual term operations
+                return new Promise((resolve, reject) => {
+                    operation.resolve = resolve;
+                    operation.reject = reject;
+                    
+                    // The actual operation will be handled by the specific term functions
+                    // This is just a placeholder for the queue structure
+                    resolve();
+                });
+            }
+        }
+        
+        // Debounced Operations Manager
+        class DebouncedTermOperations {
+            constructor() {
+                this.debounceTimeouts = new Map();
+                this.debounceDelay = 300; // 300ms debounce
+            }
+            
+            debounceOperation(termId, operationType, callback) {
+                const key = `${termId}-${operationType}`;
+                
+                // Clear existing timeout
+                if (this.debounceTimeouts.has(key)) {
+                    clearTimeout(this.debounceTimeouts.get(key));
+                }
+                
+                // Set new timeout
+                const timeout = setTimeout(() => {
+                    callback();
+                    this.debounceTimeouts.delete(key);
+                }, this.debounceDelay);
+                
+                this.debounceTimeouts.set(key, timeout);
+            }
+        }
+        
+        // Initialize queue and debounce managers
+        const operationQueue = new TermOperationQueue();
+        const debouncedOperations = new DebouncedTermOperations();
+        
+        // Debounce updateTermsList to prevent excessive calls
+        let updateTermsListTimeout = null;
+        function debouncedUpdateTermsList(schoolYear) {
+            if (updateTermsListTimeout) {
+                clearTimeout(updateTermsListTimeout);
+            }
+            updateTermsListTimeout = setTimeout(() => {
+                updateTermsList(schoolYear);
+                updateTermsListTimeout = null;
+            }, 100); // 100ms debounce
+        }
+
+        // Ensure fresh data before any term operation
+        let isRefreshing = false;
+        async function ensureFreshData() {
+            if (isRefreshing) {
+                console.log('🔄 ensureFreshData: Already refreshing, skipping...');
+                return true;
+            }
+            
+            try {
+                isRefreshing = true;
+                console.log('🔄 ensureFreshData: Starting data refresh...');
+                await loadCurrentYearAndTerms();
+                console.log('🔄 ensureFreshData: Data loaded, updating display...');
+                console.log('🔄 ensureFreshData: Current schoolYears:', schoolYears);
+                updateSchoolYearDisplay();
+                console.log('✅ ensureFreshData: Data refresh completed');
+                return true;
+            } catch (error) {
+                console.error('Failed to refresh data:', error);
+                showToast('Failed to refresh data. Please try again.', 'error');
+                return false;
+            } finally {
+                isRefreshing = false;
+            }
+        }
+
+        // Enhanced Loading States Manager
+        class EnhancedLoadingStatesManager {
+            constructor() {
+                this.operationQueue = [];
+                this.isProcessing = false;
+                this.minLoadingDuration = 3000; // 3 seconds minimum
+            }
+
+            async performTermOperation(operation, termId, operationType) {
+                if (this.isProcessing) {
+                    showToast('Another operation is in progress. Please wait.', 'warning');
+                    return;
+                }
+
+                this.isProcessing = true;
+                const startTime = Date.now();
+
+                try {
+                    // Show initial notification for auto-ending
+                    if (operationType === 'activate' && termId === 'term2') {
+                        showToast('Term 1 will end to start Term 2', 'info');
+                    }
+
+                    // Show loading state
+                    this.showTermLoading(termId, operationType);
+
+                    // Perform the operation
+                    const result = await operation();
+
+                    // Calculate remaining time for minimum duration
+                    const elapsed = Date.now() - startTime;
+                    const remainingTime = Math.max(0, this.minLoadingDuration - elapsed);
+
+                    // Wait for minimum duration
+                    await new Promise(resolve => setTimeout(resolve, remainingTime));
+
+                    // Show success state
+                    this.showTermSuccess(termId, operationType);
+
+                    return result;
+                } catch (error) {
+                    this.showTermError(termId, operationType, error);
+                    throw error;
+                } finally {
+                    this.isProcessing = false;
+                }
+            }
+
+            showTermLoading(termId, operationType) {
+                const termItem = document.querySelector(`.term-item[data-term="${termId}"]`);
+                if (!termItem) return;
+
+                const actionsDiv = termItem.querySelector('.term-actions');
+                if (!actionsDiv) return;
+
+                // Disable all buttons
+                const buttons = actionsDiv.querySelectorAll('button');
+                buttons.forEach(btn => {
+                    btn.disabled = true;
+                    btn.classList.add('loading');
+                });
+
+                // Show loading message
+                let loadingMessage = '';
+                if (operationType === 'activate') {
+                    loadingMessage = 'Configuring Term...';
+                } else if (operationType === 'deactivate') {
+                    loadingMessage = 'Pausing...';
+                } else if (operationType === 'end') {
+                    loadingMessage = 'Ending...';
+                }
+
+                // Add loading indicator
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'term-loading-state';
+                loadingDiv.innerHTML = `
+                    <div class="loading-spinner"></div>
+                    <span class="loading-text">${loadingMessage}</span>
+                `;
+                actionsDiv.appendChild(loadingDiv);
+            }
+
+            showTermSuccess(termId, operationType) {
+                const termItem = document.querySelector(`.term-item[data-term="${termId}"]`);
+                if (!termItem) return;
+
+                const actionsDiv = termItem.querySelector('.term-actions');
+                if (!actionsDiv) return;
+
+                // Remove loading state
+                const loadingDiv = actionsDiv.querySelector('.term-loading-state');
+                if (loadingDiv) {
+                    loadingDiv.remove();
+                }
+
+                // Re-enable buttons
+                const buttons = actionsDiv.querySelectorAll('button');
+                buttons.forEach(btn => {
+                    btn.disabled = false;
+                    btn.classList.remove('loading');
+                });
+
+                // Show success message
+                let successMessage = '';
+                if (operationType === 'activate' && termId === 'term2') {
+                    successMessage = 'Term 2 activated successfully';
+                } else if (operationType === 'activate') {
+                    successMessage = 'Term activated successfully';
+                } else if (operationType === 'deactivate') {
+                    successMessage = 'Term paused successfully';
+                } else if (operationType === 'end') {
+                    successMessage = 'Term ended successfully';
+                }
+
+                showToast(successMessage, 'success');
+            }
+
+            showTermError(termId, operationType, error) {
+                const termItem = document.querySelector(`.term-item[data-term="${termId}"]`);
+                if (!termItem) return;
+
+                const actionsDiv = termItem.querySelector('.term-actions');
+                if (!actionsDiv) return;
+
+                // Remove loading state
+                const loadingDiv = actionsDiv.querySelector('.term-loading-state');
+                if (loadingDiv) {
+                    loadingDiv.remove();
+                }
+
+                // Re-enable buttons
+                const buttons = actionsDiv.querySelectorAll('button');
+                buttons.forEach(btn => {
+                    btn.disabled = false;
+                    btn.classList.remove('loading');
+                });
+
+                // Show error message
+                let errorMessage = '';
+                if (operationType === 'activate' && termId === 'term2') {
+                    errorMessage = 'Failed to end Term 1. Please end Term 1 manually first.';
+                } else if (operationType === 'activate') {
+                    errorMessage = 'Failed to activate term. Please try again.';
+                } else if (operationType === 'deactivate') {
+                    errorMessage = 'Failed to pause term. Please try again.';
+                } else if (operationType === 'end') {
+                    errorMessage = 'Failed to end term. Please try again.';
+                }
+
+                showToast(errorMessage, 'error');
+            }
+        }
+
+        // Initialize enhanced loading states manager
+        const enhancedLoadingManager = new EnhancedLoadingStatesManager();
+
+        // Helper function to ensure Term 1 is ended before Term 2 activation
+        async function ensureTerm1Ended() {
+            try {
+                // Refresh data first
+                await loadCurrentYearAndTerms();
+                
+                // Check if Term 1 is already ended using global schoolYears
+                const currentYear = schoolYears[currentSchoolYearIndex];
+                if (!currentYear) {
+                    throw new Error('No current year data available');
+                }
+                
+                const term1 = currentYear.terms.find(t => t.id === 'term1');
+                
+                if (term1 && term1.status === 'completed') {
+                    return; // Term 1 is already ended
+                }
+
+                // If Term 1 is not ended, end it automatically
+                console.log('Auto-ending Term 1 to start Term 2...');
+                
+                // Find the Term 1 period ID
+                const term1PeriodId = term1?.periodId;
+                if (!term1PeriodId) {
+                    throw new Error('No period exists for Term 1');
+                }
+                
+                const response = await fetchJSON(`${API_BASE}/periods.php`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ period_id: term1PeriodId, action: 'end' })
+                });
+
+                if (!response.success) {
+                    throw new Error(`Failed to auto-end Term 1: ${response.message}`);
+                }
+
+                console.log('Term 1 auto-ended successfully');
+            } catch (error) {
+                console.error('Error auto-ending Term 1:', error);
+                throw new Error('Failed to end Term 1. Please end Term 1 manually first.');
+            }
+        }
+        
+        // UI State Management
+        function setTermButtonsState(enabled) {
+            document.querySelectorAll('.term-actions button').forEach(btn => {
+                btn.disabled = !enabled;
+            });
+        }
+        
+        function showGlobalLoading(message = 'Processing...') {
+            setTermButtonsState(false);
+            // Show global loading indicator if needed
+        }
+        
+        function hideGlobalLoading() {
+            setTermButtonsState(true);
+            // Hide global loading indicator if needed
         }
         function isPeriodLocked(){
             const cy = schoolYears[currentSchoolYearIndex];
@@ -832,8 +1171,8 @@ if (session_status() == PHP_SESSION_NONE) {
             // Update year actions
             updateYearActions(currentYear);
 
-            // Update terms list
-            updateTermsList(currentYear);
+            // Update terms list with debouncing
+            debouncedUpdateTermsList(currentYear);
             // Update lock UI after status refresh
             try { updateLockUI(); } catch (e) {}
         }
@@ -865,46 +1204,56 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         function updateTermsList(schoolYear) {
+            console.log('🔄 updateTermsList: Called with schoolYear:', schoolYear);
             const termsList = document.querySelector('.terms-list');
             termsList.innerHTML = '';
             
-            schoolYear.terms.forEach(term => {
+            schoolYear.terms.forEach((term, index) => {
+                console.log(`🔄 updateTermsList: Processing term ${index + 1}:`, term);
                 const termItem = document.createElement('div');
                 termItem.className = `term-item ${term.status}`;
+                termItem.setAttribute('data-term', term.id); // Add data attribute for targeting
                 
-                if (schoolYear.status === 'current') {
-                    // Current year - full functionality
+                // Check if term is ended/completed - if so, show "Clearance Period Ended"
+                if (term.status === 'completed') {
+                    const endedHTML = `
+                        <div class="term-info">
+                            <span class="term-name">${term.name}</span>
+                            <span class="term-status completed">Clearance Period Ended</span>
+                        </div>
+                        <div class="term-actions">
+                            <!-- No action buttons for ended terms -->
+                        </div>
+                    `;
+                    termItem.innerHTML = endedHTML;
+                } else if (schoolYear.status === 'current') {
+                    // Current year and non-ended term - check term dependencies
+                    let termActions = '';
+                    let statusText = term.status.toUpperCase();
+                    
+                    // Check if this is Term 2 and Term 1 is not ended
+                    if (index === 1) { // Term 2 (index 1)
+                        const term1 = schoolYears[currentSchoolYearIndex]?.terms[0];
+                        if (term1 && term1.status !== 'completed') {
+                            // Term 1 not ended - block Term 2 actions
+                            termActions = '';
+                            statusText = 'Term 1 ended Required.';
+                        } else {
+                            // Term 1 is ended - allow Term 2 actions
+                            termActions = getTermActions(term);
+                        }
+                    } else {
+                        // Term 1 - no dependency check needed
+                        termActions = getTermActions(term);
+                    }
+                    
                     termItem.innerHTML = `
                         <div class="term-info">
                             <span class="term-name">${term.name}</span>
-                            <span class="term-status ${term.status}">${term.status.toUpperCase()}</span>
+                            <span class="term-status ${term.status}">${statusText}</span>
                         </div>
                         <div class="term-actions">
-                            ${term.status === 'active' ? `
-                                <button class="btn btn-sm btn-warning" onclick="deactivateTerm('${term.id}')">
-                                    <i class="fas fa-pause"></i>
-                                </button>
-                                <button class="btn btn-sm btn-danger" onclick="endTerm('${term.id}')">
-                                    <i class="fa-solid fa-clipboard-check"></i>
-                                </button>
-                            ` : term.status === 'deactivated' ? `
-                                <button class="btn btn-sm btn-success" onclick="activateTerm('${term.id}')">
-                                    <i class="fas fa-play"></i>
-                                </button>
-                                <button class="btn btn-sm btn-danger" onclick="endTerm('${term.id}')">
-                                    <i class="fa-solid fa-clipboard-check"></i>
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger" onclick="resetTerm('${term.id}')">
-                                    <i class="fas fa-undo"></i>
-                                </button>
-                            ` : term.status === 'inactive' ? `
-                                <button class="btn btn-sm btn-success" onclick="activateTerm('${term.id}')">
-                                    <i class="fas fa-play"></i>
-                                </button>
-                                <button class="btn btn-sm btn-danger" title="End (skip)" onclick="endTerm('${term.id}')">
-                                    <i class="fa-solid fa-clipboard-check"></i>
-                                </button>
-                            ` : ''}
+                            ${termActions}
                         </div>
                     `;
                 } else {
@@ -928,6 +1277,43 @@ if (session_status() == PHP_SESSION_NONE) {
                 termsList.appendChild(termItem);
             });
         }
+        
+        // Helper function to get term actions based on status
+        function getTermActions(term) {
+            if (term.status === 'active') {
+                return `
+                    <button class="btn btn-sm btn-warning" onclick="deactivateTerm('${term.id}')">
+                        <i class="fas fa-pause"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="endTerm('${term.id}')">
+                        <i class="fa-solid fa-clipboard-check"></i>
+                    </button>
+                `;
+            } else if (term.status === 'deactivated') {
+                return `
+                    <button class="btn btn-sm btn-success" onclick="activateTerm('${term.id}')">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="endTerm('${term.id}')">
+                        <i class="fa-solid fa-clipboard-check"></i>
+                    </button>
+                    <!-- Reset button commented out as per requirements -->
+                    <!-- <button class="btn btn-sm btn-outline-danger" onclick="resetTerm('${term.id}')">
+                        <i class="fas fa-undo"></i>
+                    </button> -->
+                `;
+            } else if (term.status === 'inactive') {
+                return `
+                    <button class="btn btn-sm btn-success" onclick="activateTerm('${term.id}')">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" title="End (skip)" onclick="endTerm('${term.id}')">
+                        <i class="fa-solid fa-clipboard-check"></i>
+                    </button>
+                `;
+            }
+            return '';
+        }
 
         function updateNavigationButtons() {
             const prevBtn = document.getElementById('prevYearBtn');
@@ -936,95 +1322,142 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         async function activateTerm(termId) {
-            const currentYear = schoolYears[currentSchoolYearIndex];
-            if (!currentYear) { showToast('Data not loaded yet.', 'warning'); return; }
-            const term = currentYear.terms.find(t => t.id === termId);
-            if (!term) { showToast('Term not found.', 'error'); return; }
+            try {
+                await enhancedLoadingManager.performTermOperation(async () => {
+                    // Special handling for Term 2 activation
+                    if (termId === 'term2') {
+                        // First, ensure Term 1 is ended
+                        await ensureTerm1Ended();
+                    }
 
-            showConfirmation(
-                'Activate Term',
-                `Activate ${term.name}? This will start the clearance period.`,
-                'Activate',
-                'Cancel',
-                async () => {
-                    try {
+                    // Then activate the requested term
+            const currentYear = schoolYears[currentSchoolYearIndex];
+                    if (!currentYear) { 
+                        throw new Error('Data not loaded yet.');
+                    }
+                    
+            const term = currentYear.terms.find(t => t.id === termId);
+                    if (!term) { 
+                        throw new Error('Term not found.');
+                    }
+
                         // Preflight validation before any write
                         const pre = await fetchJSON(`${API_BASE}/preflight.php?academic_year_id=${encodeURIComponent(currentYear.academicYearId)}&semester_id=${encodeURIComponent(term.semesterId)}`);
                         if (!pre.ok) {
                             const issues = (pre.issues || []).map(i => `• ${i.message}`).join('\n');
-                            showToast(issues || 'Activation blocked by validation checks.', 'warning');
-                            return;
+                        throw new Error(issues || 'Activation blocked by validation checks.');
                         }
+                    
                         if (term.periodId) {
-                            await fetchJSON(`${API_BASE}/periods.php`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ period_id: term.periodId, action: 'activate' }) });
+                        const response = await fetchJSON(`${API_BASE}/periods.php`, { 
+                            method: 'PUT', 
+                            headers: { 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify({ period_id: term.periodId, action: 'activate' }) 
+                        });
+                        if (!response.success) {
+                            throw new Error(response.message || 'Failed to activate term');
+                        }
                         } else {
                             const today = new Date().toISOString().slice(0,10);
-                            await fetchJSON(`${API_BASE}/periods.php`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ academic_year_id: currentYear.academicYearId, semester_id: term.semesterId, start_date: today, is_active: true }) });
+                        const response = await fetchJSON(`${API_BASE}/periods.php`, { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify({ academic_year_id: currentYear.academicYearId, semester_id: term.semesterId, start_date: today, is_active: true }) 
+                        });
+                        if (!response.success) {
+                            throw new Error(response.message || 'Failed to activate term');
                         }
-                        showToast(`${term.name} activated successfully!`, 'success');
-                        await loadCurrentYearAndTerms();
-                        updateSchoolYearDisplay();
-                    } catch (e) { console.error(e); showToast(e.message || 'Failed to activate term', 'error'); }
-                },
-                'success'
-            );
+                    }
+
+                    return { success: true };
+                }, termId, 'activate');
+
+                // Refresh data after successful operation
+                await ensureFreshData();
+            } catch (error) {
+                console.error('Error activating term:', error);
+            }
         }
+        
 
         async function deactivateTerm(termId) {
-            const currentYear = schoolYears[currentSchoolYearIndex];
-            if (!currentYear) { showToast('Data not loaded yet.', 'warning'); return; }
-            const term = currentYear.terms.find(t => t.id === termId);
-            if (!term) { showToast('Term not found.', 'error'); return; }
+            try {
+                await enhancedLoadingManager.performTermOperation(async () => {
+                    const currentYear = schoolYears[currentSchoolYearIndex];
+                    if (!currentYear) { 
+                        throw new Error('Data not loaded yet.');
+                    }
+                    
+                    const term = currentYear.terms.find(t => t.id === termId);
+                    if (!term) { 
+                        throw new Error('Term not found.');
+                    }
 
-            showConfirmation(
-                'Deactivate Term',
-                `Deactivate ${term.name}? This will pause the clearance period.`,
-                'Deactivate',
-                'Cancel',
-                async () => {
-                    try {
-                        if (!term.periodId) { showToast('No period exists for this term.', 'warning'); return; }
-                        await fetchJSON(`${API_BASE}/periods.php`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ period_id: term.periodId, action: 'deactivate' }) });
-                        showToast(`${term.name} deactivated successfully!`, 'warning');
-                        await loadCurrentYearAndTerms();
-                        updateSchoolYearDisplay();
-                    } catch (e) { console.error(e); showToast(e.message || 'Failed to deactivate term', 'error'); }
-                },
-                'warning'
-            );
+                    if (!term.periodId) { 
+                        throw new Error('No period exists for this term.');
+                    }
+                    
+                    const response = await fetchJSON(`${API_BASE}/periods.php`, { 
+                        method: 'PUT', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ period_id: term.periodId, action: 'deactivate' }) 
+                    });
+                    
+                    if (!response.success) {
+                        throw new Error(response.message || 'Failed to deactivate term');
+                    }
+
+                    return { success: true };
+                }, termId, 'deactivate');
+
+                // Refresh data after successful operation
+                await ensureFreshData();
+            } catch (error) {
+                console.error('Error deactivating term:', error);
+            }
         }
+        
 
         async function endTerm(termId) {
-            const currentYear = schoolYears[currentSchoolYearIndex];
-            if (!currentYear) { showToast('Data not loaded yet.', 'warning'); return; }
-            const term = currentYear.terms.find(t => t.id === termId);
-            if (!term) { showToast('Term not found.', 'error'); return; }
+            try {
+                await enhancedLoadingManager.performTermOperation(async () => {
+                    const currentYear = schoolYears[currentSchoolYearIndex];
+                    if (!currentYear) { 
+                        throw new Error('Data not loaded yet.');
+                    }
+                    
+                    const term = currentYear.terms.find(t => t.id === termId);
+                    if (!term) { 
+                        throw new Error('Term not found.');
+                    }
 
-            showConfirmation(
-                'End Term',
-                `End ${term.name}? This will conclude the clearance period permanently.`,
-                'End Term',
-                'Cancel',
-                async () => {
-                    try {
-                        if (!term.periodId) {
-                            // End (skip): create an inactive period, then end it
-                            const today = new Date().toISOString().slice(0,10);
-                            const createRes = await fetchJSON(`${API_BASE}/periods.php`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ academic_year_id: currentYear.academicYearId, semester_id: term.semesterId, start_date: today, is_active: false }) });
-                            const newPid = createRes.period_id;
-                            await fetchJSON(`${API_BASE}/periods.php`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ period_id: newPid, action: 'end' }) });
-                        } else {
-                            await fetchJSON(`${API_BASE}/periods.php`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ period_id: term.periodId, action: 'end' }) });
-                        }
-                        showToast(`${term.name} ended successfully!`, 'success');
-                        await loadCurrentYearAndTerms();
-                        updateSchoolYearDisplay();
-                    } catch (e) { console.error(e); showToast(e.message || 'Failed to end term', 'error'); }
-                },
-                'danger'
-            );
+                    if (!term.periodId) { 
+                        throw new Error('No period exists for this term.');
+                    }
+                    
+                    const response = await fetchJSON(`${API_BASE}/periods.php`, { 
+                        method: 'PUT', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                        body: JSON.stringify({ period_id: term.periodId, action: 'end' }) 
+                    });
+                    
+                    if (!response.success) {
+                        throw new Error(response.message || 'Failed to end term');
+                    }
+
+                    return { success: true };
+                }, termId, 'end');
+
+                // Refresh data after successful operation
+                await ensureFreshData();
+            } catch (error) {
+                console.error('Error ending term:', error);
+            }
         }
+        
 
+        // Reset Term function commented out as per requirements
+        /*
         async function resetTerm(termId) {
             const currentYear = schoolYears[currentSchoolYearIndex];
             if (!currentYear) { showToast('Data not loaded yet.', 'warning'); return; }
@@ -1054,6 +1487,7 @@ if (session_status() == PHP_SESSION_NONE) {
                 'warning'
             );
         }
+        */
 
         function deleteTerm(termId) {
             showConfirmation(

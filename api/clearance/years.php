@@ -79,7 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         if (!$year) { http_response_code(404); echo json_encode(['success'=>false,'message'=>'School year not found']); exit; }
 
         // Guard 1: All periods in this AY must be Ended (or no periods exist)
-        $notEnded = $pdo->prepare("SELECT COUNT(*) FROM clearance_periods WHERE academic_year_id = ? AND status <> 'ended'");
+        // A period is considered ended if it has ended_at timestamp OR status is 'ended'
+        $notEnded = $pdo->prepare("SELECT COUNT(*) FROM clearance_periods WHERE academic_year_id = ? AND ended_at IS NULL AND status <> 'ended'");
         $notEnded->execute([$ayId]);
         if ((int)$notEnded->fetchColumn() > 0) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Cannot delete year: all terms must be Ended']); exit; }
 
