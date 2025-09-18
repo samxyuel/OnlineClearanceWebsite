@@ -50,7 +50,8 @@ $limit = isset($_GET['limit'])?min(100,max(5,(int)$_GET['limit'])):50;
 $offset = ($page-1)*$limit;
 $search = $_GET['search']??'';
 
-// Determine active academic year & semester (same logic as clearance APIs)
+// Try to determine active academic year & semester (for clearance status)
+// Faculty data should load regardless of active periods
 $activePeriodStmt = $pdo->query("
     SELECT academic_year_id, semester_id 
     FROM clearance_periods 
@@ -59,13 +60,9 @@ $activePeriodStmt = $pdo->query("
 ");
 $activePeriod = $activePeriodStmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$activePeriod) {
-    echo json_encode(['success'=>false,'message'=>'No active clearance period']);
-    exit;
-}
-
-$ayId = $activePeriod['academic_year_id'];
-$semId = $activePeriod['semester_id'];
+// Default to null if no active period (clearance status will show as 'Unapplied')
+$ayId = $activePeriod ? $activePeriod['academic_year_id'] : null;
+$semId = $activePeriod ? $activePeriod['semester_id'] : null;
 
 $where="";
 $params=[];
@@ -88,12 +85,21 @@ $select="SELECT f.employee_number, f.employment_status, u.user_id, u.username, u
             ELSE 'Unapplied'
         END AS clearance_status";
 
-$join="FROM faculty f JOIN users u ON u.user_id=f.user_id
-        LEFT JOIN clearance_forms cf ON cf.user_id=u.user_id AND cf.academic_year_id = ? AND cf.semester_id = ?";
+// Build join condition based on whether we have active period
+if ($ayId && $semId) {
+    $join="FROM faculty f JOIN users u ON u.user_id=f.user_id
+            LEFT JOIN clearance_forms cf ON cf.user_id=u.user_id AND cf.academic_year_id = ? AND cf.semester_id = ?";
+    $joinParams = [$ayId, $semId];
+} else {
+    // No active period - don't try to join clearance_forms (all will show as 'Unapplied')
+    $join="FROM faculty f JOIN users u ON u.user_id=f.user_id
+            LEFT JOIN clearance_forms cf ON 1=0"; // Never join - all clearance_status will be 'Unapplied'
+    $joinParams = [];
+}
 
 $sql="$select $join $where ORDER BY u.created_at DESC LIMIT $limit OFFSET $offset";
 $stmt=$pdo->prepare($sql);
-$stmt->execute(array_merge([$ayId,$semId],$params));
+$stmt->execute(array_merge($joinParams,$params));
 $rows=$stmt->fetchAll(PDO::FETCH_ASSOC);
 
 echo json_encode(['success'=>true,'total'=>$total,'page'=>$page,'limit'=>$limit,'faculty'=>$rows]);

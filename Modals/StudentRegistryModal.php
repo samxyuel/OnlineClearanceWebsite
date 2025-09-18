@@ -147,8 +147,10 @@
 </div>
 
 <script>
+// Prevent duplication - only declare if not already declared
+if (typeof window.departmentPrograms === 'undefined') {
 // Department → Program mapping
-const departmentPrograms = {
+window.departmentPrograms = {
   'Tourism and Hospitality Management': [
     'BS in Tourism Management (BSTM)',
     'BS in Culinary Management (BSCM)'
@@ -180,7 +182,7 @@ const departmentPrograms = {
 };
 
 // Department → Year Level mapping
-const departmentYearLevels = {
+window.departmentYearLevels = {
   'Tourism and Hospitality Management': [
     '1st Year',
     '2nd Year', 
@@ -204,6 +206,7 @@ const departmentYearLevels = {
     'Grade 12'
   ]
 };
+} // End of conditional block
 
 // Update programs and year levels when department changes
 function updateProgramsAndYearLevels() {
@@ -217,8 +220,8 @@ function updateProgramsAndYearLevels() {
   
   if (department) {
     // Update programs
-    if (departmentPrograms[department]) {
-      departmentPrograms[department].forEach(program => {
+    if (window.departmentPrograms && window.departmentPrograms[department]) {
+      window.departmentPrograms[department].forEach(program => {
         const option = document.createElement('option');
         option.value = program;
         option.textContent = program;
@@ -227,8 +230,8 @@ function updateProgramsAndYearLevels() {
     }
     
     // Update year levels
-    if (departmentYearLevels[department]) {
-      departmentYearLevels[department].forEach(yearLevel => {
+    if (window.departmentYearLevels && window.departmentYearLevels[department]) {
+      window.departmentYearLevels[department].forEach(yearLevel => {
         const option = document.createElement('option');
         option.value = yearLevel;
         option.textContent = yearLevel;
@@ -363,7 +366,7 @@ function submitStudentRegistrationForm() {
   formData.forEach((value, key) => { 
     jsonData[key] = value; 
   });
-  jsonData['role_id'] = 5; // Student role
+  jsonData['role_id'] = 3; // Student role
   
   fetch(form.dataset.endpoint, {
     method: 'POST',

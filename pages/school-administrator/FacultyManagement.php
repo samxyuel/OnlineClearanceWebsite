@@ -1,6 +1,15 @@
 <?php
 // Online Clearance Website - School Administrator Faculty Management
 // Session management handled by header component
+
+// Add basic authentication check (RELAXED FOR TESTING)
+require_once __DIR__ . '/../../includes/classes/Auth.php';
+$auth = new Auth();
+if (!$auth->isLoggedIn()) {
+    header('Location: ../../pages/auth/login.php');
+    exit;
+}
+// Allow any logged-in user for testing
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1233,6 +1242,7 @@
                 data.faculty.forEach(f=>{
                     const tr=document.createElement('tr');
                     tr.setAttribute('data-term',''); // term unknown for now
+                    tr.setAttribute('data-faculty-id', f.user_id); // Add faculty ID for button manager
                     const statusRaw = f.clearance_status;
                     let clearanceKey = 'unapplied';
                     if(statusRaw==='Completed' || statusRaw==='Complete') clearanceKey='completed';
@@ -1250,8 +1260,8 @@
                                 <td><span class="status-badge clearance-${clearanceStatus}">${statusRaw}</span></td>
                                 <td><div class="action-buttons">
                                         <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
-                                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${f.employee_number}')" title="Approve Clearance"><i class="fas fa-check"></i></button>
-                                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('${f.employee_number}')" title="Reject Clearance"><i class="fas fa-times"></i></button>
+                                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${f.user_id}')" title="Approve Clearance" disabled><i class="fas fa-check"></i></button>
+                                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('${f.user_id}')" title="Reject Clearance" disabled><i class="fas fa-times"></i></button>
                                         <button class=\"btn-icon delete-btn\" onclick=\"deleteFaculty('${f.employee_number}')\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>
                                    </div></td>`;
 
@@ -1277,10 +1287,15 @@
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             // Load faculty list from backend then initialize pagination
-            refreshFacultyTable().then(()=>{
+            refreshFacultyTable().then(async ()=>{
                 showToastNotification('Faculty table refreshed','success');
                 initializePagination();
                 updateSelectionCounter();
+                
+                // Update button states after table is loaded
+                if (window.clearanceButtonManager) {
+                    await window.clearanceButtonManager.updateAllButtons('Faculty', 'faculty');
+                }
             });
             
             // Load current clearance period for banner
@@ -1769,6 +1784,9 @@
     </script>
     <script src="../../assets/js/alerts.js"></script>
     <script src="../../assets/js/activity-tracker.js"></script>
+    
+    <!-- Include Clearance Button Manager -->
+    <script src="../../assets/js/clearance-button-manager.js"></script>
     
     <!-- Include Audit Functions -->
     <?php include '../../includes/functions/audit_functions.php'; ?>

@@ -1,0 +1,599 @@
+/**
+ * Clearance Status Styles
+ * Enhanced styles for period status banners and button states
+ */
+
+/* Period Status Banner */
+.period-status-banner {
+  margin-bottom: 20px;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: slideDown 0.3s ease-out;
+}
+
+.period-status-banner.not-started {
+  background: linear-gradient(135deg, #6c757d, #5a6268);
+  color: white;
+}
+
+.period-status-banner.ongoing {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+}
+
+.period-status-banner.grace-period {
+  background: linear-gradient(135deg, #ffc107, #ff9800);
+  color: white;
+  animation: pulse 2s infinite;
+}
+
+.period-status-banner.paused {
+  background: linear-gradient(135deg, #fd7e14, #e83e8c);
+  color: white;
+}
+
+.period-status-banner.paused-grace-period {
+  background: linear-gradient(135deg, #fd7e14, #e83e8c);
+  color: white;
+  animation: pulse 2s infinite;
+}
+
+.period-status-banner.closed {
+  background: linear-gradient(135deg, #6c757d, #495057);
+  color: white;
+}
+
+.period-status-banner.unknown {
+  background: linear-gradient(135deg, #6f42c1, #e83e8c);
+  color: white;
+}
+
+.period-status-banner .banner-icon {
+  font-size: 24px;
+  opacity: 0.9;
+}
+
+.period-status-banner .banner-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.period-status-banner .banner-text p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* Enhanced Button States - Only for specific button classes */
+.btn.loading {
+  pointer-events: none;
+}
+
+.btn.loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: loading 1.5s infinite;
+}
+
+/* Button State Classes */
+.btn-period-not-started {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: white;
+}
+
+.btn-grace-period {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #212529;
+  animation: pulse 1s infinite;
+}
+
+.btn-period-paused {
+  background-color: #fd7e14;
+  border-color: #fd7e14;
+  color: white;
+}
+
+.btn-period-closed {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: white;
+}
+
+.btn-can-apply {
+  background-color: #007bff;
+  border-color: #007bff;
+  color: white;
+}
+
+.btn-can-reapply {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: white;
+}
+
+.btn-pending-approval {
+  background-color: #ffc107;
+  border-color: #ffc107;
+  color: #212529;
+}
+
+.btn-approved {
+  background-color: #28a745;
+  border-color: #28a745;
+  color: white;
+}
+
+/* Signatory Card Enhancements - Only for specific states */
+.signatory-card.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.signatory-card.grace-period {
+  border-color: #ffc107 !important;
+  background: linear-gradient(135deg, #fff9e6, #fff3cd) !important;
+}
+
+.signatory-card.paused {
+  border-color: #fd7e14 !important;
+  background: linear-gradient(135deg, #ffeaa7, #fdcb6e) !important;
+}
+
+.signatory-card.closed {
+  border-color: #6c757d !important;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef) !important;
+}
+
+/* Status Badge Enhancements - Only for specific status badges */
+.status-badge.approved,
+.status-badge.rejected,
+.status-badge.pending,
+.status-badge.unapplied {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.approved {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.status-badge.rejected {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.status-badge.pending {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.status-badge.unapplied {
+  background-color: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+}
+
+/* Grace Period Container */
+.grace-period-container {
+  margin-bottom: 20px;
+}
+
+/* Real-time Update Indicator */
+.real-time-indicator {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 123, 255, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  z-index: 1000;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: all 0.3s ease;
+}
+
+.real-time-indicator.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.real-time-indicator.updating {
+  background: rgba(255, 193, 7, 0.9);
+}
+
+/* Loading States */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 8px;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Animations */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes loading {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .period-status-banner {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .period-status-banner .banner-icon {
+    order: -1;
+  }
+
+  .real-time-indicator {
+    top: 10px;
+    right: 10px;
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .period-status-banner {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .loading-overlay {
+    background: rgba(45, 55, 72, 0.8);
+  }
+}
+
+/* Accessibility Enhancements */
+.btn:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+.period-status-banner:focus-within {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .period-status-banner {
+    border: 2px solid currentColor;
+  }
+
+  .btn {
+    border-width: 2px;
+  }
+
+  .status-badge {
+    border-width: 2px;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .period-status-banner,
+  .real-time-indicator {
+    transition: none;
+  }
+
+  .period-status-banner.grace-period,
+  .period-status-banner.paused-grace-period,
+  .btn-grace-period {
+    animation: none;
+  }
+
+  .btn.loading::after {
+    animation: none;
+  }
+}
+
+/* Admin Grace Period Monitoring Styles */
+.grace-period-monitoring {
+  margin-bottom: 30px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #e9ecef;
+}
+
+.monitoring-header {
+  margin-bottom: 20px;
+}
+
+.monitoring-header h3 {
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.monitoring-header p {
+  margin: 0;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.grace-period-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.grace-period-card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.grace-period-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.grace-period-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.grace-period-card-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.grace-period-card-header h4 i {
+  margin-right: 8px;
+  color: #007bff;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.status-active {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-badge.status-warning {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-badge.status-paused {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-badge.status-closed {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-badge.status-inactive {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.status-badge.status-unknown {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.grace-period-card-content {
+  padding: 20px;
+}
+
+.period-info {
+  margin-bottom: 16px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-item .label {
+  font-weight: 500;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.info-item .value {
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.no-data {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 20px;
+}
+
+.grace-period-active {
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #ffc107;
+}
+
+.grace-period-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.grace-period-timer i {
+  font-size: 20px;
+  color: #856404;
+}
+
+.grace-period-timer .countdown {
+  font-family: "Courier New", monospace;
+  font-size: 24px;
+  font-weight: bold;
+  color: #856404;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 8px 16px;
+  border-radius: 6px;
+  min-width: 80px;
+  text-align: center;
+}
+
+.grace-period-progress {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 2px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.grace-period-progress .progress-bar {
+  height: 100%;
+  background: #ffc107;
+  transition: width 1s linear;
+  border-radius: 2px;
+}
+
+.grace-period-actions {
+  text-align: center;
+}
+
+.grace-period-inactive {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #28a745;
+  font-weight: 500;
+  padding: 20px;
+}
+
+.grace-period-inactive i {
+  font-size: 18px;
+}
+
+/* Responsive design for admin grace period monitoring */
+@media (max-width: 768px) {
+  .grace-period-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grace-period-card-header {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .grace-period-timer {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .grace-period-timer .countdown {
+    font-size: 20px;
+  }
+}

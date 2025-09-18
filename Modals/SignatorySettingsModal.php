@@ -2,7 +2,7 @@
 // Signatory Settings Modal
 ?>
 
-<div class="modal-overlay signatory-settings-modal-overlay">
+<div class="modal-overlay signatory-settings-modal-overlay" style="display: none;">
     <div class="modal-window">
         <!-- Close Button -->
         <button class="modal-close" onclick="closeSignatorySettingsModal()">&times;</button>
@@ -101,10 +101,12 @@ console.log('🔧 SignatorySettingsModal script is loading...');
 window.openSignatorySettingsModal = function(clearanceType) {
     console.log('Window function called with:', clearanceType);
     
-    window.currentClearanceType = clearanceType;
+    // Normalize clearance type to proper case for sector-based APIs
+    const normalizedType = clearanceType === 'faculty' ? 'Faculty' : clearanceType;
+    window.currentClearanceType = normalizedType;
     
     // Update modal title based on clearance type
-    const modalTitle = clearanceType === 'student' ? 'Student Signatory Settings' : 'Faculty Signatory Settings';
+    const modalTitle = `${normalizedType} Signatory Settings`;
     const titleElement = document.getElementById('signatorySettingsTitle');
     if (titleElement) {
         titleElement.textContent = modalTitle;
@@ -114,14 +116,14 @@ window.openSignatorySettingsModal = function(clearanceType) {
     
     const clearanceTypeInput = document.getElementById('settingsClearanceType');
     if (clearanceTypeInput) {
-        clearanceTypeInput.value = clearanceType;
+        clearanceTypeInput.value = normalizedType;
     } else {
         console.error('settingsClearanceType element not found');
     }
     
     // Load designations and current settings
     loadDesignations().then(() => {
-        loadSignatorySettings(clearanceType);
+        loadSignatorySettings(normalizedType);
     });
     
     // Show modal
@@ -155,18 +157,19 @@ async function loadDesignations() {
         // Get the current clearance type to load the right signatories
         const clearanceType = window.currentClearanceType;
         
-        // Fetch assigned signatories for this specific scope
-        const response = await fetch(`/OnlineClearanceWebsite/api/signatories/list.php?clearance_type=${clearanceType}`);
+        // Fetch assigned signatories for this specific scope using sector-based API
+        const response = await fetch(`/OnlineClearanceWebsite/api/signatories/sector_assignments.php?clearance_type=${clearanceType}`);
         if (!response.ok) throw new Error('Failed to fetch signatories');
         
         const data = await response.json();
         if (!data.success) throw new Error(data.message || 'Failed to load signatories');
         
         // Store designations data globally for ID mapping
-        window.designationsData = data.signatories;
+        window.designationsData = data.signatories || [];
         
         // Extract unique designations from assigned signatories
-        const designations = [...new Set(data.signatories.map(s => s.designation_name))].filter(d => d && d !== 'Program Head');
+        const signatories = data.signatories || [];
+        const designations = [...new Set(signatories.map(s => s.designation_name))].filter(d => d && d !== 'Program Head');
         
         // Populate both dropdowns
         const firstSelect = document.getElementById('requiredFirstPosition');
@@ -213,13 +216,13 @@ async function loadSignatorySettings(clearanceType) {
     try {
         console.log('🔧 loadSignatorySettings called for:', clearanceType);
         
-        const response = await fetch(`/OnlineClearanceWebsite/api/signatories/scope_settings.php?clearance_type=${clearanceType}`);
+        const response = await fetch(`/OnlineClearanceWebsite/api/signatories/sector_settings.php?clearance_type=${clearanceType}`);
         if (!response.ok) throw new Error('Failed to fetch settings');
         
         const data = await response.json();
         if (!data.success) throw new Error(data.message || 'Failed to load settings');
         
-        const settings = data.settings;
+        const settings = data.settings && data.settings[0] ? data.settings[0] : {};
         
         // Set toggle states
         document.getElementById('requiredFirstEnabled').checked = settings.required_first_enabled == 1;
@@ -313,7 +316,7 @@ async function saveSignatorySettings() {
             };
             
             // Send to API
-            const response = await fetch('/OnlineClearanceWebsite/api/signatories/scope_settings.php', {
+            const response = await fetch('/OnlineClearanceWebsite/api/signatories/sector_settings.php', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

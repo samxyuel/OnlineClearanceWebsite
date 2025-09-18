@@ -51,11 +51,21 @@ try {
     }
     $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
-    $sql = "SELECT s.user_id, s.employee_number, u.first_name, u.last_name, u.username, d.designation_name
+    $sql = "SELECT s.user_id, s.employee_number, u.first_name, u.last_name, u.username, u.email, u.contact_number,
+                   d.designation_id, d.designation_name, s.staff_category, s.employment_status, s.is_active,
+                   GROUP_CONCAT(DISTINCT dept.department_name ORDER BY dept.department_name SEPARATOR '|') as departments,
+                   GROUP_CONCAT(DISTINCT dept.department_id ORDER BY dept.department_id SEPARATOR '|') as department_ids,
+                   GROUP_CONCAT(DISTINCT sec.sector_name ORDER BY sec.sector_name SEPARATOR '|') as sectors,
+                   GROUP_CONCAT(DISTINCT sec.sector_id ORDER BY sec.sector_id SEPARATOR '|') as sector_ids,
+                   GROUP_CONCAT(DISTINCT sda.is_primary ORDER BY dept.department_name SEPARATOR '|') as is_primary_flags
             FROM staff s
             JOIN users u ON u.user_id = s.user_id
             LEFT JOIN designations d ON d.designation_id = s.designation_id
+            LEFT JOIN staff_department_assignments sda ON s.employee_number = sda.staff_id AND sda.is_active = 1
+            LEFT JOIN departments dept ON sda.department_id = dept.department_id
+            LEFT JOIN sectors sec ON sda.sector_id = sec.sector_id
             $whereSql
+            GROUP BY s.employee_number, s.user_id, u.first_name, u.last_name, u.username, u.email, u.contact_number, d.designation_id, d.designation_name, s.staff_category, s.employment_status, s.is_active
             ORDER BY u.last_name ASC, u.first_name ASC
             LIMIT :limit OFFSET :offset";
     $stmt = $pdo->prepare($sql);
@@ -66,22 +76,80 @@ try {
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Count total (mirror joins and where)
-    $countSql = "SELECT COUNT(*)
+    $countSql = "SELECT COUNT(DISTINCT s.employee_number)
                  FROM staff s
                  JOIN users u ON u.user_id = s.user_id
                  LEFT JOIN designations d ON d.designation_id = s.designation_id
+                 LEFT JOIN staff_department_assignments sda ON s.employee_number = sda.staff_id AND sda.is_active = 1
+                 LEFT JOIN departments dept ON sda.department_id = dept.department_id
+                 LEFT JOIN sectors sec ON sda.sector_id = sec.sector_id
                  $whereSql";
     $cntStmt = $pdo->prepare($countSql);
     foreach ($params as $k=>$v) { $cntStmt->bindValue($k, $v, PDO::PARAM_STR); }
     $cntStmt->execute();
     $cnt = $cntStmt->fetchColumn();
 
+    // Process the rows to structure the data properly
+    $processedRows = [];
+    foreach ($rows as $row) {
+        $processedRow = [
+            'user_id' => $row['user_id'],
+            'employee_number' => $row['employee_number'],
+            'first_name' => $row['first_name'],
+            'last_name' => $row['last_name'],
+            'username' => $row['username'],
+            'email' => $row['email'],
+            'contact_number' => $row['contact_number'],
+            'designation_id' => $row['designation_id'],
+            'designation_name' => $row['designation_name'],
+            'staff_category' => $row['staff_category'],
+            'employment_status' => $row['employment_status'],
+            'is_active' => $row['is_active'],
+            'departments' => [],
+            'sectors' => []
+        ];
+        
+        // Parse departments
+        if (!empty($row['departments'])) {
+            $deptNames = explode('|', $row['departments']);
+            $deptIds = explode('|', $row['department_ids']);
+            $isPrimaryFlags = explode('|', $row['is_primary_flags']);
+            
+            for ($i = 0; $i < count($deptNames); $i++) {
+                if (!empty($deptNames[$i])) {
+                    $processedRow['departments'][] = [
+                        'id' => $deptIds[$i] ?? null,
+                        'name' => $deptNames[$i],
+                        'is_primary' => ($isPrimaryFlags[$i] ?? '0') === '1'
+                    ];
+                }
+            }
+        }
+        
+        // Parse sectors
+        if (!empty($row['sectors'])) {
+            $sectorNames = explode('|', $row['sectors']);
+            $sectorIds = explode('|', $row['sector_ids']);
+            
+            for ($i = 0; $i < count($sectorNames); $i++) {
+                if (!empty($sectorNames[$i])) {
+                    $processedRow['sectors'][] = [
+                        'id' => $sectorIds[$i] ?? null,
+                        'name' => $sectorNames[$i]
+                    ];
+                }
+            }
+        }
+        
+        $processedRows[] = $processedRow;
+    }
+
     echo json_encode([
         'success'=> true,
         'page'   => $page,
         'limit'  => $limit,
         'total'  => (int)$cnt,
-        'staff'  => $rows,
+        'staff'  => $processedRows,
     ]);
 } catch (Exception $e) {
     http_response_code(500);

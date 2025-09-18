@@ -2,7 +2,7 @@
 // Add New Signatory Modal
 ?>
 
-<div class="modal-overlay add-signatory-modal-overlay">
+<div class="modal-overlay add-signatory-modal-overlay" style="display: none;">
     <div class="modal-window">
         <!-- Close Button -->
         <button class="modal-close" onclick="closeAddSignatoryModal()">&times;</button>

@@ -23,19 +23,34 @@ try{
     if(!$ay){ echo json_encode(['success'=>true,'academic_year'=>null,'terms'=>[]]); exit; }
 
     // Find semester ids for '1st' and '2nd' for this academic year (may be NULL if not created)
-    $stmt = $pdo->prepare("SELECT semester_id, semester_name FROM semesters WHERE academic_year_id=? AND semester_name IN ('1st','2nd')");
+    $stmt = $pdo->prepare("SELECT semester_id, semester_name, is_active FROM semesters WHERE academic_year_id=? AND semester_name IN ('1st','2nd')");
     $stmt->execute([$ay['academic_year_id']]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $map = ['1st'=>null,'2nd'=>null];
-    foreach($rows as $r){ $map[$r['semester_name']] = (int)$r['semester_id']; }
+    foreach($rows as $r){ 
+        $map[$r['semester_name']] = [
+            'semester_id' => (int)$r['semester_id'],
+            'is_active' => (int)$r['is_active']
+        ]; 
+    }
 
     echo json_encode([
         'success'=>true,
         'academic_year'=>[ 'academic_year_id'=>(int)$ay['academic_year_id'], 'year'=>$ay['year'] ],
         'terms'=>[
-            ['label'=>'Term 1','semester_name'=>'1st','semester_id'=>$map['1st']],
-            ['label'=>'Term 2','semester_name'=>'2nd','semester_id'=>$map['2nd']]
+            [
+                'label'=>'Term 1',
+                'semester_name'=>'1st',
+                'semester_id'=>$map['1st']['semester_id'] ?? null,
+                'is_active'=>$map['1st']['is_active'] ?? 0
+            ],
+            [
+                'label'=>'Term 2',
+                'semester_name'=>'2nd',
+                'semester_id'=>$map['2nd']['semester_id'] ?? null,
+                'is_active'=>$map['2nd']['is_active'] ?? 0
+            ]
         ]
     ]);
 

@@ -10,6 +10,13 @@
         </div>
         <div class="modal-content-area">
             <input type="hidden" id="scopeTypeField" value="student">
+            
+            <!-- Program Head Preview Container -->
+            <div id="programHeadPreviewContainer" class="program-head-preview-container" style="display: none;">
+                <h4 id="programHeadPreviewTitle">Program Heads in Sector</h4>
+                <div id="programHeadPreviewList" class="program-head-preview-list"></div>
+            </div>
+            
             <div class="form-group">
                 <label for="scopeSearchInput">Search Staff (name or employee number)</label>
                 <input type="text" id="scopeSearchInput" class="form-control" placeholder="e.g., LCA123P or Jane" oninput="debouncedScopeSearch()">
@@ -22,7 +29,7 @@
                 <div id="scopeSelectedChips" class="scope-selected-chips"></div>
                 <div class="scope-selected-actions">
                     <label class="checkbox-label" style="display:flex;gap:8px;align-items:center;">
-                        <input type="checkbox" id="includeProgramHeadCheckbox">
+                        <input type="checkbox" id="includeProgramHeadCheckbox" onchange="toggleProgramHeadPreview()">
                         <span>Include Program Head as a signatory (dynamic by department)</span>
                     </label>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="clearScopeSelection()">Clear All</button>

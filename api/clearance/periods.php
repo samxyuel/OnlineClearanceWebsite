@@ -5,6 +5,9 @@ header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
 header('Access-Control-Allow-Headers: Content-Type');
 
+// Suppress PHP warnings to prevent JSON corruption
+error_reporting(E_ERROR | E_PARSE);
+
 require_once '../../includes/config/database.php';
 require_once '../../includes/classes/Auth.php';
 
@@ -57,37 +60,67 @@ switch ($_SERVER['REQUEST_METHOD']) {
 // Get clearance periods
 function handleGetPeriods($connection) {
     try {
-        // Fetch active period (for banner)
+        // Get sector parameter if provided
+        $sector = $_GET['sector'] ?? null;
+        
+        // Fetch active periods by sector (for banner)
         $activeSql = "SELECT 
                           cp.period_id,
                           ay.year AS school_year,
                           s.semester_name,
+                          cp.sector,
                           cp.status,
-                          cp.is_active,
                           cp.start_date,
                           cp.end_date,
                           cp.ended_at
                       FROM clearance_periods cp
                       JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id
                       JOIN semesters s ON cp.semester_id = s.semester_id
-                      WHERE cp.is_active = 1
-                      LIMIT 1";
-        $activeStmt = $connection->query($activeSql);
-        $active = $activeStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                      WHERE cp.status = 'Ongoing'";
+        
+        if ($sector) {
+            $activeSql .= " AND cp.sector = ?";
+            $activeStmt = $connection->prepare($activeSql);
+            $activeStmt->execute([$sector]);
+        } else {
+            $activeStmt = $connection->query($activeSql);
+        }
+        
+        $activePeriods = $activeStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Fetch all periods list
         $sql = "SELECT cp.*, ay.year as academic_year, s.semester_name 
                 FROM clearance_periods cp
                 JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id
-                JOIN semesters s ON cp.semester_id = s.semester_id
-                ORDER BY cp.created_at DESC";
-        $stmt = $connection->query($sql);
+                JOIN semesters s ON cp.semester_id = s.semester_id";
+        
+        if ($sector) {
+            $sql .= " WHERE cp.sector = ?";
+            $sql .= " ORDER BY cp.created_at DESC";
+            $stmt = $connection->prepare($sql);
+            $stmt->execute([$sector]);
+        } else {
+            $sql .= " ORDER BY cp.created_at DESC";
+            $stmt = $connection->query($sql);
+        }
+        
         $periods = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Group periods by sector for better organization
+        $periodsBySector = [];
+        foreach ($periods as $period) {
+            $sectorName = $period['sector'];
+            if (!isset($periodsBySector[$sectorName])) {
+                $periodsBySector[$sectorName] = [];
+            }
+            $periodsBySector[$sectorName][] = $period;
+        }
         
         echo json_encode([
             'success' => true,
-            'active_period' => $active,
+            'active_periods' => $activePeriods,
             'periods' => $periods,
+            'periods_by_sector' => $periodsBySector,
             'total' => count($periods)
         ]);
         
@@ -108,8 +141,8 @@ function handleCreatePeriod($connection) {
             return;
         }
         
-        // Validate required fields (end_date optional – will be set to start_date if omitted)
-        $requiredFields = ['academic_year_id', 'semester_id', 'start_date'];
+        // Validate required fields (sector is now required)
+        $requiredFields = ['academic_year_id', 'semester_id', 'sector', 'start_date'];
         foreach ($requiredFields as $field) {
             if (empty($input[$field])) {
                 http_response_code(400);
@@ -118,14 +151,22 @@ function handleCreatePeriod($connection) {
             }
         }
         
-        // Check if there's already an active period for this academic year
-        $stmt = $connection->prepare("SELECT COUNT(*) FROM clearance_periods WHERE is_active = 1 AND academic_year_id = ?");
-        $stmt->execute([$input['academic_year_id']]);
+        // Validate sector
+        $validSectors = ['College', 'Senior High School', 'Faculty'];
+        if (!in_array($input['sector'], $validSectors)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid sector. Must be one of: ' . implode(', ', $validSectors)]);
+            return;
+        }
+        
+        // Check if there's already an active period for this academic year + semester + sector
+        $stmt = $connection->prepare("SELECT COUNT(*) FROM clearance_periods WHERE status = 'Ongoing' AND academic_year_id = ? AND semester_id = ? AND sector = ?");
+        $stmt->execute([$input['academic_year_id'], $input['semester_id'], $input['sector']]);
         $activeCount = $stmt->fetchColumn();
         
-        if ($activeCount > 0 && ($input['is_active'] ?? false)) {
+        if ($activeCount > 0) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Another clearance period in this school year is already active. Deactivate it first.']);
+            echo json_encode(['success' => false, 'message' => "An active clearance period already exists for {$input['sector']} in this academic year and semester."]);
             return;
         }
         
@@ -133,7 +174,7 @@ function handleCreatePeriod($connection) {
         $startDate = new DateTime($input['start_date']);
         $endDate = isset($input['end_date']) && $input['end_date'] !== null && $input['end_date'] !== ''
             ? new DateTime($input['end_date'])
-            : clone $startDate; // placeholder until term is ended
+            : (clone $startDate)->add(new DateInterval('P3M')); // Default 3 months
         
         if ($startDate > $endDate) {
             http_response_code(400);
@@ -141,38 +182,62 @@ function handleCreatePeriod($connection) {
             return;
         }
         
-        // Determine status based on requested is_active
-        $newStatus = ($input['is_active'] ?? false) ? 'active' : 'inactive';
+        // Determine status based on requested action
+        if (isset($input['action'])) {
+            if ($input['action'] === 'start') {
+                $newStatus = 'Ongoing';
+            } elseif ($input['action'] === 'skip') {
+                $newStatus = 'Closed';
+            } else {
+                $newStatus = 'Not Started';
+            }
+        } else {
+            $newStatus = 'Not Started';
+        }
 
-        // Insert new period (include status)
-        $sql = "INSERT INTO clearance_periods (academic_year_id, semester_id, start_date, end_date, is_active, status, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, NOW())";
-        
-        $stmt = $connection->prepare($sql);
-        $stmt->execute([
-            $input['academic_year_id'],
-            $input['semester_id'],
-            $input['start_date'],
-            $endDate->format('Y-m-d'),
-            $input['is_active'] ?? false,
-            $newStatus
-        ]);
+        // Insert new period with sector support
+        if ($newStatus === 'Closed') {
+            // For skipped periods, set both start_date and end_date to NOW()
+            $sql = "INSERT INTO clearance_periods (academic_year_id, semester_id, sector, start_date, end_date, status, created_at) 
+                    VALUES (?, ?, ?, NOW(), NOW(), ?, NOW())";
+            
+            $stmt = $connection->prepare($sql);
+            $stmt->execute([
+                $input['academic_year_id'],
+                $input['semester_id'],
+                $input['sector'],
+                $newStatus
+            ]);
+        } else {
+            // For normal periods, use provided dates
+            $sql = "INSERT INTO clearance_periods (academic_year_id, semester_id, sector, start_date, end_date, status, created_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, NOW())";
+            
+            $stmt = $connection->prepare($sql);
+            $stmt->execute([
+                $input['academic_year_id'],
+                $input['semester_id'],
+                $input['sector'],
+                $input['start_date'],
+                $endDate->format('Y-m-d'),
+                $newStatus
+            ]);
+        }
         
         $periodId = $connection->lastInsertId();
         
-        // If this period is active, deactivate other periods in the same academic year (but not those that are already ended)
-        if ($input['is_active'] ?? false) {
-            $stmt = $connection->prepare("UPDATE clearance_periods 
-                                          SET is_active = 0, status = 'deactivated' 
-                                          WHERE period_id != ? AND academic_year_id = ? AND status != 'ended'");
-            $stmt->execute([$periodId, $input['academic_year_id']]);
+        // If starting the period, create clearance forms for eligible users
+        if ($newStatus === 'Ongoing') {
+            createClearanceFormsForPeriod($connection, $periodId, $input['sector'], $input['academic_year_id'], $input['semester_id']);
         }
         
         http_response_code(201);
         echo json_encode([
             'success' => true,
             'message' => 'Clearance period created successfully',
-            'period_id' => $periodId
+            'period_id' => $periodId,
+            'sector' => $input['sector'],
+            'status' => $newStatus
         ]);
         
     } catch (PDOException $e) {
@@ -186,7 +251,395 @@ function handleUpdatePeriod($connection) {
     try {
         $input = json_decode(file_get_contents('php://input'), true);
         
-        if (!$input || empty($input['period_id'])) {
+        if (!$input) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Invalid JSON data']);
+            return;
+        }
+        
+        $action = $input['action'] ?? '';
+        
+        // Handle starting a clearance period (doesn't need period_id)
+        if ($action === 'start') {
+            error_log("🚀 API DEBUG: Starting clearance period for sector: " . ($input['sector'] ?? 'null'));
+            error_log("🚀 API DEBUG: Input data: " . json_encode($input));
+            error_log("🚀 API DEBUG: Request method: " . $_SERVER['REQUEST_METHOD']);
+            error_log("🚀 API DEBUG: Request URI: " . $_SERVER['REQUEST_URI']);
+            error_log("🚀 API DEBUG: User agent: " . ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'));
+            
+            if (empty($input['sector']) || empty($input['academic_year_id']) || empty($input['semester_id'])) {
+                error_log("❌ API DEBUG: Missing required fields");
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Sector, academic_year_id, and semester_id are required for starting clearance period']);
+                return;
+            }
+            
+            // Add a simple lock mechanism to prevent concurrent operations
+            $lockKey = "sector_start_" . $input['sector'] . "_" . $input['academic_year_id'] . "_" . $input['semester_id'];
+            $lockFile = sys_get_temp_dir() . "/" . $lockKey . ".lock";
+            
+            if (file_exists($lockFile)) {
+                error_log("⚠️ API DEBUG: Operation already in progress for $lockKey");
+                http_response_code(409);
+                echo json_encode(['success' => false, 'message' => 'Operation already in progress for this sector. Please wait and try again.']);
+                return;
+            }
+            
+            // Create lock file
+            file_put_contents($lockFile, time());
+            error_log("🔒 API DEBUG: Created lock file: $lockFile");
+            
+            try {
+                $sector = $input['sector'];
+                $academicYearId = (int)$input['academic_year_id'];
+                $semesterId = (int)$input['semester_id'];
+                $startDate = $input['start_date'] ?? date('Y-m-d');
+            
+            error_log("🚀 API DEBUG: Processing start for sector: $sector, academic_year_id: $academicYearId, semester_id: $semesterId, start_date: $startDate");
+            
+            // Check if clearance period already exists
+            $stmt = $connection->prepare("SELECT period_id, status FROM clearance_periods WHERE academic_year_id = ? AND semester_id = ? AND sector = ?");
+            $stmt->execute([$academicYearId, $semesterId, $sector]);
+            $existingPeriod = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            error_log("🚀 API DEBUG: Existing period found: " . json_encode($existingPeriod));
+            
+            if ($existingPeriod) {
+                // Update existing period
+                if ($existingPeriod['status'] === 'Not Started') {
+                    error_log("🚀 API DEBUG: Updating existing period from 'Not Started' to 'Ongoing'");
+                    error_log("🚀 API DEBUG: Updating period_id: {$existingPeriod['period_id']} for sector: $sector");
+                    
+                    // Check current state of all periods before update
+                    $checkStmt = $connection->prepare("SELECT period_id, sector, status FROM clearance_periods WHERE academic_year_id = ? AND semester_id = ?");
+                    $checkStmt->execute([$academicYearId, $semesterId]);
+                    $beforeUpdate = $checkStmt->fetchAll(PDO::FETCH_ASSOC);
+                    error_log("🚀 API DEBUG: Periods before update: " . json_encode($beforeUpdate));
+                    
+                    $stmt = $connection->prepare("UPDATE clearance_periods SET status = 'Ongoing', start_date = ? WHERE period_id = ?");
+                    $stmt->execute([$startDate, $existingPeriod['period_id']]);
+                    error_log("✅ API DEBUG: Period updated successfully");
+                    
+                    // Check current state of all periods after update
+                    $checkStmt = $connection->prepare("SELECT period_id, sector, status FROM clearance_periods WHERE academic_year_id = ? AND semester_id = ?");
+                    $checkStmt->execute([$academicYearId, $semesterId]);
+                    $afterUpdate = $checkStmt->fetchAll(PDO::FETCH_ASSOC);
+                    error_log("🚀 API DEBUG: Periods after update: " . json_encode($afterUpdate));
+                    
+                    // Trigger form distribution for this sector
+                    error_log("📋 API DEBUG: Triggering form distribution for $sector");
+                    $formDistributionResult = triggerFormDistribution($connection, $sector, $academicYearId, $semesterId);
+                    
+                    $response = [
+                        'success' => true, 
+                        'message' => 'Clearance period started successfully',
+                        'form_distribution' => $formDistributionResult
+                    ];
+                    error_log("🚀 API DEBUG: Sending success response: " . json_encode($response));
+                    echo json_encode($response);
+                } else if ($existingPeriod['status'] === 'Paused') {
+                    // Allow resuming paused periods
+                    error_log("🚀 API DEBUG: Resuming paused period from 'Paused' to 'Ongoing'");
+                    error_log("🚀 API DEBUG: Updating period_id: {$existingPeriod['period_id']} for sector: $sector");
+                    
+                    $stmt = $connection->prepare("UPDATE clearance_periods SET status = 'Ongoing', start_date = ? WHERE period_id = ?");
+                    $stmt->execute([$startDate, $existingPeriod['period_id']]);
+                    error_log("✅ API DEBUG: Period resumed successfully");
+                    
+                    $response = [
+                        'success' => true, 
+                        'message' => 'Clearance period resumed successfully'
+                    ];
+                    error_log("🚀 API DEBUG: Sending success response: " . json_encode($response));
+                    echo json_encode($response);
+                } else {
+                    error_log("⚠️ API DEBUG: Period already has status: " . $existingPeriod['status']);
+                    $response = ['success' => false, 'message' => 'Clearance period is already active or completed'];
+                    error_log("🚀 API DEBUG: Sending error response: " . json_encode($response));
+                    echo json_encode($response);
+                }
+            } else {
+                // Create new period
+                error_log("🚀 API DEBUG: Creating new period");
+                $stmt = $connection->prepare("INSERT INTO clearance_periods (academic_year_id, semester_id, sector, status, start_date, created_at) VALUES (?, ?, ?, 'Ongoing', ?, NOW())");
+                $stmt->execute([$academicYearId, $semesterId, $sector, $startDate]);
+                $periodId = $connection->lastInsertId();
+                error_log("✅ API DEBUG: New period created successfully with ID: $periodId");
+                
+                // Trigger form distribution for this sector
+                error_log("📋 API DEBUG: Triggering form distribution for $sector");
+                $formDistributionResult = triggerFormDistribution($connection, $sector, $academicYearId, $semesterId);
+                
+                echo json_encode([
+                    'success' => true, 
+                    'message' => 'Clearance period started successfully',
+                    'form_distribution' => $formDistributionResult
+                ]);
+            }
+            
+            } catch (Exception $e) {
+                error_log("❌ API DEBUG: Error in start action: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => 'Internal server error: ' . $e->getMessage()]);
+            } finally {
+                // Clean up lock file
+                if (file_exists($lockFile)) {
+                    unlink($lockFile);
+                    error_log("🔓 API DEBUG: Removed lock file: $lockFile");
+                }
+            }
+            return;
+        }
+        
+        // Handle skipping a clearance period (doesn't need period_id)
+        if ($action === 'skip') {
+            error_log("⏭️ API DEBUG: Skipping clearance period for sector: " . ($input['sector'] ?? 'null'));
+            error_log("⏭️ API DEBUG: Input data: " . json_encode($input));
+            
+            if (empty($input['sector']) || empty($input['academic_year_id']) || empty($input['semester_id'])) {
+                error_log("❌ API DEBUG: Missing required fields for skip");
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Sector, academic_year_id, and semester_id are required for skipping clearance period']);
+                return;
+            }
+            
+            $sector = $input['sector'];
+            $academicYearId = (int)$input['academic_year_id'];
+            $semesterId = (int)$input['semester_id'];
+            $startDate = $input['start_date'] ?? date('Y-m-d');
+            
+            error_log("⏭️ API DEBUG: Processing skip for sector: $sector, academic_year_id: $academicYearId, semester_id: $semesterId, start_date: $startDate");
+            
+            // Check if clearance period already exists
+            $stmt = $connection->prepare("SELECT period_id, status FROM clearance_periods WHERE academic_year_id = ? AND semester_id = ? AND sector = ?");
+            $stmt->execute([$academicYearId, $semesterId, $sector]);
+            $existingPeriod = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            error_log("⏭️ API DEBUG: Existing period found: " . json_encode($existingPeriod));
+            
+            if ($existingPeriod) {
+                // Update existing period to closed
+                error_log("⏭️ API DEBUG: Updating existing period to 'Closed'");
+                $stmt = $connection->prepare("UPDATE clearance_periods SET status = 'Closed', start_date = ?, end_date = NOW() WHERE period_id = ?");
+                $stmt->execute([$startDate, $existingPeriod['period_id']]);
+                error_log("✅ API DEBUG: Period skipped successfully");
+                echo json_encode(['success' => true, 'message' => 'Clearance period skipped successfully']);
+            } else {
+                // Create new period as closed (skipped)
+                error_log("⏭️ API DEBUG: Creating new period as 'Closed'");
+                $stmt = $connection->prepare("INSERT INTO clearance_periods (academic_year_id, semester_id, sector, status, start_date, end_date, created_at) VALUES (?, ?, ?, 'Closed', ?, NOW(), NOW())");
+                $stmt->execute([$academicYearId, $semesterId, $sector, $startDate]);
+                error_log("✅ API DEBUG: New period created as skipped");
+                echo json_encode(['success' => true, 'message' => 'Clearance period skipped successfully']);
+            }
+            return;
+        }
+        
+        // Handle pausing a clearance period (needs period_id)
+        if ($action === 'pause') {
+            error_log("⏸️ API DEBUG: Pausing clearance period");
+            error_log("⏸️ API DEBUG: Input data: " . json_encode($input));
+            
+            if (empty($input['period_id'])) {
+                error_log("❌ API DEBUG: Missing period_id for pause");
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Period ID is required for pausing clearance period']);
+                return;
+            }
+            
+            $periodId = (int)$input['period_id'];
+            
+            // Check if period exists and is ongoing
+            $stmt = $connection->prepare("SELECT period_id, status FROM clearance_periods WHERE period_id = ?");
+            $stmt->execute([$periodId]);
+            $period = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$period) {
+                error_log("❌ API DEBUG: Period not found: $periodId");
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Clearance period not found']);
+                return;
+            }
+            
+            if ($period['status'] !== 'Ongoing') {
+                error_log("⚠️ API DEBUG: Cannot pause period with status: " . $period['status']);
+                echo json_encode(['success' => false, 'message' => 'Only ongoing clearance periods can be paused']);
+                return;
+            }
+            
+            // Update status to Paused
+            $stmt = $connection->prepare("UPDATE clearance_periods SET status = 'Paused' WHERE period_id = ?");
+            $stmt->execute([$periodId]);
+            
+            error_log("✅ API DEBUG: Period paused successfully");
+            echo json_encode(['success' => true, 'message' => 'Clearance period paused successfully']);
+            return;
+        }
+        
+        // Handle closing a clearance period (needs period_id)
+        if ($action === 'close') {
+            error_log("🛑 API DEBUG: Closing clearance period");
+            error_log("🛑 API DEBUG: Input data: " . json_encode($input));
+            
+            if (empty($input['period_id'])) {
+                error_log("❌ API DEBUG: Missing period_id for close");
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Period ID is required for closing clearance period']);
+                return;
+            }
+            
+            $periodId = (int)$input['period_id'];
+            
+            // Check if period exists
+            $stmt = $connection->prepare("SELECT period_id, status FROM clearance_periods WHERE period_id = ?");
+            $stmt->execute([$periodId]);
+            $period = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$period) {
+                error_log("❌ API DEBUG: Period not found: $periodId");
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Clearance period not found']);
+                return;
+            }
+            
+            if ($period['status'] === 'Closed') {
+                error_log("⚠️ API DEBUG: Period already closed");
+                echo json_encode(['success' => false, 'message' => 'Clearance period is already closed']);
+                return;
+            }
+            
+            // Update status to Closed and set end_date
+            $stmt = $connection->prepare("UPDATE clearance_periods SET status = 'Closed', end_date = NOW() WHERE period_id = ?");
+            $stmt->execute([$periodId]);
+            
+            error_log("✅ API DEBUG: Period closed successfully");
+            echo json_encode(['success' => true, 'message' => 'Clearance period closed successfully']);
+            return;
+        }
+        
+        // Handle semester-level operations first (these don't need period_id)
+        if ($action === 'activate_semester') {
+            if (empty($input['semester_id'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Semester ID is required for semester activation']);
+                return;
+            }
+            
+            $semesterId = (int)$input['semester_id'];
+            
+            // Check if semester exists
+            $stmt = $connection->prepare("SELECT * FROM semesters WHERE semester_id = ?");
+            $stmt->execute([$semesterId]);
+            $semester = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$semester) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Semester not found']);
+                return;
+            }
+            
+            // First, deactivate all other semesters in the same academic year to avoid conflicts
+            $stmt = $connection->prepare("UPDATE semesters SET is_active = 0 WHERE academic_year_id = ? AND semester_id != ?");
+            $stmt->execute([$semester['academic_year_id'], $semesterId]);
+            $deactivatedSemesters = $stmt->rowCount();
+            
+            if ($deactivatedSemesters > 0) {
+                error_log("Deactivated {$deactivatedSemesters} other semesters during activation");
+            }
+            
+            // Then, deactivate all clearance periods in the same academic year to avoid conflicts
+            $stmt = $connection->prepare("UPDATE clearance_periods SET status = 'Closed', end_date = NOW() WHERE academic_year_id = ? AND status = 'Ongoing'");
+            $stmt->execute([$semester['academic_year_id']]);
+            $closedPeriods = $stmt->rowCount();
+            
+            if ($closedPeriods > 0) {
+                error_log("Closed {$closedPeriods} ongoing clearance periods during semester activation");
+            }
+            
+            // Activate the requested semester
+            $stmt = $connection->prepare("UPDATE semesters SET is_active = 1 WHERE semester_id = ?");
+            $stmt->execute([$semesterId]);
+            
+            // Create clearance periods for all sectors (College, SHS, Faculty) with status = Not Started
+            $sectors = ['College', 'Senior High School', 'Faculty'];
+            $createdPeriods = 0;
+            
+            foreach ($sectors as $sector) {
+                // Check if clearance period already exists for this sector
+                $stmt = $connection->prepare("SELECT COUNT(*) FROM clearance_periods WHERE academic_year_id = ? AND semester_id = ? AND sector = ?");
+                $stmt->execute([$semester['academic_year_id'], $semesterId, $sector]);
+                $exists = $stmt->fetchColumn();
+                
+                if ($exists == 0) {
+                    // Create new clearance period for this sector
+                    $stmt = $connection->prepare("INSERT INTO clearance_periods (academic_year_id, semester_id, sector, status, created_at) VALUES (?, ?, ?, 'Not Started', NOW())");
+                    $stmt->execute([$semester['academic_year_id'], $semesterId, $sector]);
+                    $createdPeriods++;
+                }
+            }
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Semester activated successfully',
+                'created_periods' => $createdPeriods
+            ]);
+            return;
+        }
+        
+        // Handle semester ending
+        if ($action === 'end_semester') {
+            if (empty($input['semester_id'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Semester ID is required for semester ending']);
+                return;
+            }
+            
+            $semesterId = (int)$input['semester_id'];
+            
+            // Check if semester exists
+            $stmt = $connection->prepare("SELECT * FROM semesters WHERE semester_id = ?");
+            $stmt->execute([$semesterId]);
+            $semester = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$semester) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Semester not found']);
+                return;
+            }
+            
+            // Deactivate the semester
+            $stmt = $connection->prepare("UPDATE semesters SET is_active = 0 WHERE semester_id = ?");
+            $stmt->execute([$semesterId]);
+            
+            echo json_encode(['success' => true, 'message' => 'Semester ended successfully']);
+            return;
+        }
+        
+        // Handle cascade close periods
+        if ($action === 'cascade_close_periods') {
+            if (empty($input['semester_id'])) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Semester ID is required for cascade close operation']);
+                return;
+            }
+            
+            $semesterId = (int)$input['semester_id'];
+            
+            // Close all clearance periods under this semester
+            $stmt = $connection->prepare("UPDATE clearance_periods SET status = 'Closed', end_date = NOW() WHERE semester_id = ? AND status IN ('Ongoing', 'Not Started')");
+            $stmt->execute([$semesterId]);
+            $closedCount = $stmt->rowCount();
+            
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Cascade close completed successfully',
+                'closed_periods' => $closedCount
+            ]);
+            return;
+        }
+        
+        // For all other operations, require period_id
+        if (empty($input['period_id'])) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Period ID is required']);
             return;
@@ -205,9 +658,10 @@ function handleUpdatePeriod($connection) {
             return;
         }
         
-        // Lifecycle-style actions shortcut
+        // Handle period-level actions
         if (isset($input['action'])) {
             $action = $input['action'];
+            
             if ($action === 'activate') {
                 // Allow reactivation of the SAME term when it is currently deactivated,
                 // but still block if another term is active. When activating a DIFFERENT term,
@@ -428,5 +882,352 @@ function resetClearanceFormsForNewTerm($connection, $academicYearId, $semesterId
         // Log error but don't fail the activation
         error_log("Error resetting clearance forms for new term: " . $e->getMessage());
     }
+}
+
+// Helper function to create clearance forms for a period
+function createClearanceFormsForPeriod($connection, $periodId, $sector, $academicYearId, $semesterId) {
+    try {
+        if ($sector === 'College') {
+            // Create clearance forms for College students
+            $stmt = $connection->prepare("
+                INSERT INTO clearance_forms (
+                    clearance_form_id,
+                    user_id, 
+                    academic_year_id, 
+                    semester_id, 
+                    clearance_type, 
+                    status
+                )
+                SELECT 
+                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
+                    s.user_id,
+                    ?,
+                    ?,
+                    'College',
+                    'Unapplied'
+                FROM students s
+                WHERE s.sector = 'College' 
+                AND s.enrollment_status = 'Enrolled'
+                AND s.user_id IS NOT NULL
+            ");
+            $stmt->execute([$academicYearId, $semesterId]);
+            
+        } elseif ($sector === 'Senior High School') {
+            // Create clearance forms for Senior High School students
+            $stmt = $connection->prepare("
+                INSERT INTO clearance_forms (
+                    clearance_form_id,
+                    user_id, 
+                    academic_year_id, 
+                    semester_id, 
+                    clearance_type, 
+                    status
+                )
+                SELECT 
+                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
+                    s.user_id,
+                    ?,
+                    ?,
+                    'Senior High School',
+                    'Unapplied'
+                FROM students s
+                WHERE s.sector = 'Senior High School' 
+                AND s.enrollment_status = 'Enrolled'
+                AND s.user_id IS NOT NULL
+            ");
+            $stmt->execute([$academicYearId, $semesterId]);
+            
+        } elseif ($sector === 'Faculty') {
+            // Create clearance forms for Faculty
+            $stmt = $connection->prepare("
+                INSERT INTO clearance_forms (
+                    clearance_form_id,
+                    user_id, 
+                    academic_year_id, 
+                    semester_id, 
+                    clearance_type, 
+                    status
+                )
+                SELECT 
+                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
+                    f.user_id,
+                    ?,
+                    ?,
+                    'Faculty',
+                    'Unapplied'
+                FROM faculty f
+                WHERE f.user_id IS NOT NULL
+            ");
+            $stmt->execute([$academicYearId, $semesterId]);
+        }
+        
+    } catch (Exception $e) {
+        error_log("Error creating clearance forms for period: " . $e->getMessage());
+        throw $e;
+    }
+}
+
+/**
+ * Trigger form distribution for a sector
+ */
+function triggerFormDistribution($connection, $sector, $academicYearId, $semesterId) {
+    try {
+        error_log("📋 FORM DISTRIBUTION: Starting distribution for $sector, AY: $academicYearId, Semester: $semesterId");
+        
+        // Prepare the request data for form distribution
+        $distributionData = [
+            'clearance_type' => $sector,
+            'academic_year_id' => $academicYearId,
+            'semester_id' => $semesterId
+        ];
+        
+        // Get all eligible users for this sector
+        $eligibleUsers = getEligibleUsersForSector($connection, $sector);
+        error_log("👥 FORM DISTRIBUTION: Found " . count($eligibleUsers) . " eligible users for $sector");
+        
+        if (empty($eligibleUsers)) {
+            return [
+                'success' => true,
+                'message' => "No eligible users found for $sector clearance",
+                'forms_created' => 0,
+                'signatories_assigned' => 0
+            ];
+        }
+        
+        // Get sector signatory assignments
+        $signatoryAssignments = getSectorSignatoryAssignments($connection, $sector);
+        error_log("📝 FORM DISTRIBUTION: Found " . count($signatoryAssignments) . " signatory assignments for $sector");
+        
+        if (empty($signatoryAssignments)) {
+            return [
+                'success' => false,
+                'message' => "No signatory assignments found for $sector. Please assign signatories first."
+            ];
+        }
+        
+        // Create clearance forms for all eligible users
+        $formsCreated = 0;
+        $signatoriesAssigned = 0;
+        
+        foreach ($eligibleUsers as $user) {
+            // Check if form already exists
+            $existingForm = checkExistingClearanceForm($connection, $user['user_id'], $academicYearId, $semesterId, $sector);
+            
+            if ($existingForm) {
+                error_log("⚠️ FORM DISTRIBUTION: Form already exists for user {$user['user_id']} ({$user['first_name']} {$user['last_name']})");
+                continue;
+            }
+            
+            // Create clearance form
+            $formId = createClearanceFormForUser($connection, $user, $academicYearId, $semesterId, $sector);
+            $formsCreated++;
+            
+            // Assign signatories to the form
+            $assignedCount = assignSignatoriesToClearanceForm($connection, $formId, $signatoryAssignments, $user, $sector);
+            $signatoriesAssigned += $assignedCount;
+            
+            error_log("✅ FORM DISTRIBUTION: Created form $formId for {$user['first_name']} {$user['last_name']} with $assignedCount signatories");
+        }
+        
+        error_log("🎉 FORM DISTRIBUTION: Successfully distributed $formsCreated forms with $signatoriesAssigned total signatory assignments");
+        
+        return [
+            'success' => true,
+            'message' => "Successfully distributed clearance forms for $sector",
+            'forms_created' => $formsCreated,
+            'signatories_assigned' => $signatoriesAssigned,
+            'eligible_users' => count($eligibleUsers)
+        ];
+        
+    } catch (Exception $e) {
+        error_log("❌ FORM DISTRIBUTION ERROR: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => 'Form distribution failed: ' . $e->getMessage()
+        ];
+    }
+}
+
+/**
+ * Get all eligible users for a specific clearance type
+ */
+function getEligibleUsersForSector($connection, $clearanceType) {
+    $sql = "";
+    $params = [];
+    
+    switch ($clearanceType) {
+        case 'College':
+            $sql = "
+                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
+                       s.section, s.department_id, d.department_name
+                FROM users u
+                INNER JOIN students s ON u.user_id = s.user_id
+                INNER JOIN departments d ON s.department_id = d.department_id
+                INNER JOIN sectors sec ON d.sector_id = sec.sector_id
+                WHERE sec.sector_name = 'College'
+                AND u.status = 'active'
+                AND s.enrollment_status = 'Enrolled'
+                ORDER BY u.last_name, u.first_name
+            ";
+            break;
+            
+        case 'Senior High School':
+            $sql = "
+                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
+                       s.section, s.department_id, d.department_name
+                FROM users u
+                INNER JOIN students s ON u.user_id = s.user_id
+                INNER JOIN departments d ON s.department_id = d.department_id
+                INNER JOIN sectors sec ON d.sector_id = sec.sector_id
+                WHERE sec.sector_name = 'Senior High School'
+                AND u.status = 'active'
+                AND s.enrollment_status = 'Enrolled'
+                ORDER BY u.last_name, u.first_name
+            ";
+            break;
+            
+        case 'Faculty':
+            $sql = "
+                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
+                       f.employment_status, f.department_id, d.department_name
+                FROM users u
+                INNER JOIN faculty f ON u.user_id = f.user_id
+                INNER JOIN departments d ON f.department_id = d.department_id
+                INNER JOIN sectors sec ON d.sector_id = sec.sector_id
+                WHERE sec.sector_name = 'Faculty'
+                AND u.status = 'active'
+                ORDER BY u.last_name, u.first_name
+            ";
+            break;
+    }
+    
+    $stmt = $connection->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Get sector signatory assignments
+ */
+function getSectorSignatoryAssignments($connection, $clearanceType) {
+    $sql = "
+        SELECT 
+            ssa.assignment_id,
+            ssa.clearance_type,
+            ssa.user_id,
+            ssa.designation_id,
+            ssa.is_program_head,
+            ssa.department_id,
+            ssa.is_required_first,
+            ssa.is_required_last,
+            ssa.is_active,
+            u.first_name,
+            u.last_name,
+            d.designation_name,
+            dept.department_name
+        FROM sector_signatory_assignments ssa
+        LEFT JOIN users u ON ssa.user_id = u.user_id
+        LEFT JOIN designations d ON ssa.designation_id = d.designation_id
+        LEFT JOIN departments dept ON ssa.department_id = dept.department_id
+        WHERE ssa.clearance_type = ?
+        AND ssa.is_active = 1
+        ORDER BY ssa.is_required_first DESC, ssa.is_required_last ASC, d.designation_name
+    ";
+    
+    $stmt = $connection->prepare($sql);
+    $stmt->execute([$clearanceType]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Check if clearance form already exists
+ */
+function checkExistingClearanceForm($connection, $userId, $academicYearId, $semesterId, $clearanceType) {
+    $sql = "
+        SELECT clearance_form_id FROM clearance_forms 
+        WHERE user_id = ? AND academic_year_id = ? AND semester_id = ? AND clearance_type = ?
+    ";
+    
+    $stmt = $connection->prepare($sql);
+    $stmt->execute([$userId, $academicYearId, $semesterId, $clearanceType]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Create a clearance form for a user
+ */
+function createClearanceFormForUser($connection, $user, $academicYearId, $semesterId, $clearanceType) {
+    // Generate clearance form ID using the existing trigger
+    $sql = "
+        INSERT INTO clearance_forms (
+            user_id,
+            academic_year_id,
+            semester_id,
+            clearance_type,
+            status,
+            created_at
+        ) VALUES (?, ?, ?, ?, 'Unapplied', NOW())
+    ";
+    
+    $stmt = $connection->prepare($sql);
+    $stmt->execute([
+        $user['user_id'],
+        $academicYearId,
+        $semesterId,
+        $clearanceType
+    ]);
+    
+    return $connection->lastInsertId();
+}
+
+/**
+ * Assign signatories to a clearance form
+ */
+function assignSignatoriesToClearanceForm($connection, $formId, $signatoryAssignments, $user, $clearanceType) {
+    $assignedCount = 0;
+    
+    // Get the clearance form ID (varchar format) - formId is the auto-increment ID
+    $stmt = $connection->prepare("SELECT clearance_form_id FROM clearance_forms WHERE id = ?");
+    $stmt->execute([$formId]);
+    $form = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$form) {
+        error_log("❌ Form not found for form_id: $formId");
+        return 0;
+    }
+    
+    $clearanceFormId = $form['clearance_form_id'];
+    
+    foreach ($signatoryAssignments as $assignment) {
+        // Skip if this is a Program Head assignment and user doesn't belong to that department
+        // Exception: If department_id is NULL, it means the Program Head handles all departments in the sector
+        if ($assignment['is_program_head'] && 
+            $assignment['department_id'] !== null && 
+            $assignment['department_id'] != $user['department_id']) {
+            continue;
+        }
+        
+        // Create signatory entry
+        $sql = "
+            INSERT INTO clearance_signatories (
+                clearance_form_id,
+                designation_id,
+                actual_user_id,
+                action,
+                created_at
+            ) VALUES (?, ?, ?, 'Unapplied', NOW())
+        ";
+        
+        $stmt = $connection->prepare($sql);
+        $stmt->execute([
+            $clearanceFormId,
+            $assignment['designation_id'],
+            $assignment['user_id']
+        ]);
+        
+        $assignedCount++;
+    }
+    
+    return $assignedCount;
 }
 ?>

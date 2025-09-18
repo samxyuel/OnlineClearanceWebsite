@@ -5,7 +5,7 @@
 console.log('🔍 MODAL: EditSchoolYearModal.php loaded successfully!');
 </script>
 
-<div class="modal-overlay edit-school-year-modal-overlay">
+<div class="modal-overlay edit-school-year-modal-overlay" style="display: none;">
     <div class="modal-window">
         <!-- Close Button -->
         <button class="modal-close" onclick="closeEditSchoolYearModal()">&times;</button>

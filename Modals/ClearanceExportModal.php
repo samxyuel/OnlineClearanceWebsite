@@ -2,7 +2,7 @@
 // Clearance Export Modal
 ?>
 
-<div class="modal-overlay clearance-export-modal-overlay">
+<div class="modal-overlay clearance-export-modal-overlay" style="display: none;">
     <div class="modal-window">
         <!-- Close Button -->
         <button class="modal-close" onclick="closeClearanceExportModal()">&times;</button>

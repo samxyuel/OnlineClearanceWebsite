@@ -2,7 +2,7 @@
 // Add School Year Modal
 ?>
 
-<div class="modal-overlay add-school-year-modal-overlay">
+<div class="modal-overlay add-school-year-modal-overlay" style="display: none;">
     <div class="modal-window">
         <!-- Close Button -->
         <button class="modal-close" onclick="closeAddSchoolYearModal()">&times;</button>
@@ -295,38 +295,7 @@ function validateSchoolYearForm(formData) {
     // Check if school year already exists
     const existingYear = schoolYears.find(year => year.name === schoolYearName);
     if (existingYear) {
-        showConfirmation(
-            'School Year Already Exists',
-            `School Year "${schoolYearName}" already exists in the system. You must delete the existing school year first before creating a new one with the same name.`,
-            'Delete Existing',
-            'Cancel',
-            () => {
-                // User chose to delete existing - show confirmation
-                showConfirmation(
-                    'Delete Existing School Year',
-                    `Are you sure you want to delete the existing "${schoolYearName}" school year? This will permanently remove all data associated with this school year.`,
-                    'Delete',
-                    'Cancel',
-                    () => {
-                        // Delete the existing school year
-                        const yearIndex = schoolYears.findIndex(year => year.name === schoolYearName);
-                        if (yearIndex !== -1) {
-                            schoolYears.splice(yearIndex, 1);
-                            updateSchoolYearDisplay();
-                            updateNavigationButtons();
-                            showToast(`Deleted existing school year "${schoolYearName}".`, 'success');
-                            
-                            // Now proceed with creating the new one
-                            setTimeout(() => {
-                                createSchoolYear();
-                            }, 1000);
-                        }
-                    },
-                    'warning'
-                );
-            },
-            'warning'
-        );
+        showToast('This school year already exists. You must end all terms in the current school year before creating a new one.', 'error');
         return false;
     }
     

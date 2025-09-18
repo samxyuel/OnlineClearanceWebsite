@@ -2473,6 +2473,105 @@ body {
   }
 }
 
+/* Sector Badge Styles */
+.sector-badge {
+  background: linear-gradient(
+    135deg,
+    var(--darker-saturated-blue) 0%,
+    var(--deep-navy-blue) 100%
+  );
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0;
+  box-shadow: 0 2px 4px rgba(12, 85, 145, 0.3);
+}
+
+.sector-badge i {
+  font-size: 10px;
+}
+
+/* Program Head Department Chips Styles - Simple Bullets */
+.ph-dept-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  list-style: none;
+  padding: 0;
+}
+
+.ph-dept-chips .chip {
+  color: var(--deep-navy-blue);
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding-left: 12px;
+}
+
+.ph-dept-chips .chip::before {
+  content: "•";
+  color: var(--medium-muted-blue);
+  font-size: 14px;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ph-dept-chips .chip.primary::before {
+  color: var(--bright-golden-yellow);
+  font-weight: bold;
+}
+
+.ph-dept-chips .chip.primary {
+  color: var(--deep-navy-blue);
+  font-weight: 600;
+}
+
+/* Coverage Strip Enhancements */
+.coverage-item {
+  transition: all 0.2s ease;
+}
+
+.coverage-item:hover {
+  background: var(--very-light-off-white) !important;
+  border-color: var(--medium-muted-blue) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(81, 142, 177, 0.2);
+}
+
+/* Unassigned Drawer Enhancements */
+#unassignedDrawer {
+  transition: all 0.3s ease;
+}
+
+#unassignedList .btn {
+  transition: all 0.2s ease;
+}
+
+#unassignedList .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(81, 142, 177, 0.3);
+}
+
+/* Staff Card Enhancements */
+.staff-card {
+  transition: all 0.2s ease;
+}
+
+.staff-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
 /* Clearance Management Styles */
 .active-period-status {
   background: linear-gradient(
@@ -7682,6 +7781,80 @@ body {
   }
 }
 
+/* Clearance Form Banner Styles */
+.clearance-form-banner {
+  background: linear-gradient(
+    135deg,
+    var(--deep-navy-blue),
+    var(--medium-muted-blue)
+  );
+  color: white;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-left: 4px solid var(--bright-golden-yellow);
+}
+
+.clearance-form-banner .banner-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.clearance-form-banner .banner-icon {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 1.5rem;
+}
+
+.clearance-form-banner .banner-text {
+  flex: 1;
+}
+
+.clearance-form-banner .banner-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.clearance-form-banner .banner-text p {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-family: "Courier New", monospace;
+  letter-spacing: 1px;
+}
+
+.clearance-form-banner .banner-period {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .clearance-form-banner .banner-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .clearance-form-banner .banner-text h3 {
+    font-size: 1rem;
+  }
+
+  .clearance-form-banner .banner-text p {
+    font-size: 1.1rem;
+  }
+
+  .clearance-form-banner .banner-period {
+    font-size: 0.85rem;
+  }
+}
+
 @media (max-width: 320px) {
   .stat-card {
     padding: 0.5rem;
@@ -8361,4 +8534,118 @@ body {
 .status-badge.clearance-completed {
   background: rgba(40, 167, 69, 0.2);
   color: #28a745;
+}
+
+/* Bulk Selection Styles */
+.bulk-selection-filters-btn {
+  margin-right: 15px;
+}
+
+.clear-selection-btn {
+  margin-right: 15px;
+}
+
+.clear-selection-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Approve/Reject Button Styles */
+.btn-icon.approve-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-icon.approve-btn:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.btn-icon.reject-btn {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-icon.reject-btn:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.btn-icon.approve-btn:disabled,
+.btn-icon.reject-btn:disabled {
+  background-color: #6c757d;
+  color: #fff;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button-status-indicator {
+  color: #6c757d;
+  margin-left: 5px;
+  cursor: help;
+}
+
+/* Style for clear button in table header */
+.checkbox-column .clear-selection-btn {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  min-width: auto;
+}
+
+.selection-counter-display {
+  display: flex;
+  align-items: center;
+  margin-left: 15px;
+  margin-right: 20px;
+  padding: 8px 20px;
+  background-color: var(--very-light-cool-white, #e7eff4);
+  border: none;
+  border-radius: 25px;
+  font-weight: 600;
+  color: var(--dark-primary, #1c3faa);
+  min-width: 180px;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(231, 239, 244, 0.3);
+  transition: all 0.2s ease;
+}
+
+.selection-counter-display span {
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+
+/* Hover effect for subtle interactivity */
+.selection-counter-display:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(231, 239, 244, 0.4);
+}
+
+/* State-based styling */
+.selection-counter-display.has-selections {
+  background: linear-gradient(
+    135deg,
+    var(--very-light-cool-white, #e7eff4),
+    #f0f4f8
+  );
+  color: var(--medium-muted-blue, #4a6fa5);
+  box-shadow: 0 2px 6px rgba(74, 111, 165, 0.15);
+}
+
+.selection-counter-display.has-selections:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(74, 111, 165, 0.2);
+}
+
+.selection-counter-display.all-selected {
+  background: linear-gradient(
+    135deg,
+    var(--bright-golden-yellow, #ffd700),
+    #ffed4e
+  );
+  color: var(--dark-primary, #1c3faa);
+  box-shadow: 0 2px 6px rgba(255, 215, 0, 0.3);
+}
+
+.selection-counter-display.all-selected:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(231, 192, 29, 0.25);
 }

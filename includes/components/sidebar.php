@@ -57,6 +57,7 @@ if (!empty($_SESSION['role_name'])) {
     elseif ($rn === 'admin') $currentRole = 'admin';
     elseif ($rn === 'faculty') $currentRole = 'faculty';
     elseif ($rn === 'student') $currentRole = 'student';
+    elseif ($rn === 'staff' || $rn === 'regular staff') $currentRole = 'staff';
     else $currentRole = 'staff';
 } else {
     // Fallback: numeric mapping or DB lookup
@@ -74,6 +75,7 @@ if (!empty($_SESSION['role_name'])) {
                 elseif ($rn === 'admin') $currentRole = 'admin';
                 elseif ($rn === 'faculty') $currentRole = 'faculty';
                 elseif ($rn === 'student') $currentRole = 'student';
+                elseif ($rn === 'regular staff') $currentRole = 'staff';
                 else $currentRole = 'staff';
             }
         } catch (Throwable $e) {
@@ -85,11 +87,14 @@ if ($currentRole === null) { $currentRole = 'student'; }
 
 // Define role-based navigation links for our current phase
 $sidebarLinks = [
-    // End Users
+    // End Users - UNIFIED SYSTEM
     'student' => [
         'top' => [
-            ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/student/dashboard.php'],
-            ['icon' => 'fas fa-file-alt', 'text' => 'My Clearance', 'link' => '../../pages/student/clearance.php'],
+            ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/end-user/dashboard.php'],
+            ['icon' => 'fas fa-file-alt', 'text' => 'My Clearance', 'link' => '../../pages/end-user/clearance.php'],
+            // OLD LINKS (temporarily commented out for backup)
+            // ['icon' => 'fas fa-home', 'text' => 'Dashboard (Old)', 'link' => '../../pages/student/dashboard.php'],
+            // ['icon' => 'fas fa-file-alt', 'text' => 'My Clearance (Old)', 'link' => '../../pages/student/clearance.php'],
             // ['icon' => 'fas fa-list-check', 'text' => 'Requirements', 'link' => '../../pages/student/requirements.php'],
             // ['icon' => 'fas fa-chart-line', 'text' => 'Progress', 'link' => '../../pages/student/progress.php']
         ],
@@ -101,8 +106,11 @@ $sidebarLinks = [
     ],
     'faculty' => [
         'top' => [
-            ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/faculty/dashboard.php'],
-            ['icon' => 'fas fa-file-alt', 'text' => 'My Clearance', 'link' => '../../pages/faculty/clearance.php'],
+            ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/end-user/dashboard.php'],
+            ['icon' => 'fas fa-file-alt', 'text' => 'My Clearance', 'link' => '../../pages/end-user/clearance.php'],
+            // OLD LINKS (temporarily commented out for backup)
+            // ['icon' => 'fas fa-home', 'text' => 'Dashboard (Old)', 'link' => '../../pages/faculty/dashboard.php'],
+            // ['icon' => 'fas fa-file-alt', 'text' => 'My Clearance (Old)', 'link' => '../../pages/faculty/clearance.php'],
             // ['icon' => 'fas fa-list-check', 'text' => 'Requirements', 'link' => '../../pages/faculty/requirements.php'],
             // ['icon' => 'fas fa-chart-line', 'text' => 'Progress', 'link' => '../../pages/faculty/progress.php']
         ],
@@ -117,7 +125,9 @@ $sidebarLinks = [
     'admin' => [
         'top' => [
             ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/admin/dashboard.php'],
-            ['icon' => 'fas fa-user-graduate', 'text' => 'Manage Students', 'link' => '../../pages/admin/StudentManagement.php'],
+        //    ['icon' => 'fas fa-user-graduate', 'text' => 'Manage Students', 'link' => '../../pages/admin/StudentManagement.php'],
+            ['icon' => 'fas fa-university', 'text' => 'College Management', 'link' => '../../pages/admin/CollegeStudentManagement.php'],
+            ['icon' => 'fas fa-graduation-cap', 'text' => 'SHS Management', 'link' => '../../pages/admin/SeniorHighStudentManagement.php'],
             ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Manage Faculty', 'link' => '../../pages/admin/FacultyManagement.php'],
             ['icon' => 'fas fa-users', 'text' => 'Manage Staff', 'link' => '../../pages/admin/StaffManagement.php'],
             ['icon' => 'fas fa-file-alt', 'text' => 'Clearance Management', 'link' => '../../pages/admin/ClearanceManagement.php'],
@@ -137,6 +147,8 @@ $sidebarLinks = [
         'top' => [
             ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/school-administrator/dashboard.php'],
             ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/school-administrator/StudentManagement.php'],
+            ['icon' => 'fas fa-university', 'text' => 'College Student Management', 'link' => '../../pages/school-administrator/CollegeStudentManagement.php'],
+            ['icon' => 'fas fa-graduation-cap', 'text' => 'Senior High School Student Management', 'link' => '../../pages/school-administrator/SeniorHighStudentManagement.php'],
             ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Faculty Management', 'link' => '../../pages/school-administrator/FacultyManagement.php'],
             ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
@@ -151,6 +163,8 @@ $sidebarLinks = [
         'top' => [
             ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/program-head/dashboard.php'],
             ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/program-head/StudentManagement.php'],
+            ['icon' => 'fas fa-university', 'text' => 'College Student Management', 'link' => '../../pages/program-head/CollegeStudentManagement.php'],
+            ['icon' => 'fas fa-graduation-cap', 'text' => 'Senior High School Student Management', 'link' => '../../pages/program-head/SeniorHighStudentManagement.php'],
             ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Faculty Management', 'link' => '../../pages/program-head/FacultyManagement.php'],
             ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
@@ -165,6 +179,8 @@ $sidebarLinks = [
         'top' => [
             ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/regular-staff/dashboard.php'],
             ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/regular-staff/StudentManagement.php'],
+            ['icon' => 'fas fa-university', 'text' => 'College Student Management', 'link' => '../../pages/regular-staff/CollegeStudentManagement.php'],
+            ['icon' => 'fas fa-graduation-cap', 'text' => 'Senior High School Student Management', 'link' => '../../pages/regular-staff/SeniorHighStudentManagement.php'],
             ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Faculty Management', 'link' => '../../pages/regular-staff/FacultyManagement.php'],
             ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],

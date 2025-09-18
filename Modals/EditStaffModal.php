@@ -72,25 +72,20 @@
                     </div>
                 </div>
                 
-                <div class="form-group" id="editRegularDepartmentGroup">
-                    <label for="editStaffDepartment">Department</label>
-                    <select id="editStaffDepartment" name="staffDepartment" required>
-                        <option value="">Select Department</option>
-                        <option value="Administration">Administration</option>
-                        <option value="Finance">Finance</option>
-                        <option value="Student Services">Student Services</option>
-                        <option value="Library">Library</option>
-                        <option value="IT">IT</option>
-                        <option value="Academic">Academic</option>
-                        <option value="Human Resources">Human Resources</option>
-                        <option value="Facilities">Facilities</option>
-                        <option value="Health Services">Health Services</option>
-                        <option value="Alumni Relations">Alumni Relations</option>
-                    </select>
-                </div>
+                <!-- Department field removed - only Program Heads get department assignments -->
                 
                 <!-- Program Head Assignment Section (Hidden by default) -->
                 <div id="editProgramHeadAssignmentSection" class="program-head-assignment-section" style="display: none;">
+                    <!-- Current Assignments Display -->
+                    <div id="editCurrentAssignmentsContainer" class="current-assignments-container" style="display: none;">
+                        <h4 class="current-assignments-title">
+                            <i class="fas fa-list-check"></i> Current Department Assignments
+                        </h4>
+                        <div id="editCurrentAssignmentsList" class="current-assignments-list">
+                            <!-- Current assignments will be populated here -->
+                        </div>
+                    </div>
+                    
                     <div class="form-group">
                         <label for="editProgramHeadCategory">Program Head Assignment <span class="required-asterisk">*</span></label>
                         <select id="editProgramHeadCategory" name="programHeadCategory" onchange="updateEditDepartmentCheckboxes()">
@@ -188,6 +183,19 @@ window.closeEditStaffModal = function() {
         document.body.classList.remove('modal-open');
         // Reset form
         document.getElementById('editStaffForm').reset();
+        // Clear current assignments data
+        window.currentAssignments = null;
+        // Clear department checkboxes
+        const checkboxesContainer = document.getElementById('editDepartmentCheckboxesContainer');
+        const checkboxesList = document.getElementById('editDepartmentCheckboxesList');
+        if (checkboxesContainer) checkboxesContainer.style.display = 'none';
+        if (checkboxesList) checkboxesList.innerHTML = '';
+        
+        // Remove any signatory warnings
+        const existingWarning = document.querySelector('.signatory-warning');
+        if (existingWarning) {
+            existingWarning.remove();
+        }
     }
 };
 
@@ -231,12 +239,220 @@ window.populateEditStaffForm = function(staffData) {
     
     // If it's a Program Head, populate department assignments
     if (designation.toLowerCase() === 'program head') {
-        // This would need to be populated based on existing assignments
-        // For now, just show the section
-        setTimeout(() => {
-            updateEditDepartmentCheckboxes();
-        }, 100);
+        // Load existing assignments and populate the form
+        loadExistingAssignments(staffData);
+        // Check for signatory assignments and show warnings
+        checkSignatoryAssignments(staffData);
     }
+};
+
+// Load existing department assignments for Program Head
+window.loadExistingAssignments = function(staffData) {
+    const userId = staffData.user_id || staffData.id;
+    if (!userId) {
+        console.error('No user ID found for loading assignments');
+        return;
+    }
+
+    // Fetch existing assignments
+    fetch(`../../api/staff/assignments.php?staff_id=${userId}`, {
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.assignments) {
+            // Store existing assignments for later use
+            window.currentAssignments = data.assignments;
+            
+            // Display current assignments
+            displayCurrentAssignments(data.assignments);
+            
+            // Determine the sector from existing assignments
+            const sectors = [...new Set(data.assignments.map(a => a.sector_name))];
+            if (sectors.length > 0) {
+                // Set the sector (assuming single sector for now)
+                const sectorSelect = document.getElementById('editProgramHeadCategory');
+                if (sectorSelect) {
+                    sectorSelect.value = sectors[0];
+                    updateEditDepartmentCheckboxes();
+                    
+                    // After checkboxes are loaded, mark existing assignments
+                    setTimeout(() => {
+                        markExistingAssignments(data.assignments);
+                    }, 200);
+                }
+            }
+        } else {
+            // No existing assignments, hide current assignments display
+            hideCurrentAssignments();
+            updateEditDepartmentCheckboxes();
+        }
+    })
+    .catch(error => {
+        console.error('Error loading assignments:', error);
+        hideCurrentAssignments();
+        updateEditDepartmentCheckboxes();
+    });
+};
+
+// Display current assignments
+window.displayCurrentAssignments = function(assignments) {
+    const container = document.getElementById('editCurrentAssignmentsContainer');
+    const list = document.getElementById('editCurrentAssignmentsList');
+    
+    if (!container || !list) return;
+    
+    if (assignments.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    // Group assignments by sector
+    const assignmentsBySector = {};
+    assignments.forEach(assignment => {
+        const sector = assignment.sector_name || 'Unknown';
+        if (!assignmentsBySector[sector]) {
+            assignmentsBySector[sector] = [];
+        }
+        assignmentsBySector[sector].push(assignment);
+    });
+    
+    // Generate HTML for each sector
+    const html = Object.entries(assignmentsBySector).map(([sector, sectorAssignments]) => {
+        const sectorHtml = sectorAssignments.map(assignment => `
+            <div class="assigned-dept-item" data-department-id="${assignment.department_id}">
+                <div class="dept-info">
+                    <span class="dept-name">${assignment.department_name}</span>
+                    <span class="dept-sector">(${sector})</span>
+                </div>
+                <button class="remove-dept-btn" onclick="removeDepartmentAssignment(${assignment.department_id}, '${assignment.department_name}')" title="Remove this department assignment">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+        
+        return `
+            <div class="sector-assignments">
+                <div class="sector-header">${sector}</div>
+                <div class="sector-dept-list">${sectorHtml}</div>
+            </div>
+        `;
+    }).join('');
+    
+    list.innerHTML = html;
+    container.style.display = 'block';
+};
+
+// Hide current assignments display
+window.hideCurrentAssignments = function() {
+    const container = document.getElementById('editCurrentAssignmentsContainer');
+    if (container) {
+        container.style.display = 'none';
+    }
+};
+
+// Remove department assignment
+window.removeDepartmentAssignment = function(departmentId, departmentName) {
+    if (!confirm(`Are you sure you want to remove the assignment to ${departmentName}?`)) {
+        return;
+    }
+    
+    // Remove from current assignments
+    if (window.currentAssignments) {
+        window.currentAssignments = window.currentAssignments.filter(a => a.department_id !== departmentId);
+    }
+    
+    // Remove from UI
+    const item = document.querySelector(`.assigned-dept-item[data-department-id="${departmentId}"]`);
+    if (item) {
+        item.remove();
+    }
+    
+    // Update the department checkboxes to show this department as available
+    const checkbox = document.querySelector(`input[name="assignedDepartments[]"][value="${departmentId}"]`);
+    if (checkbox) {
+        checkbox.checked = false;
+        checkbox.closest('.checkbox-option').classList.remove('selected');
+    }
+    
+    // Check if there are any assignments left
+    const remainingItems = document.querySelectorAll('.assigned-dept-item');
+    if (remainingItems.length === 0) {
+        hideCurrentAssignments();
+    }
+    
+    showToast(`Removed assignment to ${departmentName}`, 'info');
+};
+
+// Check if Program Head is currently assigned as a signatory
+window.checkSignatoryAssignments = function(staffData) {
+    const userId = staffData.user_id || staffData.id;
+    if (!userId) return;
+    
+    // Check if this Program Head is assigned as a signatory in any sector
+    fetch(`../../api/signatories/sector_assignments.php?user_id=${userId}`, {
+        credentials: 'include'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.signatories && data.signatories.length > 0) {
+            // Show warning about signatory assignments
+            showSignatoryWarning(data.signatories);
+        }
+    })
+    .catch(error => {
+        console.error('Error checking signatory assignments:', error);
+    });
+};
+
+// Show warning about signatory assignments
+window.showSignatoryWarning = function(signatoryAssignments) {
+    const sectors = [...new Set(signatoryAssignments.map(s => s.clearance_type))];
+    const sectorText = sectors.join(', ');
+    
+    const warningHtml = `
+        <div class="signatory-warning" style="
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 12px 0;
+            color: #856404;
+        ">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i>
+                <strong>Signatory Assignment Warning</strong>
+            </div>
+            <p style="margin: 0; font-size: 13px;">
+                This Program Head is currently assigned as a signatory for: <strong>${sectorText}</strong>
+            </p>
+            <p style="margin: 4px 0 0 0; font-size: 12px; color: #6c757d;">
+                Please uncheck "Include Program Head" in the Add Scope Signatory Modal before making department changes.
+            </p>
+        </div>
+    `;
+    
+    // Insert warning before the current assignments container
+    const currentAssignmentsContainer = document.getElementById('editCurrentAssignmentsContainer');
+    if (currentAssignmentsContainer) {
+        currentAssignmentsContainer.insertAdjacentHTML('beforebegin', warningHtml);
+    }
+};
+
+// Mark existing assignments as checked
+window.markExistingAssignments = function(assignments) {
+    assignments.forEach(assignment => {
+        const checkbox = document.querySelector(`input[name="assignedDepartments[]"][value="${assignment.department_id}"]`);
+        if (checkbox) {
+            checkbox.checked = true;
+            checkbox.closest('.checkbox-option').classList.add('selected');
+            
+            // Mark as primary if needed
+            if (assignment.is_primary) {
+                checkbox.closest('.checkbox-option').classList.add('primary');
+            }
+        }
+    });
 };
 
 window.submitEditStaffForm = function() {
@@ -324,7 +540,7 @@ window.submitEditStaffForm = function() {
     jsonData['last_name'] = lastName;
     if (middleName) jsonData['middle_name'] = middleName;
     
-    jsonData['role_id'] = 4; // Staff role
+    jsonData['role_id'] = 7; // Regular Staff role
     jsonData['is_also_faculty'] = isAlsoFaculty;
     
     // Submit form
@@ -338,10 +554,23 @@ window.submitEditStaffForm = function() {
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
+            // Handle department assignment updates based on role
+            const isProgramHead = (standardPosition || customPosition).toLowerCase() === 'program head';
+            const userId = data.user_id || data.userId || jsonData.user_id;
+            
+            if (isProgramHead) {
+                updateProgramHeadAssignments(userId);
+            } else {
+                // If changing from Program Head to another role, remove all assignments
+                const hadAssignments = window.currentAssignments && window.currentAssignments.length > 0;
+                if (hadAssignments) {
+                    removeAllAssignments(userId);
+                } else {
             showToast('Staff member updated successfully!', 'success');
             closeEditStaffModal();
-            // Optionally reload the page or update the cards
             location.reload();
+                }
+            }
         } else {
             showToast(data.message || 'Failed to update staff member.', 'error');
         }
@@ -349,6 +578,127 @@ window.submitEditStaffForm = function() {
     .catch(error => {
         console.error('Error:', error);
         showToast('An error occurred while updating staff member.', 'error');
+    });
+};
+
+// Update Program Head department assignments
+window.updateProgramHeadAssignments = function(userId) {
+    if (!userId) {
+        showToast('Staff member updated, but assignment update failed - no user ID.', 'error');
+        closeEditStaffModal();
+        location.reload();
+        return;
+    }
+
+    // Get current assignments from the form
+    const selectedDepartments = Array.from(document.querySelectorAll('input[name="assignedDepartments[]"]:checked'))
+        .map(cb => parseInt(cb.value));
+
+    // Get previous assignments
+    const previousAssignments = window.currentAssignments || [];
+    const previousDepartmentIds = previousAssignments.map(a => a.department_id);
+
+    // Determine which assignments to add and remove
+    const toAdd = selectedDepartments.filter(id => !previousDepartmentIds.includes(id));
+    const toRemove = previousDepartmentIds.filter(id => !selectedDepartments.includes(id));
+
+    // Process all assignment changes
+    const assignmentPromises = [];
+
+    // Remove assignments
+    toRemove.forEach(departmentId => {
+        const assignment = previousAssignments.find(a => a.department_id === departmentId);
+        if (assignment) {
+            assignmentPromises.push(
+                fetch('../../api/staff/assignments.php', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        staff_id: userId,
+                        department_id: departmentId
+                    })
+                })
+            );
+        }
+    });
+
+    // Add new assignments
+    toAdd.forEach(departmentId => {
+        assignmentPromises.push(
+            fetch('../../api/staff/assignments.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    staff_id: userId,
+                    department_id: departmentId,
+                    is_primary: false // Default to non-primary
+                })
+            })
+        );
+    });
+
+    // Execute all assignment changes
+    Promise.all(assignmentPromises)
+        .then(responses => Promise.all(responses.map(r => r.json())))
+        .then(results => {
+            const hasErrors = results.some(r => !r.success);
+            if (hasErrors) {
+                showToast('Staff member updated, but some assignment changes failed.', 'warning');
+            } else {
+                showToast('Staff member and assignments updated successfully!', 'success');
+            }
+            closeEditStaffModal();
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error updating assignments:', error);
+            showToast('Staff member updated, but assignment update failed.', 'warning');
+            closeEditStaffModal();
+            location.reload();
+        });
+};
+
+// Remove all department assignments (when changing from Program Head to another role)
+window.removeAllAssignments = function(userId) {
+    if (!userId || !window.currentAssignments) {
+        showToast('Staff member updated successfully!', 'success');
+        closeEditStaffModal();
+        location.reload();
+        return;
+    }
+
+    // Remove all existing assignments
+    const removePromises = window.currentAssignments.map(assignment => 
+        fetch('../../api/staff/assignments.php', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+                staff_id: userId,
+                department_id: assignment.department_id
+            })
+        })
+    );
+
+    Promise.all(removePromises)
+        .then(responses => Promise.all(responses.map(r => r.json())))
+        .then(results => {
+            const hasErrors = results.some(r => !r.success);
+            if (hasErrors) {
+                showToast('Staff member updated, but some assignment removals failed.', 'warning');
+            } else {
+                showToast('Staff member updated and assignments removed successfully!', 'success');
+            }
+            closeEditStaffModal();
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error removing assignments:', error);
+            showToast('Staff member updated, but assignment removal failed.', 'warning');
+            closeEditStaffModal();
+            location.reload();
     });
 };
 
@@ -395,7 +745,6 @@ window.submitEditStaffForm = function() {
     window.toggleEditProgramHeadAssignment = function() {
         const editProgramHeadPositionSelect = document.getElementById('editStaffPosition');
         const editProgramHeadCustomPositionInput = document.getElementById('editCustomPosition');
-        const regularDepartmentGroup = document.getElementById('editRegularDepartmentGroup');
         const programHeadSection = document.getElementById('editProgramHeadAssignmentSection');
         
         // Get the final position value
@@ -404,9 +753,6 @@ window.submitEditStaffForm = function() {
         const editProgramHeadFinalPosition = editProgramHeadStandardPosition || editProgramHeadCustomPosition;
         
         if (editProgramHeadFinalPosition === 'Program Head') {
-            // Hide regular department field
-            regularDepartmentGroup.style.display = 'none';
-            
             // Show Program Head assignment section
             programHeadSection.style.display = 'block';
             programHeadSection.style.opacity = '0';
@@ -416,9 +762,6 @@ window.submitEditStaffForm = function() {
                 programHeadSection.style.opacity = '1';
             }, 10);
         } else {
-            // Show regular department field
-            regularDepartmentGroup.style.display = 'block';
-            
             // Hide Program Head assignment section
             programHeadSection.style.opacity = '0';
             setTimeout(() => {
@@ -445,47 +788,91 @@ window.submitEditStaffForm = function() {
             return;
         }
         
-        // Define department mappings
-        const categoryDepartments = {
-            "College": [
-                "ICT Department",
-                "THM Department",
-                "BSA Department",
-                "Computer Science Department"
-            ],
-            "Senior High School": [
-                "Home Economics",
-                "Academic Track",
-                "Technological Vocational Livelihood"
-            ],
-            "Faculty": [
-                "General Education"
-            ]
-        };
+        // Load departments from API filtered by sector/category
+        const url = `../../api/departments/list.php?sector=${encodeURIComponent(selectedCategory)}&include_ph=1&limit=500`;
+        checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">Loading departments...</div>';
         
-        const departments = categoryDepartments[selectedCategory] || [];
-        
-        // Clear existing checkboxes
-        checkboxesList.innerHTML = '';
-        
-        // Create checkboxes for each department
-        departments.forEach(department => {
-            const checkboxOption = document.createElement('div');
-            checkboxOption.className = 'checkbox-option';
-            checkboxOption.innerHTML = `
-                <input type="checkbox" id="edit_dept_${department.replace(/\s+/g, '_')}" 
-                       name="assignedDepartments[]" value="${department}">
-                <label for="edit_dept_${department.replace(/\s+/g, '_')}">${department}</label>
-            `;
-            checkboxesList.appendChild(checkboxOption);
-        });
-        
-        // Show checkboxes container
+        fetch(url, { credentials: 'include' })
+            .then(r => r.json())
+            .then(resp => {
+                checkboxesList.innerHTML = '';
+                if (!resp || resp.success !== true) {
+                    checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Failed to load departments</div>';
+                    return;
+                }
+                const departments = resp.departments || [];
+                if (departments.length === 0) {
+                    checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">No departments found for this sector</div>';
+                }
+                
+                departments.forEach(dep => {
+                    const depId = dep.department_id;
+                    const depName = dep.department_name;
+                    const phUserId = dep.current_program_head_user_id || null;
+                    const phName = dep.current_program_head_name || '';
+                    const phEmployeeNumber = dep.current_program_head_employee_number || '';
+                    
+                    const disabled = !!phUserId; // lock if already has a PH
+                    const option = document.createElement('div');
+                    option.className = 'checkbox-option';
+                    const inputId = `edit_dept_${depId}`;
+                    
+                    // Create enhanced label with Program Head info
+                    let phInfo = '';
+                    if (disabled) {
+                        phInfo = `
+                            <div class="current-ph-info">
+                                <span class="ph-assigned-label">Currently assigned to:</span>
+                                <span class="ph-name">${phName}</span>
+                                <span class="ph-employee">(${phEmployeeNumber})</span>
+                            </div>
+                        `;
+                    }
+                    
+                    option.innerHTML = `
+                        <input type="checkbox" id="${inputId}" name="assignedDepartments[]" value="${depId}" ${disabled ? 'disabled' : ''}>
+                        <label for="${inputId}">
+                            <div class="dept-label-main">${depName}</div>
+                            ${phInfo}
+                        </label>
+                    `;
+                    checkboxesList.appendChild(option);
+                });
+
+                // Sync visual selection state with checked state (multi-select)
+                const syncSelectedClass = () => {
+                    const allOptions = checkboxesList.querySelectorAll('.checkbox-option');
+                    allOptions.forEach(opt => {
+                        const cb = opt.querySelector('input[type="checkbox"]');
+                        if (cb && cb.checked) {
+                            opt.classList.add('selected');
+                        } else {
+                            opt.classList.remove('selected');
+                        }
+                    });
+                };
+                checkboxesList.addEventListener('change', function(e){
+                    if (e.target && e.target.matches('input[type="checkbox"]')) {
+                        const container = e.target.closest('.checkbox-option');
+                        if (container) {
+                            if (e.target.checked) container.classList.add('selected');
+                            else container.classList.remove('selected');
+                        }
+                    }
+                });
+                // initial sync
+                syncSelectedClass();
+            })
+            .catch(() => {
+                checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Error loading departments</div>';
+            })
+            .finally(() => {
         checkboxesContainer.style.display = 'block';
         checkboxesContainer.style.opacity = '0';
-        setTimeout(() => {
-            checkboxesContainer.style.opacity = '1';
-        }, 10);
+                setTimeout(() => { checkboxesContainer.style.opacity = '1'; }, 10);
+            });
+        
+        // Container visibility is handled in the fetch finally block
     };
 
     // Clear edit Program Head fields

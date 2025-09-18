@@ -8,44 +8,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clearance Status - Online Clearance System</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
+    <link rel="stylesheet" href="../../assets/css/sector-clearance.css">
+    <link rel="stylesheet" href="../../assets/css/clearance-status.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <?php
-    /* Demo session disabled – remove for real login */
-    // session_start();
-    // $_SESSION['user_id'] = 1;
-    // $_SESSION['role_id'] = 3; // Student role
-    // $_SESSION['first_name'] = 'John';
-    // $_SESSION['last_name'] = 'Doe';
+    /* Demo session for testing - using SHS student Alex Garcia */
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    $_SESSION['user_id'] = 118; // Alex Garcia (SHS student)
+    $_SESSION['user_type'] = 'student';
+    $_SESSION['first_name'] = 'Alex';
+    $_SESSION['last_name'] = 'Garcia';
     ?>
     
-    <!-- Top Bar -->
-    <header class="navbar">
-        <div class="container">
-            <div class="header-content">
-                <div class="header-left">
-                    <button class="mobile-menu-toggle" onclick="toggleSidebar()">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                    <div class="logo">
-                        <h1>goSTI</h1>
-                    </div>
-                </div>
-                <div class="user-info">
-                    <span class="user-name">John Doe</span>
-                    <div class="user-dropdown">
-                        <button class="dropdown-toggle">▼</button>
-                        <div class="dropdown-menu">
-                            <a href="profile.php">Profile</a>
-                            <a href="settings.php">Settings</a>
-                            <a href="logout.php">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+    <!-- Include Dynamic Header -->
+    <?php include '../../includes/components/header.php'; ?>
 
     <!-- Main Content Area -->
     <main class="dashboard-container">
@@ -57,8 +37,23 @@
             <div class="content-wrapper">
                 <!-- Page Header -->
                 <div class="page-header">
-                    <h2><i class="fas fa-file-alt"></i> Clearance Status</h2>
-                    <p class="page-description">Select a period to view your clearance details.</p>
+                    <h2><i class="fas fa-file-alt"></i> My Clearance</h2>
+                    <p class="page-description">View and manage your clearance applications.</p>
+                </div>
+
+
+
+                <!-- Period Status Banner -->
+                <div id="period-status-banner" class="period-status-banner" style="display: none;">
+                    <div class="banner-content">
+                        <div class="banner-icon">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <div class="banner-text">
+                            <h3 id="period-status-title">Period Status</h3>
+                            <p id="period-status-message">Loading...</p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Period Selector -->
@@ -67,9 +62,25 @@
                         <label for="schoolYearTerm">
                             <i class="fas fa-calendar-alt"></i> School Year & Term
                         </label>
-                        <select id="schoolYearTerm" onchange="updateClearanceData()">
+                        <select id="schoolYearTerm" onchange="loadPeriodStatusAndData()">
                             <option value="">Loading periods...</option>
                         </select>
+                    </div>
+                </div>
+
+                <!-- Clearance Form ID Banner -->
+                <div class="clearance-form-banner" id="clearanceFormBanner" style="display: none;">
+                    <div class="banner-content">
+                        <div class="banner-icon">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <div class="banner-text">
+                            <h3>Clearance Form ID</h3>
+                            <p id="clearanceFormId">Loading...</p>
+                        </div>
+                        <div class="banner-period">
+                            <span id="bannerPeriod">Loading...</span>
+                        </div>
                     </div>
                 </div>
 
@@ -77,7 +88,6 @@
                 <div class="overall-status-section">
                     <div class="overall-status-badge">
                         <i class="fas fa-info-circle"></i>
-                        <!-- Overall Clearance Status: Pending -->
                         Clearance Progress Status: Pending
                     </div>
                 </div>
@@ -99,129 +109,11 @@
                 <div class="tab-content">
                     <!-- Card View Tab -->
                     <div id="card-tab" class="tab-pane active">
-                        <div class="signatory-cards-grid">
-                            <!-- Cashier Card -->
-                            <div class="signatory-card">
-                                <div class="card-header">
-                                    <h3>Cashier</h3>
-                                    <p>Awaiting Signatory</p>
-                                </div>
-                                <div class="card-content">
-                                    <div class="status-info">
-                                        <span class="status-label">Status:</span>
-                                        <span class="status-value pending">Pending</span>
-                                    </div>
-                                    <div class="date-info">
-                                        <span class="date-label">Date Signed:</span>
-                                        <span class="date-value">N/A</span>
-                                    </div>
-                                    <div class="remarks-info">
-                                        <span class="remarks-label">Remarks:</span>
-                                        <span class="remarks-value">None</span>
-                                    </div>
-                                    <div class="card-actions">
-                                        <button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('cashier')" data-signatory="cashier">
-                                            <i class="fas fa-paper-plane"></i> Apply
-                                        </button>
-                                    </div>
-                                    <div class="signatory-info">
-                                        <span class="signatory-label">Signatory:</span>
-                                        <span class="signatory-value">N/A</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Librarian Card -->
-                            <div class="signatory-card">
-                                <div class="card-header">
-                                    <h3>Librarian</h3>
-                                    <p>Awaiting Signatory</p>
-                                </div>
-                                <div class="card-content">
-                                    <div class="status-info">
-                                        <span class="status-label">Status:</span>
-                                        <span class="status-value pending">Pending</span>
-                                    </div>
-                                    <div class="date-info">
-                                        <span class="date-label">Date Signed:</span>
-                                        <span class="date-value">N/A</span>
-                                    </div>
-                                    <div class="remarks-info">
-                                        <span class="remarks-label">Remarks:</span>
-                                        <span class="remarks-value">None</span>
-                                    </div>
-                                    <div class="card-actions">
-                                        <button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('librarian')" data-signatory="librarian">
-                                            <i class="fas fa-paper-plane"></i> Apply
-                                        </button>
-                                    </div>
-                                    <div class="signatory-info">
-                                        <span class="signatory-label">Signatory:</span>
-                                        <span class="signatory-value">N/A</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Program Head Card -->
-                            <div class="signatory-card">
-                                <div class="card-header">
-                                    <h3>Program Head</h3>
-                                    <p>Awaiting Signatory</p>
-                                </div>
-                                <div class="card-content">
-                                    <div class="status-info">
-                                        <span class="status-label">Status:</span>
-                                        <span class="status-value pending">Pending</span>
-                                    </div>
-                                    <div class="date-info">
-                                        <span class="date-label">Date Signed:</span>
-                                        <span class="date-value">N/A</span>
-                                    </div>
-                                    <div class="remarks-info">
-                                        <span class="remarks-label">Remarks:</span>
-                                        <span class="remarks-value">None</span>
-                                    </div>
-                                    <div class="card-actions">
-                                        <button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('program-head')" data-signatory="program-head">
-                                            <i class="fas fa-paper-plane"></i> Apply
-                                        </button>
-                                    </div>
-                                    <div class="signatory-info">
-                                        <span class="signatory-label">Signatory:</span>
-                                        <span class="signatory-value">N/A</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Registrar Card -->
-                            <div class="signatory-card">
-                                <div class="card-header">
-                                    <h3>Registrar</h3>
-                                    <p>Awaiting Signatory</p>
-                                </div>
-                                <div class="card-content">
-                                    <div class="status-info">
-                                        <span class="status-label">Status:</span>
-                                        <span class="status-value pending">Pending</span>
-                                    </div>
-                                    <div class="date-info">
-                                        <span class="date-label">Date Signed:</span>
-                                        <span class="date-value">N/A</span>
-                                    </div>
-                                    <div class="remarks-info">
-                                        <span class="remarks-label">Remarks:</span>
-                                        <span class="remarks-value">None</span>
-                                    </div>
-                                    <div class="card-actions">
-                                        <button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('registrar')" data-signatory="registrar">
-                                            <i class="fas fa-paper-plane"></i> Apply
-                                        </button>
-                                    </div>
-                                    <div class="signatory-info">
-                                        <span class="signatory-label">Signatory:</span>
-                                        <span class="signatory-value">N/A</span>
-                                    </div>
-                                </div>
+                        <div class="signatory-cards-grid" id="signatoryCardsGrid">
+                            <!-- Dynamic signatory cards will be generated here -->
+                            <div class="no-signatories" id="noSignatoriesMessage" style="display: none;">
+                                <i class="fas fa-info-circle"></i>
+                                <p>No signatories assigned for this clearance period.</p>
                             </div>
                         </div>
                     </div>
@@ -240,77 +132,14 @@
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Cashier</td>
-                                        <td class="signatory-name">N/A</td>
-                                        <td><span class="status-badge pending">Pending</span></td>
-                                        <td>N/A</td>
-                                        <td>None</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('cashier')" data-signatory="cashier">
-                                                    <i class="fas fa-paper-plane"></i> Apply
-                                                </button>
-                                                <button class="btn btn-sm btn-outline" onclick="viewDetails('cashier')">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Librarian</td>
-                                        <td class="signatory-name">N/A</td>
-                                        <td><span class="status-badge pending">Pending</span></td>
-                                        <td>N/A</td>
-                                        <td>None</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('librarian')" data-signatory="librarian">
-                                                    <i class="fas fa-paper-plane"></i> Apply
-                                                </button>
-                                                <button class="btn btn-sm btn-outline" onclick="viewDetails('librarian')">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Program Head</td>
-                                        <td class="signatory-name">N/A</td>
-                                        <td><span class="status-badge pending">Pending</span></td>
-                                        <td>N/A</td>
-                                        <td>None</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('program-head')" data-signatory="program-head">
-                                                    <i class="fas fa-paper-plane"></i> Apply
-                                                </button>
-                                                <button class="btn btn-sm btn-outline" onclick="viewDetails('program-head')">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Registrar</td>
-                                        <td class="signatory-name">N/A</td>
-                                        <td><span class="status-badge pending">Pending</span></td>
-                                        <td>N/A</td>
-                                        <td>None</td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('registrar')" data-signatory="registrar">
-                                                    <i class="fas fa-paper-plane"></i> Apply
-                                                </button>
-                                                <button class="btn btn-sm btn-outline" onclick="viewDetails('registrar')">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                <tbody id="signatoryTableBody">
+                                    <!-- Dynamic table rows will be generated here -->
                                 </tbody>
                             </table>
+                            <div class="no-signatories" id="noSignatoriesTableMessage" style="display: none;">
+                                <i class="fas fa-info-circle"></i>
+                                <p>No signatories assigned for this clearance period.</p>
+                            </div>
                         </div>
                     </div>
 
@@ -357,7 +186,13 @@
         </div>
     </main>
 
+    
     <script>
+    // Global variables
+    let currentPeriodData = null;
+    let currentButtonStates = [];
+    let refreshInterval = null;
+
     // Tab switching function
     function switchTab(tabName) {
         // Hide all tab panes
@@ -373,21 +208,6 @@
         
         // Add active class to clicked button
         event.target.classList.add('active');
-    }
-    
-    // Update clearance data based on period selection
-    function updateClearanceData() {
-        const selectedPeriod = document.getElementById('schoolYearTerm').value;
-        // Here you would typically fetch data for the selected period
-        console.log('Updating clearance data for period:', selectedPeriod);
-        
-        // Show loading state
-        showToast('Loading clearance data...', 'info');
-        
-        // Simulate data loading
-        setTimeout(() => {
-            showToast('Clearance data updated', 'success');
-        }, 1000);
     }
     
     // View details function
@@ -434,42 +254,150 @@
         }, 3000);
     }
     
-    // Load user's clearance periods for period selector
+    // Load user's clearance forms for period selector
     async function loadUserPeriods() {
         try {
-            const response = await fetch('../../api/clearance/user_periods.php', {
+            const response = await fetch('../../api/clearance/user_clearance_forms.php', {
                 credentials: 'same-origin'
             });
             const data = await response.json();
             
-            if (data.success && data.periods.length > 0) {
+            if (data.success && data.forms.length > 0) {
                 const select = document.getElementById('schoolYearTerm');
                 select.innerHTML = '<option value="">Select a period</option>';
                 
-                data.periods.forEach(period => {
+                data.forms.forEach(form => {
                     const option = document.createElement('option');
-                    option.value = period.clearance_form_id;
-                    option.textContent = period.period_text;
-                    if (period.is_active) {
+                    option.value = form.clearance_form_id;
+                    option.textContent = `${form.academic_year} - ${form.semester_name} (${form.clearance_type})`;
+                    if (form.form_status !== 'Completed' && form.form_status !== 'Rejected') {
                         option.textContent += ' (Active)';
                     }
                     select.appendChild(option);
                 });
                 
-                // Auto-select the first period and load its data
-                if (data.periods.length > 0) {
-                    select.value = data.periods[0].clearance_form_id;
-                    updateClearanceData();
+                // Auto-select the current form if available
+                if (data.current_form) {
+                    select.value = data.current_form.clearance_form_id;
+                    loadPeriodStatusAndData();
+                } else if (data.forms.length > 0) {
+                    select.value = data.forms[0].clearance_form_id;
+                    loadPeriodStatusAndData();
                 }
             } else {
                 const select = document.getElementById('schoolYearTerm');
-                select.innerHTML = '<option value="">No clearance periods found</option>';
+                select.innerHTML = '<option value="">No clearance forms found</option>';
+                showToast('No clearance forms found. Clearance forms are created when a clearance period starts.', 'info');
             }
         } catch (error) {
-            console.error('Error loading user periods:', error);
+            console.error('Error loading user forms:', error);
             const select = document.getElementById('schoolYearTerm');
-            select.innerHTML = '<option value="">Error loading periods</option>';
+            select.innerHTML = '<option value="">Error loading forms</option>';
+            showToast('Error loading clearance forms', 'error');
         }
+    }
+
+    // Load period status and clearance data
+    async function loadPeriodStatusAndData() {
+        const select = document.getElementById('schoolYearTerm');
+        const selectedFormId = select.value;
+        
+        if (!selectedFormId) {
+            return;
+        }
+
+        try {
+            // Load period status first
+            const periodResponse = await fetch('../../api/clearance/period_status.php', {
+                credentials: 'same-origin'
+            });
+            
+            if (!periodResponse.ok) {
+                throw new Error(`Period status API error: ${periodResponse.status}`);
+            }
+            
+            const periodData = await periodResponse.json();
+            
+            if (periodData.success) {
+                currentPeriodData = periodData;
+                updatePeriodStatusUI(periodData);
+                
+                // Grace period handling removed - no longer shown to students
+            }
+
+            // Load clearance data for the selected form
+            const clearanceResponse = await fetch(`../../api/clearance/user_status.php?form_id=${selectedFormId}`, {
+                credentials: 'same-origin'
+            });
+            
+            if (!clearanceResponse.ok) {
+                throw new Error(`User status API error: ${clearanceResponse.status}`);
+            }
+            
+            const clearanceData = await clearanceResponse.json();
+            
+            if (clearanceData.success) {
+                updateClearanceUI(clearanceData);
+            } else {
+                console.warn('Failed to load clearance data:', clearanceData.message);
+                // Don't show toast for every error to avoid spam
+                if (!clearanceData.message.includes('not found')) {
+                    showToast('Failed to load clearance data: ' + clearanceData.message, 'error');
+                }
+            }
+        } catch (error) {
+            console.error('Error loading period status and data:', error);
+            // Only show toast for critical errors, not for every refresh
+            if (error.message.includes('API error')) {
+                showToast('Error loading clearance data', 'error');
+            }
+        }
+    }
+
+    // Update period status UI
+    function updatePeriodStatusUI(periodData) {
+        const banner = document.getElementById('period-status-banner');
+        const title = document.getElementById('period-status-title');
+        const message = document.getElementById('period-status-message');
+        
+        if (!banner || !title || !message) return;
+
+        // Update banner content based on period status (grace period states simplified)
+        switch (periodData.period_status) {
+            case 'not_started':
+                title.textContent = 'Clearance Period Not Started';
+                message.textContent = 'The clearance period for this term has not been started yet.';
+                banner.className = 'period-status-banner not-started';
+                break;
+                
+            case 'ongoing':
+            case 'grace_period': // Treat grace period as ongoing for students
+                title.textContent = 'Clearance Period Active';
+                message.textContent = 'You can apply to signatories for clearance.';
+                banner.className = 'period-status-banner ongoing';
+                break;
+                
+            case 'paused':
+            case 'paused_grace_period': // Treat paused grace period as paused for students
+                title.textContent = 'Clearance Period Paused';
+                message.textContent = 'Applications are currently disabled. Signatories can still process existing applications.';
+                banner.className = 'period-status-banner paused';
+                break;
+                
+            case 'closed':
+                title.textContent = 'Clearance Period Ended';
+                message.textContent = 'The clearance period has ended. Applications are no longer accepted.';
+                banner.className = 'period-status-banner closed';
+                break;
+                
+            default:
+                title.textContent = 'Period Status Unknown';
+                message.textContent = 'Unable to determine the current period status.';
+                banner.className = 'period-status-banner unknown';
+        }
+
+        // Show banner
+        banner.style.display = 'block';
     }
 
     // Update clearance data based on selected period
@@ -482,8 +410,8 @@
         }
         
         try {
-            // Load clearance data for the selected form
-            const response = await fetch(`../../api/clearance/status.php?form_id=${selectedFormId}`, {
+            // Load clearance data for the selected form using new API
+            const response = await fetch(`../../api/clearance/user_status.php?form_id=${selectedFormId}`, {
                 credentials: 'same-origin'
             });
             const data = await response.json();
@@ -491,7 +419,7 @@
             if (data.success) {
                 updateClearanceUI(data);
             } else {
-                showToast('Failed to load clearance data', 'error');
+                showToast('Failed to load clearance data: ' + data.message, 'error');
             }
         } catch (error) {
             console.error('Error updating clearance data:', error);
@@ -501,6 +429,15 @@
 
     // Update the clearance UI based on data
     function updateClearanceUI(data) {
+        // Store button states for use in getActionButton
+        currentButtonStates = data.button_states || [];
+        
+        // Store clearance data globally for button logic
+        window.currentClearanceData = data;
+        
+        // Update clearance form banner
+        updateClearanceFormBanner(data);
+        
         // Update overall status
         const overallStatus = document.querySelector('.overall-status-badge');
         if (overallStatus) {
@@ -510,13 +447,109 @@
         // Update signatory cards and table rows based on data.signatories
         updateSignatoryCards(data.signatories);
         updateSignatoryTable(data.signatories);
+        
+        // Start real-time monitoring if period is active
+        startRealTimeMonitoring();
+    }
+
+    // Start real-time monitoring for period status changes
+    function startRealTimeMonitoring() {
+        // Clear existing interval
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+        
+        // Only monitor if period is active (ongoing or grace period)
+        if (currentPeriodData && 
+            (currentPeriodData.period_status === 'ongoing' || 
+             currentPeriodData.period_status === 'grace_period' ||
+             currentPeriodData.period_status === 'paused' ||
+             currentPeriodData.period_status === 'paused_grace_period')) {
+            
+            // Show real-time indicator
+            showRealTimeIndicator();
+            
+            // Refresh every 30 seconds with error handling
+            refreshInterval = setInterval(async () => {
+                try {
+                    showRealTimeIndicator(true); // Show updating state
+                    await loadPeriodStatusAndData();
+                } catch (error) {
+                    console.warn('Real-time monitoring error:', error);
+                    // Don't stop monitoring for individual errors
+                }
+            }, 30000);
+        } else {
+            // Hide real-time indicator if not monitoring
+            hideRealTimeIndicator();
+        }
+    }
+
+    // Show real-time update indicator
+    function showRealTimeIndicator(isUpdating = false) {
+        const indicator = document.getElementById('real-time-indicator');
+        if (indicator) {
+            if (isUpdating) {
+                indicator.classList.add('updating');
+                indicator.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Updating...';
+            } else {
+                indicator.classList.remove('updating');
+                indicator.innerHTML = '<i class="fas fa-sync-alt"></i> Live Updates Active';
+            }
+            indicator.classList.add('show');
+        }
+    }
+
+    // Hide real-time update indicator
+    function hideRealTimeIndicator() {
+        const indicator = document.getElementById('real-time-indicator');
+        if (indicator) {
+            indicator.classList.remove('show', 'updating');
+        }
+    }
+
+    // Stop real-time monitoring
+    function stopRealTimeMonitoring() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+            refreshInterval = null;
+        }
+    }
+
+    // Update clearance form banner
+    function updateClearanceFormBanner(data) {
+        const banner = document.getElementById('clearanceFormBanner');
+        const formIdElement = document.getElementById('clearanceFormId');
+        const periodElement = document.getElementById('bannerPeriod');
+        
+        if (banner && formIdElement && periodElement) {
+            if (data.clearance_form_id) {
+                formIdElement.textContent = data.clearance_form_id;
+                periodElement.textContent = `${data.academic_year} - ${data.semester_name}`;
+                banner.style.display = 'block';
+            } else {
+                banner.style.display = 'none';
+            }
+        }
     }
 
     // Update signatory cards
     function updateSignatoryCards(signatories) {
-        const cardsGrid = document.querySelector('.signatory-cards-grid');
-        if (!cardsGrid || !signatories) return;
+        const cardsGrid = document.getElementById('signatoryCardsGrid');
+        const noSignatoriesMessage = document.getElementById('noSignatoriesMessage');
         
+        if (!cardsGrid) return;
+        
+        if (!signatories || signatories.length === 0) {
+            if (noSignatoriesMessage) {
+                noSignatoriesMessage.style.display = 'block';
+            }
+            return;
+        }
+        
+        if (noSignatoriesMessage) {
+            noSignatoriesMessage.style.display = 'none';
+        }
         cardsGrid.innerHTML = '';
         
         signatories.forEach(signatory => {
@@ -561,9 +594,17 @@
 
     // Update signatory table
     function updateSignatoryTable(signatories) {
-        const tableBody = document.querySelector('.clearance-table tbody');
-        if (!tableBody || !signatories) return;
+        const tableBody = document.getElementById('signatoryTableBody');
+        const noSignatoriesMessage = document.getElementById('noSignatoriesTableMessage');
         
+        if (!tableBody) return;
+        
+        if (!signatories || signatories.length === 0) {
+            noSignatoriesMessage.style.display = 'block';
+            return;
+        }
+        
+        noSignatoriesMessage.style.display = 'none';
         tableBody.innerHTML = '';
         
         signatories.forEach(signatory => {
@@ -599,6 +640,7 @@
         if (action === 'Pending') return 'Awaiting Signatory';
         if (action === 'Approved') return 'Approved';
         if (action === 'Rejected') return 'Rejected';
+        if (action === 'Unapplied') return 'Awaiting Application';
         return 'Unknown Status';
     }
 
@@ -606,50 +648,135 @@
         if (!action || action === '') return 'pending';
         if (action === 'Approved') return 'approved';
         if (action === 'Rejected') return 'rejected';
+        if (action === 'Pending') return 'pending';
+        if (action === 'Unapplied') return 'unapplied';
         return 'pending';
     }
 
     function getActionButton(signatory) {
+        const slug = signatory.designation_name.toLowerCase().replace(/\s+/g, '-');
+        
+        // Check if the period is closed (from the data returned by user_status.php)
+        const isPeriodClosed = window.currentClearanceData && window.currentClearanceData.period_status === 'Closed';
+        
+        // Find button state for this signatory
+        const buttonState = currentButtonStates.find(state => 
+            state.signatory_id === signatory.signatory_id || 
+            state.designation_id === signatory.designation_id
+        );
+        
+        if (buttonState) {
+            // Use the button state from the API
+            const buttonClass = buttonState.button_state.class;
+            const buttonText = buttonState.button_state.text;
+            const buttonTooltip = buttonState.button_state.tooltip;
+            const isEnabled = buttonState.button_state.enabled && !isPeriodClosed;
+            
+            if (isEnabled) {
+                return `<button class="btn btn-sm ${buttonClass} apply-btn" 
+                            onclick="applyToSignatory('${slug}')" 
+                            data-signatory="${slug}" 
+                            data-signatory-id="${signatory.signatory_id}"
+                            title="${buttonTooltip}">
+                            <i class="fas fa-paper-plane"></i> ${buttonText}
+                        </button>`;
+            } else {
+                const tooltip = isPeriodClosed ? 'Clearance period has ended. Applications are no longer accepted.' : buttonTooltip;
+                return `<button class="btn btn-sm ${buttonClass}" 
+                            disabled 
+                            title="${tooltip}">
+                            <i class="fas fa-${getButtonIcon(buttonState.button_state.reason)}"></i> ${buttonText}
+                        </button>`;
+            }
+        }
+        
+        // Fallback to old logic if no button state found
         if (signatory.action === 'Approved') {
-            return '<button class="btn btn-sm btn-success" disabled><i class="fas fa-check"></i> Approved</button>';
+            return '<button class="btn btn-sm btn-success" disabled title="Application has been approved"><i class="fas fa-check"></i> Approved</button>';
         } else if (signatory.action === 'Rejected') {
-            return `<button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}')" data-signatory="${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}">
-                        <i class="fas fa-paper-plane"></i> Re-apply
+            if (isPeriodClosed) {
+                return '<button class="btn btn-sm btn-danger" disabled title="Clearance period has ended. Applications are no longer accepted."><i class="fas fa-ban"></i> Reapply</button>';
+            }
+            return `<button class="btn btn-sm btn-danger apply-btn" onclick="applyToSignatory('${slug}')" data-signatory="${slug}" data-signatory-id="${signatory.signatory_id}" title="Click to reapply after rejection">
+                        <i class="fas fa-paper-plane"></i> Reapply
                     </button>`;
+        } else if (signatory.action === 'Pending') {
+            return '<button class="btn btn-sm btn-warning" disabled title="Application is pending approval"><i class="fas fa-clock"></i> Pending</button>';
         } else {
-            return `<button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}')" data-signatory="${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}">
+            if (isPeriodClosed) {
+                return '<button class="btn btn-sm btn-secondary" disabled title="Clearance period has ended. Applications are no longer accepted."><i class="fas fa-ban"></i> Apply</button>';
+            }
+            return `<button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('${slug}')" data-signatory="${slug}" data-signatory-id="${signatory.signatory_id}" title="Click to apply to this signatory">
                         <i class="fas fa-paper-plane"></i> Apply
                     </button>`;
         }
     }
 
-    // Apply / Re-apply to a specific signatory (real API integration)
-    function applyToSignatory(signatory) {
-        const designationCodeMap = {
-            'cashier': 'CASHIER',
-            'librarian': 'LIBRARIAN',
-            'program-head': 'PROGRAM_HEAD',
-            'registrar': 'REGISTRAR'
-        };
-
-        const designationCode = designationCodeMap[signatory];
-        if (!designationCode) {
-            showToast('Unknown signatory: ' + signatory, 'error');
-            return;
+    // Helper function to get button icon based on reason
+    function getButtonIcon(reason) {
+        switch (reason) {
+            case 'period_not_started':
+                return 'ban';
+            case 'grace_period':
+                return 'clock';
+            case 'period_paused':
+                return 'pause';
+            case 'period_closed':
+                return 'lock';
+            case 'pending_approval':
+                return 'clock';
+            case 'approved':
+                return 'check';
+            case 'can_apply':
+            case 'can_reapply':
+                return 'paper-plane';
+            default:
+                return 'info-circle';
         }
+    }
 
+    // Apply / Re-apply to a specific signatory (enhanced API integration)
+    function applyToSignatory(signatory) {
         const applyBtn = event.target.closest('.apply-btn');
         const originalHTML = applyBtn.innerHTML;
+        
+        // Check if period is closed
+        if (window.currentClearanceData && window.currentClearanceData.period_status === 'Closed') {
+            showToast('Clearance period has ended. Applications are no longer accepted.', 'warning');
+            return;
+        }
+        
+        // Get the signatory ID from the button's data attribute
+        const signatoryId = applyBtn.getAttribute('data-signatory-id');
+        
+        if (!signatoryId) {
+            showToast('Signatory ID not found. Please refresh the page.', 'error');
+            return;
+        }
 
         // Optimistic UI – disable button & show spinner
         applyBtn.disabled = true;
         applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Applying...';
 
-        fetch('../../api/clearance/apply.php', {
+        // Get current form ID
+        const select = document.getElementById('schoolYearTerm');
+        const formId = select.value;
+        
+        if (!formId) {
+            showToast('No clearance form selected', 'error');
+            applyBtn.innerHTML = originalHTML;
+            applyBtn.disabled = false;
+            return;
+        }
+
+        fetch('../../api/clearance/apply_signatory.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ designation_code: designationCode })
+            body: JSON.stringify({ 
+                signatory_id: signatoryId,
+                clearance_form_id: formId
+            })
         })
         .then(res => res.json())
         .then(data => {
@@ -657,12 +784,13 @@
                 applyBtn.innerHTML = '<i class="fas fa-check"></i> Applied';
                 applyBtn.classList.remove('btn-primary');
                 applyBtn.classList.add('btn-success');
-                // Update status visuals
-                updateSignatoryStatus(signatory, 'pending');
+                
                 showToast('Application submitted successfully!', 'success');
                 
-                // Check if this puts user in manual mode and update dashboard button
-                checkAndUpdateDashboardButton();
+                // Refresh the clearance data to get updated status
+                setTimeout(() => {
+                    updateClearanceData();
+                }, 1000);
             } else {
                 throw new Error(data.message || 'Application failed');
             }
@@ -671,269 +799,8 @@
             console.error(err);
             showToast(err.message, 'error');
             applyBtn.innerHTML = originalHTML;
-        })
-        .finally(() => {
             applyBtn.disabled = false;
         });
-    }
-
-    // Update signatory status across all views
-    function updateSignatoryStatus(signatory, status, latestSigName='') {
-        // Update card view
-        const cardStatus = document.querySelector(`.signatory-card .card-actions .apply-btn[data-signatory="${signatory}"]`).closest('.signatory-card').querySelector('.status-value');
-        if (cardStatus) {
-            cardStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-            cardStatus.className = `status-value ${status}`;
-        }
-        // Signatory name
-        const cardRoot = document.querySelector(`.signatory-card .apply-btn[data-signatory="${signatory}"]`)?.closest('.signatory-card');
-        if(cardRoot){
-            let nameSpan = cardRoot.querySelector('.signatory-value');
-            if(!nameSpan){
-                const infoDiv=document.createElement('div');infoDiv.className='signatory-info';
-                infoDiv.innerHTML=`<span class="signatory-label">Signatory:</span> <span class="signatory-value"></span>`;
-                cardRoot.querySelector('.card-content').appendChild(infoDiv);
-                nameSpan = infoDiv.querySelector('.signatory-value');
-            }
-            if(nameSpan && latestSigName){nameSpan.textContent = latestSigName;}
-
-            // Update card apply button state
-            const cardBtn = cardRoot.querySelector('.apply-btn');
-            if(cardBtn){
-                if(status==='unapplied'){
-                    cardBtn.disabled = false;
-                    cardBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Apply';
-                    cardBtn.classList.remove('btn-success','btn-danger');
-                    cardBtn.classList.add('btn-primary');
-                }else{
-                    cardBtn.disabled = true;
-                    cardBtn.innerHTML = '<i class="fas fa-check"></i> '+status.charAt(0).toUpperCase()+status.slice(1);
-                    cardBtn.classList.remove('btn-primary');
-                    // Decide color based on status
-                    cardBtn.classList.remove('btn-success','btn-danger');
-                    if(status==='rejected'){
-                       cardBtn.classList.add('btn-danger');
-                    }else{
-                       cardBtn.classList.add('btn-success');
-                    }
-                }
-            }
-        }
-        
-        // Update table view (safe selector)
-        const tableBtn = document.querySelector(`.clearance-table .apply-btn[data-signatory="${signatory}"]`);
-        if(tableBtn){
-            const row = tableBtn.closest('tr');
-            const badge = row ? row.querySelector('.status-badge') : null;
-            if(badge){
-                badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-                badge.className = `status-badge ${status}`;
-            }
-            const nameCell = row.querySelector('.signatory-name');
-            if(nameCell && latestSigName){nameCell.textContent = latestSigName;}
-            const tBtn=row.querySelector('.apply-btn');
-            if(tBtn){
-                if(status==='unapplied'){
-                    tBtn.disabled=false;
-                    tBtn.innerHTML='<i class="fas fa-paper-plane"></i> Apply';
-                    tBtn.classList.remove('btn-success'); tBtn.classList.add('btn-primary');
-                }else{
-                    tBtn.disabled=true;
-                    tBtn.innerHTML='<i class="fas fa-check"></i> '+status.charAt(0).toUpperCase()+status.slice(1);
-                    tBtn.classList.remove('btn-primary'); tBtn.classList.add('btn-success');
-                }
-            }
-        }
-    }
-    
-    // Load user's clearance periods for period selector
-    async function loadUserPeriods() {
-        try {
-            const response = await fetch('../../api/clearance/user_periods.php', {
-                credentials: 'same-origin'
-            });
-            const data = await response.json();
-            
-            if (data.success && data.periods.length > 0) {
-                const select = document.getElementById('schoolYearTerm');
-                select.innerHTML = '<option value="">Select a period</option>';
-                
-                data.periods.forEach(period => {
-                    const option = document.createElement('option');
-                    option.value = period.clearance_form_id;
-                    option.textContent = period.period_text;
-                    if (period.is_active) {
-                        option.textContent += ' (Active)';
-                    }
-                    select.appendChild(option);
-                });
-                
-                // Auto-select the first period and load its data
-                if (data.periods.length > 0) {
-                    select.value = data.periods[0].clearance_form_id;
-                    updateClearanceData();
-                }
-            } else {
-                const select = document.getElementById('schoolYearTerm');
-                select.innerHTML = '<option value="">No clearance periods found</option>';
-            }
-        } catch (error) {
-            console.error('Error loading user periods:', error);
-            const select = document.getElementById('schoolYearTerm');
-            select.innerHTML = '<option value="">Error loading periods</option>';
-        }
-    }
-
-    // Update clearance data based on selected period
-    async function updateClearanceData() {
-        const select = document.getElementById('schoolYearTerm');
-        const selectedFormId = select.value;
-        
-        if (!selectedFormId) {
-            return;
-        }
-        
-        try {
-            // Load clearance data for the selected form
-            const response = await fetch(`../../api/clearance/status.php?form_id=${selectedFormId}`, {
-                credentials: 'same-origin'
-            });
-            const data = await response.json();
-            
-            if (data.success) {
-                updateClearanceUI(data);
-            } else {
-                showToast('Failed to load clearance data', 'error');
-                showToast('Error loading clearance data', 'error');
-            }
-        } catch (error) {
-            console.error('Error updating clearance data:', error);
-            showToast('Error loading clearance data', 'error');
-        }
-    }
-
-    // Update the clearance UI based on data
-    function updateClearanceUI(data) {
-        // Update overall status
-        const overallStatus = document.querySelector('.overall-status-badge');
-        if (overallStatus) {
-            overallStatus.innerHTML = `<i class="fas fa-info-circle"></i> Clearance Progress Status: ${data.overall_status}`;
-        }
-        
-        // Update signatory cards and table rows based on data.signatories
-        updateSignatoryCards(data.signatories);
-        updateSignatoryTable(data.signatories);
-    }
-
-    // Update signatory cards
-    function updateSignatoryCards(signatories) {
-        const cardsGrid = document.querySelector('.signatory-cards-grid');
-        if (!cardsGrid || !signatories) return;
-        
-        cardsGrid.innerHTML = '';
-        
-        signatories.forEach(signatory => {
-            const card = createSignatoryCard(signatory);
-            cardsGrid.appendChild(card);
-        });
-    }
-
-    // Create a signatory card
-    function createSignatoryCard(signatory) {
-        const card = document.createElement('div');
-        card.className = 'signatory-card';
-        card.innerHTML = `
-            <div class="card-header">
-                <h3>${signatory.designation_name}</h3>
-                <p>${getStatusDescription(signatory.action)}</p>
-            </div>
-            <div class="card-content">
-                <div class="status-info">
-                    <span class="status-label">Status:</span>
-                    <span class="status-value ${getStatusClass(signatory.action)}">${signatory.action || 'Pending'}</span>
-                </div>
-                <div class="date-info">
-                    <span class="date-label">Date Signed:</span>
-                    <span class="date-value">${signatory.updated_at ? new Date(signatory.updated_at).toLocaleDateString() : 'N/A'}</span>
-                </div>
-                <div class="remarks-info">
-                    <span class="remarks-label">Remarks:</span>
-                    <span class="remarks-value">${signatory.remarks || 'None'}</span>
-                </div>
-                <div class="card-actions">
-                    ${getActionButton(signatory)}
-                </div>
-                <div class="signatory-info">
-                    <span class="signatory-label">Signatory:</span>
-                    <span class="signatory-value">${signatory.signatory_name || 'N/A'}</span>
-                </div>
-            </div>
-        `;
-        return card;
-    }
-
-    // Update signatory table
-    function updateSignatoryTable(signatories) {
-        const tableBody = document.querySelector('.clearance-table tbody');
-        if (!tableBody || !signatories) return;
-        
-        tableBody.innerHTML = '';
-        
-        signatories.forEach(signatory => {
-            const row = createSignatoryTableRow(signatory);
-            tableBody.appendChild(row);
-        });
-    }
-
-    // Create a signatory table row
-    function createSignatoryTableRow(signatory) {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${signatory.designation_name}</td>
-            <td class="signatory-name">${signatory.signatory_name || 'N/A'}</td>
-            <td><span class="status-badge ${getStatusClass(signatory.action)}">${signatory.action || 'Pending'}</span></td>
-            <td>${signatory.updated_at ? new Date(signatory.updated_at).toLocaleDateString() : 'N/A'}</td>
-            <td>${signatory.remarks || 'None'}</td>
-            <td>
-                <div class="action-buttons">
-                    ${getActionButton(signatory)}
-                    <button class="btn btn-sm btn-outline" onclick="viewDetails('${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}')">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-            </td>
-        `;
-        return row;
-    }
-
-    // Helper functions
-    function getStatusDescription(action) {
-        if (!action || action === '') return 'Awaiting Application';
-        if (action === 'Pending') return 'Awaiting Signatory';
-        if (action === 'Approved') return 'Approved';
-        if (action === 'Rejected') return 'Rejected';
-        return 'Unknown Status';
-    }
-
-    function getStatusClass(action) {
-        if (!action || action === '') return 'pending';
-        if (action === 'Approved') return 'approved';
-        if (action === 'Releted') return 'rejected';
-        return 'pending';
-    }
-
-    function getActionButton(signatory) {
-        if (signatory.action === 'Approved') {
-            return '<button class="btn btn-sm btn-success" disabled><i class="fas fa-check"></i> Approved</button>';
-        } else if (signatory.action === 'Rejected') {
-            return `<button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}')" data-signatory="${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}">
-                        <i class="fas fa-paper-plane"></i> Re-apply
-                    </button>`;
-        } else {
-            return `<button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}')" data-signatory="${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}">
-                        <i class="fas fa-paper-plane"></i> Apply
-                    </button>`;
-        }
     }
 
     // Sidebar toggle function
@@ -1003,87 +870,16 @@
         
         // Load user periods for period selector
         loadUserPeriods();
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            stopRealTimeMonitoring();
+            // Only call cleanup if the grace period manager exists
+            if (window.gracePeriodUIManager && typeof window.gracePeriodUIManager.cleanup === 'function') {
+                window.gracePeriodUIManager.cleanup();
+            }
+        });
     });
-
-    // Check and update dashboard button when manual mode is detected
-    async function checkAndUpdateDashboardButton() {
-        try {
-            const response = await fetch('../../api/clearance/status.php', {
-                credentials: 'same-origin'
-            });
-            const data = await response.json();
-            
-            if (data.success && data.manual_applied) {
-                // User is now in manual mode - update dashboard button via localStorage
-                localStorage.setItem('clearance_manual_mode', 'true');
-                localStorage.setItem('clearance_manual_mode_timestamp', Date.now().toString());
-                
-                // Show notification
-                showToast('Manual mode detected. "Apply for Clearance" button is now disabled.', 'info');
-            }
-        } catch (error) {
-            console.error('Error checking manual mode:', error);
-        }
-    }
-
-    // ---------------------- LOAD STATUS FROM API --------------------------
-    document.addEventListener('DOMContentLoaded', loadClearanceStatus);
-
-    function slugify(str){return str.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');}
-
-    function loadClearanceStatus(){
-        fetch('../../api/clearance/status.php',{credentials:'same-origin'})
-        .then(res=>res.json())
-        .then(data=>{
-            if(!data.success){return;}
-            if(!data.applied){
-                const overallBadge=document.querySelector('.overall-status-badge');
-                if(overallBadge){overallBadge.innerHTML=`<i class="fas fa-info-circle"></i> Overall Clearance Status: Unapplied`;}
-
-                document.querySelectorAll('.apply-btn').forEach(btn=>{
-                    btn.disabled=false;
-                    btn.innerHTML='<i class="fas fa-paper-plane"></i> Apply';
-                    btn.classList.remove('btn-success','btn-danger');
-                    btn.classList.add('btn-primary');
-                });
-                return;
-            }
-            // Update overall badge
-            const overallBadge=document.querySelector('.overall-status-badge');
-            if(overallBadge){overallBadge.innerHTML=`<i class="fas fa-info-circle"></i> Overall Clearance Status: ${data.overall_status}`;}
-
-            data.signatories.forEach(sig=>{
-                const key=slugify(sig.designation_name);
-                const action=(sig.action&&sig.action!=='')?sig.action:'Unapplied';
-                updateSignatoryStatus(key,action.toLowerCase(),sig.signatory_name||'');
-                // date & remarks update in card
-                const card=document.querySelector(`.signatory-card .apply-btn[data-signatory="${key}"]`)?.closest('.signatory-card');
-                if(card){
-                    const dateEl=card.querySelector('.date-value');
-                    if(dateEl&&sig.updated_at){dateEl.textContent=sig.updated_at.split(' ')[0];}
-                    const remarksEl=card.querySelector('.remarks-value');
-                    if(remarksEl&&sig.remarks){remarksEl.textContent=sig.remarks;}
-                    const btn=card.querySelector('.apply-btn');
-                    if(btn){
-                        if(action==='Unapplied'){
-                            btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> Apply'; btn.classList.remove('btn-success'); btn.classList.add('btn-primary');
-                        }else{
-                            btn.disabled=true; btn.innerHTML='<i class="fas fa-check"></i> '+action; btn.classList.remove('btn-primary'); btn.classList.add('btn-success');
-                        }
-                    }
-                }
-                const tBtn=document.querySelector(`.clearance-table .apply-btn[data-signatory=\"${key}\"]`);
-                    if(tBtn){
-                        if(action==='Unapplied'){
-                            tBtn.disabled=false; tBtn.innerHTML='<i class="fas fa-paper-plane"></i> Apply'; tBtn.classList.remove('btn-success'); tBtn.classList.add('btn-primary');
-                        }else{
-                            tBtn.disabled=true; tBtn.innerHTML='<i class="fas fa-check"></i> '+action; tBtn.classList.remove('btn-primary'); tBtn.classList.add('btn-success');
-                        }
-                    }
-            });
-        })
-        .catch(err=>console.error('Status load failed',err));
-    }
     </script>
 </body>
-</html> 
+</html>

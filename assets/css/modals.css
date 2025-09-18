@@ -1,4 +1,263 @@
 /* Modal Styles - Online Clearance System */
+
+/* Program Head Preview Styles */
+.program-head-preview-container {
+  background: linear-gradient(
+    135deg,
+    var(--very-light-off-white) 0%,
+    #f8f9fa 100%
+  );
+  border: 1px solid var(--light-muted-blue);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(12, 85, 145, 0.1);
+}
+
+.program-head-preview-container h4 {
+  color: var(--deep-navy-blue);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.program-head-preview-container h4::before {
+  content: "👥";
+  font-size: 16px;
+}
+
+.program-head-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.program-head-preview-item {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.program-head-preview-item:hover {
+  border-color: var(--medium-muted-blue);
+  box-shadow: 0 2px 4px rgba(12, 85, 145, 0.1);
+}
+
+.ph-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ph-info strong {
+  color: var(--deep-navy-blue);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ph-employee {
+  color: var(--medium-muted-blue);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.ph-departments {
+  color: var(--medium-muted-blue);
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--very-light-off-white);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+/* Responsive design for Program Head preview */
+@media (max-width: 768px) {
+  .program-head-preview-container {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+
+  .program-head-preview-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .ph-departments {
+    align-self: flex-end;
+  }
+}
+
+/* Current Assignments Display Styles */
+.current-assignments-container {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid var(--light-muted-blue);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(12, 85, 145, 0.1);
+}
+
+.current-assignments-title {
+  color: var(--deep-navy-blue);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.current-assignments-title i {
+  color: var(--medium-muted-blue);
+}
+
+.current-assignments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sector-assignments {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sector-header {
+  background: var(--very-light-off-white);
+  color: var(--deep-navy-blue);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e9ecef;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sector-dept-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.assigned-dept-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f8f9fa;
+  transition: all 0.2s ease;
+}
+
+.assigned-dept-item:last-child {
+  border-bottom: none;
+}
+
+.assigned-dept-item:hover {
+  background: #f8f9fa;
+}
+
+.dept-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dept-name {
+  color: var(--deep-navy-blue);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dept-sector {
+  color: var(--medium-muted-blue);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.remove-dept-btn {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 10px;
+}
+
+.remove-dept-btn:hover {
+  background: #c82333;
+  transform: scale(1.1);
+}
+
+/* Enhanced Department Checkbox Styles */
+.dept-label-main {
+  color: var(--deep-navy-blue);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.current-ph-info {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.ph-assigned-label {
+  color: #856404;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.ph-name {
+  color: var(--deep-navy-blue);
+  font-weight: 600;
+}
+
+.ph-employee {
+  color: var(--medium-muted-blue);
+  font-weight: 500;
+}
+
+/* Responsive design for current assignments */
+@media (max-width: 768px) {
+  .current-assignments-container {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+
+  .assigned-dept-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .remove-dept-btn {
+    align-self: flex-end;
+  }
+}
+
 .scope-results-list {
   max-height: 220px;
   overflow: auto;
@@ -2220,6 +2479,190 @@
   margin: 0;
 }
 
+/* Enhanced Program Head Assignment Styles */
+.program-head-assignment-section {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1rem;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.program-head-assignment-section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--medium-muted-blue) 0%,
+    var(--bright-golden-yellow) 100%
+  );
+}
+
+.program-head-assignment-section:hover {
+  border-color: var(--medium-muted-blue);
+  box-shadow: 0 4px 16px rgba(81, 134, 177, 0.1);
+  transform: translateY(-2px);
+}
+
+.department-checkboxes-container {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid #e9ecef;
+  transition: all 0.3s ease;
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid #e9ecef;
+}
+
+.department-checkboxes-container .checkbox-group {
+  margin-top: 1rem;
+  gap: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.department-checkboxes-container .checkbox-group::-webkit-scrollbar {
+  width: 6px;
+}
+
+.department-checkboxes-container .checkbox-group::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.department-checkboxes-container .checkbox-group::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.department-checkboxes-container
+  .checkbox-group::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.department-checkboxes-container .checkbox-option {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 2px solid #e9ecef;
+  background: white;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.department-checkboxes-container .checkbox-option::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(81, 134, 177, 0.05) 0%,
+    rgba(81, 134, 177, 0.02) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.department-checkboxes-container .checkbox-option:hover {
+  border-color: var(--medium-muted-blue);
+  background: #f8f9fa;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(81, 134, 177, 0.15);
+}
+
+.department-checkboxes-container .checkbox-option:hover::before {
+  opacity: 1;
+}
+
+.department-checkboxes-container .checkbox-option.selected {
+  border-color: var(--medium-muted-blue);
+  background: rgba(81, 134, 177, 0.1);
+  box-shadow: 0 0 0 1px var(--medium-muted-blue);
+}
+
+.department-checkboxes-container .checkbox-option.selected::before {
+  opacity: 1;
+}
+
+.department-checkboxes-container .checkbox-option input[type="checkbox"] {
+  margin-right: 0.75rem;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--medium-muted-blue);
+  cursor: pointer;
+}
+
+.department-checkboxes-container
+  .checkbox-option
+  input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.department-checkboxes-container .checkbox-option label {
+  font-weight: 500;
+  color: var(--deep-navy-blue);
+  cursor: pointer;
+  margin: 0;
+  flex: 1;
+  line-height: 1.4;
+}
+
+.department-checkboxes-container .checkbox-option.selected label {
+  color: var(--deep-navy-blue);
+  font-weight: 600;
+}
+
+.checkbox-section-label {
+  font-weight: 600;
+  color: var(--deep-navy-blue);
+  margin-bottom: 0.5rem;
+  display: block;
+  font-size: 1rem;
+}
+
+/* Loading state for department checkboxes */
+.department-checkboxes-container .loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--medium-muted-blue);
+  font-style: italic;
+}
+
+.department-checkboxes-container .loading-state i {
+  margin-right: 8px;
+  animation: spin 1s linear infinite;
+}
+
+/* Error state for department checkboxes */
+.department-checkboxes-container .error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #dc3545;
+  font-style: italic;
+}
+
+.department-checkboxes-container .error-state i {
+  margin-right: 8px;
+}
+
 /* Responsive adjustments for faculty section */
 @media (max-width: 768px) {
   .faculty-fields-section {
@@ -2239,7 +2682,74 @@
     padding: 1rem;
   }
 
+  .department-checkboxes-container {
+    padding: 0.75rem;
+  }
+
   .department-checkboxes-container .checkbox-option {
     padding: 0.5rem 0.75rem;
+  }
+
+  .department-checkboxes-container .checkbox-group {
+    max-height: 150px;
+  }
+}
+
+/* Bulk Selection Modal Styles */
+.bulk-selection-modal {
+  max-width: 500px;
+  width: 90%;
+}
+
+.bulk-selection-modal .filter-sections {
+  padding: 20px 0;
+}
+
+.bulk-selection-modal .filter-section-label {
+  font-weight: 600;
+  color: var(--dark-blue);
+  margin-bottom: 12px;
+  display: block;
+  font-size: 14px;
+}
+
+.bulk-selection-modal .checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.bulk-selection-modal .custom-checkbox {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.bulk-selection-modal .custom-checkbox input[type="checkbox"] {
+  margin-right: 10px;
+  width: 16px;
+  height: 16px;
+}
+
+.bulk-selection-modal .custom-checkbox.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bulk-selection-modal .custom-checkbox.disabled input[type="checkbox"] {
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .bulk-selection-modal {
+    width: 95%;
+    margin: 20px;
+  }
+
+  .bulk-selection-modal .checkbox-group {
+    gap: 8px;
   }
 }

@@ -16,6 +16,7 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
+    <link rel="stylesheet" href="../../assets/css/sector-clearance.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -39,163 +40,348 @@ if (session_status() == PHP_SESSION_NONE) {
                             <p>Manage clearance periods, signatories, and monitor clearance statistics</p>
                         </div>
 
-                <!-- Mixed Accordion + Card Design -->
-                <div class="clearance-management-mixed">
+                        <!-- Grace Period Monitoring Section -->
+                        <div class="grace-period-monitoring" id="grace-period-monitoring">
+                            <div class="monitoring-header">
+                                <h3><i class="fas fa-clock"></i> Grace Period Monitoring</h3>
+                                <p>Monitor system transitions and grace periods across all clearance sectors</p>
+                            </div>
+                            <div class="grace-period-grid" id="grace-period-grid">
+                                <!-- Grace period cards will be populated by JavaScript -->
+                            </div>
+                        </div>
+
+                <!-- Sector-Based Clearance Management -->
+                <div class="sector-clearance-management">
                     <!-- School Years & Terms Card -->
-                    <div class="management-card school-years-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-calendar-alt"></i> School Years & Terms</h3>
-                            <div class="card-actions">
+                    <div class="sector-period-card academic-year-sector" id="academic-year-card">
+                        <div class="sector-card-header">
+                            <div class="sector-info">
+                                <h3><i class="fas fa-calendar-alt"></i> Academic Year & Terms</h3>
+                                <div class="sector-status">
+                                    <span class="status-badge" id="academic-year-status-badge">Current</span>
+                                </div>
+                            </div>
+                            <div class="sector-actions">
+                                <button class="btn btn-sm btn-outline-primary" onclick="showViewPastClearancesModal()">
+                                    <i class="fas fa-history"></i> View Past Clearances
+                                </button>
                                 <button class="btn btn-sm btn-primary" onclick="showAddSchoolYearModal()">
                                     <i class="fas fa-plus"></i> Add Year
                                 </button>
                             </div>
                         </div>
-                        <div class="card-content">
-                            <!-- School Year Navigation -->
-                            <div class="school-year-navigation">
-                                <button class="nav-arrow" id="prevYearBtn" onclick="navigateSchoolYear('prev')">
-                                    <i class="fa-solid fa-caret-left"></i>
-                                </button>
-                                <div class="current-year-display">
-                                    <span id="currentYearName">2024-2025</span>
-                                    <span id="currentYearStatus" class="year-status current">(Current)</span>
-                                    <div class="year-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="editSchoolYear('2024-2025')">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteSchoolYear('2024-2025')">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
+                        
+                        <div class="sector-card-content">
+                            <!-- Academic Year Details -->
+                            <div class="period-details">
+                                <div class="detail-item">
+                                    <span class="detail-label">Current Year:</span>
+                                    <span class="detail-value" id="currentYearName">2024-2025</span>
                                 </div>
-                                <button class="nav-arrow" id="nextYearBtn" onclick="navigateSchoolYear('next')">
-                                    <i class="fa-solid fa-caret-right"></i>
-                                </button>
+                                <div class="detail-item">
+                                    <span class="detail-label">Status:</span>
+                                    <span class="detail-value" id="currentYearStatus">Active</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Terms:</span>
+                                    <span class="detail-value" id="total-terms">2</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Active Terms:</span>
+                                    <span class="detail-value" id="active-terms">1</span>
+                                </div>
                             </div>
                             
-                            <div class="terms-list">
-                                <!-- Terms will be populated by JavaScript -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Statistics Card (Compact) -->
-                    <div class="management-card quick-stats-card">
-                        <div class="card-header">
-                            <h3><i class="fas fa-chart-bar"></i> Quick Statistics</h3>
-                        </div>
-                        <div class="card-content">
-                            <div class="compact-stats">
-                                <div class="stat-line">
-                                    <span class="stat-label">Students:</span>
-                                    <span class="stat-value">45</span>
-                                    <span class="stat-separator">|</span>
-                                    <span class="stat-label">Faculty:</span>
-                                    <span class="stat-value">12</span>
+                            <!-- Terms List -->
+                            <div class="sector-signatories">
+                                <div class="signatories-header">
+                                    <h4><i class="fas fa-list"></i> Terms Overview</h4>
                                 </div>
-                                <div class="stat-line">
-                                    <span class="stat-label">Applied:</span>
-                                    <span class="stat-value">32</span>
-                                    <span class="stat-separator">|</span>
-                                    <span class="stat-label">Completed:</span>
-                                    <span class="stat-value">28</span>
+                                <div class="terms-list" id="terms-list">
+                                    <!-- Terms will be populated by JavaScript -->
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Student Clearance Signatories Accordion -->
-                    <div class="accordion-section">
-                        <div class="accordion-header" onclick="toggleAccordion('student-signatories')">
-                            <h3><i class="fas fa-user-graduate"></i> Student Clearance Signatories</h3>
-                            <span class="accordion-icon">▼</span>
+                    <!-- Quick Statistics Card -->
+                    <div class="sector-period-card statistics-sector" id="statistics-card">
+                        <div class="sector-card-header">
+                            <div class="sector-info">
+                                <h3><i class="fas fa-chart-bar"></i> System Statistics</h3>
+                                <div class="sector-status">
+                                    <span class="status-badge" id="statistics-status-badge">Live</span>
+                                </div>
+                            </div>
+                            <div class="sector-actions">
+                                <button class="btn btn-sm btn-outline-primary" onclick="refreshStatistics()">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                                <button class="btn btn-sm btn-primary" onclick="openExportModal()">
+                                    <i class="fas fa-file-export"></i> Export
+                                </button>
+                            </div>
+                            </div>
+                            
+                        <div class="sector-card-content">
+                            <!-- Statistics Details -->
+                            <div class="period-details">
+                                <div class="detail-item">
+                                    <span class="detail-label">Total Students:</span>
+                                    <span class="detail-value" id="total-students">45</span>
+                            </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Total Faculty:</span>
+                                    <span class="detail-value" id="total-faculty">12</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Applied:</span>
+                                    <span class="detail-value" id="total-applied">32</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Completed:</span>
+                                    <span class="detail-value" id="total-completed">28</span>
                         </div>
-                        <div class="accordion-content" id="student-signatories">
-                            <div class="signatory-card">
-                                <div class="signatory-list" id="studentSignatoryList">
-                                    <div class="signatory-item required-first">
-                                        <span class="signatory-name">Cashier</span>
-                                        <span class="signatory-requirement">(Required First)</span>
+                    </div>
+
+                            <!-- Sector Breakdown -->
+                            <div class="sector-signatories">
+                                <div class="signatories-header">
+                                    <h4><i class="fas fa-chart-pie"></i> Sector Breakdown</h4>
+                        </div>
+                                <div class="statistics-breakdown" id="statistics-breakdown">
+                                    <div class="breakdown-item">
+                                        <div class="breakdown-label">
+                                            <i class="fas fa-university"></i> College
+                                </div>
+                                        <div class="breakdown-stats">
+                                            <span class="breakdown-stat">Students: <strong>25</strong></span>
+                                            <span class="breakdown-stat">Applied: <strong>18</strong></span>
+                                            <span class="breakdown-stat">Completed: <strong>15</strong></span>
+                                </div>
+                            </div>
+                                    <div class="breakdown-item">
+                                        <div class="breakdown-label">
+                                            <i class="fas fa-graduation-cap"></i> Senior High School
+                                        </div>
+                                        <div class="breakdown-stats">
+                                            <span class="breakdown-stat">Students: <strong>20</strong></span>
+                                            <span class="breakdown-stat">Applied: <strong>14</strong></span>
+                                            <span class="breakdown-stat">Completed: <strong>13</strong></span>
+                                        </div>
                                     </div>
-                                    <div class="signatory-item optional">
-                                        <span class="signatory-name">Program Head</span>
-                                        <button class="remove-signatory" onclick="removeSignatory('student', 'Program Head')">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                    <div class="signatory-item optional">
-                                        <span class="signatory-name">Library</span>
-                                        <button class="remove-signatory" onclick="removeSignatory('student', 'Library')">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                    <div class="signatory-item optional">
-                                        <span class="signatory-name">Clinic</span>
-                                        <button class="remove-signatory" onclick="removeSignatory('student', 'Clinic')">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                    <div class="signatory-item optional">
-                                        <span class="signatory-name">Guidance</span>
-                                        <button class="remove-signatory" onclick="removeSignatory('student', 'Guidance')">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                    <div class="signatory-item required-last">
-                                        <span class="signatory-name">Registrar</span>
-                                        <span class="signatory-requirement">(Required Last)</span>
+                                    <div class="breakdown-item">
+                                        <div class="breakdown-label">
+                                            <i class="fas fa-chalkboard-teacher"></i> Faculty
+                                        </div>
+                                        <div class="breakdown-stats">
+                                            <span class="breakdown-stat">Faculty: <strong>12</strong></span>
+                                            <span class="breakdown-stat">Applied: <strong>8</strong></span>
+                                            <span class="breakdown-stat">Completed: <strong>7</strong></span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="signatory-actions">
-                                    <button class="btn btn-sm btn-primary" onclick="openAddScopeModal('student')">
-                                        <i class="fas fa-plus"></i> Add New
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sector-Based Clearance Periods -->
+                    <div class="sector-clearance-periods">
+                        <!-- College Clearance Period Card -->
+                        <div class="sector-period-card college-sector" id="college-sector-card">
+                            <div class="sector-card-header">
+                                <div class="sector-info">
+                                    <h3><i class="fas fa-university"></i> College Clearance Period</h3>
+                                    <div class="sector-status">
+                                        <span class="status-badge" id="college-status-badge">Not Started</span>
+                        </div>
+                                </div>
+                                <div class="sector-actions">
+                                    <button class="btn btn-sm btn-success" id="college-start-btn" onclick="startSectorPeriod('College')">
+                                        <i class="fas fa-play"></i> Start Clearance Period
                                     </button>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="openSignatorySettingsModal('student')">
-                                        <i class="fas fa-cog"></i> Settings
+                                    <button class="btn btn-sm btn-warning" id="college-pause-btn" onclick="pauseSectorPeriod('College')" style="display: none;">
+                                        <i class="fas fa-pause"></i> Pause Clearance Period
                                     </button>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="clearAllSignatories('student')">
+                                    <button class="btn btn-sm btn-danger" id="college-close-btn" onclick="closeSectorPeriod('College')" style="display: none;">
+                                        <i class="fas fa-stop"></i> End Clearance Period
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="sector-card-content">
+                                <!-- Period Details -->
+                                <div class="period-details">
+                                    <div class="detail-item">
+                                        <span class="detail-label">Start Date:</span>
+                                        <span class="detail-value" id="college-start-date">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">End Date:</span>
+                                        <span class="detail-value" id="college-end-date">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Applications:</span>
+                                        <span class="detail-value" id="college-applications">0</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Completed:</span>
+                                        <span class="detail-value" id="college-completed">0</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Integrated Signatories -->
+                                <div class="sector-signatories">
+                                    <div class="signatories-header">
+                                        <h4><i class="fas fa-signature"></i> Clearance Signatories</h4>
+                                        <div class="signatory-actions">
+                                            <button class="btn btn-xs btn-primary" onclick="openAddScopeModal('College')">
+                                                <i class="fas fa-plus"></i> Add Signatory
+                                            </button>
+                                            <button class="btn btn-xs btn-outline-primary" onclick="openSignatorySettingsModal('College')" title="Configure signatory settings">
+                                                <i class="fas fa-cog"></i> Settings
+                                            </button>
+                                            <button class="btn btn-xs btn-outline-danger" onclick="clearAllSignatories('College')">
                                         <i class="fas fa-trash"></i> Clear All
                                     </button>
+                                        </div>
+                                    </div>
+                                    <div class="signatory-list" id="collegeSignatoryList">
+                                        <div class="loading-text">Loading College signatories...</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Faculty Clearance Signatories Accordion -->
-                    <div class="accordion-section">
-                        <div class="accordion-header" onclick="toggleAccordion('faculty-signatories')">
-                            <h3><i class="fas fa-chalkboard-teacher"></i> Faculty Clearance Signatories</h3>
-                            <span class="accordion-icon">▼</span>
+                        <!-- Senior High School Clearance Period Card -->
+                        <div class="sector-period-card shs-sector" id="shs-sector-card">
+                            <div class="sector-card-header">
+                                <div class="sector-info">
+                                    <h3><i class="fas fa-graduation-cap"></i> Senior High School Clearance Period</h3>
+                                    <div class="sector-status">
+                                        <span class="status-badge" id="shs-status-badge">Not Started</span>
                         </div>
-                        <div class="accordion-content" id="faculty-signatories">
-                            <div class="signatory-card">
-                                <div class="signatory-list" id="facultySignatoryList">
-                                    <div class="signatory-item required-first">
-                                        <span class="signatory-name">Accountant</span>
-                                        <span class="signatory-requirement">(Required First)</span>
+                                </div>
+                                <div class="sector-actions">
+                                    <button class="btn btn-sm btn-success" id="shs-start-btn" onclick="startSectorPeriod('Senior High School')">
+                                        <i class="fas fa-play"></i> Start Clearance Period
+                                    </button>
+                                    <button class="btn btn-sm btn-warning" id="shs-pause-btn" onclick="pauseSectorPeriod('Senior High School')" style="display: none;">
+                                        <i class="fas fa-pause"></i> Pause Clearance Period
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" id="shs-close-btn" onclick="closeSectorPeriod('Senior High School')" style="display: none;">
+                                        <i class="fas fa-stop"></i> End Clearance Period
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="sector-card-content">
+                                <!-- Period Details -->
+                                <div class="period-details">
+                                    <div class="detail-item">
+                                        <span class="detail-label">Start Date:</span>
+                                        <span class="detail-value" id="shs-start-date">-</span>
                                     </div>
-                                    <div class="signatory-item optional">
-                                        <span class="signatory-name">Program Head</span>
-                                        <button class="remove-signatory" onclick="removeSignatory('faculty', 'Program Head')">
-                                            <i class="fas fa-times"></i>
-                                        </button>
+                                    <div class="detail-item">
+                                        <span class="detail-label">End Date:</span>
+                                        <span class="detail-value" id="shs-end-date">-</span>
                                     </div>
-                                    <div class="signatory-item required-last">
-                                        <span class="signatory-name">Registrar</span>
-                                        <span class="signatory-requirement">(Required Last)</span>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Applications:</span>
+                                        <span class="detail-value" id="shs-applications">0</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Completed:</span>
+                                        <span class="detail-value" id="shs-completed">0</span>
                                     </div>
                                 </div>
-                                <div class="signatory-actions">
-                                    <button class="btn btn-sm btn-primary" onclick="openAddScopeModal('faculty')">
-                                        <i class="fas fa-plus"></i> Add New
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="openSignatorySettingsModal('faculty')">
-                                        <i class="fas fa-cog"></i> Settings
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="clearAllSignatories('faculty')">
+                                
+                                <!-- Integrated Signatories -->
+                                <div class="sector-signatories">
+                                    <div class="signatories-header">
+                                        <h4><i class="fas fa-signature"></i> Clearance Signatories</h4>
+                                        <div class="signatory-actions">
+                                            <button class="btn btn-xs btn-primary" onclick="openAddScopeModal('Senior High School')">
+                                                <i class="fas fa-plus"></i> Add Signatory
+                                            </button>
+                                            <button class="btn btn-xs btn-outline-primary" onclick="openSignatorySettingsModal('Senior High School')" title="Configure signatory settings">
+                                                <i class="fas fa-cog"></i> Settings
+                                            </button>
+                                            <button class="btn btn-xs btn-outline-danger" onclick="clearAllSignatories('Senior High School')">
                                         <i class="fas fa-trash"></i> Clear All
                                     </button>
+                                        </div>
+                                    </div>
+                                    <div class="signatory-list" id="shsSignatoryList">
+                                        <div class="loading-text">Loading SHS signatories...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                        <!-- Faculty Clearance Period Card -->
+                        <div class="sector-period-card faculty-sector" id="faculty-sector-card">
+                            <div class="sector-card-header">
+                                <div class="sector-info">
+                                    <h3><i class="fas fa-chalkboard-teacher"></i> Faculty Clearance Period</h3>
+                                    <div class="sector-status">
+                                        <span class="status-badge" id="faculty-status-badge">Not Started</span>
+                        </div>
+                                    </div>
+                                <div class="sector-actions">
+                                    <button class="btn btn-sm btn-success" id="faculty-start-btn" onclick="startSectorPeriod('Faculty')">
+                                        <i class="fas fa-play"></i> Start Clearance Period
+                                    </button>
+                                    <button class="btn btn-sm btn-warning" id="faculty-pause-btn" onclick="pauseSectorPeriod('Faculty')" style="display: none;">
+                                        <i class="fas fa-pause"></i> Pause Clearance Period
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" id="faculty-close-btn" onclick="closeSectorPeriod('Faculty')" style="display: none;">
+                                        <i class="fas fa-stop"></i> End Clearance Period
+                                        </button>
+                                    </div>
+                                    </div>
+                            
+                            <div class="sector-card-content">
+                                <!-- Period Details -->
+                                <div class="period-details">
+                                    <div class="detail-item">
+                                        <span class="detail-label">Start Date:</span>
+                                        <span class="detail-value" id="faculty-start-date">-</span>
+                                </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">End Date:</span>
+                                        <span class="detail-value" id="faculty-end-date">-</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Applications:</span>
+                                        <span class="detail-value" id="faculty-applications">0</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Completed:</span>
+                                        <span class="detail-value" id="faculty-completed">0</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Integrated Signatories -->
+                                <div class="sector-signatories">
+                                    <div class="signatories-header">
+                                        <h4><i class="fas fa-signature"></i> Clearance Signatories</h4>
+                                <div class="signatory-actions">
+                                            <button class="btn btn-xs btn-primary" onclick="openAddScopeModal('Faculty')">
+                                                <i class="fas fa-plus"></i> Add Signatory
+                                    </button>
+                                            <button class="btn btn-xs btn-outline-primary" onclick="openSignatorySettingsModal('Faculty')" title="Configure signatory settings">
+                                                <i class="fas fa-cog"></i> Settings
+                                            </button>
+                                            <button class="btn btn-xs btn-outline-danger" onclick="clearAllSignatories('Faculty')">
+                                        <i class="fas fa-trash"></i> Clear All
+                                    </button>
+                                        </div>
+                                    </div>
+                                    <div class="signatory-list" id="facultySignatoryList">
+                                        <div class="loading-text">Loading Faculty signatories...</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -219,7 +405,6 @@ if (session_status() == PHP_SESSION_NONE) {
     </main>
 
     <!-- Include Modals -->
-    <?php include '../../Modals/EditSchoolYearModal.php'; ?>
     <?php include '../../Modals/ClearanceExportModal.php'; ?>
     <?php include '../../Modals/AddSignatoryModal.php'; ?>
     <?php include '../../Modals/AddSchoolYearModal.php'; ?>
@@ -229,6 +414,7 @@ if (session_status() == PHP_SESSION_NONE) {
 
     <!-- Scripts -->
     <script src="../../assets/js/activity-tracker.js"></script>
+    <script src="../../assets/js/grace-period-manager.js"></script>
     
     <!-- Include Audit Functions -->
     <?php include '../../includes/functions/audit_functions.php'; ?>
@@ -237,27 +423,124 @@ if (session_status() == PHP_SESSION_NONE) {
         // Clearance Management Functions
         async function fetchJSON(url, options = {}) {
             const res = await fetch(url, { credentials: 'include', ...options });
-            const data = await res.json().catch(()=>({}));
-            if (!res.ok || data.success === false) { throw new Error(data.message || 'Request failed'); }
+            
+            // Check if response is ok first
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            
+            // Get response text first to debug any JSON parsing issues
+            const responseText = await res.text();
+            console.log(`🔍 DEBUG: Raw response for ${url}:`, responseText);
+            
+            // Try to parse JSON
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseError) {
+                console.error(`❌ JSON Parse Error for ${url}:`, parseError);
+                console.error(`❌ Raw response:`, responseText);
+                throw new Error(`Invalid JSON response: ${parseError.message}`);
+            }
+            
+            // Check if the parsed data indicates failure
+            if (data.success === false) {
+                throw new Error(data.message || 'Request failed');
+            }
+            
             return data;
         }
 
+        // Confirmation Modal Functions
+        window.confirmationResolve = null;
+        
+        function showConfirmationModal(title, message, confirmText = 'Confirm', cancelText = 'Cancel', type = 'info') {
+            return new Promise((resolve) => {
+                window.confirmationResolve = resolve;
+                
+                const modal = document.getElementById('confirmationModal');
+                const header = document.getElementById('alertHeader');
+                const icon = document.getElementById('alertIcon');
+                const titleEl = document.getElementById('alertTitle');
+                const messageEl = document.getElementById('alertMessage');
+                const confirmBtn = document.getElementById('confirmBtn');
+                const cancelBtn = document.getElementById('cancelBtn');
+                
+                // Set content
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+                confirmBtn.textContent = confirmText;
+                cancelBtn.textContent = cancelText;
+                
+                // Set styling based on type
+                header.className = `alert-modal-header alert-${type}`;
+                
+                // Set icon based on type
+                const icons = {
+                    'info': 'fas fa-info-circle',
+                    'warning': 'fas fa-exclamation-triangle',
+                    'danger': 'fas fa-exclamation-circle',
+                    'success': 'fas fa-check-circle'
+                };
+                icon.className = icons[type] || icons['info'];
+                
+                // Set button styling
+                if (type === 'danger') {
+                    confirmBtn.className = 'btn btn-danger';
+                } else if (type === 'warning') {
+                    confirmBtn.className = 'btn btn-warning';
+                } else {
+                    confirmBtn.className = 'btn btn-primary';
+                }
+                
+                // Show modal
+                modal.style.display = 'flex';
+                setTimeout(() => modal.classList.add('active'), 10);
+            });
+        }
+        
+        function closeConfirmationModal() {
+            const modal = document.getElementById('confirmationModal');
+            modal.classList.remove('active');
+            setTimeout(() => modal.style.display = 'none', 300);
+            
+            if (window.confirmationResolve) {
+                window.confirmationResolve(false);
+                window.confirmationResolve = null;
+            }
+        }
+        
+        // Override will be set after alerts.js is loaded
+
         async function loadScopeSignatories(type){
-            const listEl = document.getElementById(type==='student' ? 'studentSignatoryList' : 'facultySignatoryList');
-            if (!listEl) return;
+            // Normalize clearance type to proper case
+            const normalizedType = type === 'faculty' ? 'Faculty' : type;
+            
+            // Map clearance types to their corresponding list elements
+            const listElementMap = {
+                'College': 'collegeSignatoryList',
+                'Senior High School': 'shsSignatoryList',
+                'Faculty': 'facultySignatoryList'
+            };
+            
+            const listEl = document.getElementById(listElementMap[normalizedType]);
+            if (!listEl) {
+                console.error(`List element not found for type: ${type} (normalized: ${normalizedType})`);
+                return;
+            }
             
             try {
-                // Fetch signatories and settings in parallel
+                // Fetch signatories and settings in parallel using new sector-based API
                 const [signatoriesData, settingsData] = await Promise.all([
-                    fetchJSON(`../../api/signatories/list.php?limit=200&clearance_type=${encodeURIComponent(type)}`),
-                    fetchJSON(`../../api/signatories/scope_settings.php?clearance_type=${encodeURIComponent(type)}`)
+                    fetchJSON(`../../api/signatories/sector_assignments.php?clearance_type=${encodeURIComponent(normalizedType)}`),
+                    fetchJSON(`../../api/signatories/sector_settings.php?clearance_type=${encodeURIComponent(normalizedType)}`)
                 ]);
                 
                 const items = signatoriesData.signatories || [];
-                const settings = settingsData.settings || {};
+                const settings = settingsData.settings?.[0] || {};
                 
                 if (items.length === 0) {
-                    listEl.innerHTML = '<div style="color:#6c757d;padding:6px 0;">No signatories assigned to this scope yet</div>';
+                    listEl.innerHTML = '<div style="color:#6c757d;padding:6px 0;">No signatories assigned to this sector yet</div>';
                     return;
                 }
                 
@@ -284,9 +567,15 @@ if (session_status() == PHP_SESSION_NONE) {
                         }
                     }
                     
+                    // Add department info for Program Heads
+                    let departmentInfo = '';
+                    if (it.is_program_head && it.department_name) {
+                        departmentInfo = ` <span style="color:#6c757d;font-size:12px;">(${it.department_name})</span>`;
+                    }
+                    
                     return `
                         <div class="${itemClass}">
-                            <span class="signatory-name">${it.designation_name} — ${[it.first_name, it.last_name].filter(Boolean).join(' ')}</span>
+                            <span class="signatory-name">${it.designation_name} — ${[it.first_name, it.last_name].filter(Boolean).join(' ')}${departmentInfo}</span>
                             ${requirementText}
                             <button class="remove-signatory" onclick="removeScope('${type}', ${it.user_id}, '${it.designation_name.replace(/'/g, "\'")}')">
                                 <i class="fas fa-times"></i>
@@ -305,15 +594,18 @@ if (session_status() == PHP_SESSION_NONE) {
 
         async function removeScope(type, userId, designation){
             try {
-                console.log(`🔧 Attempting to remove signatory: ${designation} (User ID: ${userId}) from ${type} scope`);
+                // Normalize clearance type
+                const normalizedType = type === 'faculty' ? 'Faculty' : type;
+                
+                console.log(`🔧 Attempting to remove signatory: ${designation} (User ID: ${userId}) from ${normalizedType} scope`);
                 
                 // First, check if this signatory is currently required
-                const settingsData = await fetchJSON(`/OnlineClearanceWebsite/api/signatories/scope_settings.php?clearance_type=${encodeURIComponent(type)}`);
-                const settings = settingsData.settings || {};
+                const settingsData = await fetchJSON(`../../api/signatories/sector_settings.php?clearance_type=${encodeURIComponent(normalizedType)}`);
+                const settings = settingsData.settings?.[0] || {};
                 
                 // Check if trying to remove Required First signatory
                 if (settings.required_first_enabled && settings.required_first_designation_id) {
-                    const signatoryData = await fetchJSON(`/OnlineClearanceWebsite/api/signatories/list.php?limit=200&clearance_type=${encodeURIComponent(type)}`);
+                    const signatoryData = await fetchJSON(`../../api/signatories/sector_assignments.php?clearance_type=${encodeURIComponent(normalizedType)}`);
                     const signatory = signatoryData.signatories?.find(s => s.user_id === userId);
                     
                     if (signatory && signatory.designation_id === settings.required_first_designation_id) {
@@ -324,7 +616,7 @@ if (session_status() == PHP_SESSION_NONE) {
                 
                 // Check if trying to remove Required Last signatory
                 if (settings.required_last_enabled && settings.required_last_designation_id) {
-                    const signatoryData = await fetchJSON(`/OnlineClearanceWebsite/api/signatories/list.php?limit=200&clearance_type=${encodeURIComponent(type)}`);
+                    const signatoryData = await fetchJSON(`../../api/signatories/sector_assignments.php?clearance_type=${encodeURIComponent(normalizedType)}`);
                     const signatory = signatoryData.signatories?.find(s => s.user_id === userId);
                     
                     if (signatory && signatory.designation_id === settings.required_last_designation_id) {
@@ -335,16 +627,20 @@ if (session_status() == PHP_SESSION_NONE) {
                 
                 console.log(`🔧 Proceeding with removal of non-required signatory: ${designation}`);
                 
-                // If not required, proceed with removal
-                const response = await fetchJSON(`/OnlineClearanceWebsite/api/signatories/unassign.php`,{
-                    method:'POST', 
+                // If not required, proceed with removal using new sector-based API
+                const response = await fetchJSON(`../../api/signatories/sector_assignments.php`,{
+                    method:'DELETE', 
                     headers:{'Content-Type':'application/json'}, 
                     credentials:'include',
-                    body: JSON.stringify({ user_id:userId, designation:designation, clearance_type:type })
+                    body: JSON.stringify({ 
+                        clearance_type: normalizedType,
+                        user_id: userId,
+                        designation: designation
+                    })
                 });
                 
                 console.log(`🔧 Removal successful, response:`, response);
-                showToast('Removed scope signatory', 'success');
+                showToast('Removed sector signatory', 'success');
                 
                 // Refresh the signatory list
                 await loadScopeSignatories(type);
@@ -358,11 +654,14 @@ if (session_status() == PHP_SESSION_NONE) {
         // Clear all signatories for a specific scope
         async function clearAllSignatories(type) {
             try {
-                console.log(`🔧 Attempting to clear all signatories from ${type} scope`);
+                // Normalize clearance type
+                const normalizedType = type === 'faculty' ? 'Faculty' : type;
+                
+                console.log(`🔧 Attempting to clear all signatories from ${normalizedType} scope`);
                 
                 // Check if there are any required signatories
-                const settingsData = await fetchJSON(`/OnlineClearanceWebsite/api/signatories/scope_settings.php?clearance_type=${encodeURIComponent(type)}`);
-                const settings = settingsData.settings || {};
+                const settingsData = await fetchJSON(`../../api/signatories/sector_settings.php?clearance_type=${encodeURIComponent(normalizedType)}`);
+                const settings = settingsData.settings?.[0] || {};
                 
                 let warningMessage = '';
                 if (settings.required_first_enabled || settings.required_last_enabled) {
@@ -370,15 +669,14 @@ if (session_status() == PHP_SESSION_NONE) {
                 }
                 
                 // Show confirmation dialog
-                const scopeName = type === 'student' ? 'Student' : 'Faculty';
-                const confirmed = confirm(`Are you sure you want to remove ALL signatories from ${scopeName} clearance? This action cannot be undone.${warningMessage}`);
+                const confirmed = confirm(`Are you sure you want to remove ALL signatories from ${normalizedType} clearance? This action cannot be undone.${warningMessage}`);
                 
                 if (!confirmed) {
                     return;
                 }
                 
                 // Fetch current signatories to get their IDs
-                const signatoriesData = await fetchJSON(`/OnlineClearanceWebsite/api/signatories/list.php?limit=200&clearance_type=${encodeURIComponent(type)}`);
+                const signatoriesData = await fetchJSON(`../../api/signatories/sector_assignments.php?clearance_type=${encodeURIComponent(normalizedType)}`);
                 const signatories = signatoriesData.signatories || [];
                 
                 if (signatories.length === 0) {
@@ -394,14 +692,14 @@ if (session_status() == PHP_SESSION_NONE) {
                 
                 for (const signatory of signatories) {
                     try {
-                        await fetchJSON(`/OnlineClearanceWebsite/api/signatories/unassign.php`, {
-                            method: 'POST',
+                        await fetchJSON(`../../api/signatories/sector_assignments.php`, {
+                            method: 'DELETE',
                             headers: { 'Content-Type': 'application/json' },
                             credentials: 'include',
                             body: JSON.stringify({
+                                clearance_type: normalizedType,
                                 user_id: signatory.user_id,
-                                designation: signatory.designation_name,
-                                clearance_type: type
+                                designation: signatory.designation_name
                             })
                         });
                         successCount++;
@@ -432,26 +730,47 @@ if (session_status() == PHP_SESSION_NONE) {
         let scopeSearchTimer = null;
         window.scopeSelectedIds = new Set();
         window.scopeSelectedLabels = new Map();
+        window.scopeStaffData = new Map(); // Store staff data for designation lookup
         async function openAddScopeModal(type){
-            document.getElementById('scopeTypeField').value = type;
+            // Normalize clearance type
+            const normalizedType = type === 'faculty' ? 'Faculty' : type;
+            
+            document.getElementById('scopeTypeField').value = normalizedType;
             document.getElementById('scopeSearchInput').value = '';
             document.getElementById('scopeSearchResults').innerHTML = '';
             renderScopeSelectedChips();
-            // load include PH toggle
+            
+            // Load include PH toggle using new sector-based API
             try{
-                const data = await fetchJSON(`../../api/signatories/scope_settings.php?clearance_type=${encodeURIComponent(type)}`);
-                const on = !!(data.settings && (data.settings.include_program_head==1 || data.settings.include_program_head===true));
+                const data = await fetchJSON(`../../api/signatories/sector_settings.php?clearance_type=${encodeURIComponent(normalizedType)}`);
+                const on = !!(data.settings?.[0] && (data.settings[0].include_program_head==1 || data.settings[0].include_program_head===true));
                 const cb = document.getElementById('includeProgramHeadCheckbox');
-                if (cb) cb.checked = on;
+                if (cb) {
+                    cb.checked = on;
+                    // Initialize preview visibility based on checkbox state
+                    toggleProgramHeadPreview();
+                }
             }catch(e){ /* ignore */ }
+            
             const modal = document.getElementById('addScopeModal');
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             const addBtn = modal.querySelector('.modal-action-primary');
             if (addBtn){ addBtn.disabled = isPeriodLocked(); }
-            // load all staff table (excluding PH)
+            
+            // Load Program Head preview for this sector
+            await loadProgramHeadPreview(normalizedType);
+            
+            // Load all staff table (excluding PH)
             try{
                 const data = await fetchJSON('../../api/staff/list.php?limit=200&exclude_program_head=1');
+                
+                // Store staff data for designation lookup
+                window.scopeStaffData.clear();
+                (data.staff||[]).forEach(s => {
+                    window.scopeStaffData.set(s.user_id, s);
+                });
+                
                 const tb = document.getElementById('scopeAllStaffTable');
                 if (tb){
                     const rows = (data.staff||[]).map(s => {
@@ -473,6 +792,79 @@ if (session_status() == PHP_SESSION_NONE) {
                 if (tb){ tb.innerHTML = '<tr><td style="padding:10px 10px;color:#dc3545;" colspan="3">Failed to load staff</td></tr>'; }
             }
         }
+
+        // Load Program Head preview for the selected sector
+        async function loadProgramHeadPreview(sector) {
+            try {
+                console.log(`🔍 Loading Program Head preview for sector: ${sector}`);
+                const data = await fetchJSON(`../../api/signatories/sector_settings.php?action=program_heads&clearance_type=${encodeURIComponent(sector)}`);
+                const programHeads = data.program_heads || [];
+                
+                console.log(`🔍 Found ${programHeads.length} Program Heads for ${sector}:`, programHeads);
+                
+                // Get the Program Head preview container from the modal
+                const previewContainer = document.getElementById('programHeadPreviewContainer');
+                const previewTitle = document.getElementById('programHeadPreviewTitle');
+                const previewList = document.getElementById('programHeadPreviewList');
+                
+                if (previewContainer && previewTitle && previewList) {
+                    // Update title
+                    previewTitle.textContent = `Program Heads in ${sector}`;
+                    
+                    if (programHeads.length === 0) {
+                        previewList.innerHTML = '<div style="color:#6c757d;padding:8px;font-style:italic;">No Program Heads assigned to departments in this sector</div>';
+                        previewContainer.style.display = 'block'; // Show even when empty for user awareness
+                    } else {
+                        const html = programHeads.map(ph => `
+                            <div class="program-head-preview-item">
+                                <div class="ph-info">
+                                    <strong>${ph.first_name} ${ph.last_name}</strong>
+                                    <span class="ph-employee">(${ph.employee_number})</span>
+                                </div>
+                                <div class="ph-departments">
+                                    <i class="fas fa-building"></i> ${ph.department_name}
+                                </div>
+                            </div>
+                        `).join('');
+                        previewList.innerHTML = html;
+                        previewContainer.style.display = 'block';
+                    }
+                    
+                    console.log(`✅ Program Head preview updated for ${sector}`);
+                } else {
+                    console.error('❌ Program Head preview elements not found in DOM');
+                }
+            } catch (error) {
+                console.error('❌ Error loading Program Head preview:', error);
+                // Show error message in preview
+                const previewContainer = document.getElementById('programHeadPreviewContainer');
+                const previewList = document.getElementById('programHeadPreviewList');
+                if (previewContainer && previewList) {
+                    previewList.innerHTML = '<div style="color:#dc3545;padding:8px;">Error loading Program Head information</div>';
+                    previewContainer.style.display = 'block';
+                }
+            }
+        }
+
+        // Toggle Program Head preview visibility based on checkbox
+        function toggleProgramHeadPreview() {
+            const checkbox = document.getElementById('includeProgramHeadCheckbox');
+            const previewContainer = document.getElementById('programHeadPreviewContainer');
+            
+            if (checkbox && previewContainer) {
+                if (checkbox.checked) {
+                    previewContainer.style.display = 'block';
+                    // Add visual indicator that this will be auto-assigned
+                    const previewTitle = document.getElementById('programHeadPreviewTitle');
+                    if (previewTitle) {
+                        previewTitle.innerHTML = `Program Heads in ${document.getElementById('scopeTypeField').value} <span style="color:#28a745;font-size:12px;">(Will be auto-assigned)</span>`;
+                    }
+                } else {
+                    previewContainer.style.display = 'none';
+                }
+            }
+        }
+
         function closeAddScopeModal(){
             const modal = document.getElementById('addScopeModal');
             modal.style.display = 'none';
@@ -552,25 +944,63 @@ if (session_status() == PHP_SESSION_NONE) {
             const type = document.getElementById('scopeTypeField').value;
             const includePH = !!document.getElementById('includeProgramHeadCheckbox')?.checked;
             const ids = Array.from(window.scopeSelectedIds);
-            if (!ids.length && includePH === undefined){ showToast('Select at least one staff or toggle Program Head','warning'); return; }
-            // Save scope setting first
+            if (!ids.length && !includePH){ showToast('Select at least one staff or toggle Program Head','warning'); return; }
+            
+            // Save scope setting first using new sector-based API
             try{
-                await fetchJSON('../../api/signatories/scope_settings.php',{
+                await fetchJSON('../../api/signatories/sector_settings.php',{
                     method:'PUT', headers:{'Content-Type':'application/json'}, credentials:'include',
                     body: JSON.stringify({ clearance_type:type, include_program_head: includePH })
                 });
             }catch(e){ /* surface but continue adds */ showToast('Saved PH setting with warnings','warning'); }
-            // Add staff in parallel (limit fanout)
+            
+            // Add staff in parallel (limit fanout) using new sector-based API
             let ok = 0, fail = 0;
             for (const uid of ids){
                 try{
-                    await fetchJSON('../../api/signatories/assign.php',{
+                    // Get staff designation_id from stored data
+                    const staff = window.scopeStaffData.get(uid);
+                    
+                    if (!staff || !staff.designation_id) {
+                        console.error(`No designation found for user ${uid}`);
+                        fail++;
+                        continue;
+                    }
+                    
+                    await fetchJSON('../../api/signatories/sector_assignments.php',{
                         method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-                        body: JSON.stringify({ user_id:uid, clearance_type:type })
+                        body: JSON.stringify({ 
+                            user_id: uid, 
+                            clearance_type: type,
+                            designation_id: staff.designation_id
+                        })
                     });
                     ok++;
-                }catch(e){ fail++; }
+                }catch(e){ 
+                    console.error(`Error adding signatory ${uid}:`, e);
+                    fail++; 
+                }
             }
+            
+            // Handle Program Head auto-assignment if checkbox is checked
+            if (includePH) {
+                try {
+                    const phResponse = await fetchJSON('../../api/signatories/sector_assignments.php', {
+                        method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
+                        body: JSON.stringify({ 
+                            action: 'assign_program_heads',
+                            clearance_type: type 
+                        })
+                    });
+                    if (phResponse.assigned_count > 0) {
+                        showToast(`Auto-assigned ${phResponse.assigned_count} Program Heads`, 'info');
+                    }
+                } catch (e) {
+                    console.error('Error auto-assigning Program Heads:', e);
+                    showToast('Failed to auto-assign Program Heads', 'warning');
+                }
+            }
+            
             closeAddScopeModal();
             if (ok && !fail) showToast(`Added ${ok} signator${ok===1?'y':'ies'}`,'success');
             else if (ok && fail) showToast(`Added ${ok}, skipped ${fail}`,'warning');
@@ -604,68 +1034,38 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
 
-        function editSchoolYear(year) {
-            showEditSchoolYearModal(year);
-        }
 
-        function deleteSchoolYear(year) {
-            const currentYear = schoolYears[currentSchoolYearIndex];
-            const ayId = currentYear?.academicYearId;
-            showConfirmation(
-                'Delete School Year',
-                `Delete school year ${currentYear?.name || year}? This requires: both terms Ended and no applications.`,
-                'Delete',
-                'Cancel',
-                async () => {
-                    try {
-                        if (!ayId) { showToast('School Year not loaded', 'error'); return; }
-                        await fetchJSON(`${API_BASE}/years.php?id=${encodeURIComponent(ayId)}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' } });
-                        showToast('School year deleted', 'success');
-                        try {
-                            await loadCurrentYearAndTerms();
-                            updateSchoolYearDisplay();
-                        } catch (e) {
-                            window.location.reload();
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        showToast(e.message || 'Failed to delete school year', 'error');
-                    }
-                },
-                'warning'
-            );
-        }
-
-        function removeSignatory(type, position) {
-            showConfirmation(
+        async function removeSignatory(type, position) {
+            const confirmed = await showConfirmationModal(
                 'Remove Signatory',
                 `Are you sure you want to remove ${position} from ${type} clearance signatories?`,
                 'Remove',
                 'Cancel',
-                () => {
-                    // Find and remove the signatory item
-                    const signatoryItems = document.querySelectorAll(`.signatory-item.optional[data-position="${position}"]`);
-                    let removed = false;
-                    
-                    signatoryItems.forEach(item => {
-                        const section = item.closest('.accordion-content');
-                        const isCorrectSection = (type === 'student' && section.id === 'student-signatories') || 
-                                               (type === 'faculty' && section.id === 'faculty-signatories');
-                        
-                        if (isCorrectSection) {
-                            item.remove();
-                            removed = true;
-                        }
-                    });
-                    
-                    if (removed) {
-                        showToast(`Removed ${position} from ${type} clearance signatories.`, 'success');
-                    } else {
-                        showToast(`${position} not found in ${type} clearance signatories.`, 'warning');
-                    }
-                },
                 'warning'
             );
+            
+            if (confirmed) {
+                // Find and remove the signatory item
+                const signatoryItems = document.querySelectorAll(`.signatory-item.optional[data-position="${position}"]`);
+                let removed = false;
+                
+                signatoryItems.forEach(item => {
+                    const section = item.closest('.accordion-content');
+                    const isCorrectSection = (type === 'student' && section.id === 'student-signatories') || 
+                                           (type === 'faculty' && section.id === 'faculty-signatories');
+                    
+                    if (isCorrectSection) {
+                        item.remove();
+                        removed = true;
+                    }
+                });
+                
+                if (removed) {
+                    showToast(`Removed ${position} from ${type} clearance signatories.`, 'success');
+                } else {
+                    showToast(`${position} not found in ${type} clearance signatories.`, 'warning');
+                }
+            }
         }
 
         // School Year Navigation System (backend-driven)
@@ -674,26 +1074,41 @@ if (session_status() == PHP_SESSION_NONE) {
         const API_BASE = '../../api/clearance';
 
         function mapPeriodStatusToTermStatus(periodStatus, periodData = null) {
-            // OLD LOGIC - COMMENTED OUT FOR REFERENCE
-            // If period has ended_at, it's completed regardless of status
-            // if (periodData && periodData.ended_at) {
-            //     return 'completed';
-            // }
-            
-            // NEW LOGIC - Use database status directly (after fixing data consistency)
-            // Database now ensures status = 'ended' when ended_at is set
-            if (periodStatus === 'active') return 'active';
-            if (periodStatus === 'ended') return 'completed';
-            if (periodStatus === 'deactivated') return 'deactivated';
+            // Map database status to term status
+            if (periodStatus === 'Ongoing') return 'active';
+            if (periodStatus === 'Closed') return 'completed';
+            if (periodStatus === 'Paused') return 'deactivated';
+            if (periodStatus === 'Not Started') return 'inactive';
             return 'inactive';
         }
 
         async function fetchJSON(url, options = {}) {
             const res = await fetch(url, { credentials: 'include', ...options });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || data.success === false) {
+            
+            // Check if response is ok first
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            
+            // Get response text first to debug any JSON parsing issues
+            const responseText = await res.text();
+            console.log(`🔍 DEBUG: Raw response for ${url}:`, responseText);
+            
+            // Try to parse JSON
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseError) {
+                console.error(`❌ JSON Parse Error for ${url}:`, parseError);
+                console.error(`❌ Raw response:`, responseText);
+                throw new Error(`Invalid JSON response: ${parseError.message}`);
+            }
+            
+            // Check if the parsed data indicates failure
+            if (data.success === false) {
                 throw new Error(data.message || 'Request failed');
             }
+            
             return data;
         }
 
@@ -1144,11 +1559,10 @@ if (session_status() == PHP_SESSION_NONE) {
             if (!currentYear) {
                 const nameEl = document.getElementById('currentYearName');
                 const statusEl = document.getElementById('currentYearStatus');
-                const termsList = document.querySelector('.terms-list');
+                const termsList = document.getElementById('terms-list');
                 if (nameEl) nameEl.textContent = 'No current year';
                 if (statusEl) {
-                    statusEl.textContent = '(None)';
-                    statusEl.className = 'year-status';
+                    statusEl.textContent = 'None';
                 }
                 if (termsList) {
                     termsList.innerHTML = `
@@ -1160,52 +1574,73 @@ if (session_status() == PHP_SESSION_NONE) {
                         </div>
                     `;
                 }
+                // Enable Add Year button when no current year
+                updateAddYearButton(true);
                 return;
             }
 
             // Update navigation display
             document.getElementById('currentYearName').textContent = currentYear.name;
-            document.getElementById('currentYearStatus').textContent = `(${currentYear.status === 'current' ? 'Current' : 'Completed'})`;
-            document.getElementById('currentYearStatus').className = `year-status ${currentYear.status}`;
+            document.getElementById('currentYearStatus').textContent = currentYear.status === 'current' ? 'Active' : 'Completed';
 
             // Update year actions
             updateYearActions(currentYear);
 
             // Update terms list with debouncing
             debouncedUpdateTermsList(currentYear);
+            
+            // Update Add Year button based on term status
+            updateAddYearButton(false);
+            
             // Update lock UI after status refresh
             try { updateLockUI(); } catch (e) {}
         }
 
         function updateYearActions(schoolYear) {
-            const yearActions = document.querySelector('.year-actions');
+            // Year actions removed - no edit/delete functionality needed
+            // This function is kept for compatibility but does nothing
+        }
+
+        function updateAddYearButton(enable) {
+            const addYearBtn = document.querySelector('button[onclick="showAddSchoolYearModal()"]');
+            if (!addYearBtn) return;
             
-            if (schoolYear.status === 'current') {
-                // Current year - full functionality
-                yearActions.innerHTML = `
-                    <button class="btn btn-sm btn-outline-primary" onclick="editSchoolYear('${schoolYear.id}')">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteSchoolYear('${schoolYear.id}')">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                `;
+            if (enable) {
+                // Enable Add Year button
+                addYearBtn.disabled = false;
+                addYearBtn.className = 'btn btn-sm btn-primary';
+                addYearBtn.title = 'Add new school year';
             } else {
-                // Completed year - read-only
-                yearActions.innerHTML = `
-                    <button class="btn btn-sm btn-outline-primary" onclick="viewSchoolYear('${schoolYear.id}')">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-success" onclick="exportSchoolYear('${schoolYear.id}')">
-                        <i class="fas fa-download"></i>
-                    </button>
-                `;
+                // Check if all terms are ended
+                const currentYear = schoolYears[currentSchoolYearIndex];
+                if (!currentYear) {
+                    addYearBtn.disabled = true;
+                    addYearBtn.className = 'btn btn-sm btn-secondary';
+                    addYearBtn.title = 'No school year data available';
+                    return;
+                }
+                
+                const allTermsEnded = currentYear.terms.every(term => term.status === 'completed');
+                
+                if (allTermsEnded) {
+                    // Enable Add Year button when all terms are ended
+                    addYearBtn.disabled = false;
+                    addYearBtn.className = 'btn btn-sm btn-primary';
+                    addYearBtn.title = 'Add new school year';
+                } else {
+                    // Disable Add Year button when terms are still active
+                    addYearBtn.disabled = true;
+                    addYearBtn.className = 'btn btn-sm btn-secondary';
+                    addYearBtn.title = 'Cannot add new school year until all terms are ended';
+                }
             }
         }
 
         function updateTermsList(schoolYear) {
             console.log('🔄 updateTermsList: Called with schoolYear:', schoolYear);
-            const termsList = document.querySelector('.terms-list');
+            const termsList = document.getElementById('terms-list');
+            if (!termsList) return;
+            
             termsList.innerHTML = '';
             
             schoolYear.terms.forEach((term, index) => {
@@ -1281,34 +1716,27 @@ if (session_status() == PHP_SESSION_NONE) {
         // Helper function to get term actions based on status
         function getTermActions(term) {
             if (term.status === 'active') {
+                // Term has been activated (active) → Show only "End Term" button
                 return `
-                    <button class="btn btn-sm btn-warning" onclick="deactivateTerm('${term.id}')">
-                        <i class="fas fa-pause"></i>
+                    <button class="btn btn-sm btn-danger" onclick="endTerm('${term.id}')" title="End Term">
+                        <i class="fa-solid fa-clipboard-check"></i> End Term
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="endTerm('${term.id}')">
-                        <i class="fa-solid fa-clipboard-check"></i>
-                    </button>
-                `;
-            } else if (term.status === 'deactivated') {
-                return `
-                    <button class="btn btn-sm btn-success" onclick="activateTerm('${term.id}')">
-                        <i class="fas fa-play"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="endTerm('${term.id}')">
-                        <i class="fa-solid fa-clipboard-check"></i>
-                    </button>
-                    <!-- Reset button commented out as per requirements -->
-                    <!-- <button class="btn btn-sm btn-outline-danger" onclick="resetTerm('${term.id}')">
-                        <i class="fas fa-undo"></i>
-                    </button> -->
                 `;
             } else if (term.status === 'inactive') {
+                // Term hasn't started → Show "Activate Term" and "Skip/End Term" buttons
                 return `
-                    <button class="btn btn-sm btn-success" onclick="activateTerm('${term.id}')">
-                        <i class="fas fa-play"></i>
+                    <button class="btn btn-sm btn-success" onclick="activateTerm('${term.id}')" title="Activate Term">
+                        <i class="fas fa-play"></i> Activate Term
                     </button>
-                    <button class="btn btn-sm btn-danger" title="End (skip)" onclick="endTerm('${term.id}')">
-                        <i class="fa-solid fa-clipboard-check"></i>
+                    <button class="btn btn-sm btn-outline-danger" title="Skip/End Term" onclick="skipEndTerm('${term.id}')">
+                        <i class="fa-solid fa-forward"></i> Skip/End Term
+                    </button>
+                `;
+            } else if (term.status === 'completed') {
+                // Term has ended → Show only a disabled button that says "Term Ended"
+                return `
+                    <button class="btn btn-sm btn-outline-secondary" disabled title="Term Ended">
+                        <i class="fa-solid fa-check"></i> Term Ended
                     </button>
                 `;
             }
@@ -1316,14 +1744,20 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         function updateNavigationButtons() {
+            // Navigation buttons removed from UI - function kept for compatibility
             const prevBtn = document.getElementById('prevYearBtn');
             const nextBtn = document.getElementById('nextYearBtn');
-            prevBtn.disabled = true; nextBtn.disabled = true;
+            if (prevBtn) prevBtn.disabled = true;
+            if (nextBtn) nextBtn.disabled = true;
         }
 
         async function activateTerm(termId) {
+            const buttonElement = document.querySelector(`[onclick="activateTerm('${termId}')"]`);
+            
             try {
-                await enhancedLoadingManager.performTermOperation(async () => {
+                await gracePeriodManager.executeWithGracePeriod(
+                    `activate-${termId}`,
+                    async () => {
                     // Special handling for Term 2 activation
                     if (termId === 'term2') {
                         // First, ensure Term 1 is ended
@@ -1341,86 +1775,71 @@ if (session_status() == PHP_SESSION_NONE) {
                         throw new Error('Term not found.');
                     }
 
-                        // Preflight validation before any write
-                        const pre = await fetchJSON(`${API_BASE}/preflight.php?academic_year_id=${encodeURIComponent(currentYear.academicYearId)}&semester_id=${encodeURIComponent(term.semesterId)}`);
-                        if (!pre.ok) {
-                            const issues = (pre.issues || []).map(i => `• ${i.message}`).join('\n');
-                        throw new Error(issues || 'Activation blocked by validation checks.');
+                        // Check if there's already an active term and handle it
+                        try {
+                            const activeTermCheck = await fetchJSON(`${API_BASE}/context.php`);
+                            const activeSemester = activeTermCheck.terms?.find(t => t.is_active === 1);
+                            
+                            if (activeSemester && activeSemester.semester_id !== term.semesterId) {
+                                // There's another active term, show confirmation
+                                const confirmed = await showConfirmationModal(
+                                    'Activate Term',
+                                    `There is already an active term (${activeSemester.semester_name}). Activating this term will deactivate the current one. Do you want to proceed?`,
+                                    'Activate',
+                                    'Cancel',
+                                    'warning'
+                                );
+                                
+                                if (!confirmed) {
+                                    throw new Error('Term activation cancelled by user');
+                                }
+                            }
+                        } catch (checkError) {
+                            console.warn('Could not check for active terms:', checkError);
+                            // Continue with activation attempt
                         }
-                    
-                        if (term.periodId) {
+
+                        // Activate the semester (this will also create clearance periods for all sectors)
                         const response = await fetchJSON(`${API_BASE}/periods.php`, { 
                             method: 'PUT', 
                             headers: { 'Content-Type': 'application/json' }, 
-                            body: JSON.stringify({ period_id: term.periodId, action: 'activate' }) 
+                            body: JSON.stringify({ 
+                                semester_id: term.semesterId, 
+                                action: 'activate_semester' 
+                            }) 
                         });
+                        
                         if (!response.success) {
                             throw new Error(response.message || 'Failed to activate term');
-                        }
-                        } else {
-                            const today = new Date().toISOString().slice(0,10);
-                        const response = await fetchJSON(`${API_BASE}/periods.php`, { 
-                            method: 'POST', 
-                            headers: { 'Content-Type': 'application/json' }, 
-                            body: JSON.stringify({ academic_year_id: currentYear.academicYearId, semester_id: term.semesterId, start_date: today, is_active: true }) 
-                        });
-                        if (!response.success) {
-                            throw new Error(response.message || 'Failed to activate term');
-                        }
                     }
-
-                    return { success: true };
-                }, termId, 'activate');
 
                 // Refresh data after successful operation
                 await ensureFreshData();
+                        
+                        // Refresh sector buttons to reflect new active term status
+                        await initializeSectorButtons();
+                        
+                        showToast(`Term ${termId} activated successfully`, 'success');
+                    },
+                    buttonElement
+                );
             } catch (error) {
                 console.error('Error activating term:', error);
+                showToast(error.message || 'Failed to activate term', 'error');
             }
         }
         
 
-        async function deactivateTerm(termId) {
-            try {
-                await enhancedLoadingManager.performTermOperation(async () => {
-                    const currentYear = schoolYears[currentSchoolYearIndex];
-                    if (!currentYear) { 
-                        throw new Error('Data not loaded yet.');
-                    }
-                    
-                    const term = currentYear.terms.find(t => t.id === termId);
-                    if (!term) { 
-                        throw new Error('Term not found.');
-                    }
-
-                    if (!term.periodId) { 
-                        throw new Error('No period exists for this term.');
-                    }
-                    
-                    const response = await fetchJSON(`${API_BASE}/periods.php`, { 
-                        method: 'PUT', 
-                        headers: { 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify({ period_id: term.periodId, action: 'deactivate' }) 
-                    });
-                    
-                    if (!response.success) {
-                        throw new Error(response.message || 'Failed to deactivate term');
-                    }
-
-                    return { success: true };
-                }, termId, 'deactivate');
-
-                // Refresh data after successful operation
-                await ensureFreshData();
-            } catch (error) {
-                console.error('Error deactivating term:', error);
-            }
-        }
+        // deactivateTerm function removed - no longer needed per requirements
         
 
         async function endTerm(termId) {
+            const buttonElement = document.querySelector(`[onclick="endTerm('${termId}')"]`);
+            
             try {
-                await enhancedLoadingManager.performTermOperation(async () => {
+                await gracePeriodManager.executeWithGracePeriod(
+                    `end-${termId}`,
+                    async () => {
                     const currentYear = schoolYears[currentSchoolYearIndex];
                     if (!currentYear) { 
                         throw new Error('Data not loaded yet.');
@@ -1431,30 +1850,801 @@ if (session_status() == PHP_SESSION_NONE) {
                         throw new Error('Term not found.');
                     }
 
-                    if (!term.periodId) { 
-                        throw new Error('No period exists for this term.');
-                    }
-                    
-                    const response = await fetchJSON(`${API_BASE}/periods.php`, { 
+                        // Check if there are any ongoing clearance periods for this term
+                        const ongoingPeriods = await checkOngoingClearancePeriods(term.semesterId);
+                        
+                        if (ongoingPeriods.length > 0) {
+                            // Show styled confirmation modal
+                            const confirmed = await showConfirmationModal(
+                                'End Term',
+                                `Ending this term will also close all clearance periods under it, including ongoing ones (${ongoingPeriods.length} active periods). Do you want to proceed?`,
+                                'End Term',
+                                'Cancel',
+                                'warning'
+                            );
+                            
+                            if (!confirmed) {
+                                throw new Error('Term ending cancelled by user');
+                            }
+                        }
+
+                        // First, end the semester
+                        const semesterResponse = await fetchJSON(`${API_BASE}/periods.php`, { 
                         method: 'PUT', 
                         headers: { 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify({ period_id: term.periodId, action: 'end' }) 
-                    });
-                    
-                    if (!response.success) {
-                        throw new Error(response.message || 'Failed to end term');
-                    }
+                            body: JSON.stringify({ 
+                                semester_id: term.semesterId, 
+                                action: 'end_semester' 
+                            }) 
+                        });
+                        
+                        if (!semesterResponse.success) {
+                            throw new Error(semesterResponse.message || 'Failed to end semester');
+                        }
 
-                    return { success: true };
-                }, termId, 'end');
+                        // Then cascade close all clearance periods for this semester
+                        const cascadeResponse = await fetchJSON(`${API_BASE}/periods.php`, { 
+                            method: 'PUT', 
+                            headers: { 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify({ 
+                                semester_id: term.semesterId, 
+                                action: 'cascade_close_periods' 
+                            }) 
+                        });
+                        
+                        if (!cascadeResponse.success) {
+                            throw new Error(cascadeResponse.message || 'Failed to close clearance periods');
+                        }
 
                 // Refresh data after successful operation
                 await ensureFreshData();
+                        
+                        // Refresh sector buttons to reflect new active term status
+                        await initializeSectorButtons();
+                        
+                        // Update Add Year button status
+                        updateAddYearButton(false);
+                        
+                        showToast(`Term ${termId} ended successfully`, 'success');
+                    },
+                    buttonElement
+                );
             } catch (error) {
                 console.error('Error ending term:', error);
+                showToast(error.message || 'Failed to end term', 'error');
             }
         }
         
+        // Skip/End Term function - allows closing term without activation
+        async function skipEndTerm(termId) {
+            const buttonElement = document.querySelector(`[onclick="skipEndTerm('${termId}')"]`);
+
+            try {
+                await gracePeriodManager.executeWithGracePeriod(
+                    `skip-end-${termId}`,
+                    async () => {
+                    const currentYear = schoolYears[currentSchoolYearIndex];
+                    if (!currentYear) { 
+                        throw new Error('Data not loaded yet.');
+                    }
+                    
+                    const term = currentYear.terms.find(t => t.id === termId);
+                    if (!term) { 
+                        throw new Error('Term not found.');
+                    }
+
+                        // Show confirmation for skipping term
+                        const confirmed = await showConfirmationModal(
+                            'Skip/End Term',
+                            `This will close the term without activation and conclude all clearance periods for this term. Do you want to proceed?`,
+                            'Skip/End Term',
+                            'Cancel',
+                            'warning'
+                        );
+                        
+                        if (!confirmed) {
+                            throw new Error('Term skip/end cancelled by user');
+                        }
+
+                        // First, end the semester
+                        const semesterResponse = await fetchJSON(`${API_BASE}/periods.php`, { 
+                        method: 'PUT', 
+                        headers: { 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify({ 
+                                semester_id: term.semesterId, 
+                                action: 'end_semester' 
+                            }) 
+                        });
+                        
+                        if (!semesterResponse.success) {
+                            throw new Error(semesterResponse.message || 'Failed to end semester');
+                        }
+
+                        // Then cascade close all clearance periods for this semester
+                        const cascadeResponse = await fetchJSON(`${API_BASE}/periods.php`, { 
+                            method: 'PUT', 
+                            headers: { 'Content-Type': 'application/json' }, 
+                            body: JSON.stringify({ 
+                                semester_id: term.semesterId, 
+                                action: 'cascade_close_periods' 
+                            }) 
+                        });
+                        
+                        if (!cascadeResponse.success) {
+                            throw new Error(cascadeResponse.message || 'Failed to close clearance periods');
+                        }
+
+                // Refresh data after successful operation
+                await ensureFreshData();
+                        
+                        // Refresh sector buttons to reflect new active term status
+                        await initializeSectorButtons();
+                        
+                        // Update Add Year button status
+                        updateAddYearButton(false);
+                        
+                        showToast(`Term ${termId} skipped/ended successfully`, 'success');
+                    },
+                    buttonElement
+                );
+            } catch (error) {
+                console.error('Error skipping/ending term:', error);
+                showToast(error.message || 'Failed to skip/end term', 'error');
+            }
+        }
+        
+
+        // Helper function to check for ongoing clearance periods
+        async function checkOngoingClearancePeriods(semesterId) {
+            try {
+                const response = await fetchJSON(`${API_BASE}/periods.php?semester_id=${semesterId}&status=Ongoing`);
+                return response.periods || [];
+            } catch (error) {
+                console.error('Error checking ongoing clearance periods:', error);
+                return [];
+            }
+        }
+
+        // Grace Period Management System
+        // Use the GracePeriodManager from grace-period-manager.js
+        let gracePeriodManager;
+        
+        // Wait for the grace-period-manager.js to load and create a simple wrapper
+        function createGracePeriodManager() {
+            return {
+                activeOperations: new Set(),
+                minGracePeriod: 3000,
+
+            async executeWithGracePeriod(operationId, operation, buttonElement) {
+                if (this.activeOperations.has(operationId)) {
+                    showToast('Operation already in progress', 'warning');
+                    return;
+                }
+
+                this.activeOperations.add(operationId);
+                const startTime = Date.now();
+
+                try {
+                    // Set loading state
+                    this.setButtonLoadingState(buttonElement, 'Processing...');
+
+                    // Execute the operation
+                    const result = await operation();
+
+                    // Calculate remaining grace period
+                    const elapsed = Date.now() - startTime;
+                    const remainingTime = Math.max(0, this.minGracePeriod - elapsed);
+
+                    // Wait for remaining grace period
+                    if (remainingTime > 0) {
+                        await new Promise(resolve => setTimeout(resolve, remainingTime));
+                    }
+
+                    return result;
+                } catch (error) {
+                    throw error;
+                } finally {
+                    // Clear loading state
+                    this.clearButtonLoadingState(buttonElement);
+                    this.activeOperations.delete(operationId);
+                }
+                },
+
+            setButtonLoadingState(buttonElement, text = 'Processing...') {
+                if (!buttonElement) return;
+                
+                buttonElement.disabled = true;
+                buttonElement.dataset.originalText = buttonElement.innerHTML;
+                buttonElement.innerHTML = `
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    ${text}
+                `;
+                buttonElement.classList.add('loading');
+                },
+
+            clearButtonLoadingState(buttonElement) {
+                if (!buttonElement) return;
+                
+                buttonElement.disabled = false;
+                if (buttonElement.dataset.originalText) {
+                    buttonElement.innerHTML = buttonElement.dataset.originalText;
+                    delete buttonElement.dataset.originalText;
+                }
+                buttonElement.classList.remove('loading');
+            }
+            };
+        }
+
+        // Initialize grace period manager
+        gracePeriodManager = createGracePeriodManager();
+
+        // Sector-based clearance period functions with grace period
+        async function startSectorPeriod(sector) {
+            const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
+            const buttonElement = document.getElementById(`${sectorKey}-start-btn`);
+            
+            console.log(`🚀 DEBUG: Starting ${sector} clearance period...`);
+            console.log(`🚀 DEBUG: Button element:`, buttonElement);
+            
+            try {
+                await gracePeriodManager.executeWithGracePeriod(
+                    `start-${sector}`,
+                    async () => {
+                        // Check if there's an active term first
+                        const activeTerm = await getActiveTerm();
+                        console.log(`🚀 DEBUG: Active term data:`, activeTerm);
+                        
+                        if (!activeTerm) {
+                            throw new Error('Cannot start clearance period: No active term found');
+                        }
+
+                        const requestData = {
+                            sector: sector,
+                            academic_year_id: activeTerm.academic_year_id,
+                            semester_id: activeTerm.semester_id,
+                            start_date: new Date().toISOString().slice(0, 10),
+                            action: 'start'
+                        };
+                        
+                        console.log(`🚀 DEBUG: Sending request to API:`, requestData);
+
+                        // Try to update existing period first, then create if needed
+                        const response = await fetchJSON(`${API_BASE}/periods.php`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(requestData)
+                        });
+
+                        console.log(`🚀 DEBUG: API response:`, response);
+
+                        if (response.success) {
+                            console.log(`✅ DEBUG: ${sector} clearance period started successfully`);
+                            
+                            // Display form distribution results if available
+                            let successMessage = `${sector} clearance period started successfully`;
+                            if (response.form_distribution) {
+                                const dist = response.form_distribution;
+                                if (dist.success) {
+                                    successMessage += `\n📋 Forms distributed: ${dist.forms_created} forms created for ${dist.eligible_users} eligible users`;
+                                    if (dist.signatories_assigned > 0) {
+                                        successMessage += `\n👥 Signatories assigned: ${dist.signatories_assigned} total assignments`;
+                                    }
+                                } else {
+                                    console.warn(`⚠️ Form distribution failed: ${dist.message}`);
+                                    successMessage += `\n⚠️ Form distribution: ${dist.message}`;
+                                }
+                            }
+                            
+                            showToast(successMessage, 'success');
+                            
+                            console.log(`🔄 DEBUG: Refreshing sector data...`);
+                            await refreshSectorData();
+                            console.log(`✅ DEBUG: Sector data refreshed`);
+                        } else {
+                            throw new Error(response.message || 'Failed to start clearance period');
+                        }
+                    },
+                    buttonElement
+                );
+            } catch (error) {
+                console.error(`❌ DEBUG: Error starting ${sector} sector period:`, error);
+                showToast(error.message || 'Failed to start clearance period', 'error');
+            }
+        }
+
+        // Skip clearance period function
+        async function skipSectorPeriod(sector) {
+            const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
+            const buttonElement = document.getElementById(`${sectorKey}-close-btn`);
+            
+            console.log(`⏭️ DEBUG: Skipping ${sector} clearance period...`);
+            console.log(`⏭️ DEBUG: Button element:`, buttonElement);
+            
+            try {
+                await gracePeriodManager.executeWithGracePeriod(
+                    `skip-${sector}`,
+                    async () => {
+                        // Check if there's an active term first
+                        const activeTerm = await getActiveTerm();
+                        console.log(`⏭️ DEBUG: Active term data:`, activeTerm);
+                        
+                        if (!activeTerm) {
+                            throw new Error('Cannot skip clearance period: No active term found');
+                        }
+
+                        const requestData = {
+                            sector: sector,
+                            academic_year_id: activeTerm.academic_year_id,
+                            semester_id: activeTerm.semester_id,
+                            start_date: new Date().toISOString().slice(0, 10),
+                            action: 'skip'
+                        };
+                        
+                        console.log(`⏭️ DEBUG: Sending request to API:`, requestData);
+
+                        const response = await fetchJSON(`${API_BASE}/periods.php`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(requestData)
+                        });
+
+                        console.log(`⏭️ DEBUG: API response:`, response);
+
+                        if (response.success) {
+                            console.log(`✅ DEBUG: ${sector} clearance period skipped successfully`);
+                            showToast(`${sector} clearance period skipped successfully`, 'success');
+                            
+                            console.log(`🔄 DEBUG: Refreshing sector data...`);
+                            await refreshSectorData();
+                            console.log(`✅ DEBUG: Sector data refreshed`);
+                        } else {
+                            throw new Error(response.message || 'Failed to skip clearance period');
+                        }
+                    },
+                    buttonElement
+                );
+            } catch (error) {
+                console.error(`❌ DEBUG: Error skipping ${sector} sector period:`, error);
+                showToast(error.message || 'Failed to skip clearance period', 'error');
+            }
+        }
+
+        async function pauseSectorPeriod(sector) {
+            const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
+            const buttonElement = document.getElementById(`${sectorKey}-pause-btn`);
+            
+            console.log(`⏸️ DEBUG: Pausing ${sector} clearance period...`);
+            console.log(`⏸️ DEBUG: Button element:`, buttonElement);
+            
+            try {
+                await gracePeriodManager.executeWithGracePeriod(
+                    `pause-${sector}`,
+                    async () => {
+                        // Get the current period data to extract period_id
+                        const activeTerm = await getActiveTerm();
+                        console.log(`⏸️ DEBUG: Active term data:`, activeTerm);
+
+                        if (!activeTerm) {
+                            throw new Error('Cannot pause clearance period: No active term found');
+                        }
+
+                        // Get the current period for this sector
+                        const response = await fetch(`${API_BASE}/sector-periods.php`, {
+                            credentials: 'include'
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success && data.periods_by_sector && data.periods_by_sector[sector]) {
+                            const currentPeriod = data.periods_by_sector[sector][0]; // Get latest period
+                            console.log(`⏸️ DEBUG: Current period for ${sector}:`, currentPeriod);
+                            
+                            if (!currentPeriod || !currentPeriod.period_id) {
+                                throw new Error(`No active period found for ${sector}`);
+                            }
+
+                            const requestData = {
+                                period_id: currentPeriod.period_id,
+                                action: 'pause'
+                            };
+
+                            console.log(`⏸️ DEBUG: Sending request to API:`, requestData);
+
+                            const apiResponse = await fetchJSON(`${API_BASE}/periods.php`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(requestData)
+                            });
+
+                            console.log(`⏸️ DEBUG: API response:`, apiResponse);
+
+                            if (apiResponse.success) {
+                                console.log(`✅ DEBUG: ${sector} clearance period paused successfully`);
+                                showToast(`${sector} clearance period paused`, 'success');
+                                await refreshSectorData();
+                            } else {
+                                throw new Error(apiResponse.message || 'Failed to pause clearance period');
+                            }
+                        } else {
+                            throw new Error(`No period data found for ${sector}`);
+                        }
+                    },
+                    buttonElement
+                );
+            } catch (error) {
+                console.error(`❌ DEBUG: Error pausing ${sector} sector period:`, error);
+                showToast(error.message || 'Failed to pause clearance period', 'error');
+            }
+        }
+
+        async function closeSectorPeriod(sector) {
+            const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
+            const buttonElement = document.getElementById(`${sectorKey}-close-btn`);
+            
+            console.log(`🛑 DEBUG: Closing ${sector} clearance period...`);
+            console.log(`🛑 DEBUG: Button element:`, buttonElement);
+            
+            try {
+                await gracePeriodManager.executeWithGracePeriod(
+                    `close-${sector}`,
+                    async () => {
+                        // Get the current period data to extract period_id
+                        const activeTerm = await getActiveTerm();
+                        console.log(`🛑 DEBUG: Active term data:`, activeTerm);
+
+                        if (!activeTerm) {
+                            throw new Error('Cannot close clearance period: No active term found');
+                        }
+
+                        // Get the current period for this sector
+                        const response = await fetch(`${API_BASE}/sector-periods.php`, {
+                            credentials: 'include'
+                        });
+                        const data = await response.json();
+                        
+                        if (data.success && data.periods_by_sector && data.periods_by_sector[sector]) {
+                            const currentPeriod = data.periods_by_sector[sector][0]; // Get latest period
+                            console.log(`🛑 DEBUG: Current period for ${sector}:`, currentPeriod);
+                            
+                            if (!currentPeriod || !currentPeriod.period_id) {
+                                throw new Error(`No active period found for ${sector}`);
+                            }
+
+                            const requestData = {
+                                period_id: currentPeriod.period_id,
+                                action: 'close'
+                            };
+
+                            console.log(`🛑 DEBUG: Sending request to API:`, requestData);
+
+                            const apiResponse = await fetchJSON(`${API_BASE}/periods.php`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(requestData)
+                            });
+
+                            console.log(`🛑 DEBUG: API response:`, apiResponse);
+
+                            if (apiResponse.success) {
+                                console.log(`✅ DEBUG: ${sector} clearance period closed successfully`);
+                                showToast(`${sector} clearance period closed`, 'success');
+                                await refreshSectorData();
+                            } else {
+                                throw new Error(apiResponse.message || 'Failed to close clearance period');
+                            }
+                        } else {
+                            throw new Error(`No period data found for ${sector}`);
+                        }
+                    },
+                    buttonElement
+                );
+            } catch (error) {
+                console.error(`❌ DEBUG: Error closing ${sector} sector period:`, error);
+                showToast(error.message || 'Failed to close clearance period', 'error');
+            }
+        }
+
+        // Helper function to get active term
+        async function getActiveTerm() {
+            try {
+                const response = await fetchJSON(`${API_BASE}/context.php`);
+                const activeSemester = response.terms?.find(term => term.is_active === 1);
+                return activeSemester ? {
+                    academic_year_id: response.academic_year.academic_year_id,
+                    semester_id: activeSemester.semester_id
+                } : null;
+            } catch (error) {
+                console.error('Error getting active term:', error);
+                return null;
+            }
+        }
+
+        // Helper function to refresh sector data
+        async function refreshSectorData() {
+            console.log(`🔄 DEBUG: refreshSectorData called`);
+            try {
+                console.log(`🔄 DEBUG: Loading sector periods...`);
+                // Refresh sector period data
+                await loadSectorPeriods();
+                console.log(`✅ DEBUG: Sector periods loaded`);
+                
+                console.log(`🔄 DEBUG: Loading signatory lists...`);
+                // Refresh signatory lists
+                await loadScopeSignatories('College');
+                await loadScopeSignatories('Senior High School');
+                await loadScopeSignatories('Faculty');
+                console.log(`✅ DEBUG: Signatory lists loaded`);
+                
+                console.log(`🔄 DEBUG: Skipping initializeSectorButtons() - buttons already updated by updateSectorCard()`);
+                
+            } catch (error) {
+                console.error('❌ DEBUG: Error refreshing sector data:', error);
+            }
+        }
+
+        // Load sector periods data
+        async function loadSectorPeriods() {
+            console.log(`📊 DEBUG: loadSectorPeriods called`);
+            try {
+                console.log(`📊 DEBUG: Fetching from ${API_BASE}/sector-periods.php`);
+                // Check if the API endpoint exists first
+                const response = await fetch(`${API_BASE}/sector-periods.php`, {
+                    credentials: 'include'
+                });
+                
+                console.log(`📊 DEBUG: Response status: ${response.status}`);
+                
+                if (!response.ok) {
+                    console.warn('⚠️ DEBUG: Sector periods API not available, using fallback data');
+                    // Use fallback data structure
+                    const fallbackPeriods = {
+                        'College': [{ status: 'Not Started', start_date: null, end_date: null, total_forms: 0, completed_forms: 0 }],
+                        'Senior High School': [{ status: 'Not Started', start_date: null, end_date: null, total_forms: 0, completed_forms: 0 }],
+                        'Faculty': [{ status: 'Not Started', start_date: null, end_date: null, total_forms: 0, completed_forms: 0 }]
+                    };
+                    console.log(`📊 DEBUG: Using fallback data:`, fallbackPeriods);
+                    updateSectorPeriodsDisplay(fallbackPeriods);
+                    return;
+                }
+                
+                const data = await response.json();
+                console.log(`📊 DEBUG: API response data:`, data);
+                
+                if (data.success && data.periods_by_sector) {
+                    console.log(`📊 DEBUG: Updating display with API data:`, data.periods_by_sector);
+                    updateSectorPeriodsDisplay(data.periods_by_sector);
+                } else {
+                    console.warn('⚠️ DEBUG: Sector periods API returned no data');
+                    // Use fallback data
+                    const fallbackPeriods = {
+                        'College': [{ status: 'Not Started', start_date: null, end_date: null, total_forms: 0, completed_forms: 0 }],
+                        'Senior High School': [{ status: 'Not Started', start_date: null, end_date: null, total_forms: 0, completed_forms: 0 }],
+                        'Faculty': [{ status: 'Not Started', start_date: null, end_date: null, total_forms: 0, completed_forms: 0 }]
+                    };
+                    console.log(`📊 DEBUG: Using fallback data:`, fallbackPeriods);
+                    updateSectorPeriodsDisplay(fallbackPeriods);
+                }
+            } catch (error) {
+                console.error('❌ DEBUG: Error loading sector periods:', error);
+                // Use fallback data on error
+                const fallbackPeriods = {
+                    'College': [{ status: 'Not Started', start_date: null, end_date: null, total_forms: 0, completed_forms: 0 }],
+                    'Senior High School': [{ status: 'Not Started', start_date: null, end_date: null, total_forms: 0, completed_forms: 0 }],
+                    'Faculty': [{ status: 'Not Started', start_date: null, end_date: null, total_forms: 0, completed_forms: 0 }]
+                };
+                console.log(`📊 DEBUG: Using fallback data due to error:`, fallbackPeriods);
+                updateSectorPeriodsDisplay(fallbackPeriods);
+            }
+        }
+
+        // Update sector periods display
+        function updateSectorPeriodsDisplay(periodsBySector) {
+            console.log(`🎨 DEBUG: updateSectorPeriodsDisplay called with:`, periodsBySector);
+            const sectors = ['College', 'Senior High School', 'Faculty'];
+            
+            sectors.forEach(sector => {
+                const sectorPeriods = periodsBySector[sector];
+                console.log(`🎨 DEBUG: Processing ${sector}:`, sectorPeriods);
+                
+                if (sectorPeriods && sectorPeriods.length > 0) {
+                    // Get the most recent period for this sector
+                    const latestPeriod = sectorPeriods[0]; // API returns periods ordered by created_at DESC
+                    console.log(`🎨 DEBUG: Latest period for ${sector}:`, latestPeriod);
+                    updateSectorCard(sector, latestPeriod);
+                } else {
+                    console.warn(`⚠️ DEBUG: No period data for ${sector}`);
+                    // Use fallback data
+                    const fallbackPeriod = { 
+                        status: 'Not Started', 
+                        start_date: null, 
+                        end_date: null, 
+                        total_forms: 0, 
+                        completed_forms: 0 
+                    };
+                    updateSectorCard(sector, fallbackPeriod);
+                }
+            });
+        }
+
+        // Update individual sector card
+        function updateSectorCard(sector, period) {
+            const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
+            console.log(`🎨 DEBUG: updateSectorCard called for ${sector} (${sectorKey}) with period:`, period);
+            
+            // Update status badge
+            const statusBadge = document.getElementById(`${sectorKey}-status-badge`);
+            if (statusBadge) {
+                statusBadge.textContent = period.status || 'Not Started';
+                statusBadge.className = `status-badge ${(period.status || 'not-started').toLowerCase().replace(' ', '-')}`;
+                console.log(`🎨 DEBUG: Updated status badge for ${sector}: ${period.status}`);
+            } else {
+                console.warn(`⚠️ DEBUG: Status badge not found for ${sector} (${sectorKey}-status-badge)`);
+            }
+
+            // Update dates
+            const startDate = document.getElementById(`${sectorKey}-start-date`);
+            const endDate = document.getElementById(`${sectorKey}-end-date`);
+            if (startDate) startDate.textContent = period.start_date || '-';
+            
+            // Only show end date if the period is actually ended (status = 'Closed')
+            if (endDate) {
+                if (period.status === 'Closed' && period.end_date) {
+                    endDate.textContent = period.end_date;
+                    endDate.style.display = 'block';
+                } else {
+                    endDate.textContent = 'Not ended';
+                    endDate.style.display = 'none'; // Hide end date for ongoing periods
+                }
+            }
+            console.log(`🎨 DEBUG: Updated dates for ${sector}: start=${period.start_date}, end=${period.end_date}, status=${period.status}`);
+
+            // Update statistics
+            const applications = document.getElementById(`${sectorKey}-applications`);
+            const completed = document.getElementById(`${sectorKey}-completed`);
+            if (applications) applications.textContent = period.total_forms || 0;
+            if (completed) completed.textContent = period.completed_forms || 0;
+            console.log(`🎨 DEBUG: Updated stats for ${sector}: applications=${period.total_forms}, completed=${period.completed_forms}`);
+
+            // Update buttons
+            console.log(`🎨 DEBUG: Updating buttons for ${sector} with status: ${period.status}`);
+            updateSectorButtons(sector, period.status || 'Not Started');
+        }
+
+        // Update sector buttons based on status and term state
+        async function updateSectorButtons(sector, status) {
+            const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
+            console.log(`🔧 DEBUG: updateSectorButtons called for ${sector} (${sectorKey}) with status: ${status}`);
+            
+            const startBtn = document.getElementById(`${sectorKey}-start-btn`);
+            const pauseBtn = document.getElementById(`${sectorKey}-pause-btn`);
+            const closeBtn = document.getElementById(`${sectorKey}-close-btn`);
+
+            console.log(`🔧 DEBUG: Button elements found:`, {
+                startBtn: !!startBtn,
+                pauseBtn: !!pauseBtn,
+                closeBtn: !!closeBtn
+            });
+
+            // Check if buttons exist before proceeding
+            if (!startBtn && !pauseBtn && !closeBtn) {
+                console.warn(`⚠️ DEBUG: Sector buttons not found for ${sector}`);
+                return;
+            }
+
+            // Hide all buttons first
+            if (startBtn) startBtn.style.display = 'none';
+            if (pauseBtn) pauseBtn.style.display = 'none';
+            if (closeBtn) closeBtn.style.display = 'none';
+            console.log(`🔧 DEBUG: Hidden all buttons for ${sector}`);
+
+            // Check if there's an active term
+            const hasActiveTerm = await checkActiveTerm();
+            
+            console.log(`🔧 DEBUG: Updating buttons for ${sector}: status=${status}, hasActiveTerm=${hasActiveTerm}`);
+            
+            // Show appropriate buttons based on status and term state
+            switch (status) {
+                case 'Not Started':
+                    console.log(`🔧 DEBUG: Case 'Not Started' for ${sector}, hasActiveTerm: ${hasActiveTerm}`);
+                    if (hasActiveTerm) {
+                        // Term active but clearance not started → Show "Start Clearance Period" and "Skip Clearance Period"
+                        console.log(`🔧 DEBUG: Showing Start and Skip buttons for ${sector}`);
+                        if (startBtn) {
+                            startBtn.innerHTML = '<i class="fas fa-play"></i> Start Clearance Period';
+                            startBtn.style.display = 'inline-block';
+                            startBtn.disabled = false;
+                            startBtn.className = 'btn btn-sm btn-success';
+                            startBtn.setAttribute('onclick', `startSectorPeriod('${sector}')`);
+                            console.log(`🔧 DEBUG: Start button updated for ${sector}`);
+                        }
+                        if (closeBtn) {
+                            closeBtn.innerHTML = '<i class="fas fa-forward"></i> Skip Clearance Period';
+                            closeBtn.style.display = 'inline-block';
+                            closeBtn.disabled = false;
+                            closeBtn.className = 'btn btn-sm btn-outline-warning';
+                            closeBtn.setAttribute('onclick', `skipSectorPeriod('${sector}')`);
+                            console.log(`🔧 DEBUG: Skip button updated for ${sector}`);
+                        }
+                    } else {
+                        // No active term → Disabled "Start Clearance Period" button
+                        console.log(`🔧 DEBUG: No active term, showing disabled Start button for ${sector}`);
+                        if (startBtn) {
+                            startBtn.innerHTML = '<i class="fas fa-play"></i> Start Clearance Period';
+                            startBtn.style.display = 'inline-block';
+                            startBtn.disabled = true;
+                            startBtn.className = 'btn btn-sm btn-secondary';
+                            startBtn.title = 'No active term - cannot start clearance period';
+                            console.log(`🔧 DEBUG: Disabled Start button updated for ${sector}`);
+                        }
+                    }
+                    break;
+                    
+                case 'Ongoing':
+                    console.log(`🔧 DEBUG: Case 'Ongoing' for ${sector}`);
+                    // Clearance started (Ongoing) → Show "Pause Clearance Period" and "End Clearance Period"
+                    if (pauseBtn) {
+                        pauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pause Clearance Period';
+                        pauseBtn.style.display = 'inline-block';
+                        pauseBtn.disabled = false;
+                        pauseBtn.className = 'btn btn-sm btn-warning';
+                        pauseBtn.setAttribute('onclick', `pauseSectorPeriod('${sector}')`);
+                        console.log(`🔧 DEBUG: Pause button updated for ${sector}`);
+                    }
+                    if (closeBtn) {
+                        closeBtn.innerHTML = '<i class="fas fa-stop"></i> End Clearance Period';
+                        closeBtn.style.display = 'inline-block';
+                        closeBtn.disabled = false;
+                        closeBtn.className = 'btn btn-sm btn-danger';
+                        closeBtn.setAttribute('onclick', `closeSectorPeriod('${sector}')`);
+                        console.log(`🔧 DEBUG: End button updated for ${sector}`);
+                    }
+                    break;
+                    
+                case 'Paused':
+                    console.log(`🔧 DEBUG: Case 'Paused' for ${sector}`);
+                    // Clearance paused → Show "Resume Clearance Period" and "End Clearance Period"
+                    if (startBtn) {
+                        startBtn.innerHTML = '<i class="fas fa-play"></i> Resume Clearance Period';
+                        startBtn.style.display = 'inline-block';
+                        startBtn.disabled = false;
+                        startBtn.className = 'btn btn-sm btn-success';
+                        startBtn.setAttribute('onclick', `startSectorPeriod('${sector}')`);
+                        console.log(`🔧 DEBUG: Resume button updated for ${sector}`);
+                    }
+                    if (closeBtn) {
+                        closeBtn.innerHTML = '<i class="fas fa-stop"></i> End Clearance Period';
+                        closeBtn.style.display = 'inline-block';
+                        closeBtn.disabled = false;
+                        closeBtn.className = 'btn btn-sm btn-danger';
+                        closeBtn.setAttribute('onclick', `closeSectorPeriod('${sector}')`);
+                        console.log(`🔧 DEBUG: End button updated for ${sector}`);
+                    }
+                    break;
+                    
+                case 'Closed':
+                    console.log(`🔧 DEBUG: Case 'Closed' for ${sector}`);
+                    // Clearance ended → Show disabled "Ended" button
+                    if (closeBtn) {
+                        closeBtn.innerHTML = '<i class="fas fa-check"></i> Ended';
+                        closeBtn.style.display = 'inline-block';
+                        closeBtn.disabled = true;
+                        closeBtn.className = 'btn btn-sm btn-outline-secondary';
+                        console.log(`🔧 DEBUG: Ended button updated for ${sector}`);
+                    }
+                    break;
+            }
+        }
+
+        // Check if there's an active term
+        async function checkActiveTerm() {
+            try {
+                const response = await fetchJSON(`${API_BASE}/context.php`);
+                const activeSemester = response.terms?.find(term => term.is_active === 1);
+                return !!activeSemester;
+            } catch (error) {
+                console.error('Error checking active term:', error);
+                return false;
+            }
+        }
 
         // Reset Term function commented out as per requirements
         /*
@@ -1489,18 +2679,19 @@ if (session_status() == PHP_SESSION_NONE) {
         }
         */
 
-        function deleteTerm(termId) {
-            showConfirmation(
+        async function deleteTerm(termId) {
+            const confirmed = await showConfirmationModal(
                 'Delete Term',
                 `Are you sure you want to delete ${termId}? This action cannot be undone.`,
                 'Delete',
                 'Cancel',
-                () => {
-                    showToast(`${termId} deleted successfully!`, 'success');
-                    // Implementation for deleting term
-                },
                 'danger'
             );
+            
+            if (confirmed) {
+                showToast(`${termId} deleted successfully!`, 'success');
+                // Implementation for deleting term
+            }
         }
 
         function viewTerm(termId) {
@@ -1593,6 +2784,20 @@ if (session_status() == PHP_SESSION_NONE) {
                     if (backdrop) backdrop.style.display = 'none';
                 }
             });
+            
+            // Load scope signatories and sector periods
+            loadScopeSignatories('College').catch(()=>{});
+            loadScopeSignatories('Senior High School').catch(()=>{});
+            loadScopeSignatories('Faculty').catch(()=>{});
+            
+            // Initialize sector buttons based on active term status
+            await initializeSectorButtons();
+            
+            // Load grace period monitoring
+            loadGracePeriodMonitoring();
+            
+            // Refresh grace period monitoring every 30 seconds
+            setInterval(loadGracePeriodMonitoring, 30000);
         });
 
         // Sidebar toggle function
@@ -1629,20 +2834,239 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
 
-        // Initial load of scope lists
-        document.addEventListener('DOMContentLoaded', function(){
-            loadScopeSignatories('student').catch(()=>{});
-            loadScopeSignatories('faculty').catch(()=>{});
-        });
+        // Grace Period Monitoring Functions
+        async function loadGracePeriodMonitoring() {
+            try {
+                const sectors = ['College', 'Senior High School', 'Faculty'];
+                const gracePeriodGrid = document.getElementById('grace-period-grid');
+                
+                if (!gracePeriodGrid) return;
+                
+                gracePeriodGrid.innerHTML = '';
+                
+                for (const sector of sectors) {
+                    const gracePeriodData = await fetchGracePeriodData(sector);
+                    const gracePeriodCard = createGracePeriodCard(sector, gracePeriodData);
+                    gracePeriodGrid.appendChild(gracePeriodCard);
+                }
+            } catch (error) {
+                console.error('Error loading grace period monitoring:', error);
+            }
+        }
+        
+        async function fetchGracePeriodData(sector) {
+            try {
+                const response = await fetch(`../../api/clearance/period_status.php?clearance_type=${encodeURIComponent(sector)}&include_grace_period=true`, {
+                    credentials: 'same-origin'
+                });
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error(`Error fetching grace period data for ${sector}:`, error);
+                return null;
+            }
+        }
+        
+        function createGracePeriodCard(sector, data) {
+            const card = document.createElement('div');
+            card.className = 'grace-period-card';
+            card.id = `grace-period-${sector.replace(/\s+/g, '-').toLowerCase()}`;
+            
+            const isInGracePeriod = data && data.grace_period && data.grace_period.is_active;
+            const status = data ? data.period_status : 'unknown';
+            const period = data ? data.period : null;
+            
+            card.innerHTML = `
+                <div class="grace-period-card-header">
+                    <h4><i class="fas fa-${getSectorIcon(sector)}"></i> ${sector}</h4>
+                    <span class="status-badge ${getStatusClass(status)}">${getStatusText(status)}</span>
+                </div>
+                <div class="grace-period-card-content">
+                    ${period ? `
+                        <div class="period-info">
+                            <div class="info-item">
+                                <span class="label">Period:</span>
+                                <span class="value">${period.school_year} - ${period.semester_name}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Status:</span>
+                                <span class="value">${period.status}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Updated:</span>
+                                <span class="value">${formatDateTime(period.updated_at)}</span>
+                            </div>
+                        </div>
+                    ` : '<div class="no-data">No active period</div>'}
+                    
+                    ${isInGracePeriod ? `
+                        <div class="grace-period-active">
+                            <div class="grace-period-timer">
+                                <i class="fas fa-clock"></i>
+                                <span class="countdown" id="countdown-${sector.replace(/\s+/g, '-').toLowerCase()}">
+                                    ${window.gracePeriodUIManager.gracePeriodManager.formatTime(data.grace_period.remaining_seconds)}
+                                </span>
+                            </div>
+                            <div class="grace-period-progress">
+                                <div class="progress-bar" style="width: ${getGracePeriodProgress(data.grace_period)}%"></div>
+                            </div>
+                            <div class="grace-period-actions">
+                                <button class="btn btn-sm btn-warning" onclick="overrideGracePeriod('${sector}')">
+                                    <i class="fas fa-stop"></i> Override Grace Period
+                                </button>
+                            </div>
+                        </div>
+                    ` : `
+                        <div class="grace-period-inactive">
+                            <i class="fas fa-check-circle"></i>
+                            <span>No grace period active</span>
+                        </div>
+                    `}
+                </div>
+            `;
+            
+            // Start countdown if in grace period
+            if (isInGracePeriod) {
+                startGracePeriodCountdown(sector, data.grace_period);
+            }
+            
+            return card;
+        }
+        
+        function getSectorIcon(sector) {
+            switch (sector) {
+                case 'College': return 'university';
+                case 'Senior High School': return 'graduation-cap';
+                case 'Faculty': return 'chalkboard-teacher';
+                default: return 'users';
+            }
+        }
+        
+        function getStatusClass(status) {
+            switch (status) {
+                case 'ongoing': return 'status-active';
+                case 'grace_period': return 'status-warning';
+                case 'paused': return 'status-paused';
+                case 'closed': return 'status-closed';
+                case 'not_started': return 'status-inactive';
+                default: return 'status-unknown';
+            }
+        }
+        
+        function getStatusText(status) {
+            switch (status) {
+                case 'ongoing': return 'Active';
+                case 'grace_period': return 'Grace Period';
+                case 'paused': return 'Paused';
+                case 'closed': return 'Closed';
+                case 'not_started': return 'Not Started';
+                default: return 'Unknown';
+            }
+        }
+        
+        function formatDateTime(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+        
+        function getGracePeriodProgress(gracePeriod) {
+            const totalSeconds = gracePeriod.duration_minutes * 60;
+            const elapsed = totalSeconds - gracePeriod.remaining_seconds;
+            return Math.min(100, (elapsed / totalSeconds) * 100);
+        }
+        
+        function startGracePeriodCountdown(sector, gracePeriod) {
+            const countdownElement = document.getElementById(`countdown-${sector.replace(/\s+/g, '-').toLowerCase()}`);
+            if (!countdownElement) return;
+            
+            let remainingSeconds = gracePeriod.remaining_seconds;
+            
+            const timer = setInterval(() => {
+                remainingSeconds--;
+                countdownElement.textContent = window.gracePeriodUIManager.gracePeriodManager.formatTime(remainingSeconds);
+                
+                if (remainingSeconds <= 0) {
+                    clearInterval(timer);
+                    // Refresh the grace period monitoring
+                    setTimeout(() => loadGracePeriodMonitoring(), 1000);
+                }
+            }, 1000);
+        }
+        
+        async function overrideGracePeriod(sector) {
+            if (!confirm(`Are you sure you want to override the grace period for ${sector}? This will immediately allow students to apply.`)) {
+                return;
+            }
+            
+            try {
+                // This would need to be implemented in the backend
+                const response = await fetch('../../api/clearance/override_grace_period.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ sector: sector }),
+                    credentials: 'same-origin'
+                });
+                
+                if (response.ok) {
+                    showToast(`Grace period overridden for ${sector}`, 'success');
+                    loadGracePeriodMonitoring();
+                } else {
+                    throw new Error('Failed to override grace period');
+                }
+            } catch (error) {
+                console.error('Error overriding grace period:', error);
+                showToast('Failed to override grace period', 'error');
+            }
+        }
+
+        // Initial load of scope lists and sector periods
+        // This is now handled in the main DOMContentLoaded event above
+
+        // Initialize sector buttons based on active term status
+        async function initializeSectorButtons() {
+            try {
+                const hasActiveTerm = await checkActiveTerm();
+                console.log('🔍 Active term status:', hasActiveTerm);
+                
+                // Load current sector periods and update buttons based on actual status
+                await loadSectorPeriods();
+            } catch (error) {
+                console.error('Error initializing sector buttons:', error);
+            }
+        }
     </script>
 
     <!-- Include Signatory Settings Modal -->
     <?php include '../../Modals/SignatorySettingsModal.php'; ?>
+    
+    <!-- View Past Clearances Modal -->
+    <?php include '../../Modals/ViewPastClearancesModal.php'; ?>
     
     <!-- Include Alerts Component -->
     <?php include '../../includes/components/alerts.php'; ?>
     
     <!-- Include Alerts JavaScript -->
     <script src="../../assets/js/alerts.js"></script>
+    
+    <!-- Override the alerts.js executeConfirmedAction to prevent conflicts -->
+    <script>
+        // Override the alerts.js executeConfirmedAction to prevent conflicts
+        window.executeConfirmedAction = function() {
+            const modal = document.getElementById('confirmationModal');
+            modal.classList.remove('active');
+            setTimeout(() => modal.style.display = 'none', 300);
+            
+            if (window.confirmationResolve) {
+                window.confirmationResolve(true);
+                window.confirmationResolve = null;
+            }
+        }
+    </script>
+    
+    <!-- Include Sector Clearance JavaScript -->
+    <!-- Temporarily disabled to prevent JSON parsing errors -->
+    <!-- <script src="../../assets/js/sector-clearance.js"></script> -->
 </body>
 </html> 

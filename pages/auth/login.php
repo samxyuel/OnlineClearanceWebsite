@@ -155,10 +155,12 @@
                         } else if (role === 'program head') {
                             window.location.href = '../../pages/program-head/dashboard.php';
                         } else if (role === 'student') {
-                            window.location.href = '../../pages/student/dashboard.php';
+                            // Use unified end-user dashboard for students
+                            window.location.href = '../../pages/end-user/dashboard.php';
                         } else if (role === 'faculty') {
-                            window.location.href = '../../pages/faculty/dashboard.php';
-                        } else if (role === 'staff') {
+                            // Use unified end-user dashboard for faculty
+                            window.location.href = '../../pages/end-user/dashboard.php';
+                        } else if (role === 'regular staff') {
                             window.location.href = '../../pages/regular-staff/dashboard.php';
                         } else {
                             // Fallback for unknown roles

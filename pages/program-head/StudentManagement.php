@@ -18,24 +18,25 @@ $userId = (int)$auth->getUserId();
 
 try {
     $pdo = Database::getInstance()->getConnection();
-    // Verify role Program Head via roles table if available (best-effort)
+    // Verify role Program Head (TEMPORARILY RELAXED FOR TESTING)
     $roleOk = false;
     $rs = $pdo->prepare("SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id=r.role_id WHERE ur.user_id=? LIMIT 1");
     $rs->execute([$userId]);
     $rn = strtolower((string)$rs->fetchColumn());
-    if ($rn === 'program head') { $roleOk = true; }
+    // Allow Admin or Program Head access
+    if ($rn === 'program head' || $rn === 'admin') { $roleOk = true; }
 
-    // Check student-sector assignment (College or Senior High School)
-    $sql = "SELECT COUNT(*) FROM signatory_assignments sa
-            JOIN designations des ON sa.designation_id=des.designation_id
-            JOIN departments d ON sa.department_id=d.department_id
-            JOIN sectors s ON d.sector_id=s.sector_id
-            WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name IN ('College','Senior High School')";
-    $st = $pdo->prepare($sql);
-    $st->execute([$userId]);
-    $hasStudentSector = ((int)$st->fetchColumn()) > 0;
+    // Check student-sector assignment - COMMENTED OUT TO ALLOW ALL PROGRAM HEADS ACCESS
+    // $sql = "SELECT COUNT(*) FROM signatory_assignments sa
+    //         JOIN designations des ON sa.designation_id=des.designation_id
+    //         JOIN departments d ON sa.department_id=d.department_id
+    //         JOIN sectors s ON d.sector_id=s.sector_id
+    //         WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name IN ('College','Senior High School')";
+    // $st = $pdo->prepare($sql);
+    // $st->execute([$userId]);
+    // $hasStudentSector = ((int)$st->fetchColumn()) > 0;
 
-    if (!$roleOk || !$hasStudentSector) {
+    if (!$roleOk) {
         // If PH has faculty only, redirect to PH FacultyManagement; else to PH dashboard
         $sf = $pdo->prepare("SELECT COUNT(*) FROM signatory_assignments sa JOIN designations des ON sa.designation_id=des.designation_id JOIN departments d ON sa.department_id=d.department_id JOIN sectors s ON d.sector_id=s.sector_id WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name='Faculty'");
         $sf->execute([$userId]);

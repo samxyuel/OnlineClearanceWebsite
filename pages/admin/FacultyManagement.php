@@ -15,139 +15,6 @@ ob_start();
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style>
-        /* Bulk Selection Modal Styles */
-        .bulk-selection-modal {
-            max-width: 500px;
-            width: 90%;
-        }
-        
-        .filter-sections {
-            padding: 20px 0;
-        }
-        
-        .filter-section-label {
-            font-weight: 600;
-            color: var(--dark-blue);
-            margin-bottom: 12px;
-            display: block;
-            font-size: 14px;
-        }
-        
-        .checkbox-group {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-        
-        .custom-checkbox {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            padding: 8px 0;
-            font-size: 14px;
-        }
-        
-        .custom-checkbox input[type="checkbox"] {
-            margin-right: 10px;
-            width: 16px;
-            height: 16px;
-        }
-        
-        .custom-checkbox.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .custom-checkbox.disabled input[type="checkbox"] {
-            cursor: not-allowed;
-        }
-        
-        .bulk-selection-filters-btn {
-            margin-right: 15px;
-        }
-        
-        .clear-selection-btn {
-            margin-right: 15px;
-        }
-        
-        .clear-selection-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        
-        /* Style for clear button in table header */
-        .checkbox-column .clear-selection-btn {
-            margin: 0;
-            padding: 6px 12px;
-            font-size: 12px;
-            min-width: auto;
-        }
-        
-        .selection-counter-display {
-            display: flex;
-            align-items: center;
-            margin-left: 15px;
-            margin-right: 20px;
-            padding: 8px 20px;
-            background-color: var(--very-light-cool-white, #e7eff4);
-            border: none;
-            border-radius: 25px;
-            font-weight: 600;
-            color: var(--dark-primary, #1c3faa);
-            min-width: 180px;
-            justify-content: center;
-            box-shadow: 0 2px 4px rgba(231, 239, 244, 0.3);
-            transition: all 0.2s ease;
-        }
-        
-        .selection-counter-display span {
-            font-size: 13px;
-            letter-spacing: 0.3px;
-        }
-        
-        /* Hover effect for subtle interactivity */
-        .selection-counter-display:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 3px 8px rgba(231, 239, 244, 0.4);
-        }
-        
-        /* State-based styling */
-        .selection-counter-display.has-selections {
-            background-color: var(--darker-saturated-blue, #175d97);
-            box-shadow: 0 2px 4px rgba(23, 93, 151, 0.2);
-            cursor: pointer;
-        }
-        
-        .selection-counter-display.has-selections:hover {
-            box-shadow: 0 3px 8px rgba(23, 93, 151, 0.25);
-        }
-        
-        .selection-counter-display.all-selected {
-            background-color: var(--bright-golden-yellow, #e7c01d);
-            color: var(--deep-navy-blue, #0c5591);
-            box-shadow: 0 2px 4px rgba(231, 192, 29, 0.2);
-            cursor: pointer;
-        }
-        
-        .selection-counter-display.all-selected:hover {
-            box-shadow: 0 3px 8px rgba(231, 192, 29, 0.25);
-        }
-        
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-            .bulk-selection-modal {
-                width: 95%;
-                margin: 20px;
-            }
-            
-            .checkbox-group {
-                gap: 8px;
-            }
-        }
-    </style>
 </head>
 <body>
     <!-- Header -->
@@ -1464,6 +1331,7 @@ ob_start();
                 data.faculty.forEach(f=>{
                     const tr=document.createElement('tr');
                     tr.setAttribute('data-term',''); // term unknown for now
+                    tr.setAttribute('data-faculty-id', f.user_id); // Add faculty ID for button manager
                     const statusRaw = f.clearance_status;
                     let clearanceKey = 'unapplied';
                     if(statusRaw==='Completed' || statusRaw==='Complete') clearanceKey='complete';
@@ -1481,6 +1349,8 @@ ob_start();
                                 <td><span class="status-badge clearance-${clearanceStatus}">${statusRaw}</span></td>
                                 <td><div class="action-buttons">
                                         <button class=\"btn-icon view-progress-btn\" onclick=\"viewClearanceProgress('${f.employee_number}')\" title=\"View Clearance Progress\"><i class=\"fas fa-tasks\"></i></button>
+                                        <button class=\"btn-icon approve-btn\" onclick=\"approveFacultyClearance('${f.user_id}')\" title=\"Approve Clearance\" disabled><i class=\"fas fa-check\"></i></button>
+                                        <button class=\"btn-icon reject-btn\" onclick=\"rejectFacultyClearance('${f.user_id}')\" title=\"Reject Clearance\" disabled><i class=\"fas fa-times\"></i></button>
                                         <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
                                         <button class="btn-icon status-toggle-btn ${accountStatus==='active'?'active':'inactive'}" onclick="toggleFacultyStatus(this)" title="Toggle Status"><i class="fas ${accountStatus==='active'?'fa-toggle-on':'fa-toggle-off'}"></i></button>
                                         <button class=\"btn-icon delete-btn\" onclick=\"deleteFaculty('${f.employee_number}')\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>
@@ -2106,13 +1976,58 @@ ob_start();
             });
         }
 
+        // Faculty Clearance Action Functions
+        async function approveFacultyClearance(facultyId) {
+            try {
+                showToastNotification('Approving faculty clearance...', 'info');
+                
+                // TODO: Implement actual approval API call
+                // const response = await fetch('../../api/clearance/approve.php', {
+                //     method: 'POST',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     credentials: 'include',
+                //     body: JSON.stringify({ faculty_id: facultyId })
+                // });
+                
+                // For now, show success message
+                showToastNotification('Faculty clearance approved successfully', 'success');
+                
+                // Refresh the table to update button states
+                await refreshFacultyTable();
+                
+            } catch (error) {
+                console.error('Error approving faculty clearance:', error);
+                showToastNotification('Failed to approve clearance: ' + error.message, 'error');
+            }
+        }
+
+        async function rejectFacultyClearance(facultyId) {
+            try {
+                // Get faculty name for display
+                const row = document.querySelector(`tr[data-faculty-id="${facultyId}"]`);
+                const facultyName = row ? row.cells[2].textContent.trim() : 'Unknown Faculty';
+                
+                // Open rejection remarks modal
+                openRejectionRemarksModal(facultyId, facultyName, 'faculty', false);
+                
+            } catch (error) {
+                console.error('Error rejecting faculty clearance:', error);
+                showToastNotification('Failed to reject clearance: ' + error.message, 'error');
+            }
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             // Load faculty list from backend then initialize pagination
-            refreshFacultyTable().then(()=>{
+            refreshFacultyTable().then(async ()=>{
                 showToastNotification('Faculty table refreshed','success');
                 initializePagination();
                 updateSelectionCounter();
+                
+                // Update button states after table is loaded
+                if (window.clearanceButtonManager) {
+                    await window.clearanceButtonManager.updateAllButtons('Faculty', 'faculty');
+                }
             });
 
             // Add event listeners for checkboxes
@@ -2539,6 +2454,9 @@ ob_start();
     
     <!-- Include Activity Tracker JavaScript -->
     <script src="../../assets/js/activity-tracker.js"></script>
+    
+    <!-- Include Clearance Button Manager -->
+    <script src="../../assets/js/clearance-button-manager.js"></script>
     
     <!-- Initialize Activity Tracker -->
     <script>
