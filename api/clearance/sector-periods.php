@@ -365,11 +365,11 @@ function closeSectorPeriod($connection, $periodId) {
                 AND cf.semester_id = cp.semester_id 
                 AND cf.clearance_type = cp.sector
             )
-            SET cf.status = 'Rejected',
+            SET cf.clearance_form_progress = 'in-progress',
                 cf.rejected_at = NOW(),
                 cf.updated_at = NOW()
             WHERE cp.period_id = ? 
-            AND cf.status IN ('Unapplied', 'Pending', 'Processing')
+            AND cf.clearance_form_progress IN ('unapplied', 'in-progress')
         ");
         $stmt->execute([$periodId]);
         
@@ -468,7 +468,7 @@ function createClearanceFormsForSectorPeriod($connection, $periodId, $sector, $a
                     'Unapplied'
                 FROM students s
                 WHERE s.sector = 'College' 
-                AND s.enrollment_status = 'Enrolled'
+                AND u.account_status = 'active'
                 AND s.user_id IS NOT NULL
             ");
             $stmt->execute([$academicYearId, $semesterId]);
@@ -492,7 +492,7 @@ function createClearanceFormsForSectorPeriod($connection, $periodId, $sector, $a
                     'Unapplied'
                 FROM students s
                 WHERE s.sector = 'Senior High School' 
-                AND s.enrollment_status = 'Enrolled'
+                AND u.account_status = 'active'
                 AND s.user_id IS NOT NULL
             ");
             $stmt->execute([$academicYearId, $semesterId]);

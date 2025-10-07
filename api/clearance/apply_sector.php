@@ -193,7 +193,7 @@ function getUserSector($connection, $userId) {
     // Check if user is a student
     $stmt = $connection->prepare("
         SELECT sector FROM students 
-        WHERE user_id = ? AND enrollment_status = 'Enrolled'
+        WHERE user_id = ? AND account_status = 'active'
     ");
     $stmt->execute([$userId]);
     $studentSector = $stmt->fetchColumn();

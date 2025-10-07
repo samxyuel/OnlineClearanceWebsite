@@ -17,7 +17,7 @@ class Auth {
                     FROM users u 
                     JOIN user_roles ur ON u.user_id = ur.user_id 
                     JOIN roles r ON ur.role_id = r.role_id 
-                    WHERE u.username = ? AND u.status = 'active'";
+                    WHERE u.username = ? AND u.account_status = 'active'";
             
             $stmt = $this->connection->prepare($sql);
             $stmt->execute([$username]);
@@ -68,7 +68,7 @@ class Auth {
     // Ensure session is started without causing conflicts
     private function ensureSessionStarted() {
         if (session_status() === PHP_SESSION_NONE) {
-            session_start();
+            @session_start();
         }
     }
     
@@ -92,7 +92,7 @@ class Auth {
     // User logout
     public function logout() {
         if (session_status() == PHP_SESSION_NONE) {
-            session_start();
+            @session_start();
         }
         
         $user_id = $_SESSION['user_id'] ?? null;

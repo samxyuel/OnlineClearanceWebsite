@@ -162,13 +162,13 @@ try {
         }
         $accountStatus = $_POST['accountStatus'] ?? '';
         if ($accountStatus !== '') {
-            $where[] = 'u.status = ?';
+            $where[] = 'u.account_status = ?';
             $params[] = $accountStatus;
         }
         // Tab status (from page) could also be passed; we honor modal filters first
         $tabStatus = $_POST['tabStatus'] ?? '';
         if ($tabStatus !== '') {
-            $where[] = 'u.status = ?';
+            $where[] = 'u.account_status = ?';
             $params[] = $tabStatus;
         }
         $clearance = $_POST['clearanceStatus'] ?? '';
@@ -189,7 +189,7 @@ try {
     }
 
     // Base select and joins
-    $select = "SELECT f.employee_number, f.employment_status, u.first_name, u.last_name, u.middle_name, u.email, u.contact_number, u.status AS account_status, COALESCE(NULLIF(cf.status,''),'Unapplied') AS clearance_status";
+    $select = "SELECT f.employee_number, f.employment_status, u.first_name, u.last_name, u.middle_name, u.email, u.contact_number, u.account_status, COALESCE(NULLIF(cf.status,''),'Unapplied') AS clearance_status";
     $join   = " FROM faculty f JOIN users u ON u.user_id=f.user_id ";
     if ($ayId && $semId) {
         $join .= " LEFT JOIN clearance_forms cf ON cf.user_id=u.user_id AND cf.academic_year_id = ? AND cf.semester_id = ? ";

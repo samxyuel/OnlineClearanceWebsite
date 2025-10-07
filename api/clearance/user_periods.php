@@ -85,7 +85,7 @@ try {
     // 4. Also include any historical periods where user has clearance forms
     $historicalSql = "SELECT 
                         cf.clearance_form_id,
-                        cf.status as form_status,
+                        cf.clearance_form_progress as form_status,
                         cf.created_at as form_created,
                         ay.year as school_year,
                         s.semester_name,

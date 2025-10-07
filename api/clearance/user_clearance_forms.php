@@ -30,7 +30,7 @@ try {
     $sql = "
         SELECT 
             cf.clearance_form_id,
-            cf.status as form_status,
+            cf.clearance_form_progress as form_status,
             cf.applied_at,
             cf.completed_at,
             cf.created_at as form_created_at,

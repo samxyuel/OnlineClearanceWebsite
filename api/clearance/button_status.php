@@ -186,7 +186,7 @@ try {
         $applicationSql = "
             SELECT 
                 cf.clearance_form_id,
-            cf.status as form_status,
+            cf.clearance_form_progress as form_status,
                 cf.applied_at,
             COUNT(cs.signatory_id) as total_signatories,
             COUNT(CASE WHEN cs.action = 'Approved' THEN 1 END) as approved_count,
@@ -235,6 +235,8 @@ try {
     $buttonStates = [];
     foreach ($signatoryStatuses as $signatory) {
         $buttonState = determineButtonState($signatory['action'], $effectiveStatus, $isInGracePeriod);
+        $signatoryActionButtons = determineSignatoryActionButtons($signatory['action'], $effectiveStatus, $isInGracePeriod);
+        
         $buttonStates[] = [
             'signatory_id' => $signatory['signatory_id'],
             'designation_id' => $signatory['designation_id'],
@@ -244,6 +246,7 @@ try {
             'button_state' => $buttonState,
             'can_apply' => $buttonState['enabled'],
             'can_reapply' => $buttonState['enabled'] && $signatory['action'] === 'Rejected',
+            'signatory_action_buttons' => $signatoryActionButtons,
             'remarks' => $signatory['remarks'],
             'updated_at' => $signatory['updated_at']
         ];
@@ -413,5 +416,118 @@ function determineButtonState($signatoryAction, $effectiveStatus, $isInGracePeri
     }
     
     return $buttonState;
+}
+
+/**
+ * Determine signatory action buttons (approve/reject) based on signatory action and period status
+ */
+function determineSignatoryActionButtons($signatoryAction, $effectiveStatus, $isInGracePeriod) {
+    $approveButton = [
+        'enabled' => false,
+        'text' => 'Approve',
+        'class' => 'btn-success',
+        'tooltip' => '',
+        'reason' => ''
+    ];
+    
+    $rejectButton = [
+        'enabled' => false,
+        'text' => 'Reject',
+        'class' => 'btn-danger',
+        'tooltip' => '',
+        'reason' => ''
+    ];
+    
+    // Only show action buttons for signatories (not for students applying)
+    // This function is for management interfaces where signatories can approve/reject
+    
+    switch ($effectiveStatus) {
+        case 'not_started':
+            $approveButton['enabled'] = false;
+            $approveButton['tooltip'] = 'Clearance period has not been started yet';
+            $approveButton['reason'] = 'period_not_started';
+            $rejectButton['enabled'] = false;
+            $rejectButton['tooltip'] = 'Clearance period has not been started yet';
+            $rejectButton['reason'] = 'period_not_started';
+            break;
+            
+        case 'grace_period':
+        case 'paused_grace_period':
+            $approveButton['enabled'] = false;
+            $approveButton['tooltip'] = 'Clearance period is in grace period. Please wait.';
+            $approveButton['reason'] = 'grace_period';
+            $rejectButton['enabled'] = false;
+            $rejectButton['tooltip'] = 'Clearance period is in grace period. Please wait.';
+            $rejectButton['reason'] = 'grace_period';
+            break;
+            
+        case 'ongoing':
+            switch ($signatoryAction) {
+                case 'Pending':
+                    $approveButton['enabled'] = true;
+                    $approveButton['tooltip'] = 'Click to approve this signatory';
+                    $approveButton['reason'] = 'can_approve';
+                    $rejectButton['enabled'] = true;
+                    $rejectButton['tooltip'] = 'Click to reject this signatory';
+                    $rejectButton['reason'] = 'can_reject';
+                    break;
+                    
+                case 'Approved':
+                    $approveButton['enabled'] = false;
+                    $approveButton['text'] = 'Approved';
+                    $approveButton['class'] = 'btn-success';
+                    $approveButton['tooltip'] = 'Already approved';
+                    $approveButton['reason'] = 'already_approved';
+                    $rejectButton['enabled'] = false;
+                    $rejectButton['tooltip'] = 'Cannot reject approved signatory';
+                    $rejectButton['reason'] = 'already_approved';
+                    break;
+                    
+                case 'Rejected':
+                    $approveButton['enabled'] = true;
+                    $approveButton['text'] = 'Re-approve';
+                    $approveButton['tooltip'] = 'Click to re-approve this signatory';
+                    $approveButton['reason'] = 'can_reapprove';
+                    $rejectButton['enabled'] = false;
+                    $rejectButton['text'] = 'Rejected';
+                    $rejectButton['class'] = 'btn-danger';
+                    $rejectButton['tooltip'] = 'Already rejected';
+                    $rejectButton['reason'] = 'already_rejected';
+                    break;
+                    
+                case 'Unapplied':
+                    $approveButton['enabled'] = false;
+                    $approveButton['tooltip'] = 'Student has not applied to this signatory yet';
+                    $approveButton['reason'] = 'not_applied';
+                    $rejectButton['enabled'] = false;
+                    $rejectButton['tooltip'] = 'Student has not applied to this signatory yet';
+                    $rejectButton['reason'] = 'not_applied';
+                    break;
+            }
+            break;
+            
+        case 'paused':
+            $approveButton['enabled'] = false;
+            $approveButton['tooltip'] = 'Clearance period is paused. Actions are disabled.';
+            $approveButton['reason'] = 'period_paused';
+            $rejectButton['enabled'] = false;
+            $rejectButton['tooltip'] = 'Clearance period is paused. Actions are disabled.';
+            $rejectButton['reason'] = 'period_paused';
+            break;
+            
+        case 'closed':
+            $approveButton['enabled'] = false;
+            $approveButton['tooltip'] = 'Clearance period has ended. Actions are disabled.';
+            $approveButton['reason'] = 'period_closed';
+            $rejectButton['enabled'] = false;
+            $rejectButton['tooltip'] = 'Clearance period has ended. Actions are disabled.';
+            $rejectButton['reason'] = 'period_closed';
+            break;
+    }
+    
+    return [
+        'approve' => $approveButton,
+        'reject' => $rejectButton
+    ];
 }
 ?>

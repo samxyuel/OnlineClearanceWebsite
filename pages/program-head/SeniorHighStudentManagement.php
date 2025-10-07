@@ -1463,10 +1463,206 @@ try {
             }
         }
 
+        // Load senior high students data from API
+        async function loadStudentsData() {
+            try {
+                console.log('Loading senior high students data...');
+                const response = await fetch('../../api/users/students.php?type=senior_high&limit=500', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Senior high students API response:', data);
+                
+                if (data.success) {
+                    populateStudentsTable(data.students);
+                    updateStatistics(data.students);
+                } else {
+                    showToastNotification('Failed to load students data: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error loading senior high students:', error);
+                showToastNotification('Error loading students data: ' + error.message, 'error');
+            }
+        }
+
+        // Populate students table
+        async function populateStudentsTable(students) {
+            const tbody = document.getElementById('studentsTableBody');
+            tbody.innerHTML = '';
+            
+            for (const student of students) {
+                const row = await createStudentRow(student);
+                tbody.appendChild(row);
+            }
+        }
+
+        // Create student row
+        async function createStudentRow(student) {
+            // Map account status to display status
+            const displayStatus = student.status === 'active' ? 'active' : 'inactive';
+            
+            // Check if Program Head is assigned to Senior High School sector
+            const isAssignedToSeniorHigh = await checkSeniorHighSectorAssignment();
+            
+            const row = document.createElement('tr');
+            row.setAttribute('data-user-id', student.user_id);
+            row.innerHTML = `
+                <td><input type="checkbox" class="student-checkbox" data-id="${student.user_id}"></td>
+                <td>${student.student_id || student.username}</td>
+                <td>${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
+                <td>${student.program || 'N/A'}</td>
+                <td>${student.year_level || 'N/A'}</td>
+                <td>${student.section || 'N/A'}</td>
+                <td><span class="status-badge account-${displayStatus}">${student.status === 'active' ? 'Active' : 'Inactive'}</span></td>
+                <td><span class="status-badge clearance-not-assigned">Not Assigned</span></td>
+                <td>
+                    <div class="action-buttons">
+                        ${isAssignedToSeniorHigh ? 
+                            `<button class="btn-icon edit-btn" onclick="editStudent('${student.user_id}')" title="Edit Student">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-icon delete-btn" onclick="deleteStudent('${student.user_id}')" title="Delete Student">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <button class="btn-icon approve-btn" onclick="approveSignatory('${student.user_id}', 'CF-2025-00001', 1)" title="Approve Signatory">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}', 'CF-2025-00001', 1)" title="Reject Signatory">
+                                <i class="fas fa-times"></i>
+                            </button>` :
+                            `<span class="text-muted" style="font-size: 0.85rem; color: #6c757d;">Not Assigned</span>`
+                        }
+                    </div>
+                </td>
+            `;
+            return row;
+        }
+
+        // Update statistics
+        function updateStatistics(students) {
+            const stats = {
+                total: students.length,
+                active: students.filter(s => s.status === 'active').length,
+                inactive: students.filter(s => s.status === 'inactive').length,
+                graduated: 0 // No graduated status in account_status
+            };
+            
+            document.getElementById('totalStudents').textContent = stats.total;
+            document.getElementById('activeStudents').textContent = stats.active;
+            document.getElementById('inactiveStudents').textContent = stats.inactive;
+            document.getElementById('graduatedStudents').textContent = stats.graduated;
+        }
+
+        // Edit student function
+        function editStudent(studentId) {
+            // Open edit student modal
+            showToastNotification('Edit student functionality will be implemented', 'info');
+        }
+
+        // Delete student function
+        function deleteStudent(studentId) {
+            // Get student name from the table row
+            const row = document.querySelector(`tr[data-user-id="${studentId}"]`);
+            const studentName = row ? row.querySelector('td:nth-child(3)').textContent : 'Student';
+            
+            showConfirmationModal(
+                'Delete Student',
+                `Are you sure you want to delete ${studentName}? This action cannot be undone.`,
+                'Delete',
+                'Cancel',
+                async () => {
+                    try {
+                        // Call delete API
+                        const response = await fetch('../../api/users/delete_student.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                user_id: studentId
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            // Remove row from table
+                            const row = document.querySelector(`tr[data-user-id="${studentId}"]`);
+                            if (row) {
+                                row.remove();
+                            }
+                            
+                            // Update statistics
+                            updateStatisticsAfterDelete();
+                            
+                            showToastNotification(`Student ${studentName} deleted successfully`, 'success');
+                        } else {
+                            showToastNotification('Failed to delete student: ' + result.message, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting student:', error);
+                        showToastNotification('Error deleting student: ' + error.message, 'error');
+                    }
+                },
+                'danger'
+            );
+        }
+
+        // Update statistics after delete
+        function updateStatisticsAfterDelete() {
+            const totalStudents = document.querySelectorAll('#studentsTableBody tr').length;
+            const activeStudents = document.querySelectorAll('#studentsTableBody tr .status-badge.account-active').length;
+            const inactiveStudents = document.querySelectorAll('#studentsTableBody tr .status-badge.account-inactive').length;
+            
+            document.getElementById('totalStudents').textContent = totalStudents;
+            document.getElementById('activeStudents').textContent = activeStudents;
+            document.getElementById('inactiveStudents').textContent = inactiveStudents;
+        }
+
+        // Check if Program Head is assigned to Senior High School sector
+        async function checkSeniorHighSectorAssignment() {
+            try {
+                const response = await fetch('../../api/clearance/check_signatory_status.php?sector=Senior High School', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                return data.success && data.is_signatory;
+            } catch (error) {
+                console.error('Error checking senior high sector assignment:', error);
+                return false;
+            }
+        }
+
+        // Initialize sector-based access control
+        async function initializeSectorAccessControl() {
+            const isAssignedToSeniorHigh = await checkSeniorHighSectorAssignment();
+            
+            if (!isAssignedToSeniorHigh) {
+                // Disable Add Student button
+                const addStudentBtn = document.querySelector('.add-student-btn');
+                if (addStudentBtn) {
+                    addStudentBtn.disabled = true;
+                    addStudentBtn.title = 'You are not assigned to manage Senior High School sector';
+                    addStudentBtn.style.opacity = '0.5';
+                }
+                
+                // Show restriction message
+                showToastNotification('You are not assigned to manage Senior High School sector. You can view data but cannot edit or add students.', 'warning');
+            }
+        }
+
         // Initialize pagination when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            initializePagination();
-            updateSelectionCounter();
+            // Load students data first
+            loadStudentsData().then(() => {
+                initializePagination();
+                updateSelectionCounter();
             
             const tableWrapper = document.getElementById('studentsTableWrapper');
             if (tableWrapper) {
@@ -1484,6 +1680,10 @@ try {
             
             // Initialize tab status
             window.currentTabStatus = '';
+            
+            // Initialize sector-based access control
+            initializeSectorAccessControl();
+            });
         });
 
         // Add event listeners for student checkboxes

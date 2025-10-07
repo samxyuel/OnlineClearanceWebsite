@@ -191,8 +191,33 @@ try {
                             </div>
                         </div>
 
-                        <!-- Current Period Banner -->
-                        <div class="current-period-banner-wrapper">
+                        <!-- Tab Banner Wrapper -->
+                        <div class="tab-banner-wrapper">
+                            <!-- Tab Navigation for quick status views -->
+                            <div class="tab-nav" id="facultyTabNav">
+                                <button class="tab-pill active" data-status="" onclick="switchFacultyTab(this)">
+                                    Overall
+                                </button>
+                                <button class="tab-pill" data-status="active" onclick="switchFacultyTab(this)">
+                                    Active
+                                </button>
+                                <button class="tab-pill" data-status="inactive" onclick="switchFacultyTab(this)">
+                                    Inactive
+                                </button>
+                                <button class="tab-pill" data-status="resigned" onclick="switchFacultyTab(this)">
+                                    Resigned
+                                </button>
+                            </div>
+                            <!-- Mobile dropdown alternative -->
+                            <div class="tab-nav-mobile" id="facultyTabSelectWrapper">
+                                <select id="facultyTabSelect" class="tab-select" onchange="handleTabSelectChange(this)">
+                                    <option value="" selected>Overall</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="resigned">Resigned</option>
+                                </select>
+                            </div>
+                            <!-- Current Period Banner -->
                             <div id="currentPeriodBanner" class="current-period-banner">
                                 <i class="fas fa-calendar-alt banner-icon" aria-hidden="true"></i>
                                 <span id="currentPeriodText">Loading current period...</span>
@@ -204,11 +229,12 @@ try {
                             <!-- Table Header with Bulk Actions -->
                             <div class="table-header-section">
                                 <div class="bulk-controls">
-                                    <label class="select-all-checkbox">
-                                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                        <span class="checkmark"></span>
-                                        Select All
-                                    </label>
+                                    <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
+                                        <i class="fas fa-filter"></i> Bulk Selection Filters
+                                    </button>
+                                    <button class="selection-counter-display" id="selectionCounterPill" type="button" title="" aria-disabled="true">
+                                        <span id="selectionCounter">0 selected</span>
+                                    </button>
                                     <div class="bulk-buttons">
                                         <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
                                             <i class="fas fa-undo"></i> Undo
@@ -224,9 +250,6 @@ try {
                                         </button>
                                         <button class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
                                             <i class="fas fa-redo"></i> Reset Clearance
-                                        </button>
-                                        <button class="btn btn-danger" onclick="deleteSelected()" disabled>
-                                            <i class="fas fa-trash"></i> Delete
                                         </button>
                                     </div>
                                 </div>
@@ -306,6 +329,70 @@ try {
     <!-- Include Modals -->
     <?php include '../../Modals/FacultyRegistryModal.php'; ?>
     <?php include '../../Modals/EditFacultyModal.php'; ?>
+    
+    <!-- Bulk Selection Filters Modal -->
+    <div id="bulkSelectionFiltersModal" class="modal-overlay" style="display: none;">
+        <div class="modal-window bulk-selection-modal">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-filter"></i> Bulk Selection Filters</h3>
+                <button class="modal-close" onclick="closeBulkSelectionModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content-area">
+                <div class="filter-section">
+                    <h4>Select faculty by status:</h4>
+                    <div class="filter-options">
+                        <label class="filter-option">
+                            <input type="checkbox" id="filterActive" value="active">
+                            <span class="checkmark"></span>
+                            Active Faculty
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" id="filterInactive" value="inactive">
+                            <span class="checkmark"></span>
+                            Inactive Faculty
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" id="filterResigned" value="resigned">
+                            <span class="checkmark"></span>
+                            Resigned Faculty
+                        </label>
+                    </div>
+                </div>
+                <div class="filter-section">
+                    <h4>Select faculty by clearance status:</h4>
+                    <div class="filter-options">
+                        <label class="filter-option">
+                            <input type="checkbox" id="filterPending" value="pending">
+                            <span class="checkmark"></span>
+                            Pending
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" id="filterApproved" value="approved">
+                            <span class="checkmark"></span>
+                            Approved
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" id="filterRejected" value="rejected">
+                            <span class="checkmark"></span>
+                            Rejected
+                        </label>
+                        <label class="filter-option">
+                            <input type="checkbox" id="filterNotAssigned" value="not-assigned">
+                            <span class="checkmark"></span>
+                            Not Assigned
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-secondary" onclick="resetBulkSelectionFilters()">Reset</button>
+                <button class="modal-action-secondary" onclick="closeBulkSelectionModal()">Cancel</button>
+                <button class="modal-action-primary" onclick="applyBulkSelection()">Apply Selection</button>
+            </div>
+        </div>
+    </div>
     <?php include '../../Modals/FacultyExportModal.php'; ?>
     <?php include '../../Modals/FacultyImportModal.php'; ?>
 
@@ -691,9 +778,6 @@ try {
         }
 
         // Individual faculty actions - Program Head as Signatory
-        function editFaculty(facultyId) {
-            openEditFacultyModal(facultyId);
-        }
 
         async function approveFacultyClearance(facultyId) {
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
@@ -1130,6 +1214,10 @@ try {
                 const res = await fetch('../../api/users/staff_faculty_list.php?limit=500',{credentials:'include'});
                 const data = await res.json();
                 if(!data.success){console.error(data);return;}
+                
+                // Check if Program Head is assigned to Faculty sector
+                const isAssignedToFaculty = await checkFacultySectorAssignment();
+                
                 const tbody=document.getElementById('facultyTableBody');
                 tbody.innerHTML='';
                 let total=0,active=0,inactive=0,resigned=0;
@@ -1144,7 +1232,7 @@ try {
                     else if(statusRaw==='In Progress' || statusRaw==='Pending') clearanceKey='in-progress';
                     else if(statusRaw==='Rejected') clearanceKey='rejected';
 
-                    const accountStatus = f.status.toLowerCase();
+                    const accountStatus = f.account_status ? f.account_status.toLowerCase() : 'active';
                     const clearanceStatus=clearanceKey;
                     tr.innerHTML=`<td><input type=\"checkbox\" class=\"faculty-checkbox\" data-id=\"${f.employee_number}\"></td>
                                 <td>${f.employee_number}</td>
@@ -1153,10 +1241,13 @@ try {
                                 <td><span class="status-badge account-${accountStatus}">${accountStatus.charAt(0).toUpperCase()+accountStatus.slice(1)}</span></td>
                                 <td><span class="status-badge clearance-${clearanceStatus}">${statusRaw}</span></td>
                                 <td><div class="action-buttons">
-                                        <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
-                                        <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${f.user_id}')" title="Approve Clearance" disabled><i class="fas fa-check"></i></button>
-                                        <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('${f.user_id}')" title="Reject Clearance" disabled><i class="fas fa-times"></i></button>
-                                        <button class=\"btn-icon delete-btn\" onclick=\"deleteFaculty('${f.employee_number}')\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>
+                                        ${isAssignedToFaculty ? 
+                                            `<button class="btn-icon edit-btn" onclick="editFaculty('${f.user_id}')" title="Edit Faculty"><i class="fas fa-edit"></i></button>
+                                             <button class="btn-icon delete-btn" onclick="deleteFaculty('${f.user_id}')" title="Delete Faculty"><i class="fas fa-trash"></i></button>
+                                             <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${f.user_id}')" title="Approve Clearance" disabled><i class="fas fa-check"></i></button>
+                                             <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('${f.user_id}')" title="Reject Clearance" disabled><i class="fas fa-times"></i></button>` :
+                                            `<span class="text-muted" style="font-size: 0.85rem; color: #6c757d;">Not Assigned</span>`
+                                        }
                                    </div></td>`;
 
                     if(accountStatus!=='active'){
@@ -1222,6 +1313,254 @@ try {
             }
         }
 
+        // Tab navigation functions
+        function switchFacultyTab(button) {
+            const status = button.getAttribute('data-status');
+            window.currentTabStatus = status;
+            
+            // Update tab appearance
+            document.querySelectorAll('.tab-pill').forEach(pill => {
+                pill.classList.remove('active');
+            });
+            button.classList.add('active');
+            
+            // Update mobile select
+            const mobileSelect = document.getElementById('facultyTabSelect');
+            if (mobileSelect) {
+                mobileSelect.value = status;
+            }
+            
+            // Apply tab filter
+            applyTabFilter(status);
+        }
+
+        function handleTabSelectChange(select) {
+            const status = select.value;
+            window.currentTabStatus = status;
+            
+            // Update tab pills
+            document.querySelectorAll('.tab-pill').forEach(pill => {
+                pill.classList.remove('active');
+                if (pill.getAttribute('data-status') === status) {
+                    pill.classList.add('active');
+                }
+            });
+            
+            // Apply tab filter
+            applyTabFilter(status);
+        }
+
+        function applyTabFilter(status) {
+            const tableRows = document.querySelectorAll('#facultyTableBody tr');
+            
+            tableRows.forEach(row => {
+                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
+                
+                if (!status || status === '') {
+                    // Show all rows
+                    row.style.display = '';
+                } else {
+                    // Filter by status
+                    if (accountBadge && accountBadge.classList.contains(`account-${status}`)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        // Bulk selection functions
+        function openBulkSelectionModal() {
+            const modal = document.getElementById('bulkSelectionFiltersModal');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeBulkSelectionModal() {
+            const modal = document.getElementById('bulkSelectionFiltersModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function applyBulkSelection() {
+            const filters = {
+                active: document.getElementById('filterActive').checked,
+                inactive: document.getElementById('filterInactive').checked,
+                resigned: document.getElementById('filterResigned').checked,
+                pending: document.getElementById('filterPending').checked,
+                approved: document.getElementById('filterApproved').checked,
+                rejected: document.getElementById('filterRejected').checked,
+                notAssigned: document.getElementById('filterNotAssigned').checked
+            };
+            
+            selectFacultyByFilters(filters);
+            closeBulkSelectionModal();
+        }
+
+        function selectFacultyByFilters(filters) {
+            const checkboxes = document.querySelectorAll('.faculty-checkbox');
+            let selectedCount = 0;
+            
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
+                const clearanceStatusBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-approved, .status-badge.clearance-rejected, .status-badge.clearance-not-assigned');
+                
+                let shouldSelect = false;
+                
+                // Check account status filters
+                if (accountBadge) {
+                    if (accountBadge.classList.contains('account-active') && filters.active) shouldSelect = true;
+                    if (accountBadge.classList.contains('account-inactive') && filters.inactive) shouldSelect = true;
+                    if (accountBadge.classList.contains('account-resigned') && filters.resigned) shouldSelect = true;
+                }
+                
+                // Check clearance status filters
+                if (clearanceStatusBadge) {
+                    if (clearanceStatusBadge.classList.contains('clearance-pending') && filters.pending) shouldSelect = true;
+                    if (clearanceStatusBadge.classList.contains('clearance-approved') && filters.approved) shouldSelect = true;
+                    if (clearanceStatusBadge.classList.contains('clearance-rejected') && filters.rejected) shouldSelect = true;
+                    if (clearanceStatusBadge.classList.contains('clearance-not-assigned') && filters.notAssigned) shouldSelect = true;
+                }
+                
+                checkbox.checked = shouldSelect;
+                if (shouldSelect) selectedCount++;
+            });
+            
+            updateSelectionCounter();
+            updateBulkButtons();
+            showToastNotification(`Selected ${selectedCount} faculty based on filters`, 'success');
+        }
+
+        function resetBulkSelectionFilters() {
+            const checkboxes = ['filterActive', 'filterInactive', 'filterResigned', 'filterPending', 'filterApproved', 'filterRejected', 'filterNotAssigned'];
+            checkboxes.forEach(id => {
+                document.getElementById(id).checked = false;
+            });
+        }
+
+        function updateSelectionCounter() {
+            const selectedCount = getSelectedCount();
+            const totalCount = document.querySelectorAll('.faculty-checkbox').length;
+            const counter = document.getElementById('selectionCounter');
+            const counterPill = document.getElementById('selectionCounterPill');
+            
+            if (selectedCount === 0) {
+                counter.textContent = '0 selected';
+                counterPill.disabled = true;
+            } else if (selectedCount === totalCount) {
+                counter.textContent = `All ${totalCount} selected`;
+                counterPill.disabled = false;
+            } else {
+                counter.textContent = `${selectedCount} selected`;
+                counterPill.disabled = false;
+            }
+        }
+
+        function getSelectedCount() {
+            return document.querySelectorAll('.faculty-checkbox:checked').length;
+        }
+
+        // Edit faculty function
+        function editFaculty(facultyId) {
+            // Open edit faculty modal
+            showToastNotification('Edit faculty functionality will be implemented', 'info');
+        }
+
+        // Delete faculty function
+        function deleteFaculty(facultyId) {
+            // Get faculty name from the table row
+            const row = document.querySelector(`tr[data-faculty-id="${facultyId}"]`);
+            const facultyName = row ? row.querySelector('td:nth-child(3)').textContent : 'Faculty Member';
+            
+            showConfirmationModal(
+                'Delete Faculty',
+                `Are you sure you want to delete ${facultyName}? This action cannot be undone.`,
+                'Delete',
+                'Cancel',
+                async () => {
+                    try {
+                        // Call delete API
+                        const response = await fetch('../../api/users/delete_faculty.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                user_id: facultyId
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            // Remove row from table
+                            const row = document.querySelector(`tr[data-faculty-id="${facultyId}"]`);
+                            if (row) {
+                                row.remove();
+                            }
+                            
+                            // Update statistics
+                            updateStatisticsAfterDelete();
+                            
+                            showToastNotification(`Faculty ${facultyName} deleted successfully`, 'success');
+                        } else {
+                            showToastNotification('Failed to delete faculty: ' + result.message, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting faculty:', error);
+                        showToastNotification('Error deleting faculty: ' + error.message, 'error');
+                    }
+                },
+                'danger'
+            );
+        }
+
+        // Update statistics after delete
+        function updateStatisticsAfterDelete() {
+            const totalFaculty = document.querySelectorAll('#facultyTableBody tr').length;
+            const activeFaculty = document.querySelectorAll('#facultyTableBody tr .status-badge.account-active').length;
+            const inactiveFaculty = document.querySelectorAll('#facultyTableBody tr .status-badge.account-inactive').length;
+            
+            document.getElementById('totalFaculty').textContent = totalFaculty;
+            document.getElementById('activeFaculty').textContent = activeFaculty;
+            document.getElementById('inactiveFaculty').textContent = inactiveFaculty;
+        }
+
+        // Check if Program Head is assigned to Faculty sector
+        async function checkFacultySectorAssignment() {
+            try {
+                const response = await fetch('../../api/clearance/check_signatory_status.php?sector=Faculty', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                return data.success && data.is_signatory;
+            } catch (error) {
+                console.error('Error checking faculty sector assignment:', error);
+                return false;
+            }
+        }
+
+        // Initialize sector-based access control
+        async function initializeSectorAccessControl() {
+            const isAssignedToFaculty = await checkFacultySectorAssignment();
+            
+            if (!isAssignedToFaculty) {
+                // Disable Add Faculty button
+                const addFacultyBtn = document.querySelector('.add-faculty-btn');
+                if (addFacultyBtn) {
+                    addFacultyBtn.disabled = true;
+                    addFacultyBtn.title = 'You are not assigned to manage Faculty sector';
+                    addFacultyBtn.style.opacity = '0.5';
+                }
+                
+                // Show restriction message
+                showToastNotification('You are not assigned to manage Faculty sector. You can view data but cannot edit or add faculty.', 'warning');
+            }
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             // Load faculty list from backend then initialize pagination
@@ -1242,6 +1581,9 @@ try {
             // Load periods for period selector
             loadPeriods();
             
+            // Initialize tab status
+            window.currentTabStatus = '';
+            
             // Add event listeners for checkboxes
             document.addEventListener('change', function(e) {
                 if (e.target.classList.contains('faculty-checkbox')) {
@@ -1255,6 +1597,9 @@ try {
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized for Program Head Faculty Management');
             }
+            
+            // Initialize sector-based access control
+            initializeSectorAccessControl();
         });
 
         // Rejection Remarks Modal Functions

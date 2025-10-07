@@ -209,10 +209,10 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
                                             <i class="fas fa-undo"></i> Undo
                                         </button>
-                                        <button class="btn btn-success" onclick="approveSelected()" disabled>
+                                        <button class="btn btn-success" onclick="bulkApproveSignatories()" disabled>
                                             <i class="fas fa-check"></i> Approve
                                         </button>
-                                        <button class="btn btn-danger" onclick="rejectSelected()" disabled>
+                                        <button class="btn btn-danger" onclick="bulkRejectSignatories()" disabled>
                                             <i class="fas fa-times"></i> Reject
                                         </button>
                                         <button class="btn btn-info" onclick="markGraduated()" disabled>
@@ -244,116 +244,13 @@ if (session_status() == PHP_SESSION_NONE) {
                                                 <th>Year Level</th>
                                                 <th>Section</th>
                                                 <th>Account Status</th>
+                                                <th>Clearance Form Progress</th>
                                                 <th>Clearance Status</th>
                                                 <th>Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody id="studentsTableBody">
-                                            <!-- Sample data - All departments -->
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288322"></td>
-                                                <td>02000288322</td>
-                                                <td>Zinzu Chan Lee</td>
-                                                <td>BSIT</td>
-                                                <td>4th Year</td>
-                                                <td>4/1-1</td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-pending">Pending</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('02000288322')" title="View Clearance Progress">
-                                                            <i class="fas fa-tasks"></i>
-                                                        </button>
-                                                        <button class="btn-icon edit-btn" onclick="editStudent('02000288322')" title="Edit">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288322')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288322')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288323"></td>
-                                                <td>02000288323</td>
-                                                <td>John Doe</td>
-                                                <td>BSBA</td>
-                                                <td>3rd Year</td>
-                                                <td>3/1-2</td>
-                                                <td><span class="status-badge account-inactive">Inactive</span></td>
-                                                <td><span class="status-badge clearance-unapplied">Unapplied</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('02000288323')" title="View Clearance Progress">
-                                                            <i class="fas fa-tasks"></i>
-                                                        </button>
-                                                        <button class="btn-icon edit-btn" onclick="editStudent('02000288323')" title="Edit">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288323')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288323')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288324"></td>
-                                                <td>02000288324</td>
-                                                <td>Maria Garcia</td>
-                                                <td>BSE</td>
-                                                <td>2nd Year</td>
-                                                <td>2/1-1</td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-completed">Completed</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('02000288324')" title="View Clearance Progress">
-                                                            <i class="fas fa-tasks"></i>
-                                                        </button>
-                                                        <button class="btn-icon edit-btn" onclick="editStudent('02000288324')" title="Edit">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288324')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288324')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-2nd">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288330"></td>
-                                                <td>02000288330</td>
-                                                <td>Carlos Rodriguez</td>
-                                                <td>BSCE</td>
-                                                <td>1st Year</td>
-                                                <td>1/1-3</td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-in-progress">In Progress</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('02000288330')" title="View Clearance Progress">
-                                                            <i class="fas fa-tasks"></i>
-                                                        </button>
-                                                        <button class="btn-icon edit-btn" onclick="editStudent('02000288330')" title="Edit">
-                                                            <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288330')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288330')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
+                                            <!-- Data will be populated by JavaScript from API -->
                                         </tbody>
                                     </table>
                                 </div>
@@ -405,7 +302,6 @@ if (session_status() == PHP_SESSION_NONE) {
     <!-- Include Modals -->
     <?php include '../../Modals/CollegeStudentRegistryModal.php'; ?>
     <?php include '../../Modals/CollegeEditStudentModal.php'; ?>
-    <?php include '../../Modals/StudentExportModal.php'; ?>
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     
     <!-- Bulk Selection Filters Modal -->
@@ -1188,18 +1084,147 @@ if (session_status() == PHP_SESSION_NONE) {
 
         // Modal functions
         function triggerExportModal() {
-            // Call the function from StudentExportModal.php
-            if (typeof openStudentExportModal === 'function') {
-                openStudentExportModal();
+            // Simple export functionality for now
+            showToastNotification('Export functionality will be implemented soon', 'info');
+            
+            // For now, we can implement a basic CSV export
+            exportStudentsToCSV();
+        }
+
+        // Basic CSV export function
+        function exportStudentsToCSV() {
+            const table = document.getElementById('studentsTable');
+            const rows = table.querySelectorAll('tbody tr');
+            
+            let csvContent = 'Student Number,Name,Program,Year Level,Section,Account Status,Clearance Form Progress,Clearance Status\n';
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 8) {
+                    const studentNumber = cells[1].textContent.trim();
+                    const name = cells[2].textContent.trim();
+                    const program = cells[3].textContent.trim();
+                    const yearLevel = cells[4].textContent.trim();
+                    const section = cells[5].textContent.trim();
+                    const accountStatus = cells[6].textContent.trim();
+                    const clearanceProgress = cells[7].textContent.trim();
+                    const clearanceStatus = cells[8].textContent.trim();
+                    
+                    csvContent += `"${studentNumber}","${name}","${program}","${yearLevel}","${section}","${accountStatus}","${clearanceProgress}","${clearanceStatus}"\n`;
+                }
+            });
+            
+            // Create and download the CSV file
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'college_students_export.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showToastNotification('College students exported to CSV successfully', 'success');
+        }
+
+        // Load college students data from API
+        async function loadStudentsData() {
+            try {
+                console.log('Loading college students data...');
+                const response = await fetch('../../api/users/students.php?type=college&limit=500', {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('College students API response:', data);
+                
+                if (data.success) {
+                    populateStudentsTable(data.students);
+                    updateStatistics(data.students);
             } else {
-                console.error('Student export modal function not found');
+                    showToastNotification('Failed to load students data: ' + data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error loading college students:', error);
+                showToastNotification('Error loading students data: ' + error.message, 'error');
             }
+        }
+
+        // Populate students table
+        function populateStudentsTable(students) {
+            const tbody = document.getElementById('studentsTableBody');
+            tbody.innerHTML = '';
+            
+            students.forEach(student => {
+                const row = createStudentRow(student);
+                tbody.appendChild(row);
+            });
+        }
+
+        // Create student row
+        function createStudentRow(student) {
+            // Map account status to display status
+            const displayStatus = student.status === 'active' ? 'active' : 'inactive';
+            
+            const row = document.createElement('tr');
+            row.setAttribute('data-user-id', student.user_id);
+            row.innerHTML = `
+                <td><input type="checkbox" class="student-checkbox" data-id="${student.user_id}"></td>
+                <td>${student.student_id || student.username}</td>
+                <td>${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
+                <td>${student.program || 'N/A'}</td>
+                <td>${student.year_level || 'N/A'}</td>
+                <td>${student.section || 'N/A'}</td>
+                <td><span class="status-badge account-${displayStatus}">${student.status === 'active' ? 'Active' : 'Inactive'}</span></td>
+                <td><span class="status-badge clearance-${mapClearanceStatus(student.clearance_status)}">${mapClearanceStatusDisplay(student.clearance_status)}</span></td>
+                <td><span class="status-badge clearance-not-assigned">Not Assigned</span></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
+                            <i class="fas fa-tasks"></i>
+                        </button>
+                        <button class="btn-icon approve-btn" onclick="approveSignatory('${student.user_id}', 'CF-2025-00001', 1)" title="Approve Signatory">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}', 'CF-2025-00001', 1)" title="Reject Signatory">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            return row;
+        }
+
+        // Update statistics
+        function updateStatistics(students) {
+            const stats = {
+                total: students.length,
+                active: students.filter(s => s.status === 'active').length,
+                inactive: students.filter(s => s.status === 'inactive').length,
+                graduated: 0 // No graduated status in account_status
+            };
+            
+            document.getElementById('totalStudents').textContent = stats.total;
+            document.getElementById('activeStudents').textContent = stats.active;
+            document.getElementById('inactiveStudents').textContent = stats.inactive;
+            document.getElementById('graduatedStudents').textContent = stats.graduated;
         }
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            // Load students data first
+            loadStudentsData().then(() => {
             initializePagination();
-            updateSelectionCounter(); // Initialize the counter
+                updateSelectionCounter();
+                
+                // Initialize signatory buttons after data is loaded
+                initializeSignatoryButtons();
+            });
             
             // Add event listeners for checkboxes
             document.addEventListener('change', function(e) {
@@ -1912,6 +1937,314 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
 
+        // Signatory Action Functions
+        async function approveSignatory(userId, clearanceFormId, signatoryId) {
+            try {
+                const response = await fetch('../../api/clearance/apply_signatory.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        operation: 'approve',
+                        target_user_id: userId,
+                        signatory_id: signatoryId,
+                        clearance_form_id: clearanceFormId,
+                        remarks: 'Approved by School Administrator'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToastNotification('Signatory approved successfully', 'success');
+                    // Update UI to reflect approval
+                    updateSignatoryActionUI(userId, 'Approved');
+                } else {
+                    showToastNotification('Failed to approve signatory: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error approving signatory:', error);
+                showToastNotification('Error approving signatory: ' + error.message, 'error');
+            }
+        }
+
+        async function rejectSignatory(userId, clearanceFormId, signatoryId) {
+            // Open rejection modal for remarks
+            openRejectionModal(userId, clearanceFormId, signatoryId);
+        }
+
+        function openRejectionModal(userId, clearanceFormId, signatoryId) {
+            // Store the rejection data for the modal
+            window.pendingRejection = {
+                userId: userId,
+                clearanceFormId: clearanceFormId,
+                signatoryId: signatoryId
+            };
+            
+            // Show rejection modal (you can create this modal or use existing confirmation modal)
+            showConfirmationModal(
+                'Reject Signatory',
+                'Please provide a reason for rejection:',
+                'Reject',
+                'Cancel',
+                () => {
+                    const remarks = prompt('Please provide rejection remarks:');
+                    if (remarks !== null) {
+                        submitRejection(remarks);
+                    }
+                },
+                'danger'
+            );
+        }
+
+        async function submitRejection(remarks) {
+            if (!window.pendingRejection) return;
+            
+            const { userId, clearanceFormId, signatoryId } = window.pendingRejection;
+            
+            try {
+                const response = await fetch('../../api/clearance/apply_signatory.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        operation: 'reject',
+                        target_user_id: userId,
+                        signatory_id: signatoryId,
+                        clearance_form_id: clearanceFormId,
+                        remarks: remarks
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToastNotification('Signatory rejected successfully', 'success');
+                    // Update UI to reflect rejection
+                    updateSignatoryActionUI(userId, 'Rejected');
+                } else {
+                    showToastNotification('Failed to reject signatory: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error rejecting signatory:', error);
+                showToastNotification('Error rejecting signatory: ' + error.message, 'error');
+            } finally {
+                // Clear pending rejection data
+                window.pendingRejection = null;
+            }
+        }
+
+        function updateSignatoryActionUI(userId, action) {
+            // Find the row for this user and update the signatory action buttons and status
+            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+            if (!row) return;
+            
+            // Update the Clearance Status column (8th column)
+            const statusCell = row.children[7]; // Clearance Status column
+            if (statusCell) {
+                const statusBadge = statusCell.querySelector('.status-badge');
+                if (statusBadge) {
+                    if (action === 'Approved') {
+                        statusBadge.textContent = 'Approved';
+                        statusBadge.className = 'status-badge clearance-approved';
+                    } else if (action === 'Rejected') {
+                        statusBadge.textContent = 'Rejected';
+                        statusBadge.className = 'status-badge clearance-rejected';
+                    }
+                }
+            }
+            
+            // Update the action buttons in the Actions column (9th column)
+            const actionCell = row.children[8]; // Actions column
+            if (actionCell) {
+                const approveBtn = actionCell.querySelector('.approve-btn');
+                const rejectBtn = actionCell.querySelector('.reject-btn');
+                
+                if (approveBtn && rejectBtn) {
+                    if (action === 'Approved') {
+                        approveBtn.disabled = true;
+                        approveBtn.classList.add('approved');
+                        rejectBtn.disabled = true;
+                    } else if (action === 'Rejected') {
+                        approveBtn.disabled = false;
+                        approveBtn.title = 'Re-approve Signatory';
+                        rejectBtn.disabled = true;
+                        rejectBtn.classList.add('rejected');
+                    }
+                }
+            }
+        }
+
+        // Bulk Signatory Actions
+        async function bulkApproveSignatories() {
+            const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+            if (selectedCheckboxes.length === 0) {
+                showToastNotification('Please select students to approve', 'warning');
+                return;
+            }
+            
+            const userIds = [];
+            const clearanceFormIds = [];
+            const signatoryId = 1; // Current user's signatory ID
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                const userId = row.querySelector('td:nth-child(2)').textContent; // Assuming student number is in 2nd column
+                userIds.push(userId);
+                clearanceFormIds.push('CF-2025-00001'); // You might need to get actual form IDs
+            });
+            
+            try {
+                const response = await fetch('../../api/clearance/apply_signatory.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        operation: 'bulk_approve',
+                        target_user_ids: userIds,
+                        signatory_id: signatoryId,
+                        clearance_form_ids: clearanceFormIds,
+                        remarks: 'Bulk approved by School Administrator'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToastNotification(`Bulk approval completed. ${result.success_count} of ${result.total_count} signatories approved.`, 'success');
+                    // Update UI for all approved students
+                    userIds.forEach(userId => updateSignatoryActionUI(userId, 'Approved'));
+                } else {
+                    showToastNotification('Bulk approval failed: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error in bulk approval:', error);
+                showToastNotification('Error in bulk approval: ' + error.message, 'error');
+            }
+        }
+
+        async function bulkRejectSignatories() {
+            const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+            if (selectedCheckboxes.length === 0) {
+                showToastNotification('Please select students to reject', 'warning');
+                return;
+            }
+            
+            const remarks = prompt('Please provide rejection remarks for all selected students:');
+            if (remarks === null) return;
+            
+            const userIds = [];
+            const clearanceFormIds = [];
+            const signatoryId = 1; // Current user's signatory ID
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                const userId = row.querySelector('td:nth-child(2)').textContent; // Assuming student number is in 2nd column
+                userIds.push(userId);
+                clearanceFormIds.push('CF-2025-00001'); // You might need to get actual form IDs
+            });
+            
+            try {
+                const response = await fetch('../../api/clearance/apply_signatory.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        operation: 'bulk_reject',
+                        target_user_ids: userIds,
+                        signatory_id: signatoryId,
+                        clearance_form_ids: clearanceFormIds,
+                        remarks: remarks
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToastNotification(`Bulk rejection completed. ${result.success_count} of ${result.total_count} signatories rejected.`, 'success');
+                    // Update UI for all rejected students
+                    userIds.forEach(userId => updateSignatoryActionUI(userId, 'Rejected'));
+                } else {
+                    showToastNotification('Bulk rejection failed: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error in bulk rejection:', error);
+                showToastNotification('Error in bulk rejection: ' + error.message, 'error');
+            }
+        }
+
+        // Map database status values to display values
+        function mapClearanceStatus(status) {
+            if (!status || status === 'Unapplied' || status === 'unapplied') {
+                return 'unapplied';
+            } else if (status === 'Pending' || status === 'Processing' || status === 'Approved' || status === 'Rejected') {
+                return 'in-progress';
+            } else if (status === 'Complete' || status === 'complete') {
+                return 'complete';
+            }
+            return 'unapplied'; // default
+        }
+
+        function mapClearanceStatusDisplay(status) {
+            if (!status || status === 'Unapplied' || status === 'unapplied') {
+                return 'Unapplied';
+            } else if (status === 'Pending' || status === 'Processing' || status === 'Approved' || status === 'Rejected') {
+                return 'In Progress';
+            } else if (status === 'Complete' || status === 'complete') {
+                return 'Complete';
+            }
+            return 'Unapplied'; // default
+        }
+
+        // Check if current user is signatory for this sector
+        async function checkSignatoryStatus(sector) {
+            try {
+                const response = await fetch(`../../api/clearance/check_signatory_status.php?sector=${encodeURIComponent(sector)}`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                return data.success && data.is_signatory;
+            } catch (error) {
+                console.error('Error checking signatory status:', error);
+                return false;
+            }
+        }
+
+        // Initialize signatory buttons based on user's signatory status
+        async function initializeSignatoryButtons() {
+            const isSignatory = await checkSignatoryStatus('College');
+            console.log('User is signatory for College:', isSignatory);
+            
+            if (!isSignatory) {
+                // Hide only the approve/reject buttons if user is not a signatory
+                // Keep all data visible, only hide action buttons
+                document.querySelectorAll('.approve-btn, .reject-btn').forEach(btn => {
+                    btn.style.display = 'none';
+                });
+                
+                // Update the Clearance Status column to show "Not Assigned" instead of hiding it
+                document.querySelectorAll('#studentsTableBody tr').forEach(row => {
+                    const cells = row.children;
+                    // Update the Clearance Status column (8th column, index 7) to show "Not Assigned"
+                    if (cells[7]) {
+                        const statusBadge = cells[7].querySelector('.status-badge');
+                        if (statusBadge) {
+                            statusBadge.textContent = 'Not Assigned';
+                            statusBadge.className = 'status-badge clearance-not-assigned';
+                        }
+                    }
+                });
+            }
+        }
+
         // Initialize Activity Tracker when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
@@ -1924,6 +2257,9 @@ if (session_status() == PHP_SESSION_NONE) {
             
             // Initialize tab status
             window.currentTabStatus = '';
+            
+            // Check signatory status and initialize buttons
+            initializeSignatoryButtons();
         });
     </script>
 </body>

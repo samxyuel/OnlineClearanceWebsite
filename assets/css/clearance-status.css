@@ -165,7 +165,10 @@
 .status-badge.approved,
 .status-badge.rejected,
 .status-badge.pending,
-.status-badge.unapplied {
+.status-badge.unapplied,
+.status-badge.clearance-unapplied,
+.status-badge.clearance-in-progress,
+.status-badge.clearance-complete {
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 12px;
@@ -196,6 +199,32 @@
   background-color: #e2e3e5;
   color: #383d41;
   border: 1px solid #d6d8db;
+}
+
+/* New Clearance Form Progress Status Badges */
+.status-badge.clearance-unapplied {
+  background-color: #6c757d;
+  color: white;
+  border: 1px solid #5a6268;
+}
+
+.status-badge.clearance-in-progress {
+  background-color: #fd7e14;
+  color: white;
+  border: 1px solid #e55a00;
+}
+
+.status-badge.clearance-complete {
+  background-color: #28a745;
+  color: white;
+  border: 1px solid #1e7e34;
+}
+
+.status-badge.clearance-not-assigned {
+  background-color: #6c757d;
+  color: white;
+  border: 1px solid #5a6268;
+  opacity: 0.7;
 }
 
 /* Grace Period Container */

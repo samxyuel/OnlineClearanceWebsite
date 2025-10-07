@@ -192,7 +192,7 @@ try {
     $applicationSql = "
         SELECT 
             cf.clearance_form_id,
-            cf.status as form_status,
+            cf.clearance_form_progress as form_status,
             cf.applied_at,
             COUNT(cs.signatory_id) as total_signatories,
             COUNT(CASE WHEN cs.action = 'Approved' THEN 1 END) as approved_count,

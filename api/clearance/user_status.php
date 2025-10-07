@@ -34,7 +34,7 @@ try {
         $sql = "
             SELECT 
                 cf.clearance_form_id,
-                cf.status as form_status,
+                cf.clearance_form_progress as form_status,
                 cf.applied_at,
                 cf.completed_at,
                 cf.clearance_type,
@@ -68,7 +68,7 @@ try {
         $sql = "
             SELECT 
                 cf.clearance_form_id,
-                cf.status as form_status,
+                cf.clearance_form_progress as form_status,
                 cf.applied_at,
                 cf.completed_at,
                 cf.clearance_type,
@@ -148,6 +148,7 @@ try {
     $hasUnapplied = false;
     $hasPending = false;
     $hasRejected = false;
+    $hasApproved = false;
     $allApproved = true;
     
     foreach ($signatories as $signatory) {
@@ -162,6 +163,8 @@ try {
         } elseif ($action === 'Rejected') {
             $hasRejected = true;
             $allApproved = false;
+        } elseif ($action === 'Approved') {
+            $hasApproved = true;
         }
         
         $processedSignatories[] = [
@@ -177,20 +180,31 @@ try {
         ];
     }
     
-    // Determine overall status
+    // Determine clearance form progress (new 3-status system)
+    $clearanceFormProgress = 'unapplied';
+    
+    // Check if user has applied to any signatory
+    $hasApplied = $hasPending || $hasApproved || $hasRejected;
+    
+    if ($allApproved && !$hasUnapplied && count($signatories) > 0) {
+        // All signatories approved
+        $clearanceFormProgress = 'complete';
+    } elseif ($hasApplied) {
+        // User has applied to one or more signatories
+        $clearanceFormProgress = 'in-progress';
+    } else {
+        // User hasn't applied to any signatory yet
+        $clearanceFormProgress = 'unapplied';
+    }
+    
+    // Determine overall status (for backward compatibility)
     $overallStatus = 'Unapplied';
-    if ($form['form_status'] === 'Completed') {
-        $overallStatus = 'Completed';
-    } elseif ($form['form_status'] === 'Rejected') {
-        $overallStatus = 'Rejected';
-    } elseif ($hasRejected) {
-        $overallStatus = 'Rejected';
-    } elseif ($allApproved && !$hasUnapplied) {
-        $overallStatus = 'Completed';
-    } elseif ($hasPending || $form['form_status'] === 'In Progress') {
+    if ($clearanceFormProgress === 'complete') {
+        $overallStatus = 'Complete';
+    } elseif ($clearanceFormProgress === 'in-progress') {
         $overallStatus = 'In Progress';
-    } elseif ($form['form_status'] === 'Applied') {
-        $overallStatus = 'Applied';
+    } else {
+        $overallStatus = 'Unapplied';
     }
     
     echo json_encode([
@@ -198,6 +212,7 @@ try {
         'applied' => $form['form_status'] !== 'Unapplied',
         'form_status' => $form['form_status'],
         'overall_status' => $overallStatus,
+        'clearance_form_progress' => $clearanceFormProgress,
         'clearance_form_id' => $form['clearance_form_id'],
         'academic_year' => $form['academic_year'],
         'semester_name' => $form['semester_name'],

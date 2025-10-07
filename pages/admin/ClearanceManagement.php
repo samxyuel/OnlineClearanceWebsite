@@ -17,6 +17,7 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/css/sector-clearance.css">
+    <link rel="stylesheet" href="../../assets/css/grace-period-monitoring.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -31,7 +32,6 @@ if (session_status() == PHP_SESSION_NONE) {
         <!-- Main Content -->
         <div class="main-content">
             <div class="dashboard-layout">
-                <!-- LEFT SIDE: Main Content -->
                 <div class="dashboard-main">
                     <div class="content-wrapper">
                         <!-- Page Header -->
@@ -41,367 +41,373 @@ if (session_status() == PHP_SESSION_NONE) {
                         </div>
 
                         <!-- Grace Period Monitoring Section -->
+                        <!-- TODO: Uncomment when grace period functionality is ready
                         <div class="grace-period-monitoring" id="grace-period-monitoring">
                             <div class="monitoring-header">
                                 <h3><i class="fas fa-clock"></i> Grace Period Monitoring</h3>
                                 <p>Monitor system transitions and grace periods across all clearance sectors</p>
                             </div>
                             <div class="grace-period-grid" id="grace-period-grid">
-                                <!-- Grace period cards will be populated by JavaScript -->
+                                <-- Grace period cards will be populated by JavaScript --
                             </div>
                         </div>
+                        -->
 
-                <!-- Sector-Based Clearance Management -->
-                <div class="sector-clearance-management">
-                    <!-- School Years & Terms Card -->
-                    <div class="sector-period-card academic-year-sector" id="academic-year-card">
-                        <div class="sector-card-header">
-                            <div class="sector-info">
-                                <h3><i class="fas fa-calendar-alt"></i> Academic Year & Terms</h3>
-                                <div class="sector-status">
-                                    <span class="status-badge" id="academic-year-status-badge">Current</span>
-                                </div>
-                            </div>
-                            <div class="sector-actions">
-                                <button class="btn btn-sm btn-outline-primary" onclick="showViewPastClearancesModal()">
-                                    <i class="fas fa-history"></i> View Past Clearances
-                                </button>
-                                <button class="btn btn-sm btn-primary" onclick="showAddSchoolYearModal()">
-                                    <i class="fas fa-plus"></i> Add Year
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="sector-card-content">
-                            <!-- Academic Year Details -->
-                            <div class="period-details">
-                                <div class="detail-item">
-                                    <span class="detail-label">Current Year:</span>
-                                    <span class="detail-value" id="currentYearName">2024-2025</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Status:</span>
-                                    <span class="detail-value" id="currentYearStatus">Active</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Terms:</span>
-                                    <span class="detail-value" id="total-terms">2</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Active Terms:</span>
-                                    <span class="detail-value" id="active-terms">1</span>
-                                </div>
-                            </div>
-                            
-                            <!-- Terms List -->
-                            <div class="sector-signatories">
-                                <div class="signatories-header">
-                                    <h4><i class="fas fa-list"></i> Terms Overview</h4>
-                                </div>
-                                <div class="terms-list" id="terms-list">
-                                    <!-- Terms will be populated by JavaScript -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Statistics Card -->
-                    <div class="sector-period-card statistics-sector" id="statistics-card">
-                        <div class="sector-card-header">
-                            <div class="sector-info">
-                                <h3><i class="fas fa-chart-bar"></i> System Statistics</h3>
-                                <div class="sector-status">
-                                    <span class="status-badge" id="statistics-status-badge">Live</span>
-                                </div>
-                            </div>
-                            <div class="sector-actions">
-                                <button class="btn btn-sm btn-outline-primary" onclick="refreshStatistics()">
-                                    <i class="fas fa-sync-alt"></i> Refresh
-                                </button>
-                                <button class="btn btn-sm btn-primary" onclick="openExportModal()">
-                                    <i class="fas fa-file-export"></i> Export
-                                </button>
-                            </div>
-                            </div>
-                            
-                        <div class="sector-card-content">
-                            <!-- Statistics Details -->
-                            <div class="period-details">
-                                <div class="detail-item">
-                                    <span class="detail-label">Total Students:</span>
-                                    <span class="detail-value" id="total-students">45</span>
-                            </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Total Faculty:</span>
-                                    <span class="detail-value" id="total-faculty">12</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Applied:</span>
-                                    <span class="detail-value" id="total-applied">32</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">Completed:</span>
-                                    <span class="detail-value" id="total-completed">28</span>
-                        </div>
-                    </div>
-
-                            <!-- Sector Breakdown -->
-                            <div class="sector-signatories">
-                                <div class="signatories-header">
-                                    <h4><i class="fas fa-chart-pie"></i> Sector Breakdown</h4>
-                        </div>
-                                <div class="statistics-breakdown" id="statistics-breakdown">
-                                    <div class="breakdown-item">
-                                        <div class="breakdown-label">
-                                            <i class="fas fa-university"></i> College
-                                </div>
-                                        <div class="breakdown-stats">
-                                            <span class="breakdown-stat">Students: <strong>25</strong></span>
-                                            <span class="breakdown-stat">Applied: <strong>18</strong></span>
-                                            <span class="breakdown-stat">Completed: <strong>15</strong></span>
-                                </div>
-                            </div>
-                                    <div class="breakdown-item">
-                                        <div class="breakdown-label">
-                                            <i class="fas fa-graduation-cap"></i> Senior High School
-                                        </div>
-                                        <div class="breakdown-stats">
-                                            <span class="breakdown-stat">Students: <strong>20</strong></span>
-                                            <span class="breakdown-stat">Applied: <strong>14</strong></span>
-                                            <span class="breakdown-stat">Completed: <strong>13</strong></span>
+                        <!-- Sector-Based Clearance Management -->
+                        <div class="sector-clearance-management">
+                            <!-- School Years & Terms Card -->
+                            <div class="sector-period-card academic-year-sector" id="academic-year-card">
+                                <div class="sector-card-header">
+                                    <div class="sector-info">
+                                        <h3><i class="fas fa-calendar-alt"></i> Academic Year & Terms</h3>
+                                        <div class="sector-status">
+                                            <span class="status-badge" id="academic-year-status-badge">Current</span>
                                         </div>
                                     </div>
-                                    <div class="breakdown-item">
-                                        <div class="breakdown-label">
-                                            <i class="fas fa-chalkboard-teacher"></i> Faculty
-                                        </div>
-                                        <div class="breakdown-stats">
-                                            <span class="breakdown-stat">Faculty: <strong>12</strong></span>
-                                            <span class="breakdown-stat">Applied: <strong>8</strong></span>
-                                            <span class="breakdown-stat">Completed: <strong>7</strong></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Sector-Based Clearance Periods -->
-                    <div class="sector-clearance-periods">
-                        <!-- College Clearance Period Card -->
-                        <div class="sector-period-card college-sector" id="college-sector-card">
-                            <div class="sector-card-header">
-                                <div class="sector-info">
-                                    <h3><i class="fas fa-university"></i> College Clearance Period</h3>
-                                    <div class="sector-status">
-                                        <span class="status-badge" id="college-status-badge">Not Started</span>
-                        </div>
-                                </div>
-                                <div class="sector-actions">
-                                    <button class="btn btn-sm btn-success" id="college-start-btn" onclick="startSectorPeriod('College')">
-                                        <i class="fas fa-play"></i> Start Clearance Period
-                                    </button>
-                                    <button class="btn btn-sm btn-warning" id="college-pause-btn" onclick="pauseSectorPeriod('College')" style="display: none;">
-                                        <i class="fas fa-pause"></i> Pause Clearance Period
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" id="college-close-btn" onclick="closeSectorPeriod('College')" style="display: none;">
-                                        <i class="fas fa-stop"></i> End Clearance Period
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="sector-card-content">
-                                <!-- Period Details -->
-                                <div class="period-details">
-                                    <div class="detail-item">
-                                        <span class="detail-label">Start Date:</span>
-                                        <span class="detail-value" id="college-start-date">-</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">End Date:</span>
-                                        <span class="detail-value" id="college-end-date">-</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">Applications:</span>
-                                        <span class="detail-value" id="college-applications">0</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">Completed:</span>
-                                        <span class="detail-value" id="college-completed">0</span>
-                                    </div>
-                                </div>
-                                
-                                <!-- Integrated Signatories -->
-                                <div class="sector-signatories">
-                                    <div class="signatories-header">
-                                        <h4><i class="fas fa-signature"></i> Clearance Signatories</h4>
-                                        <div class="signatory-actions">
-                                            <button class="btn btn-xs btn-primary" onclick="openAddScopeModal('College')">
-                                                <i class="fas fa-plus"></i> Add Signatory
-                                            </button>
-                                            <button class="btn btn-xs btn-outline-primary" onclick="openSignatorySettingsModal('College')" title="Configure signatory settings">
-                                                <i class="fas fa-cog"></i> Settings
-                                            </button>
-                                            <button class="btn btn-xs btn-outline-danger" onclick="clearAllSignatories('College')">
-                                        <i class="fas fa-trash"></i> Clear All
-                                    </button>
-                                        </div>
-                                    </div>
-                                    <div class="signatory-list" id="collegeSignatoryList">
-                                        <div class="loading-text">Loading College signatories...</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                        <!-- Senior High School Clearance Period Card -->
-                        <div class="sector-period-card shs-sector" id="shs-sector-card">
-                            <div class="sector-card-header">
-                                <div class="sector-info">
-                                    <h3><i class="fas fa-graduation-cap"></i> Senior High School Clearance Period</h3>
-                                    <div class="sector-status">
-                                        <span class="status-badge" id="shs-status-badge">Not Started</span>
-                        </div>
-                                </div>
-                                <div class="sector-actions">
-                                    <button class="btn btn-sm btn-success" id="shs-start-btn" onclick="startSectorPeriod('Senior High School')">
-                                        <i class="fas fa-play"></i> Start Clearance Period
-                                    </button>
-                                    <button class="btn btn-sm btn-warning" id="shs-pause-btn" onclick="pauseSectorPeriod('Senior High School')" style="display: none;">
-                                        <i class="fas fa-pause"></i> Pause Clearance Period
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" id="shs-close-btn" onclick="closeSectorPeriod('Senior High School')" style="display: none;">
-                                        <i class="fas fa-stop"></i> End Clearance Period
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="sector-card-content">
-                                <!-- Period Details -->
-                                <div class="period-details">
-                                    <div class="detail-item">
-                                        <span class="detail-label">Start Date:</span>
-                                        <span class="detail-value" id="shs-start-date">-</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">End Date:</span>
-                                        <span class="detail-value" id="shs-end-date">-</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">Applications:</span>
-                                        <span class="detail-value" id="shs-applications">0</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">Completed:</span>
-                                        <span class="detail-value" id="shs-completed">0</span>
-                                    </div>
-                                </div>
-                                
-                                <!-- Integrated Signatories -->
-                                <div class="sector-signatories">
-                                    <div class="signatories-header">
-                                        <h4><i class="fas fa-signature"></i> Clearance Signatories</h4>
-                                        <div class="signatory-actions">
-                                            <button class="btn btn-xs btn-primary" onclick="openAddScopeModal('Senior High School')">
-                                                <i class="fas fa-plus"></i> Add Signatory
-                                            </button>
-                                            <button class="btn btn-xs btn-outline-primary" onclick="openSignatorySettingsModal('Senior High School')" title="Configure signatory settings">
-                                                <i class="fas fa-cog"></i> Settings
-                                            </button>
-                                            <button class="btn btn-xs btn-outline-danger" onclick="clearAllSignatories('Senior High School')">
-                                        <i class="fas fa-trash"></i> Clear All
-                                    </button>
-                                        </div>
-                                    </div>
-                                    <div class="signatory-list" id="shsSignatoryList">
-                                        <div class="loading-text">Loading SHS signatories...</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                        <!-- Faculty Clearance Period Card -->
-                        <div class="sector-period-card faculty-sector" id="faculty-sector-card">
-                            <div class="sector-card-header">
-                                <div class="sector-info">
-                                    <h3><i class="fas fa-chalkboard-teacher"></i> Faculty Clearance Period</h3>
-                                    <div class="sector-status">
-                                        <span class="status-badge" id="faculty-status-badge">Not Started</span>
-                        </div>
-                                    </div>
-                                <div class="sector-actions">
-                                    <button class="btn btn-sm btn-success" id="faculty-start-btn" onclick="startSectorPeriod('Faculty')">
-                                        <i class="fas fa-play"></i> Start Clearance Period
-                                    </button>
-                                    <button class="btn btn-sm btn-warning" id="faculty-pause-btn" onclick="pauseSectorPeriod('Faculty')" style="display: none;">
-                                        <i class="fas fa-pause"></i> Pause Clearance Period
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" id="faculty-close-btn" onclick="closeSectorPeriod('Faculty')" style="display: none;">
-                                        <i class="fas fa-stop"></i> End Clearance Period
+                                    <div class="sector-actions">
+                                        <button class="btn btn-sm btn-outline-primary" onclick="showViewPastClearancesModal()">
+                                            <i class="fas fa-history"></i> View Past Clearances
+                                        </button>
+                                        <button class="btn btn-sm btn-primary" onclick="showAddSchoolYearModal()">
+                                            <i class="fas fa-plus"></i> Add Year
                                         </button>
                                     </div>
-                                    </div>
-                            
-                            <div class="sector-card-content">
-                                <!-- Period Details -->
-                                <div class="period-details">
-                                    <div class="detail-item">
-                                        <span class="detail-label">Start Date:</span>
-                                        <span class="detail-value" id="faculty-start-date">-</span>
-                                </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">End Date:</span>
-                                        <span class="detail-value" id="faculty-end-date">-</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">Applications:</span>
-                                        <span class="detail-value" id="faculty-applications">0</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">Completed:</span>
-                                        <span class="detail-value" id="faculty-completed">0</span>
-                                    </div>
                                 </div>
                                 
-                                <!-- Integrated Signatories -->
-                                <div class="sector-signatories">
-                                    <div class="signatories-header">
-                                        <h4><i class="fas fa-signature"></i> Clearance Signatories</h4>
-                                <div class="signatory-actions">
-                                            <button class="btn btn-xs btn-primary" onclick="openAddScopeModal('Faculty')">
-                                                <i class="fas fa-plus"></i> Add Signatory
-                                    </button>
-                                            <button class="btn btn-xs btn-outline-primary" onclick="openSignatorySettingsModal('Faculty')" title="Configure signatory settings">
-                                                <i class="fas fa-cog"></i> Settings
-                                            </button>
-                                            <button class="btn btn-xs btn-outline-danger" onclick="clearAllSignatories('Faculty')">
-                                        <i class="fas fa-trash"></i> Clear All
-                                    </button>
+                                <div class="sector-card-content">
+                                    <!-- Academic Year Details -->
+                                    <div class="period-details">
+                                        <div class="detail-item">
+                                            <span class="detail-label">Current Year:</span>
+                                            <span class="detail-value" id="currentYearName">2024-2025</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Status:</span>
+                                            <span class="detail-value" id="currentYearStatus">Active</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Terms:</span>
+                                            <span class="detail-value" id="total-terms">2</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Active Terms:</span>
+                                            <span class="detail-value" id="active-terms">1</span>
                                         </div>
                                     </div>
-                                    <div class="signatory-list" id="facultySignatoryList">
-                                        <div class="loading-text">Loading Faculty signatories...</div>
+                                    
+                                    <!-- Terms List -->
+                                    <div class="sector-signatories">
+                                        <div class="signatories-header">
+                                            <h4><i class="fas fa-list"></i> Terms Overview</h4>
+                                        </div>
+                                        <div class="terms-list" id="terms-list">
+                                            <!-- Terms will be populated by JavaScript -->
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Export Button -->
-                    <div class="export-section">
-                        <button class="btn btn-primary export-btn" onclick="openExportModal()">
-                            <i class="fas fa-file-export"></i> Export Clearance Data
-                        </button>
+                            <!-- Quick Statistics Card -->
+                            <div class="sector-period-card statistics-sector" id="statistics-card">
+                                <div class="sector-card-header">
+                                    <div class="sector-info">
+                                        <h3><i class="fas fa-chart-bar"></i> System Statistics</h3>
+                                        <div class="sector-status">
+                                            <span class="status-badge" id="statistics-status-badge">Live</span>
+                                        </div>
+                                    </div>
+                                    <div class="sector-actions">
+                                        <button class="btn btn-sm btn-outline-primary" onclick="refreshStatistics()">
+                                            <i class="fas fa-sync-alt"></i> Refresh
+                                        </button>
+                                        <button class="btn btn-sm btn-primary" onclick="openExportModal()">
+                                            <i class="fas fa-file-export"></i> Export
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="sector-card-content">
+                                    <!-- Statistics Details -->
+                                    <div class="period-details">
+                                        <div class="detail-item">
+                                            <span class="detail-label">Total Students:</span>
+                                            <span class="detail-value" id="total-students">45</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Total Faculty:</span>
+                                            <span class="detail-value" id="total-faculty">12</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Applied:</span>
+                                            <span class="detail-value" id="total-applied">32</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">Completed:</span>
+                                            <span class="detail-value" id="total-completed">28</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Sector Breakdown -->
+                                    <div class="sector-signatories">
+                                        <div class="signatories-header">
+                                            <h4><i class="fas fa-chart-pie"></i> Sector Breakdown</h4>
+                                        </div>
+                                        <div class="statistics-breakdown" id="statistics-breakdown">
+                                            <div class="breakdown-item">
+                                                <div class="breakdown-label">
+                                                    <i class="fas fa-university"></i> College
+                                                </div>
+                                                <div class="breakdown-stats">
+                                                    <span class="breakdown-stat">Students: <strong>25</strong></span>
+                                                    <span class="breakdown-stat">Applied: <strong>18</strong></span>
+                                                    <span class="breakdown-stat">Completed: <strong>15</strong></span>
+                                                </div>
+                                            </div>
+                                            <div class="breakdown-item">
+                                                <div class="breakdown-label">
+                                                    <i class="fas fa-graduation-cap"></i> Senior High School
+                                                </div>
+                                                <div class="breakdown-stats">
+                                                    <span class="breakdown-stat">Students: <strong>20</strong></span>
+                                                    <span class="breakdown-stat">Applied: <strong>14</strong></span>
+                                                    <span class="breakdown-stat">Completed: <strong>13</strong></span>
+                                                </div>
+                                            </div>
+                                            <div class="breakdown-item">
+                                                <div class="breakdown-label">
+                                                    <i class="fas fa-chalkboard-teacher"></i> Faculty
+                                                </div>
+                                                <div class="breakdown-stats">
+                                                    <span class="breakdown-stat">Faculty: <strong>12</strong></span>
+                                                    <span class="breakdown-stat">Applied: <strong>8</strong></span>
+                                                    <span class="breakdown-stat">Completed: <strong>7</strong></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sector-Based Clearance Periods -->
+                            <div class="sector-clearance-periods">
+                                <!-- College Clearance Period Card -->
+                                <div class="sector-period-card college-sector" id="college-sector-card">
+                                    <div class="sector-card-header">
+                                        <div class="sector-info">
+                                            <h3><i class="fas fa-university"></i> College Clearance Period</h3>
+                                            <div class="sector-status">
+                                                <span class="status-badge" id="college-status-badge">Not Started</span>
+                                            </div>
+                                        </div>
+                                        <div class="sector-actions">
+                                            <button class="btn btn-sm btn-success" id="college-start-btn" onclick="startSectorPeriod('College')">
+                                                <i class="fas fa-play"></i> Start Clearance Period
+                                            </button>
+                                            <button class="btn btn-sm btn-warning" id="college-pause-btn" onclick="pauseSectorPeriod('College')" style="display: none;">
+                                                <i class="fas fa-pause"></i> Pause Clearance Period
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" id="college-close-btn" onclick="closeSectorPeriod('College')" style="display: none;">
+                                                <i class="fas fa-stop"></i> End Clearance Period
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="sector-card-content">
+                                        <!-- Period Details -->
+                                        <div class="period-details">
+                                            <div class="detail-item">
+                                                <span class="detail-label">Start Date:</span>
+                                                <span class="detail-value" id="college-start-date">-</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label">End Date:</span>
+                                                <span class="detail-value" id="college-end-date">-</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label">Applications:</span>
+                                                <span class="detail-value" id="college-applications">0</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label">Completed:</span>
+                                                <span class="detail-value" id="college-completed">0</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Integrated Signatories -->
+                                        <div class="sector-signatories">
+                                            <div class="signatories-header">
+                                                <h4><i class="fas fa-signature"></i> Clearance Signatories</h4>
+                                                <div class="signatory-actions">
+                                                    <button class="btn btn-xs btn-primary" onclick="openAddScopeModal('College')">
+                                                        <i class="fas fa-plus"></i> Add Signatory
+                                                    </button>
+                                                    <button class="btn btn-xs btn-outline-primary" onclick="openSignatorySettingsModal('College')" title="Configure signatory settings">
+                                                        <i class="fas fa-cog"></i> Settings
+                                                    </button>
+                                                    <button class="btn btn-xs btn-outline-danger" onclick="clearAllSignatories('College')">
+                                                        <i class="fas fa-trash"></i> Clear All
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="signatory-list" id="collegeSignatoryList">
+                                                <div class="loading-text">Loading College signatories...</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Senior High School Clearance Period Card -->
+                                <div class="sector-period-card shs-sector" id="shs-sector-card">
+                                    <div class="sector-card-header">
+                                        <div class="sector-info">
+                                            <h3><i class="fas fa-graduation-cap"></i> Senior High School Clearance Period</h3>
+                                            <div class="sector-status">
+                                                <span class="status-badge" id="shs-status-badge">Not Started</span>
+                                            </div>
+                                        </div>
+                                        <div class="sector-actions">
+                                            <button class="btn btn-sm btn-success" id="shs-start-btn" onclick="startSectorPeriod('Senior High School')">
+                                                <i class="fas fa-play"></i> Start Clearance Period
+                                            </button>
+                                            <button class="btn btn-sm btn-warning" id="shs-pause-btn" onclick="pauseSectorPeriod('Senior High School')" style="display: none;">
+                                                <i class="fas fa-pause"></i> Pause Clearance Period
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" id="shs-close-btn" onclick="closeSectorPeriod('Senior High School')" style="display: none;">
+                                                <i class="fas fa-stop"></i> End Clearance Period
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="sector-card-content">
+                                        <!-- Period Details -->
+                                        <div class="period-details">
+                                            <div class="detail-item">
+                                                <span class="detail-label">Start Date:</span>
+                                                <span class="detail-value" id="shs-start-date">-</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label">End Date:</span>
+                                                <span class="detail-value" id="shs-end-date">-</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label">Applications:</span>
+                                                <span class="detail-value" id="shs-applications">0</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label">Completed:</span>
+                                                <span class="detail-value" id="shs-completed">0</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Integrated Signatories -->
+                                        <div class="sector-signatories">
+                                            <div class="signatories-header">
+                                                <h4><i class="fas fa-signature"></i> Clearance Signatories</h4>
+                                                <div class="signatory-actions">
+                                                    <button class="btn btn-xs btn-primary" onclick="openAddScopeModal('Senior High School')">
+                                                        <i class="fas fa-plus"></i> Add Signatory
+                                                    </button>
+                                                    <button class="btn btn-xs btn-outline-primary" onclick="openSignatorySettingsModal('Senior High School')" title="Configure signatory settings">
+                                                        <i class="fas fa-cog"></i> Settings
+                                                    </button>
+                                                    <button class="btn btn-xs btn-outline-danger" onclick="clearAllSignatories('Senior High School')">
+                                                        <i class="fas fa-trash"></i> Clear All
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="signatory-list" id="shsSignatoryList">
+                                                <div class="loading-text">Loading SHS signatories...</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Faculty Clearance Period Card -->
+                                <div class="sector-period-card faculty-sector" id="faculty-sector-card">
+                                    <div class="sector-card-header">
+                                        <div class="sector-info">
+                                            <h3><i class="fas fa-chalkboard-teacher"></i> Faculty Clearance Period</h3>
+                                            <div class="sector-status">
+                                                <span class="status-badge" id="faculty-status-badge">Not Started</span>
+                                            </div>
+                                        </div>
+                                        <div class="sector-actions">
+                                            <button class="btn btn-sm btn-success" id="faculty-start-btn" onclick="startSectorPeriod('Faculty')">
+                                                <i class="fas fa-play"></i> Start Clearance Period
+                                            </button>
+                                            <button class="btn btn-sm btn-warning" id="faculty-pause-btn" onclick="pauseSectorPeriod('Faculty')" style="display: none;">
+                                                <i class="fas fa-pause"></i> Pause Clearance Period
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" id="faculty-close-btn" onclick="closeSectorPeriod('Faculty')" style="display: none;">
+                                                <i class="fas fa-stop"></i> End Clearance Period
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="sector-card-content">
+                                        <!-- Period Details -->
+                                        <div class="period-details">
+                                            <div class="detail-item">
+                                                <span class="detail-label">Start Date:</span>
+                                                <span class="detail-value" id="faculty-start-date">-</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label">End Date:</span>
+                                                <span class="detail-value" id="faculty-end-date">-</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label">Applications:</span>
+                                                <span class="detail-value" id="faculty-applications">0</span>
+                                            </div>
+                                            <div class="detail-item">
+                                                <span class="detail-label">Completed:</span>
+                                                <span class="detail-value" id="faculty-completed">0</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Integrated Signatories -->
+                                        <div class="sector-signatories">
+                                            <div class="signatories-header">
+                                                <h4><i class="fas fa-signature"></i> Clearance Signatories</h4>
+                                                <div class="signatory-actions">
+                                                    <button class="btn btn-xs btn-primary" onclick="openAddScopeModal('Faculty')">
+                                                        <i class="fas fa-plus"></i> Add Signatory
+                                                    </button>
+                                                    <button class="btn btn-xs btn-outline-primary" onclick="openSignatorySettingsModal('Faculty')" title="Configure signatory settings">
+                                                        <i class="fas fa-cog"></i> Settings
+                                                    </button>
+                                                    <button class="btn btn-xs btn-outline-danger" onclick="clearAllSignatories('Faculty')">
+                                                        <i class="fas fa-trash"></i> Clear All
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="signatory-list" id="facultySignatoryList">
+                                                <div class="loading-text">Loading Faculty signatories...</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Export Button -->
+                            <div class="export-section">
+                                <button class="btn btn-primary export-btn" onclick="openExportModal()">
+                                    <i class="fas fa-file-export"></i> Export Clearance Data
+                                </button>
+                            </div>
+                        </div>
+                        <!-- End of .sector-clearance-management -->
                     </div>
+                    <!-- End of .content-wrapper -->
+                </div>
+                <!-- End of .dashboard-main -->
+                <div class="dashboard-sidebar">
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
                 </div>
             </div>
+            <!-- End of .dashboard-layout -->
         </div>
-        
-        <!-- RIGHT SIDE: Activity Tracker -->
-        <div class="dashboard-sidebar">
-            <?php include '../../includes/components/activity-tracker.php'; ?>
-        </div>
-    </div>
+        <!-- End of .main-content -->
     </main>
 
     <!-- Include Modals -->
@@ -2793,11 +2799,13 @@ if (session_status() == PHP_SESSION_NONE) {
             // Initialize sector buttons based on active term status
             await initializeSectorButtons();
             
-            // Load grace period monitoring
-            loadGracePeriodMonitoring();
-            
-            // Refresh grace period monitoring every 30 seconds
-            setInterval(loadGracePeriodMonitoring, 30000);
+                // Load grace period monitoring
+                // TODO: Uncomment when grace period functionality is ready
+                // loadGracePeriodMonitoring();
+                
+                // Refresh grace period monitoring every 30 seconds
+                // TODO: Uncomment when grace period functionality is ready
+                // setInterval(loadGracePeriodMonitoring, 30000);
         });
 
         // Sidebar toggle function
@@ -2835,6 +2843,8 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         // Grace Period Monitoring Functions
+        // TODO: Uncomment when grace period functionality is ready
+        /*
         async function loadGracePeriodMonitoring() {
             try {
                 const sectors = ['College', 'Senior High School', 'Faculty'];
@@ -3020,6 +3030,7 @@ if (session_status() == PHP_SESSION_NONE) {
                 showToast('Failed to override grace period', 'error');
             }
         }
+        */
 
         // Initial load of scope lists and sector periods
         // This is now handled in the main DOMContentLoaded event above

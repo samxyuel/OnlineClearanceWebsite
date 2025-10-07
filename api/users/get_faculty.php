@@ -18,7 +18,7 @@ $employeeId = $_GET['employee_number'] ?? ($_GET['employee_id'] ?? '');
 if($employeeId===''){http_response_code(400);echo json_encode(['success'=>false,'message'=>'employee_number required']);exit;}
 
 $pdo = Database::getInstance()->getConnection();
-$sql = "SELECT f.employee_number, f.employment_status, u.user_id, u.username, u.first_name, u.last_name, u.middle_name, u.email, u.contact_number, u.status
+$sql = "SELECT f.employee_number, f.employment_status, u.user_id, u.username, u.first_name, u.last_name, u.middle_name, u.email, u.contact_number, u.account_status
         FROM faculty f JOIN users u ON u.user_id = f.user_id WHERE f.employee_number = ? LIMIT 1";
 $stmt = $pdo->prepare($sql);
 $stmt->execute([$employeeId]);

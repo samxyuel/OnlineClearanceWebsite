@@ -146,7 +146,7 @@ $sidebarLinks = [
     'school_admin' => [
         'top' => [
             ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/school-administrator/dashboard.php'],
-            ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/school-administrator/StudentManagement.php'],
+        //    ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/school-administrator/StudentManagement.php'],
             ['icon' => 'fas fa-university', 'text' => 'College Student Management', 'link' => '../../pages/school-administrator/CollegeStudentManagement.php'],
             ['icon' => 'fas fa-graduation-cap', 'text' => 'Senior High School Student Management', 'link' => '../../pages/school-administrator/SeniorHighStudentManagement.php'],
             ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Faculty Management', 'link' => '../../pages/school-administrator/FacultyManagement.php'],
@@ -162,7 +162,7 @@ $sidebarLinks = [
     'program_head' => [
         'top' => [
             ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/program-head/dashboard.php'],
-            ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/program-head/StudentManagement.php'],
+        //    ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/program-head/StudentManagement.php'],
             ['icon' => 'fas fa-university', 'text' => 'College Student Management', 'link' => '../../pages/program-head/CollegeStudentManagement.php'],
             ['icon' => 'fas fa-graduation-cap', 'text' => 'Senior High School Student Management', 'link' => '../../pages/program-head/SeniorHighStudentManagement.php'],
             ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Faculty Management', 'link' => '../../pages/program-head/FacultyManagement.php'],
@@ -178,7 +178,7 @@ $sidebarLinks = [
     'staff' => [
         'top' => [
             ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/regular-staff/dashboard.php'],
-            ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/regular-staff/StudentManagement.php'],
+        //    ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/regular-staff/StudentManagement.php'],
             ['icon' => 'fas fa-university', 'text' => 'College Student Management', 'link' => '../../pages/regular-staff/CollegeStudentManagement.php'],
             ['icon' => 'fas fa-graduation-cap', 'text' => 'Senior High School Student Management', 'link' => '../../pages/regular-staff/SeniorHighStudentManagement.php'],
             ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Faculty Management', 'link' => '../../pages/regular-staff/FacultyManagement.php'],

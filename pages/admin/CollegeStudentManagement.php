@@ -149,7 +149,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                 <select id="clearanceStatusFilter" class="filter-select">
                                     <option value="">All Clearance Status</option>
                                     <option value="unapplied">Unapplied</option>
-                                    <option value="applied">Applied</option>
                                     <option value="in-progress">In Progress</option>
                                     <option value="complete">Complete</option>
                                 </select>
@@ -237,7 +236,7 @@ if (session_status() == PHP_SESSION_NONE) {
                                             <th>Year Level</th>
                                             <th>Section</th>
                                             <th>Account Status</th>
-                                            <th>Clearance Progress Status</th>
+                                            <th>Clearance Form Progress</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -421,9 +420,9 @@ if (session_status() == PHP_SESSION_NONE) {
                         <label class="filter-section-label">Clearance Progress:</label>
                         <div class="checkbox-group">
                             <label class="custom-checkbox">
-                                <input type="checkbox" id="filterApplied" value="applied">
+                                <input type="checkbox" id="filterUnapplied" value="unapplied">
                                 <span class="checkmark"></span>
-                                with "applied"
+                                with "unapplied"
                             </label>
                             <label class="custom-checkbox">
                                 <input type="checkbox" id="filterInProgress" value="in-progress">
@@ -448,48 +447,6 @@ if (session_status() == PHP_SESSION_NONE) {
         </div>
     </div>
 
-    <!-- Rejection Remarks Modal -->
-    <div id="rejectionRemarksModal" class="modal-overlay" style="display: none;">
-        <div class="modal-window rejection-remarks-modal">
-            <div class="modal-header">
-                <h3 class="modal-title"><i class="fas fa-comment-slash"></i> Rejection Remarks</h3>
-                <button class="modal-close" onclick="closeRejectionRemarksModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-content-area">
-                <div class="rejection-info">
-                    <h4 id="rejectionTargetName">Rejecting: [Student Name]</h4>
-                    <p class="rejection-type">Type: <span id="rejectionType">Student</span></p>
-                </div>
-                
-                <div class="remarks-section">
-                    <div class="form-group">
-                        <label for="rejectionReason">Reason for Rejection:</label>
-                        <select id="rejectionReason" class="form-control" onchange="handleReasonChange()">
-                            <option value="">Select a reason...</option>
-                            <option value="incomplete_documents">Incomplete Documents</option>
-                            <option value="unpaid_fees">Unpaid Fees</option>
-                            <option value="academic_requirements">Academic Requirements Not Met</option>
-                            <option value="disciplinary_issues">Disciplinary Issues</option>
-                            <option value="missing_clearance">Missing Clearance Items</option>
-                            <option value="other">Other (Please specify below)</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="additionalRemarks">Additional Remarks (Optional):</label>
-                        <textarea id="additionalRemarks" class="form-control" rows="4" 
-                                placeholder="Provide additional details or specific instructions..."></textarea>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="modal-action-secondary" onclick="closeRejectionRemarksModal()">Cancel</button>
-                <button class="modal-action-primary" onclick="submitRejection()">Reject Clearance</button>
-            </div>
-        </div>
-    </div>
 
     <script>
         console.log('CollegeStudentManagement.php script loading...');
@@ -616,16 +573,22 @@ if (session_status() == PHP_SESSION_NONE) {
 
         // Create student row
         function createStudentRow(student) {
+            // Map enrollment status to display status
+            const displayStatus = student.status === 'Enrolled' ? 'active' : 
+                                 student.status === 'Graduated' ? 'graduated' : 
+                                 student.status === 'Transferred' ? 'transferred' : 
+                                 student.status === 'Dropped' ? 'dropped' : 'inactive';
+            
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><input type="checkbox" class="student-checkbox" data-id="${student.user_id}"></td>
-                <td>${student.username}</td>
+                <td>${student.student_id || student.username}</td>
                 <td>${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
                 <td>${student.program || 'N/A'}</td>
                 <td>${student.year_level || 'N/A'}</td>
                 <td>${student.section || 'N/A'}</td>
-                <td><span class="status-badge account-${student.status}">${student.status}</span></td>
-                <td><span class="status-badge clearance-${student.clearance_status}">${student.clearance_status}</span></td>
+                <td><span class="status-badge account-${displayStatus}">${student.status}</span></td>
+                <td><span class="status-badge clearance-${student.clearance_status.toLowerCase().replace(' ', '-')}">${student.clearance_status}</span></td>
                 <td>
                     <div class="action-buttons">
                         <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
@@ -633,12 +596,6 @@ if (session_status() == PHP_SESSION_NONE) {
                         </button>
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.user_id}')" title="Edit">
                             <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn-icon approve-btn" onclick="approveStudent('${student.user_id}')" title="Approve Clearance" disabled>
-                            <i class="fas fa-check"></i>
-                        </button>
-                        <button class="btn-icon reject-btn" onclick="rejectStudent('${student.user_id}')" title="Reject Clearance" disabled>
-                            <i class="fas fa-times"></i>
                         </button>
                         <button class="btn-icon delete-btn" onclick="deleteStudent('${student.user_id}')" title="Delete">
                             <i class="fas fa-trash"></i>
@@ -653,9 +610,9 @@ if (session_status() == PHP_SESSION_NONE) {
         function updateStatistics(students) {
             const stats = {
                 total: students.length,
-                active: students.filter(s => s.status === 'active').length,
-                inactive: students.filter(s => s.status === 'inactive').length,
-                graduated: students.filter(s => s.status === 'graduated').length
+                active: students.filter(s => s.status === 'Enrolled').length,
+                inactive: students.filter(s => ['Transferred', 'Dropped'].includes(s.status)).length,
+                graduated: students.filter(s => s.status === 'Graduated').length
             };
             
             document.getElementById('totalStudents').textContent = stats.total;
@@ -892,50 +849,6 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         // Bulk actions
-        function approveSelected() {
-            const selectedCount = getSelectedCount();
-            if (selectedCount === 0) {
-                showToastNotification('Please select students to approve', 'warning');
-                return;
-            }
-            
-            showConfirmationModal(
-                'Approve Clearances',
-                `Are you sure you want to approve clearance for ${selectedCount} selected students?`,
-                'Approve',
-                'Cancel',
-                () => {
-                    // Perform bulk approval
-                    const selectedRows = document.querySelectorAll('.student-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        const clearanceBadge = row.querySelector('.status-badge.clearance-applied, .status-badge.clearance-in-progress');
-                        
-                        if (clearanceBadge) {
-                            clearanceBadge.textContent = 'Approved';
-                            clearanceBadge.classList.remove('clearance-applied', 'clearance-in-progress');
-                            clearanceBadge.classList.add('clearance-approved');
-                        }
-                    });
-                    
-                    showToastNotification(`✓ Successfully approved ${selectedCount} students' clearances`, 'success');
-                },
-                'success'
-            );
-        }
-
-        function rejectSelected() {
-            const selectedCount = getSelectedCount();
-            if (selectedCount === 0) {
-                showToastNotification('Please select students to reject', 'warning');
-                return;
-            }
-            
-            const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
-            const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.getAttribute('data-id'));
-            
-            openRejectionRemarksModal(null, null, 'student', true, selectedIds);
-        }
 
         function deleteSelected() {
             const selectedCount = getSelectedCount();
@@ -1029,45 +942,6 @@ if (session_status() == PHP_SESSION_NONE) {
             openEditStudentModal(studentId);
         }
 
-        function approveStudent(studentId) {
-            // Check if student has applied for clearance
-            const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
-            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied');
-            
-            if (clearanceBadge && clearanceBadge.classList.contains('clearance-unapplied')) {
-                showToastNotification('Student has not applied for clearance yet', 'warning');
-                return;
-            }
-            
-            showConfirmationModal(
-                'Approve Clearance',
-                `Approve clearance for this student?`,
-                'Approve',
-                'Cancel',
-                () => {
-                    const clearanceStatusBadge = row.querySelector('.status-badge.clearance-applied, .status-badge.clearance-in-progress');
-                    if (clearanceStatusBadge) {
-                        clearanceStatusBadge.textContent = 'Approved';
-                        clearanceStatusBadge.classList.remove('clearance-applied', 'clearance-in-progress');
-                        clearanceStatusBadge.classList.add('clearance-approved');
-                    }
-                    showToastNotification('Student clearance approved', 'success');
-                },
-                'success'
-            );
-        }
-
-        function rejectStudent(studentId) {
-            const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
-            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied');
-            
-            if (clearanceBadge && clearanceBadge.classList.contains('clearance-unapplied')) {
-                showToastNotification('Student has not applied for clearance yet', 'warning');
-                return;
-            }
-            
-            openRejectionRemarksModal(studentId, 'Student', 'student', false);
-        }
 
         function deleteStudent(studentId) {
             showConfirmationModal(
@@ -1240,151 +1114,6 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
 
-        // Rejection Remarks Modal Functions
-        let currentRejectionData = {
-            targetId: null,
-            targetName: null,
-            targetType: 'student',
-            isBulk: false,
-            targetIds: []
-        };
-
-        function openRejectionRemarksModal(targetId, targetName, targetType = 'student', isBulk = false, targetIds = []) {
-            currentRejectionData = {
-                targetId: targetId,
-                targetName: targetName,
-                targetType: targetType,
-                isBulk: isBulk,
-                targetIds: targetIds
-            };
-
-            const modal = document.getElementById('rejectionRemarksModal');
-            const targetNameElement = document.getElementById('rejectionTargetName');
-            const targetTypeElement = document.getElementById('rejectionType');
-            const reasonSelect = document.getElementById('rejectionReason');
-            const remarksTextarea = document.getElementById('additionalRemarks');
-
-            reasonSelect.value = '';
-            remarksTextarea.value = '';
-
-            if (isBulk) {
-                targetNameElement.textContent = `Rejecting: ${targetIds.length} Selected Students`;
-            } else {
-                targetNameElement.textContent = `Rejecting: ${targetName}`;
-            }
-            targetTypeElement.textContent = 'Student';
-
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeRejectionRemarksModal() {
-            const modal = document.getElementById('rejectionRemarksModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            
-            currentRejectionData = {
-                targetId: null,
-                targetName: null,
-                targetType: 'student',
-                isBulk: false,
-                targetIds: []
-            };
-        }
-
-        function handleReasonChange() {
-            const reasonSelect = document.getElementById('rejectionReason');
-            const remarksTextarea = document.getElementById('additionalRemarks');
-            
-            if (reasonSelect.value === 'other') {
-                remarksTextarea.focus();
-                remarksTextarea.placeholder = 'Please specify the reason for rejection...';
-            } else {
-                remarksTextarea.placeholder = 'Provide additional details or specific instructions...';
-            }
-        }
-
-        function submitRejection() {
-            const reasonSelect = document.getElementById('rejectionReason');
-            const remarksTextarea = document.getElementById('additionalRemarks');
-            
-            // Get rejection data
-            const rejectionReason = reasonSelect.value;
-            const additionalRemarks = remarksTextarea.value.trim();
-            
-            // Demo: Show rejection summary
-            let rejectionSummary = '';
-            if (currentRejectionData.isBulk) {
-                rejectionSummary = `Rejected ${currentRejectionData.targetIds.length} ${currentRejectionData.targetType === 'student' ? 'students' : 'faculty'}`;
-            } else {
-                rejectionSummary = `Rejected ${currentRejectionData.targetName}`;
-            }
-            
-            if (rejectionReason) {
-                const reasonText = reasonSelect.options[reasonSelect.selectedIndex].text;
-                rejectionSummary += `\nReason: ${reasonText}`;
-            }
-            
-            if (additionalRemarks) {
-                rejectionSummary += `\nAdditional Remarks: ${additionalRemarks}`;
-            }
-            
-            // Demo: Update UI and show success message
-            if (currentRejectionData.isBulk) {
-                // Update student table rows
-                currentRejectionData.targetIds.forEach(id => {
-                    const row = document.querySelector(`.student-checkbox[data-id="${id}"]`);
-                    if (row) {
-                        const tableRow = row.closest('tr');
-                        if (tableRow) {
-                            const clearanceBadge = tableRow.querySelector('.status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-approved');
-                            if (clearanceBadge) {
-                                clearanceBadge.textContent = 'Rejected';
-                                clearanceBadge.classList.remove('clearance-pending', 'clearance-in-progress', 'clearance-approved');
-                                clearanceBadge.classList.add('clearance-rejected');
-                            }
-                        }
-                    }
-                });
-                
-                // Uncheck all checkboxes
-                document.getElementById('selectAll').checked = false;
-                currentRejectionData.targetIds.forEach(id => {
-                    const checkbox = document.querySelector(`.student-checkbox[data-id="${id}"]`);
-                    if (checkbox) checkbox.checked = false;
-                });
-                updateBulkButtons();
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} students with remarks`, 'success');
-            } else {
-                // Update individual student row
-                const row = document.querySelector(`.student-checkbox[data-id="${currentRejectionData.targetId}"]`);
-                if (row) {
-                    const tableRow = row.closest('tr');
-                    if (tableRow) {
-                        const clearanceBadge = tableRow.querySelector('.status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-approved');
-                        if (clearanceBadge) {
-                            clearanceBadge.textContent = 'Rejected';
-                            clearanceBadge.classList.remove('clearance-pending', 'clearance-in-progress', 'clearance-approved');
-                            clearanceBadge.classList.add('clearance-rejected');
-                        }
-                    }
-                }
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
-            }
-            
-            // Close modal
-            closeRejectionRemarksModal();
-            
-            // Demo: Log rejection data (in real implementation, this would be sent to server)
-            console.log('Rejection Data:', {
-                target: currentRejectionData,
-                reason: rejectionReason,
-                additionalRemarks: additionalRemarks,
-                timestamp: new Date().toISOString()
-            });
-        }
 
         // Pagination functions (simplified)
         function changePage(direction) {
@@ -1471,13 +1200,13 @@ if (session_status() == PHP_SESSION_NONE) {
             // Reset all filter checkboxes
             const filterActive = document.getElementById('filterActive');
             const filterInactive = document.getElementById('filterInactive');
-            const filterApplied = document.getElementById('filterApplied');
+            const filterUnapplied = document.getElementById('filterUnapplied');
             const filterInProgress = document.getElementById('filterInProgress');
             const filterComplete = document.getElementById('filterComplete');
             
             if (filterActive) filterActive.checked = false;
             if (filterInactive) filterInactive.checked = false;
-            if (filterApplied) filterApplied.checked = false;
+            if (filterUnapplied) filterUnapplied.checked = false;
             if (filterInProgress) filterInProgress.checked = false;
             if (filterComplete) filterComplete.checked = false;
         }
@@ -1494,7 +1223,7 @@ if (session_status() == PHP_SESSION_NONE) {
             if (document.getElementById('filterGraduated').checked) selectedFilters.accountStatus.push('graduated');
             
             // Collect clearance progress filters  
-            if (document.getElementById('filterApplied').checked) selectedFilters.clearanceProgress.push('applied');
+            if (document.getElementById('filterUnapplied').checked) selectedFilters.clearanceProgress.push('unapplied');
             if (document.getElementById('filterInProgress').checked) selectedFilters.clearanceProgress.push('in-progress');
             if (document.getElementById('filterComplete').checked) selectedFilters.clearanceProgress.push('complete');
             

@@ -672,8 +672,10 @@
     function getActionButton(signatory) {
         const slug = signatory.designation_name.toLowerCase().replace(/\s+/g, '-');
         
-        // Check if the period is closed (from the data returned by user_status.php)
+        // Check if the period is closed or paused (from the data returned by user_status.php)
         const isPeriodClosed = window.currentClearanceData && window.currentClearanceData.period_status === 'Closed';
+        const isPeriodPaused = window.currentClearanceData && window.currentClearanceData.period_status === 'Paused';
+        const isPeriodNotStarted = window.currentClearanceData && window.currentClearanceData.period_status === 'Not Started';
         
         // Find button state for this signatory
         const buttonState = currentButtonStates.find(state => 
@@ -686,7 +688,7 @@
             const buttonClass = buttonState.button_state.class;
             const buttonText = buttonState.button_state.text;
             const buttonTooltip = buttonState.button_state.tooltip;
-            const isEnabled = buttonState.button_state.enabled && !isPeriodClosed;
+            const isEnabled = buttonState.button_state.enabled && !isPeriodClosed && !isPeriodPaused && !isPeriodNotStarted;
             
             if (isEnabled) {
                 return `<button class="btn btn-sm ${buttonClass} apply-btn" 
@@ -697,7 +699,14 @@
                             <i class="fas fa-paper-plane"></i> ${buttonText}
                         </button>`;
             } else {
-                const tooltip = isPeriodClosed ? 'Clearance period has ended. Applications are no longer accepted.' : buttonTooltip;
+                let tooltip = buttonTooltip;
+                if (isPeriodClosed) {
+                    tooltip = 'Clearance period has ended. Applications are no longer accepted.';
+                } else if (isPeriodPaused) {
+                    tooltip = 'Clearance period is paused. Applications are temporarily disabled.';
+                } else if (isPeriodNotStarted) {
+                    tooltip = 'Clearance period has not started yet.';
+                }
                 return `<button class="btn btn-sm ${buttonClass}" 
                             disabled 
                             title="${tooltip}">
@@ -710,8 +719,11 @@
         if (signatory.action === 'Approved') {
             return '<button class="btn btn-sm btn-success" disabled title="Application has been approved"><i class="fas fa-check"></i> Approved</button>';
         } else if (signatory.action === 'Rejected') {
-            if (isPeriodClosed) {
-                return '<button class="btn btn-sm btn-danger" disabled title="Clearance period has ended. Applications are no longer accepted."><i class="fas fa-ban"></i> Reapply</button>';
+            if (isPeriodClosed || isPeriodPaused || isPeriodNotStarted) {
+                let tooltip = 'Clearance period has ended. Applications are no longer accepted.';
+                if (isPeriodPaused) tooltip = 'Clearance period is paused. Applications are temporarily disabled.';
+                if (isPeriodNotStarted) tooltip = 'Clearance period has not started yet.';
+                return `<button class="btn btn-sm btn-danger" disabled title="${tooltip}"><i class="fas fa-ban"></i> Reapply</button>`;
             }
             return `<button class="btn btn-sm btn-danger apply-btn" onclick="applyToSignatory('${slug}')" data-signatory="${slug}" data-signatory-id="${signatory.signatory_id}" title="Click to reapply after rejection">
                         <i class="fas fa-paper-plane"></i> Reapply
@@ -719,8 +731,11 @@
         } else if (signatory.action === 'Pending') {
             return '<button class="btn btn-sm btn-warning" disabled title="Application is pending approval"><i class="fas fa-clock"></i> Pending</button>';
         } else {
-            if (isPeriodClosed) {
-                return '<button class="btn btn-sm btn-secondary" disabled title="Clearance period has ended. Applications are no longer accepted."><i class="fas fa-ban"></i> Apply</button>';
+            if (isPeriodClosed || isPeriodPaused || isPeriodNotStarted) {
+                let tooltip = 'Clearance period has ended. Applications are no longer accepted.';
+                if (isPeriodPaused) tooltip = 'Clearance period is paused. Applications are temporarily disabled.';
+                if (isPeriodNotStarted) tooltip = 'Clearance period has not started yet.';
+                return `<button class="btn btn-sm btn-secondary" disabled title="${tooltip}"><i class="fas fa-ban"></i> Apply</button>`;
             }
             return `<button class="btn btn-sm btn-primary apply-btn" onclick="applyToSignatory('${slug}')" data-signatory="${slug}" data-signatory-id="${signatory.signatory_id}" title="Click to apply to this signatory">
                         <i class="fas fa-paper-plane"></i> Apply
@@ -756,10 +771,19 @@
         const applyBtn = event.target.closest('.apply-btn');
         const originalHTML = applyBtn.innerHTML;
         
-        // Check if period is closed
-        if (window.currentClearanceData && window.currentClearanceData.period_status === 'Closed') {
-            showToast('Clearance period has ended. Applications are no longer accepted.', 'warning');
-            return;
+        // Check if period is closed, paused, or not started
+        if (window.currentClearanceData) {
+            const status = window.currentClearanceData.period_status;
+            if (status === 'Closed') {
+                showToast('Clearance period has ended. Applications are no longer accepted.', 'warning');
+                return;
+            } else if (status === 'Paused') {
+                showToast('Clearance period is paused. Applications are temporarily disabled.', 'warning');
+                return;
+            } else if (status === 'Not Started') {
+                showToast('Clearance period has not started yet.', 'warning');
+                return;
+            }
         }
         
         // Get the signatory ID from the button's data attribute

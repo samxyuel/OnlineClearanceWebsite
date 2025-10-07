@@ -75,14 +75,13 @@ $totalStmt=$pdo->prepare("SELECT COUNT(*) FROM faculty f JOIN users u ON u.user_
 $totalStmt->execute($params);
 $total=$totalStmt->fetchColumn();
 
-$select="SELECT f.employee_number, f.employment_status, u.user_id, u.username, u.first_name, u.last_name, u.status,
+$select="SELECT f.employee_number, f.employment_status, u.user_id, u.username, u.first_name, u.last_name, u.account_status,
         CASE 
-            WHEN cf.clearance_form_id IS NULL THEN 'Unapplied'
-            WHEN cf.status = 'Unapplied' THEN 'Unapplied'
-            WHEN cf.status = 'Applied' OR cf.status = 'In Progress' THEN 'In Progress'
-            WHEN cf.status = 'Complete' THEN 'Complete'
-            WHEN cf.status = 'Incomplete' THEN 'Incomplete'
-            ELSE 'Unapplied'
+            WHEN cf.clearance_form_id IS NULL THEN 'unapplied'
+            WHEN cf.clearance_form_progress = 'unapplied' THEN 'unapplied'
+            WHEN cf.clearance_form_progress = 'in-progress' THEN 'in-progress'
+            WHEN cf.clearance_form_progress = 'complete' THEN 'complete'
+            ELSE 'unapplied'
         END AS clearance_status";
 
 // Build join condition based on whether we have active period

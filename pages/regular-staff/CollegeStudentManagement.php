@@ -898,6 +898,48 @@ try {
             );
         }
 
+        // Check if Regular Staff is assigned as signatory for College sector
+        async function checkCollegeSignatoryAssignment() {
+            try {
+                const response = await fetch('../../api/clearance/check_signatory_status.php?sector=College', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                return data.success && data.is_signatory;
+            } catch (error) {
+                console.error('Error checking college signatory assignment:', error);
+                return false;
+            }
+        }
+
+        // Initialize signatory access control
+        async function initializeSignatoryAccessControl() {
+            const isAssignedToCollege = await checkCollegeSignatoryAssignment();
+            
+            if (!isAssignedToCollege) {
+                // Hide signatory action buttons if not assigned to College sector
+                document.querySelectorAll('.approve-btn, .reject-btn').forEach(btn => {
+                    btn.style.display = 'none';
+                });
+                
+                // Update the Clearance Status column to show "Not Assigned" instead of hiding it
+                document.querySelectorAll('#studentTableBody tr').forEach(row => {
+                    const cells = row.children;
+                    // Update the Clearance Status column (7th column, index 6) to show "Not Assigned"
+                    if (cells[6]) {
+                        const statusBadge = cells[6].querySelector('.status-badge');
+                        if (statusBadge) {
+                            statusBadge.textContent = 'Not Assigned';
+                            statusBadge.className = 'status-badge clearance-not-assigned';
+                        }
+                    }
+                });
+                
+                // Show restriction message
+                showToastNotification('You are not assigned as a signatory for College sector. You can view data but cannot perform signatory actions.', 'info');
+            }
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             // Load current clearance period for banner
@@ -928,6 +970,9 @@ try {
                     }
                 });
             }
+            
+            // Initialize signatory access control
+            initializeSignatoryAccessControl();
             
             // Initialize Activity Tracker
             window.sidebarHandledByPage = true;

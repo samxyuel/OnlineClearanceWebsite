@@ -64,54 +64,75 @@ $activePeriod = $activePeriodStmt->fetch(PDO::FETCH_ASSOC);
 $ayId = $activePeriod ? $activePeriod['academic_year_id'] : null;
 $semId = $activePeriod ? $activePeriod['semester_id'] : null;
 
-// Build where clause based on student type
-$where = ["u.status IN ('active', 'inactive', 'graduated')"];
+// Build where clause based on student type using students table
+$where = ["u.account_status = 'active'"];
 $params = [];
 
 if ($type === 'college') {
-    // College students - exclude Senior High School
-    $where[] = "u.sector_id != (SELECT sector_id FROM sectors WHERE sector_name = 'Senior High School')";
+    // College students only
+    $where[] = "s.sector = 'College'";
 } elseif ($type === 'senior_high') {
     // Senior High School students only
-    $where[] = "u.sector_id = (SELECT sector_id FROM sectors WHERE sector_name = 'Senior High School')";
+    $where[] = "s.sector = 'Senior High School'";
 }
 
 if($search !== ''){
-    $where[] = "(u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)";
+    $where[] = "(u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR s.student_id LIKE ?)";
     $s="%$search%"; 
-    $params = array_merge($params, [$s,$s,$s]);
+    $params = array_merge($params, [$s,$s,$s,$s]);
 }
 
 $whereSql = "WHERE " . implode(" AND ", $where);
 
-$totalStmt = $pdo->prepare("SELECT COUNT(*) FROM users u $whereSql");
+$totalStmt = $pdo->prepare("
+    SELECT COUNT(*) 
+    FROM students s
+    JOIN users u ON s.user_id = u.user_id
+    $whereSql
+");
 $totalStmt->execute($params);
 $total = $totalStmt->fetchColumn();
 
-$select = "SELECT u.user_id, u.username, u.first_name, u.last_name, u.middle_name, u.status,
+$select = "SELECT 
+        s.student_id,
+        u.user_id, 
+        u.username, 
+        u.first_name, 
+        u.last_name, 
+        u.middle_name, 
+        u.account_status as status,
+        s.sector,
+        s.section,
+        s.year_level,
+        p.program_name as program,
+        d.department_name as department,
         CASE 
-            WHEN cf.clearance_form_id IS NULL THEN 'Unapplied'
-            WHEN cf.status = 'Unapplied' THEN 'Unapplied'
-            WHEN cf.status = 'Applied' OR cf.status = 'In Progress' THEN 'In Progress'
-            WHEN cf.status = 'Complete' THEN 'Complete'
-            WHEN cf.status = 'Incomplete' THEN 'Incomplete'
-            ELSE 'Unapplied'
-        END AS clearance_status,
-        u.program, u.year_level, u.section, u.strand, u.grade_level";
+            WHEN cf.clearance_form_id IS NULL THEN 'unapplied'
+            WHEN cf.clearance_form_progress = 'unapplied' THEN 'unapplied'
+            WHEN cf.clearance_form_progress = 'complete' THEN 'complete'
+            WHEN cf.clearance_form_progress = 'in-progress' THEN 'in-progress'
+            ELSE 'unapplied'
+        END AS clearance_status";
 
 // Build join condition based on whether we have active period
 if ($ayId && $semId) {
-    $join = "FROM users u
+    $join = "FROM students s
+            JOIN users u ON s.user_id = u.user_id
+            LEFT JOIN programs p ON s.program_id = p.program_id
+            LEFT JOIN departments d ON s.department_id = d.department_id
             LEFT JOIN clearance_forms cf ON cf.user_id = u.user_id AND cf.academic_year_id = ? AND cf.semester_id = ?";
     $joinParams = [$ayId, $semId];
 } else {
     // No active period - don't try to join clearance_forms (all will show as 'Unapplied')
-    $join = "FROM users u
+    $join = "FROM students s
+            JOIN users u ON s.user_id = u.user_id
+            LEFT JOIN programs p ON s.program_id = p.program_id
+            LEFT JOIN departments d ON s.department_id = d.department_id
             LEFT JOIN clearance_forms cf ON 1=0"; // Never join - all clearance_status will be 'Unapplied'
     $joinParams = [];
 }
 
-$sql = "$select $join $whereSql ORDER BY u.created_at DESC LIMIT $limit OFFSET $offset";
+$sql = "$select $join $whereSql ORDER BY s.created_at DESC LIMIT $limit OFFSET $offset";
 $stmt = $pdo->prepare($sql);
 $stmt->execute(array_merge($joinParams, $params));
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);

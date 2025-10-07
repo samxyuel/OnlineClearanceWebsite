@@ -342,10 +342,10 @@ try {
                                                 <td><span class="status-badge clearance-pending">Pending</span></td>
                                                 <td>
                                                     <div class="action-buttons">
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288322')" title="Approve Clearance">
+                                                        <button class="btn-icon approve-btn" onclick="approveSignatory('02000288322', 'CF-2025-00001', 1)" title="Approve Signatory">
                                                             <i class="fas fa-check"></i>
                                                         </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288322')" title="Reject Clearance">
+                                                        <button class="btn-icon reject-btn" onclick="rejectSignatory('02000288322', 'CF-2025-00001', 1)" title="Reject Signatory">
                                                             <i class="fas fa-times"></i>
                                                         </button>
                                                     </div>
@@ -898,6 +898,47 @@ try {
             );
         }
 
+        // Check if current user is signatory for this sector
+        async function checkSignatoryStatus(sector) {
+            try {
+                const response = await fetch(`../../api/clearance/check_signatory_status.php?sector=${encodeURIComponent(sector)}`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                return data.success && data.is_signatory;
+            } catch (error) {
+                console.error('Error checking signatory status:', error);
+                return false;
+            }
+        }
+
+        // Initialize signatory buttons based on user's signatory status
+        async function initializeSignatoryButtons() {
+            const isSignatory = await checkSignatoryStatus('Senior High School');
+            console.log('User is signatory for Senior High School:', isSignatory);
+            
+            if (!isSignatory) {
+                // Hide only the approve/reject buttons if user is not a signatory
+                // Keep all data visible, only hide action buttons
+                document.querySelectorAll('.approve-btn, .reject-btn').forEach(btn => {
+                    btn.style.display = 'none';
+                });
+                
+                // Update the Clearance Status column to show "Not Assigned" instead of hiding it
+                document.querySelectorAll('#studentsTableBody tr').forEach(row => {
+                    const cells = row.children;
+                    // Update the Clearance Status column (8th column, index 7) to show "Not Assigned"
+                    if (cells[7]) {
+                        const statusBadge = cells[7].querySelector('.status-badge');
+                        if (statusBadge) {
+                            statusBadge.textContent = 'Not Assigned';
+                            statusBadge.className = 'status-badge clearance-not-assigned';
+                        }
+                    }
+                });
+            }
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             // Load current clearance period for banner
@@ -913,6 +954,9 @@ try {
             });
             
             initializePagination();
+            
+            // Check signatory status and initialize buttons
+            initializeSignatoryButtons();
             
             // Make selection counter pill act as Clear Selection when active
             const pill = document.getElementById('selectionCounterPill');
@@ -1211,6 +1255,101 @@ try {
             });
             
             updateSelectionCounter();
+        }
+
+        // Signatory Action Functions
+        async function approveSignatory(userId, clearanceFormId, signatoryId) {
+            try {
+                const response = await fetch('../../api/clearance/apply_signatory.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        operation: 'approve',
+                        target_user_id: userId,
+                        signatory_id: signatoryId,
+                        clearance_form_id: clearanceFormId,
+                        remarks: 'Approved by Regular Staff'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToastNotification('Signatory approved successfully', 'success');
+                    updateSignatoryActionUI(userId, 'Approved');
+                } else {
+                    showToastNotification('Failed to approve signatory: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error approving signatory:', error);
+                showToastNotification('Error approving signatory: ' + error.message, 'error');
+            }
+        }
+
+        async function rejectSignatory(userId, clearanceFormId, signatoryId) {
+            try {
+                // Open rejection modal
+                openRejectionModal(userId, clearanceFormId, signatoryId);
+            } catch (error) {
+                console.error('Error opening rejection modal:', error);
+                showToastNotification('Error opening rejection modal: ' + error.message, 'error');
+            }
+        }
+
+        function openRejectionModal(userId, clearanceFormId, signatoryId) {
+            // Store rejection data for later use
+            window.pendingRejection = {
+                userId: userId,
+                clearanceFormId: clearanceFormId,
+                signatoryId: signatoryId
+            };
+
+            // Show rejection modal (you may need to implement this modal)
+            showToastNotification('Rejection modal functionality needs to be implemented', 'info');
+        }
+
+        function updateSignatoryActionUI(userId, action) {
+            // Find the row for this user and update the signatory action buttons and status
+            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+            if (!row) return;
+            
+            // Update the Clearance Status column (8th column)
+            const statusCell = row.children[7]; // Clearance Status column
+            if (statusCell) {
+                const statusBadge = statusCell.querySelector('.status-badge');
+                if (statusBadge) {
+                    if (action === 'Approved') {
+                        statusBadge.textContent = 'Approved';
+                        statusBadge.className = 'status-badge clearance-approved';
+                    } else if (action === 'Rejected') {
+                        statusBadge.textContent = 'Rejected';
+                        statusBadge.className = 'status-badge clearance-rejected';
+                    }
+                }
+            }
+            
+            // Update the action buttons in the Actions column (9th column)
+            const actionCell = row.children[8]; // Actions column
+            if (actionCell) {
+                const approveBtn = actionCell.querySelector('.approve-btn');
+                const rejectBtn = actionCell.querySelector('.reject-btn');
+                
+                if (approveBtn && rejectBtn) {
+                    if (action === 'Approved') {
+                        approveBtn.disabled = true;
+                        approveBtn.classList.add('approved');
+                        rejectBtn.disabled = true;
+                    } else if (action === 'Rejected') {
+                        approveBtn.disabled = false;
+                        approveBtn.title = 'Re-approve Signatory';
+                        rejectBtn.disabled = true;
+                        rejectBtn.classList.add('rejected');
+                    }
+                }
+            }
         }
     </script>
     <script src="../../assets/js/alerts.js"></script>

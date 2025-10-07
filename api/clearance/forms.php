@@ -64,7 +64,7 @@ function handleGetForms($connection) {
                     cf.academic_year_id,
                     cf.semester_id,
                     cf.clearance_type,
-                    cf.status,
+                    cf.clearance_form_progress,
                     cf.applied_at,
                     cf.completed_at,
                     cf.rejected_at,
@@ -104,7 +104,7 @@ function handleGetForms($connection) {
         }
         
         if ($status) {
-            $sql .= " AND cf.status = ?";
+            $sql .= " AND cf.clearance_form_progress = ?";
             $params[] = $status;
         }
         

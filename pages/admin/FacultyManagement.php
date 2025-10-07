@@ -115,7 +115,6 @@ ob_start();
                                 <select id="clearanceStatusFilter" class="filter-select">
                                     <option value="">All Clearance Status</option>
                                     <option value="unapplied">Unapplied</option>
-                                    <option value="applied">Applied</option>
                                     <option value="in-progress">In Progress</option>
                                     <option value="complete">Complete</option>
                                 </select>
@@ -219,7 +218,7 @@ ob_start();
                                                 <th>Name</th>
                                                 <th>Employment Status</th>
                                                 <th>Account Status</th>
-                                                <th>Clearance Progress Status</th>
+                                                <th>Clearance Form Progress</th>
                                                 <th>Actions</th>
                                             </tr>
                                         </thead>
@@ -457,9 +456,9 @@ ob_start();
                         <label class="filter-section-label">Clearance Progress:</label>
                         <div class="checkbox-group">
                             <label class="custom-checkbox">
-                                <input type="checkbox" id="filterApplied" value="applied">
+                                <input type="checkbox" id="filterUnapplied" value="unapplied">
                                 <span class="checkmark"></span>
-                                with "applied"
+                                with "unapplied"
                             </label>
                             <label class="custom-checkbox">
                                 <input type="checkbox" id="filterInProgress" value="in-progress">
@@ -484,49 +483,6 @@ ob_start();
         </div>
     </div>
 
-    <!-- Rejection Remarks Modal -->
-    <div id="rejectionRemarksModal" class="modal-overlay" style="display: none;">
-        <div class="modal-window rejection-remarks-modal">
-            <div class="modal-header">
-                <h3 class="modal-title"><i class="fas fa-comment-slash"></i> Rejection Remarks</h3>
-                <button class="modal-close" onclick="closeRejectionRemarksModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-content-area">
-                <div class="rejection-info">
-                    <h4 id="rejectionTargetName">Rejecting: [Faculty Name]</h4>
-                    <p class="rejection-type">Type: <span id="rejectionType">Faculty</span></p>
-                </div>
-                
-                <div class="remarks-section">
-                    <div class="form-group">
-                        <label for="rejectionReason">Reason for Rejection:</label>
-                        <select id="rejectionReason" class="form-control" onchange="handleReasonChange()">
-                            <option value="">Select a reason...</option>
-                            <option value="incomplete_documents">Incomplete Documents</option>
-                            <option value="unpaid_obligations">Unpaid Obligations</option>
-                            <option value="employment_requirements">Employment Requirements Not Met</option>
-                            <option value="disciplinary_issues">Disciplinary Issues</option>
-                            <option value="missing_clearance">Missing Clearance Items</option>
-                            <option value="contract_issues">Contract/Employment Issues</option>
-                            <option value="other">Other (Please specify below)</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="additionalRemarks">Additional Remarks (Optional):</label>
-                        <textarea id="additionalRemarks" class="form-control" rows="4" 
-                                placeholder="Provide additional details or specific instructions..."></textarea>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="modal-action-secondary" onclick="closeRejectionRemarksModal()">Cancel</button>
-                <button class="modal-action-primary" onclick="submitRejection()">Reject Clearance</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Signatory Override Modal -->
     <div id="signatoryOverrideModal" class="modal-overlay" style="display: none;">
@@ -1044,7 +1000,7 @@ ob_start();
                 document.getElementById('editMiddleName').value = f.middle_name||'';
                 document.getElementById('editEmail').value = f.email||'';
                 document.getElementById('editContactNumber').value = f.contact_number||'';
-                document.getElementById('editAccountStatus').value = f.status;
+                document.getElementById('editAccountStatus').value = f.account_status;
             }catch(err){console.error(err);showToastNotification('Network error','error');}
         }
 
@@ -1339,7 +1295,7 @@ ob_start();
                     else if(statusRaw==='In Progress' || statusRaw==='Pending') clearanceKey='in-progress';
                     else if(statusRaw==='Rejected') clearanceKey='rejected';
 
-                    const accountStatus = f.status.toLowerCase();
+                    const accountStatus = f.account_status ? f.account_status.toLowerCase() : 'active';
                     const clearanceStatus=clearanceKey;
                     tr.innerHTML=`<td><input type=\"checkbox\" class=\"faculty-checkbox\" data-id=\"${f.employee_number}\"></td>
                                 <td>${f.employee_number}</td>
@@ -1349,8 +1305,6 @@ ob_start();
                                 <td><span class="status-badge clearance-${clearanceStatus}">${statusRaw}</span></td>
                                 <td><div class="action-buttons">
                                         <button class=\"btn-icon view-progress-btn\" onclick=\"viewClearanceProgress('${f.employee_number}')\" title=\"View Clearance Progress\"><i class=\"fas fa-tasks\"></i></button>
-                                        <button class=\"btn-icon approve-btn\" onclick=\"approveFacultyClearance('${f.user_id}')\" title=\"Approve Clearance\" disabled><i class=\"fas fa-check\"></i></button>
-                                        <button class=\"btn-icon reject-btn\" onclick=\"rejectFacultyClearance('${f.user_id}')\" title=\"Reject Clearance\" disabled><i class=\"fas fa-times\"></i></button>
                                         <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
                                         <button class="btn-icon status-toggle-btn ${accountStatus==='active'?'active':'inactive'}" onclick="toggleFacultyStatus(this)" title="Toggle Status"><i class="fas ${accountStatus==='active'?'fa-toggle-on':'fa-toggle-off'}"></i></button>
                                         <button class=\"btn-icon delete-btn\" onclick=\"deleteFaculty('${f.employee_number}')\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>
@@ -1773,7 +1727,7 @@ ob_start();
             const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.getAttribute('data-id'));
             
             // Open rejection remarks modal for bulk override rejection
-            openRejectionRemarksModal(null, null, 'faculty', true, selectedIds);
+            // Rejection functionality removed - admins don't reject clearances
         }
 
         function approveOverrideClearance(id) {
@@ -1792,8 +1746,7 @@ ob_start();
             const clearanceItem = document.querySelector(`.override-checkbox[data-id="${id}"]`).closest('.clearance-item');
             const facultyName = clearanceItem.querySelector('h4').textContent;
             
-            // Open rejection remarks modal for override rejection
-            openRejectionRemarksModal(id, facultyName, 'faculty', false);
+            // Rejection functionality removed - admins don't reject clearances
         }
 
         function exportOverrideReport() {
@@ -1833,188 +1786,11 @@ ob_start();
             targetIds: []
         };
 
-        function openRejectionRemarksModal(targetId, targetName, targetType = 'faculty', isBulk = false, targetIds = []) {
-            currentRejectionData = {
-                targetId: targetId,
-                targetName: targetName,
-                targetType: targetType,
-                isBulk: isBulk,
-                targetIds: targetIds
-            };
 
-            // Update modal content based on target type
-            const modal = document.getElementById('rejectionRemarksModal');
-            const targetNameElement = document.getElementById('rejectionTargetName');
-            const targetTypeElement = document.getElementById('rejectionType');
-            const reasonSelect = document.getElementById('rejectionReason');
-            const remarksTextarea = document.getElementById('additionalRemarks');
 
-            // Reset form
-            reasonSelect.value = '';
-            remarksTextarea.value = '';
 
-            // Update display
-            if (isBulk) {
-                targetNameElement.textContent = `Rejecting: ${targetIds.length} Selected ${targetType === 'student' ? 'Students' : 'Faculty'}`;
-            } else {
-                targetNameElement.textContent = `Rejecting: ${targetName}`;
-            }
-            targetTypeElement.textContent = targetType === 'student' ? 'Student' : 'Faculty';
-
-            // Show modal
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeRejectionRemarksModal() {
-            const modal = document.getElementById('rejectionRemarksModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            
-            // Reset current rejection data
-            currentRejectionData = {
-                targetId: null,
-                targetName: null,
-                targetType: 'faculty',
-                isBulk: false,
-                targetIds: []
-            };
-        }
-
-        function handleReasonChange() {
-            const reasonSelect = document.getElementById('rejectionReason');
-            const remarksTextarea = document.getElementById('additionalRemarks');
-            
-            // If "Other" is selected, focus on remarks textarea
-            if (reasonSelect.value === 'other') {
-                remarksTextarea.focus();
-                remarksTextarea.placeholder = 'Please specify the reason for rejection...';
-            } else {
-                remarksTextarea.placeholder = 'Provide additional details or specific instructions...';
-            }
-        }
-
-        function submitRejection() {
-            const reasonSelect = document.getElementById('rejectionReason');
-            const remarksTextarea = document.getElementById('additionalRemarks');
-            
-            // Get rejection data
-            const rejectionReason = reasonSelect.value;
-            const additionalRemarks = remarksTextarea.value.trim();
-            
-            // Demo: Show rejection summary
-            let rejectionSummary = '';
-            if (currentRejectionData.isBulk) {
-                rejectionSummary = `Rejected ${currentRejectionData.targetIds.length} ${currentRejectionData.targetType === 'student' ? 'students' : 'faculty'}`;
-            } else {
-                rejectionSummary = `Rejected ${currentRejectionData.targetName}`;
-            }
-            
-            if (rejectionReason) {
-                const reasonText = reasonSelect.options[reasonSelect.selectedIndex].text;
-                rejectionSummary += `\nReason: ${reasonText}`;
-            }
-            
-            if (additionalRemarks) {
-                rejectionSummary += `\nAdditional Remarks: ${additionalRemarks}`;
-            }
-            
-            // Demo: Update UI and show success message
-            if (currentRejectionData.isBulk) {
-                // Update override clearance items
-                currentRejectionData.targetIds.forEach(id => {
-                    const clearanceItem = document.querySelector(`.override-checkbox[data-id="${id}"]`);
-                    if (clearanceItem) {
-                        const clearanceItemRow = clearanceItem.closest('.clearance-item');
-                        if (clearanceItemRow) {
-                            const statusBadge = clearanceItemRow.querySelector('.status-badge');
-                            if (statusBadge) {
-                                statusBadge.textContent = 'Rejected';
-                                statusBadge.classList.remove('clearance-pending', 'clearance-in-progress', 'clearance-complete');
-                                statusBadge.classList.add('clearance-rejected');
-                            }
-                        }
-                    }
-                });
-                
-                // Uncheck all override checkboxes
-                document.getElementById('overrideSelectAll').checked = false;
-                currentRejectionData.targetIds.forEach(id => {
-                    const checkbox = document.querySelector(`.override-checkbox[data-id="${id}"]`);
-                    if (checkbox) checkbox.checked = false;
-                });
-                updateOverrideBulkButtons();
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} faculty with remarks`, 'success');
-            } else {
-                // Update override clearance item
-                const clearanceItem = document.querySelector(`.override-checkbox[data-id="${currentRejectionData.targetId}"]`);
-                if (clearanceItem) {
-                    const clearanceItemRow = clearanceItem.closest('.clearance-item');
-                    if (clearanceItemRow) {
-                        const statusBadge = clearanceItemRow.querySelector('.status-badge');
-                        if (statusBadge) {
-                            statusBadge.textContent = 'Rejected';
-                            statusBadge.classList.remove('clearance-pending', 'clearance-in-progress', 'clearance-complete');
-                            statusBadge.classList.add('clearance-rejected');
-                        }
-                    }
-                }
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
-            }
-            
-            // Close modal
-            closeRejectionRemarksModal();
-            
-            // Demo: Log rejection data (in real implementation, this would be sent to server)
-            console.log('Rejection Data:', {
-                target: currentRejectionData,
-                reason: rejectionReason,
-                additionalRemarks: additionalRemarks,
-                timestamp: new Date().toISOString()
-            });
-        }
 
         // Faculty Clearance Action Functions
-        async function approveFacultyClearance(facultyId) {
-            try {
-                showToastNotification('Approving faculty clearance...', 'info');
-                
-                // TODO: Implement actual approval API call
-                // const response = await fetch('../../api/clearance/approve.php', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     credentials: 'include',
-                //     body: JSON.stringify({ faculty_id: facultyId })
-                // });
-                
-                // For now, show success message
-                showToastNotification('Faculty clearance approved successfully', 'success');
-                
-                // Refresh the table to update button states
-                await refreshFacultyTable();
-                
-            } catch (error) {
-                console.error('Error approving faculty clearance:', error);
-                showToastNotification('Failed to approve clearance: ' + error.message, 'error');
-            }
-        }
-
-        async function rejectFacultyClearance(facultyId) {
-            try {
-                // Get faculty name for display
-                const row = document.querySelector(`tr[data-faculty-id="${facultyId}"]`);
-                const facultyName = row ? row.cells[2].textContent.trim() : 'Unknown Faculty';
-                
-                // Open rejection remarks modal
-                openRejectionRemarksModal(facultyId, facultyName, 'faculty', false);
-                
-            } catch (error) {
-                console.error('Error rejecting faculty clearance:', error);
-                showToastNotification('Failed to reject clearance: ' + error.message, 'error');
-            }
-        }
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
@@ -2236,7 +2012,7 @@ ob_start();
             // Reset all filter checkboxes
             document.getElementById('filterActive').checked = false;
             document.getElementById('filterInactive').checked = false;
-            document.getElementById('filterApplied').checked = false;
+            document.getElementById('filterUnapplied').checked = false;
             document.getElementById('filterInProgress').checked = false;
             document.getElementById('filterComplete').checked = false;
         }
@@ -2307,7 +2083,7 @@ ob_start();
             return {
                 active: document.getElementById('filterActive').checked,
                 inactive: document.getElementById('filterInactive').checked,
-                applied: document.getElementById('filterApplied').checked,
+                unapplied: document.getElementById('filterUnapplied').checked,
                 inProgress: document.getElementById('filterInProgress').checked,
                 complete: document.getElementById('filterComplete').checked
             };

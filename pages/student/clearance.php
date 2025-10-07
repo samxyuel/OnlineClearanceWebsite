@@ -84,11 +84,12 @@
                     </div>
                 </div>
 
-                <!-- Overall Clearance Progress Status Badge -->
+                <!-- Overall Clearance Form Progress Status Badge -->
                 <div class="overall-status-section">
                     <div class="overall-status-badge">
                         <i class="fas fa-info-circle"></i>
-                        Clearance Progress Status: Pending
+                        Clearance Form Progress: 
+                        <span class="status-badge clearance-unapplied" id="clearanceFormProgressBadge">Unapplied</span>
                     </div>
                 </div>
 
@@ -438,10 +439,17 @@
         // Update clearance form banner
         updateClearanceFormBanner(data);
         
-        // Update overall status
-        const overallStatus = document.querySelector('.overall-status-badge');
-        if (overallStatus) {
-            overallStatus.innerHTML = `<i class="fas fa-info-circle"></i> Clearance Progress Status: ${data.overall_status}`;
+        // Update clearance form progress status badge
+        const clearanceFormProgressBadge = document.getElementById('clearanceFormProgressBadge');
+        if (clearanceFormProgressBadge && data.clearance_form_progress) {
+            // Remove existing status classes
+            clearanceFormProgressBadge.classList.remove('clearance-unapplied', 'clearance-in-progress', 'clearance-complete');
+            
+            // Add new status class and update text
+            const statusClass = `clearance-${data.clearance_form_progress}`;
+            const statusText = data.clearance_form_progress.charAt(0).toUpperCase() + data.clearance_form_progress.slice(1).replace('-', ' ');
+            clearanceFormProgressBadge.classList.add(statusClass);
+            clearanceFormProgressBadge.textContent = statusText;
         }
         
         // Update signatory cards and table rows based on data.signatories

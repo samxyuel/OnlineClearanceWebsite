@@ -837,7 +837,7 @@ function resetClearanceFormsForNewTerm($connection, $academicYearId, $semesterId
             SELECT u.user_id, r.role_name 
             FROM users u 
             JOIN roles r ON u.role_id = r.role_id 
-            WHERE u.status = 'active'
+            WHERE u.account_status = 'active'
         ");
         $usersStmt->execute();
         $users = $usersStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -907,7 +907,7 @@ function createClearanceFormsForPeriod($connection, $periodId, $sector, $academi
                     'Unapplied'
                 FROM students s
                 WHERE s.sector = 'College' 
-                AND s.enrollment_status = 'Enrolled'
+                AND u.account_status = 'active'
                 AND s.user_id IS NOT NULL
             ");
             $stmt->execute([$academicYearId, $semesterId]);
@@ -932,7 +932,7 @@ function createClearanceFormsForPeriod($connection, $periodId, $sector, $academi
                     'Unapplied'
                 FROM students s
                 WHERE s.sector = 'Senior High School' 
-                AND s.enrollment_status = 'Enrolled'
+                AND u.account_status = 'active'
                 AND s.user_id IS NOT NULL
             ");
             $stmt->execute([$academicYearId, $semesterId]);
@@ -1065,8 +1065,8 @@ function getEligibleUsersForSector($connection, $clearanceType) {
                 INNER JOIN departments d ON s.department_id = d.department_id
                 INNER JOIN sectors sec ON d.sector_id = sec.sector_id
                 WHERE sec.sector_name = 'College'
-                AND u.status = 'active'
-                AND s.enrollment_status = 'Enrolled'
+                AND u.account_status = 'active'
+                AND u.account_status = 'active'
                 ORDER BY u.last_name, u.first_name
             ";
             break;
@@ -1080,8 +1080,8 @@ function getEligibleUsersForSector($connection, $clearanceType) {
                 INNER JOIN departments d ON s.department_id = d.department_id
                 INNER JOIN sectors sec ON d.sector_id = sec.sector_id
                 WHERE sec.sector_name = 'Senior High School'
-                AND u.status = 'active'
-                AND s.enrollment_status = 'Enrolled'
+                AND u.account_status = 'active'
+                AND u.account_status = 'active'
                 ORDER BY u.last_name, u.first_name
             ";
             break;
@@ -1095,7 +1095,7 @@ function getEligibleUsersForSector($connection, $clearanceType) {
                 INNER JOIN departments d ON f.department_id = d.department_id
                 INNER JOIN sectors sec ON d.sector_id = sec.sector_id
                 WHERE sec.sector_name = 'Faculty'
-                AND u.status = 'active'
+                AND u.account_status = 'active'
                 ORDER BY u.last_name, u.first_name
             ";
             break;

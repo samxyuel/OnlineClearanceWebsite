@@ -191,7 +191,7 @@ class UserManager {
             }
             
             if (!empty($filters['status'])) {
-                $whereConditions[] = "u.status = ?";
+                $whereConditions[] = "u.account_status = ?";
                 $params[] = $filters['status'];
             }
             
