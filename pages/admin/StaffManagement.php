@@ -364,12 +364,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 const card = createStaffCard(staff);
                 const positionLower = (staff.position || '').toLowerCase();
                 if (currentTab === 'ph' && positionLower === 'program head') {
-                    const chips = document.createElement('div');
-                    chips.className = 'ph-dept-chips';
-                    chips.style.marginTop = '8px';
-                    chips.innerHTML = '<span class="chip">Dept A</span> <span class="chip">Dept B</span>';
-                    const body = card.querySelector('.staff-card-body');
-                    if (body) body.appendChild(chips);
                     phContainer.appendChild(card);
                 } else if (currentTab === 'sa' && positionLower === 'school administrator') {
                     saContainer.appendChild(card);
