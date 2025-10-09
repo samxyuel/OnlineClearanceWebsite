@@ -574,9 +574,11 @@ window.submitEditStaffForm = function() {
                 if (hadAssignments) {
                     removeAllAssignments(userId);
                 } else {
-            showToastNotification('Staff member updated successfully!', 'success');
-            closeEditStaffModal();
-            location.reload();
+                    showToastNotification('Staff member updated successfully!', 'success');
+                    setTimeout(() => {
+                        closeEditStaffModal();
+                        location.reload();
+                    }, 1500); // Wait 1.5 seconds before reloading
                 }
             }
         } else {
@@ -657,14 +659,18 @@ window.updateProgramHeadAssignments = function(userId) {
             } else {
                 showToastNotification('Staff member and assignments updated successfully!', 'success');
             }
-            closeEditStaffModal();
-            location.reload();
+            setTimeout(() => {
+                closeEditStaffModal();
+                location.reload();
+            }, 1500);
         })
         .catch(error => {
             console.error('Error updating assignments:', error);
             showToastNotification('Staff member updated, but assignment update failed.', 'warning');
-            closeEditStaffModal();
-            location.reload();
+            setTimeout(() => {
+                closeEditStaffModal();
+                location.reload();
+            }, 1500);
         });
 };
 
@@ -672,8 +678,10 @@ window.updateProgramHeadAssignments = function(userId) {
 window.removeAllAssignments = function(userId) {
     if (!userId || !window.currentAssignments) {
         showToastNotification('Staff member updated successfully!', 'success');
-        closeEditStaffModal();
-        location.reload();
+        setTimeout(() => {
+            closeEditStaffModal();
+            location.reload();
+        }, 1500);
         return;
     }
 
@@ -699,14 +707,18 @@ window.removeAllAssignments = function(userId) {
             } else {
                 showToastNotification('Staff member updated and assignments removed successfully!', 'success');
             }
-            closeEditStaffModal();
-            location.reload();
+            setTimeout(() => {
+                closeEditStaffModal();
+                location.reload();
+            }, 1500);
         })
         .catch(error => {
             console.error('Error removing assignments:', error);
             showToastNotification('Staff member updated, but assignment removal failed.', 'warning');
-            closeEditStaffModal();
-            location.reload();
+            setTimeout(() => {
+                closeEditStaffModal();
+                location.reload();
+            }, 1500);
     });
 };
 
