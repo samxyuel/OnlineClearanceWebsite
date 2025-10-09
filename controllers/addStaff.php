@@ -94,7 +94,7 @@ try {
     $newUserId = (int)$createRes['user_id'];
     $departmentIdToSet = null;
 
-    // If departments are assigned (e.g., for a Program Head), get the first one to set.
+    // A Program Head is assigned to a single department.
     if (isset($input['assignedDepartments']) && is_array($input['assignedDepartments']) && !empty($input['assignedDepartments'][0])) {
         $departmentIdToSet = (int)$input['assignedDepartments'][0];
     }
@@ -151,7 +151,7 @@ try {
             // Create new faculty record
             if ($employmentStatus) {
                 $ins = $pdo->prepare("INSERT INTO faculty (employee_number, user_id, employment_status, department_id, created_at) VALUES (?, ?, ?, ?, NOW())");
-                $ins->execute([$employeeOut, $newUserId, $employmentStatus, $departmentIdToSet]);
+                $ins->execute([$employeeOut, $newUserId, $employmentStatus, $departmentIdToSet]); // Use the same department ID
             }
         }
     }

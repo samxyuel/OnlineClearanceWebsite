@@ -30,10 +30,11 @@ try {
 
     $input = json_decode(file_get_contents('php://input'), true) ?: [];
     $employeeId = $input['employeeId'] ?? null;
+    $userId = $input['user_id'] ?? null;
 
-    if (empty($employeeId)) {
+    if (empty($employeeId) && empty($userId)) {
         http_response_code(400);
-        echo json_encode(['status' => 'error', 'message' => 'Employee ID is required']);
+        echo json_encode(['status' => 'error', 'message' => 'Employee ID or User ID is required']);
         exit;
     }
 
@@ -48,7 +49,6 @@ try {
         exit;
     }
     $userId = (int)$user['user_id'];
-
     // Fields to update in the users table
     $userData = [];
     $allowedUserFields = ['first_name', 'last_name', 'middle_name'];
@@ -107,32 +107,41 @@ try {
         else if (strcasecmp($input['staffPosition'], 'School Administrator') === 0) { $staffData['staff_category'] = 'School Administrator'; }
     }
 
-    // Handle department_id for non-Program Head staff if provided
-    // This logic needs to run even if staffPosition is not being changed.
-    $isProgramHead = false;
-    if (isset($input['staffPosition'])) {
-        $isProgramHead = (strcasecmp($input['staffPosition'], 'Program Head') === 0);
-    }
-    if (isset($input['department_id']) && !$isProgramHead) {
-        $staffData['department_id'] = !empty($input['department_id']) ? (int)$input['department_id'] : null;
-    }
-
-    // Handle employment_status for faculty
+    // Handle employment_status for faculty-staff dual roles
     if (isset($input['facultyEmploymentStatus'])) {
         $staffData['employment_status'] = $input['facultyEmploymentStatus'] ?: null;
     }
 
+    // --- Department ID Logic ---
+    $currentDesignation = $user['designation_name'] ?? '';
+    $newDesignation = $input['staffPosition'] ?? $currentDesignation;
+    $isNowProgramHead = (strcasecmp($newDesignation, 'Program Head') === 0);
+    $wasProgramHead = (strcasecmp($currentDesignation, 'Program Head') === 0);
+
+    $departmentIdToSet = null; // Default to null
+    if ($isNowProgramHead) {
+        // If the user is a Program Head, get the department from 'assignedDepartments'
+        if (isset($input['assignedDepartments']) && is_array($input['assignedDepartments']) && !empty($input['assignedDepartments'][0])) {
+            $departmentIdToSet = (int)$input['assignedDepartments'][0];
+        }
+    }
+    // Always set department_id in the payload to ensure it's updated or cleared.
+    $staffData['department_id'] = $departmentIdToSet;
+
+    // Only run the staff update if there are fields to change.
     if (!empty($staffData)) {
         $updateFields = [];
         $params = [];
         foreach ($staffData as $key => $value) {
-            $updateFields[] = "$key = ?";
+            $updateFields[] = "`$key` = ?";
             $params[] = $value;
         }
         $params[] = $userId;
-        $sql = "UPDATE staff SET " . implode(', ', $updateFields) . " WHERE user_id = ?";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        if (!empty($updateFields)) {
+            $sql = "UPDATE staff SET " . implode(', ', $updateFields) . ", updated_at = NOW() WHERE user_id = ?";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+        }
     }
 
     // Handle "Is also a faculty" logic
@@ -148,14 +157,14 @@ try {
         if ($facultyExists) {
             // Update existing faculty record
             if ($employmentStatus) {
-                $upd = $pdo->prepare("UPDATE faculty SET employment_status = ? WHERE user_id = ?");
-                $upd->execute([$employmentStatus, $userId]);
+                $upd = $pdo->prepare("UPDATE faculty SET employment_status = ?, department_id = ? WHERE user_id = ?");
+                $upd->execute([$employmentStatus, $departmentIdToSet, $userId]);
             }
         } else {
             // Create new faculty record
             if ($employmentStatus) {
-                $ins = $pdo->prepare("INSERT INTO faculty (employee_number, user_id, employment_status, created_at) VALUES (?, ?, ?, NOW())");
-                $ins->execute([$employeeId, $userId, $employmentStatus]);
+                $ins = $pdo->prepare("INSERT INTO faculty (employee_number, user_id, employment_status, department_id, created_at) VALUES (?, ?, ?, ?, NOW())");
+                $ins->execute([$employeeId, $userId, $employmentStatus, $departmentIdToSet]);
             }
         }
     } else {

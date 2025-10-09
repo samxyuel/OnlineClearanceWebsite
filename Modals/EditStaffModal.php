@@ -468,12 +468,12 @@ window.submitEditStaffForm = function() {
     
     // Validation: Must have either standard position OR custom position, not both
     if (!standardPosition && !customPosition) {
-        showToast('Please select a standard position or enter a custom position.', 'error');
+        showToastNotification('Please select a standard position or enter a custom position.', 'error');
         return;
     }
     
     if (standardPosition && customPosition) {
-        showToast('Please select either a standard position OR enter a custom position, not both.', 'error');
+        showToastNotification('Please select either a standard position OR enter a custom position, not both.', 'error');
         return;
     }
     
@@ -486,7 +486,7 @@ window.submitEditStaffForm = function() {
     const facultyEmploymentStatus = document.getElementById('editFacultyEmploymentStatus').value;
     
     if (isAlsoFaculty && !facultyEmploymentStatus) {
-        showToast('Faculty Employment Status is required when "Is also a faculty" is checked.', 'error');
+        showToastNotification('Faculty Employment Status is required when "Is also a faculty" is checked.', 'error');
         document.getElementById('editFacultyEmploymentStatus').focus();
         return;
     }
@@ -503,13 +503,13 @@ window.submitEditStaffForm = function() {
         const assignedDepartments = document.querySelectorAll('input[name="assignedDepartments[]"]:checked');
         
         if (!programHeadCategory) {
-            showToast('Please select a category for Program Head assignment.', 'error');
+            showToastNotification('Please select a category for Program Head assignment.', 'error');
             document.getElementById('editProgramHeadCategory').focus();
             return;
         }
         
         if (assignedDepartments.length === 0) {
-            showToast('Please select at least one department for Program Head assignment.', 'error');
+            showToastNotification('Please select at least one department for Program Head assignment.', 'error');
             return;
         }
     }
@@ -526,12 +526,20 @@ window.submitEditStaffForm = function() {
         jsonData[key] = value;
     });
     
+    // Manually collect department assignments for Program Heads
+    if (editValidationFinalPosition === 'Program Head') {
+        const assignedDeptCheckboxes = document.querySelectorAll('input[name="assignedDepartments[]"]:checked');
+        if (assignedDeptCheckboxes.length > 0) {
+            jsonData['assignedDepartments'] = Array.from(assignedDeptCheckboxes).map(cb => cb.value);
+        }
+    }
+
     // Build name parts
     const lastName = (jsonData.lastName || '').trim();
     const firstName = (jsonData.firstName || '').trim();
     const middleName = (jsonData.middleName || '').trim();
     if (!lastName || !firstName) {
-        showToast('First and Last name are required.', 'error');
+        showToastNotification('First and Last name are required.', 'error');
         return;
     }
     
@@ -566,25 +574,25 @@ window.submitEditStaffForm = function() {
                 if (hadAssignments) {
                     removeAllAssignments(userId);
                 } else {
-            showToast('Staff member updated successfully!', 'success');
+            showToastNotification('Staff member updated successfully!', 'success');
             closeEditStaffModal();
             location.reload();
                 }
             }
         } else {
-            showToast(data.message || 'Failed to update staff member.', 'error');
+            showToastNotification(data.message || 'Failed to update staff member.', 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('An error occurred while updating staff member.', 'error');
+        showToastNotification('An error occurred while updating staff member.', 'error');
     });
 };
 
 // Update Program Head department assignments
 window.updateProgramHeadAssignments = function(userId) {
     if (!userId) {
-        showToast('Staff member updated, but assignment update failed - no user ID.', 'error');
+        showToastNotification('Staff member updated, but assignment update failed - no user ID.', 'error');
         closeEditStaffModal();
         location.reload();
         return;
@@ -645,16 +653,16 @@ window.updateProgramHeadAssignments = function(userId) {
         .then(results => {
             const hasErrors = results.some(r => !r.success);
             if (hasErrors) {
-                showToast('Staff member updated, but some assignment changes failed.', 'warning');
+                showToastNotification('Staff member updated, but some assignment changes failed.', 'warning');
             } else {
-                showToast('Staff member and assignments updated successfully!', 'success');
+                showToastNotification('Staff member and assignments updated successfully!', 'success');
             }
             closeEditStaffModal();
             location.reload();
         })
         .catch(error => {
             console.error('Error updating assignments:', error);
-            showToast('Staff member updated, but assignment update failed.', 'warning');
+            showToastNotification('Staff member updated, but assignment update failed.', 'warning');
             closeEditStaffModal();
             location.reload();
         });
@@ -663,7 +671,7 @@ window.updateProgramHeadAssignments = function(userId) {
 // Remove all department assignments (when changing from Program Head to another role)
 window.removeAllAssignments = function(userId) {
     if (!userId || !window.currentAssignments) {
-        showToast('Staff member updated successfully!', 'success');
+        showToastNotification('Staff member updated successfully!', 'success');
         closeEditStaffModal();
         location.reload();
         return;
@@ -687,16 +695,16 @@ window.removeAllAssignments = function(userId) {
         .then(results => {
             const hasErrors = results.some(r => !r.success);
             if (hasErrors) {
-                showToast('Staff member updated, but some assignment removals failed.', 'warning');
+                showToastNotification('Staff member updated, but some assignment removals failed.', 'warning');
             } else {
-                showToast('Staff member updated and assignments removed successfully!', 'success');
+                showToastNotification('Staff member updated and assignments removed successfully!', 'success');
             }
             closeEditStaffModal();
             location.reload();
         })
         .catch(error => {
             console.error('Error removing assignments:', error);
-            showToast('Staff member updated, but assignment removal failed.', 'warning');
+            showToastNotification('Staff member updated, but assignment removal failed.', 'warning');
             closeEditStaffModal();
             location.reload();
     });

@@ -204,6 +204,15 @@ window.submitStaffRegistrationForm = function() {
     formData.forEach((value, key) => {
         jsonData[key] = value;
     });
+
+    // Manually collect department assignments for Program Heads, as FormData doesn't handle array-like names well.
+    if (normalizedDesignation.toLowerCase() === 'program head') {
+        const assignedDeptCheckboxes = document.querySelectorAll('#staffRegistrationForm input[name="assignedDepartments[]"]:checked');
+        if (assignedDeptCheckboxes.length > 0) {
+            jsonData['assignedDepartments'] = Array.from(assignedDeptCheckboxes).map(cb => cb.value);
+        }
+    }
+
     // Build name parts
     const lastName = (jsonData.lastName || '').trim();
     const firstName = (jsonData.firstName || '').trim();
