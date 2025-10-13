@@ -326,10 +326,23 @@ function handleUpdatePeriod($connection) {
                     $afterUpdate = $checkStmt->fetchAll(PDO::FETCH_ASSOC);
                     error_log("🚀 API DEBUG: Periods after update: " . json_encode($afterUpdate));
                     
-                    // Trigger form distribution for this sector
-                    error_log("📋 API DEBUG: Triggering form distribution for $sector");
-                    $formDistributionResult = triggerFormDistribution($connection, $sector, $academicYearId, $semesterId);
-                    
+                    // NEW: Trigger form distribution by calling the correct API endpoint
+                    $distributionUrl = "http://localhost/OnlineClearanceWebsite/api/clearance/sector-periods.php";
+                    $distributionData = [
+                        'action' => 'start',
+                        'period_id' => $existingPeriod['period_id']
+                    ];
+                    $options = [
+                        'http' => [
+                            'header'  => "Content-type: application/json\r\n",
+                            'method'  => 'PUT',
+                            'content' => json_encode($distributionData),
+                        ],
+                    ];
+                    $context  = stream_context_create($options);
+                    $result = file_get_contents($distributionUrl, false, $context);
+                    $formDistributionResult = json_decode($result, true);
+
                     $response = [
                         'success' => true, 
                         'message' => 'Clearance period started successfully',
@@ -366,10 +379,23 @@ function handleUpdatePeriod($connection) {
                 $periodId = $connection->lastInsertId();
                 error_log("✅ API DEBUG: New period created successfully with ID: $periodId");
                 
-                // Trigger form distribution for this sector
-                error_log("📋 API DEBUG: Triggering form distribution for $sector");
-                $formDistributionResult = triggerFormDistribution($connection, $sector, $academicYearId, $semesterId);
-                
+                // NEW: Trigger form distribution by calling the correct API endpoint
+                $distributionUrl = "http://localhost/OnlineClearanceWebsite/api/clearance/sector-periods.php";
+                $distributionData = [
+                    'action' => 'start',
+                    'period_id' => $periodId
+                ];
+                $options = [
+                    'http' => [
+                        'header'  => "Content-type: application/json\r\n",
+                        'method'  => 'PUT',
+                        'content' => json_encode($distributionData),
+                    ],
+                ];
+                $context  = stream_context_create($options);
+                $result = file_get_contents($distributionUrl, false, $context);
+                $formDistributionResult = json_decode($result, true);
+
                 echo json_encode([
                     'success' => true, 
                     'message' => 'Clearance period started successfully',
@@ -559,20 +585,21 @@ function handleUpdatePeriod($connection) {
             // Activate the requested semester
             $stmt = $connection->prepare("UPDATE semesters SET is_active = 1 WHERE semester_id = ?");
             $stmt->execute([$semesterId]);
-            
-            // Create clearance periods for all sectors (College, SHS, Faculty) with status = Not Started
+
+            // Create clearance periods for all sectors (College, SHS, Faculty) with status = 'Not Started'
+            // and is_active = 0. This prepares them for manual activation by the admin.
             $sectors = ['College', 'Senior High School', 'Faculty'];
             $createdPeriods = 0;
             
             foreach ($sectors as $sector) {
-                // Check if clearance period already exists for this sector
+                // Check if a clearance period already exists for this sector, semester, and academic year
                 $stmt = $connection->prepare("SELECT COUNT(*) FROM clearance_periods WHERE academic_year_id = ? AND semester_id = ? AND sector = ?");
                 $stmt->execute([$semester['academic_year_id'], $semesterId, $sector]);
                 $exists = $stmt->fetchColumn();
                 
                 if ($exists == 0) {
-                    // Create new clearance period for this sector
-                    $stmt = $connection->prepare("INSERT INTO clearance_periods (academic_year_id, semester_id, sector, status, created_at) VALUES (?, ?, ?, 'Not Started', NOW())");
+                    // Create a new, non-active clearance period
+                    $stmt = $connection->prepare("INSERT INTO clearance_periods (academic_year_id, semester_id, sector, status, is_active, created_at) VALUES (?, ?, ?, 'Not Started', 0, NOW())");
                     $stmt->execute([$semester['academic_year_id'], $semesterId, $sector]);
                     $createdPeriods++;
                 }
@@ -580,7 +607,7 @@ function handleUpdatePeriod($connection) {
             
             echo json_encode([
                 'success' => true, 
-                'message' => 'Semester activated successfully',
+                'message' => 'Semester activated successfully. Clearance periods have been created and are ready to be started individually.',
                 'created_periods' => $createdPeriods
             ]);
             return;
@@ -884,350 +911,4 @@ function resetClearanceFormsForNewTerm($connection, $academicYearId, $semesterId
     }
 }
 
-// Helper function to create clearance forms for a period
-function createClearanceFormsForPeriod($connection, $periodId, $sector, $academicYearId, $semesterId) {
-    try {
-        if ($sector === 'College') {
-            // Create clearance forms for College students
-            $stmt = $connection->prepare("
-                INSERT INTO clearance_forms (
-                    clearance_form_id,
-                    user_id, 
-                    academic_year_id, 
-                    semester_id, 
-                    clearance_type, 
-                    status
-                )
-                SELECT 
-                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
-                    s.user_id,
-                    ?,
-                    ?,
-                    'College',
-                    'Unapplied'
-                FROM students s
-                WHERE s.sector = 'College' 
-                AND u.account_status = 'active'
-                AND s.user_id IS NOT NULL
-            ");
-            $stmt->execute([$academicYearId, $semesterId]);
-            
-        } elseif ($sector === 'Senior High School') {
-            // Create clearance forms for Senior High School students
-            $stmt = $connection->prepare("
-                INSERT INTO clearance_forms (
-                    clearance_form_id,
-                    user_id, 
-                    academic_year_id, 
-                    semester_id, 
-                    clearance_type, 
-                    status
-                )
-                SELECT 
-                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
-                    s.user_id,
-                    ?,
-                    ?,
-                    'Senior High School',
-                    'Unapplied'
-                FROM students s
-                WHERE s.sector = 'Senior High School' 
-                AND u.account_status = 'active'
-                AND s.user_id IS NOT NULL
-            ");
-            $stmt->execute([$academicYearId, $semesterId]);
-            
-        } elseif ($sector === 'Faculty') {
-            // Create clearance forms for Faculty
-            $stmt = $connection->prepare("
-                INSERT INTO clearance_forms (
-                    clearance_form_id,
-                    user_id, 
-                    academic_year_id, 
-                    semester_id, 
-                    clearance_type, 
-                    status
-                )
-                SELECT 
-                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
-                    f.user_id,
-                    ?,
-                    ?,
-                    'Faculty',
-                    'Unapplied'
-                FROM faculty f
-                WHERE f.user_id IS NOT NULL
-            ");
-            $stmt->execute([$academicYearId, $semesterId]);
-        }
-        
-    } catch (Exception $e) {
-        error_log("Error creating clearance forms for period: " . $e->getMessage());
-        throw $e;
-    }
-}
-
-/**
- * Trigger form distribution for a sector
- */
-function triggerFormDistribution($connection, $sector, $academicYearId, $semesterId) {
-    try {
-        error_log("📋 FORM DISTRIBUTION: Starting distribution for $sector, AY: $academicYearId, Semester: $semesterId");
-        
-        // Prepare the request data for form distribution
-        $distributionData = [
-            'clearance_type' => $sector,
-            'academic_year_id' => $academicYearId,
-            'semester_id' => $semesterId
-        ];
-        
-        // Get all eligible users for this sector
-        $eligibleUsers = getEligibleUsersForSector($connection, $sector);
-        error_log("👥 FORM DISTRIBUTION: Found " . count($eligibleUsers) . " eligible users for $sector");
-        
-        if (empty($eligibleUsers)) {
-            return [
-                'success' => true,
-                'message' => "No eligible users found for $sector clearance",
-                'forms_created' => 0,
-                'signatories_assigned' => 0
-            ];
-        }
-        
-        // Get sector signatory assignments
-        $signatoryAssignments = getSectorSignatoryAssignments($connection, $sector);
-        error_log("📝 FORM DISTRIBUTION: Found " . count($signatoryAssignments) . " signatory assignments for $sector");
-        
-        if (empty($signatoryAssignments)) {
-            return [
-                'success' => false,
-                'message' => "No signatory assignments found for $sector. Please assign signatories first."
-            ];
-        }
-        
-        // Create clearance forms for all eligible users
-        $formsCreated = 0;
-        $signatoriesAssigned = 0;
-        
-        foreach ($eligibleUsers as $user) {
-            // Check if form already exists
-            $existingForm = checkExistingClearanceForm($connection, $user['user_id'], $academicYearId, $semesterId, $sector);
-            
-            if ($existingForm) {
-                error_log("⚠️ FORM DISTRIBUTION: Form already exists for user {$user['user_id']} ({$user['first_name']} {$user['last_name']})");
-                continue;
-            }
-            
-            // Create clearance form
-            $formId = createClearanceFormForUser($connection, $user, $academicYearId, $semesterId, $sector);
-            $formsCreated++;
-            
-            // Assign signatories to the form
-            $assignedCount = assignSignatoriesToClearanceForm($connection, $formId, $signatoryAssignments, $user, $sector);
-            $signatoriesAssigned += $assignedCount;
-            
-            error_log("✅ FORM DISTRIBUTION: Created form $formId for {$user['first_name']} {$user['last_name']} with $assignedCount signatories");
-        }
-        
-        error_log("🎉 FORM DISTRIBUTION: Successfully distributed $formsCreated forms with $signatoriesAssigned total signatory assignments");
-        
-        return [
-            'success' => true,
-            'message' => "Successfully distributed clearance forms for $sector",
-            'forms_created' => $formsCreated,
-            'signatories_assigned' => $signatoriesAssigned,
-            'eligible_users' => count($eligibleUsers)
-        ];
-        
-    } catch (Exception $e) {
-        error_log("❌ FORM DISTRIBUTION ERROR: " . $e->getMessage());
-        return [
-            'success' => false,
-            'message' => 'Form distribution failed: ' . $e->getMessage()
-        ];
-    }
-}
-
-/**
- * Get all eligible users for a specific clearance type
- */
-function getEligibleUsersForSector($connection, $clearanceType) {
-    $sql = "";
-    $params = [];
-    
-    switch ($clearanceType) {
-        case 'College':
-            $sql = "
-                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
-                       s.section, s.department_id, d.department_name
-                FROM users u
-                INNER JOIN students s ON u.user_id = s.user_id
-                INNER JOIN departments d ON s.department_id = d.department_id
-                INNER JOIN sectors sec ON d.sector_id = sec.sector_id
-                WHERE sec.sector_name = 'College'
-                AND u.account_status = 'active'
-                AND u.account_status = 'active'
-                ORDER BY u.last_name, u.first_name
-            ";
-            break;
-            
-        case 'Senior High School':
-            $sql = "
-                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
-                       s.section, s.department_id, d.department_name
-                FROM users u
-                INNER JOIN students s ON u.user_id = s.user_id
-                INNER JOIN departments d ON s.department_id = d.department_id
-                INNER JOIN sectors sec ON d.sector_id = sec.sector_id
-                WHERE sec.sector_name = 'Senior High School'
-                AND u.account_status = 'active'
-                AND u.account_status = 'active'
-                ORDER BY u.last_name, u.first_name
-            ";
-            break;
-            
-        case 'Faculty':
-            $sql = "
-                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
-                       f.employment_status, f.department_id, d.department_name
-                FROM users u
-                INNER JOIN faculty f ON u.user_id = f.user_id
-                INNER JOIN departments d ON f.department_id = d.department_id
-                INNER JOIN sectors sec ON d.sector_id = sec.sector_id
-                WHERE sec.sector_name = 'Faculty'
-                AND u.account_status = 'active'
-                ORDER BY u.last_name, u.first_name
-            ";
-            break;
-    }
-    
-    $stmt = $connection->prepare($sql);
-    $stmt->execute($params);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-/**
- * Get sector signatory assignments
- */
-function getSectorSignatoryAssignments($connection, $clearanceType) {
-    $sql = "
-        SELECT 
-            ssa.assignment_id,
-            ssa.clearance_type,
-            ssa.user_id,
-            ssa.designation_id,
-            ssa.is_program_head,
-            ssa.department_id,
-            ssa.is_required_first,
-            ssa.is_required_last,
-            ssa.is_active,
-            u.first_name,
-            u.last_name,
-            d.designation_name,
-            dept.department_name
-        FROM sector_signatory_assignments ssa
-        LEFT JOIN users u ON ssa.user_id = u.user_id
-        LEFT JOIN designations d ON ssa.designation_id = d.designation_id
-        LEFT JOIN departments dept ON ssa.department_id = dept.department_id
-        WHERE ssa.clearance_type = ?
-        AND ssa.is_active = 1
-        ORDER BY ssa.is_required_first DESC, ssa.is_required_last ASC, d.designation_name
-    ";
-    
-    $stmt = $connection->prepare($sql);
-    $stmt->execute([$clearanceType]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-/**
- * Check if clearance form already exists
- */
-function checkExistingClearanceForm($connection, $userId, $academicYearId, $semesterId, $clearanceType) {
-    $sql = "
-        SELECT clearance_form_id FROM clearance_forms 
-        WHERE user_id = ? AND academic_year_id = ? AND semester_id = ? AND clearance_type = ?
-    ";
-    
-    $stmt = $connection->prepare($sql);
-    $stmt->execute([$userId, $academicYearId, $semesterId, $clearanceType]);
-    return $stmt->fetch(PDO::FETCH_ASSOC);
-}
-
-/**
- * Create a clearance form for a user
- */
-function createClearanceFormForUser($connection, $user, $academicYearId, $semesterId, $clearanceType) {
-    // Generate clearance form ID using the existing trigger
-    $sql = "
-        INSERT INTO clearance_forms (
-            user_id,
-            academic_year_id,
-            semester_id,
-            clearance_type,
-            status,
-            created_at
-        ) VALUES (?, ?, ?, ?, 'Unapplied', NOW())
-    ";
-    
-    $stmt = $connection->prepare($sql);
-    $stmt->execute([
-        $user['user_id'],
-        $academicYearId,
-        $semesterId,
-        $clearanceType
-    ]);
-    
-    return $connection->lastInsertId();
-}
-
-/**
- * Assign signatories to a clearance form
- */
-function assignSignatoriesToClearanceForm($connection, $formId, $signatoryAssignments, $user, $clearanceType) {
-    $assignedCount = 0;
-    
-    // Get the clearance form ID (varchar format) - formId is the auto-increment ID
-    $stmt = $connection->prepare("SELECT clearance_form_id FROM clearance_forms WHERE id = ?");
-    $stmt->execute([$formId]);
-    $form = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$form) {
-        error_log("❌ Form not found for form_id: $formId");
-        return 0;
-    }
-    
-    $clearanceFormId = $form['clearance_form_id'];
-    
-    foreach ($signatoryAssignments as $assignment) {
-        // Skip if this is a Program Head assignment and user doesn't belong to that department
-        // Exception: If department_id is NULL, it means the Program Head handles all departments in the sector
-        if ($assignment['is_program_head'] && 
-            $assignment['department_id'] !== null && 
-            $assignment['department_id'] != $user['department_id']) {
-            continue;
-        }
-        
-        // Create signatory entry
-        $sql = "
-            INSERT INTO clearance_signatories (
-                clearance_form_id,
-                designation_id,
-                actual_user_id,
-                action,
-                created_at
-            ) VALUES (?, ?, ?, 'Unapplied', NOW())
-        ";
-        
-        $stmt = $connection->prepare($sql);
-        $stmt->execute([
-            $clearanceFormId,
-            $assignment['designation_id'],
-            $assignment['user_id']
-        ]);
-        
-        $assignedCount++;
-    }
-    
-    return $assignedCount;
-}
 ?>

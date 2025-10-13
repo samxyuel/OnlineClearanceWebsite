@@ -227,6 +227,9 @@ function handleUpdateSectorPeriod($connection) {
             } elseif ($action === 'resume') {
                 return resumeSectorPeriod($connection, $periodId);
             } elseif ($action === 'close') {
+                // Note: The 'close' action in sector-periods.php is different from the one in periods.php
+                // This one is for closing a *sector-specific* period, not a whole term.
+                // The logic in periods.php for 'end_semester' and 'cascade_close_periods' handles term-level closing.
                 return closeSectorPeriod($connection, $periodId);
             }
         }
@@ -294,9 +297,14 @@ function startSectorPeriod($connection, $periodId, $period) {
         // Create clearance forms for eligible users
         createClearanceFormsForSectorPeriod($connection, $periodId, $period['sector'], $period['academic_year_id'], $period['semester_id']);
         
+        // NEW: Assign signatories to the newly created forms
+        $assignmentResult = assignSignatoriesForSectorPeriod($connection, $period['sector'], $period['academic_year_id'], $period['semester_id']);
+
         echo json_encode([
             'success' => true,
-            'message' => "{$period['sector']} clearance period started successfully"
+            'message' => "{$period['sector']} clearance period started successfully",
+            'forms_created' => $assignmentResult['forms_affected'] ?? 0,
+            'signatories_assigned' => $assignmentResult['signatories_assigned'] ?? 0
         ]);
         
     } catch (PDOException $e) {
@@ -360,22 +368,20 @@ function closeSectorPeriod($connection, $periodId) {
         // Update any pending forms to rejected
         $stmt = $connection->prepare("
             UPDATE clearance_forms cf
-            JOIN clearance_periods cp ON (
-                cf.academic_year_id = cp.academic_year_id 
-                AND cf.semester_id = cp.semester_id 
-                AND cf.clearance_type = cp.sector
-            )
             SET cf.clearance_form_progress = 'in-progress',
                 cf.rejected_at = NOW(),
                 cf.updated_at = NOW()
-            WHERE cp.period_id = ? 
-            AND cf.clearance_form_progress IN ('unapplied', 'in-progress')
+            WHERE cf.academic_year_id = (SELECT academic_year_id FROM clearance_periods WHERE period_id = ?)
+              AND cf.semester_id = (SELECT semester_id FROM clearance_periods WHERE period_id = ?)
+              AND cf.clearance_type = (SELECT sector FROM clearance_periods WHERE period_id = ?)
+              AND cf.clearance_form_progress IN ('unapplied', 'in-progress')
+
         ");
-        $stmt->execute([$periodId]);
+        $stmt->execute([$periodId, $periodId, $periodId]);
         
         echo json_encode([
             'success' => true,
-            'message' => 'Clearance period closed successfully'
+            'message' => 'Clearance period closed successfully. Pending forms have been updated.'
         ]);
         
     } catch (PDOException $e) {
@@ -449,6 +455,13 @@ function handleDeleteSectorPeriod($connection) {
 // Helper function to create clearance forms for sector period
 function createClearanceFormsForSectorPeriod($connection, $periodId, $sector, $academicYearId, $semesterId) {
     try {
+        // Get the current max numeric part of the clearance_form_id for this year to avoid collisions
+        $year = date('Y');
+        $stmt = $connection->prepare("SELECT clearance_form_id FROM clearance_forms WHERE clearance_form_id LIKE ? ORDER BY clearance_form_id DESC LIMIT 1");
+        $stmt->execute(["CF-$year-%"]);
+        $lastId = $stmt->fetchColumn();
+        $nextNum = $lastId ? (int)substr($lastId, -5) + 1 : 1;
+
         if ($sector === 'College') {
             $stmt = $connection->prepare("
                 INSERT INTO clearance_forms (
@@ -457,21 +470,22 @@ function createClearanceFormsForSectorPeriod($connection, $periodId, $sector, $a
                     academic_year_id, 
                     semester_id, 
                     clearance_type, 
-                    status
+                    clearance_form_progress
                 )
                 SELECT 
-                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
+                    CONCAT('CF-', ?, '-', LPAD(ROW_NUMBER() OVER (ORDER BY s.user_id) + ?, 5, '0')),
                     s.user_id,
                     ?,
                     ?,
                     'College',
                     'Unapplied'
                 FROM students s
+                JOIN users u ON s.user_id = u.user_id
                 WHERE s.sector = 'College' 
                 AND u.account_status = 'active'
                 AND s.user_id IS NOT NULL
             ");
-            $stmt->execute([$academicYearId, $semesterId]);
+            $stmt->execute([$year, $nextNum - 1, $academicYearId, $semesterId]);
             
         } elseif ($sector === 'Senior High School') {
             $stmt = $connection->prepare("
@@ -481,21 +495,22 @@ function createClearanceFormsForSectorPeriod($connection, $periodId, $sector, $a
                     academic_year_id, 
                     semester_id, 
                     clearance_type, 
-                    status
+                    clearance_form_progress
                 )
                 SELECT 
-                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
+                    CONCAT('CF-', ?, '-', LPAD(ROW_NUMBER() OVER (ORDER BY s.user_id) + ?, 5, '0')),
                     s.user_id,
                     ?,
                     ?,
                     'Senior High School',
                     'Unapplied'
                 FROM students s
+                JOIN users u ON s.user_id = u.user_id
                 WHERE s.sector = 'Senior High School' 
                 AND u.account_status = 'active'
                 AND s.user_id IS NOT NULL
             ");
-            $stmt->execute([$academicYearId, $semesterId]);
+            $stmt->execute([$year, $nextNum - 1, $academicYearId, $semesterId]);
             
         } elseif ($sector === 'Faculty') {
             $stmt = $connection->prepare("
@@ -505,19 +520,21 @@ function createClearanceFormsForSectorPeriod($connection, $periodId, $sector, $a
                     academic_year_id, 
                     semester_id, 
                     clearance_type, 
-                    status
+                    clearance_form_progress
                 )
                 SELECT 
-                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
+                    CONCAT('CF-', ?, '-', LPAD(ROW_NUMBER() OVER (ORDER BY f.user_id) + ?, 5, '0')),
                     f.user_id,
                     ?,
                     ?,
                     'Faculty',
                     'Unapplied'
                 FROM faculty f
+                JOIN users u ON f.user_id = u.user_id
                 WHERE f.user_id IS NOT NULL
+                AND u.account_status = 'active'
             ");
-            $stmt->execute([$academicYearId, $semesterId]);
+            $stmt->execute([$year, $nextNum - 1, $academicYearId, $semesterId]);
         }
         
     } catch (Exception $e) {
@@ -526,48 +543,163 @@ function createClearanceFormsForSectorPeriod($connection, $periodId, $sector, $a
     }
 }
 
+// Helper function to assign signatories for a sector period
+function assignSignatoriesForSectorPeriod($connection, $sector, $academicYearId, $semesterId) {
+    $totalSignatoriesAssigned = 0;
+    $formsAffected = 0;
+
+    // Get all signatory assignment rules for this sector
+    $assignmentsStmt = $connection->prepare("
+        SELECT user_id, designation_id, is_program_head, department_id 
+        FROM sector_signatory_assignments 
+        WHERE clearance_type = ? AND is_active = 1
+    ");
+    $assignmentsStmt->execute([$sector]);
+    $signatoryRules = $assignmentsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($signatoryRules)) {
+        error_log("No active signatory assignments found for sector: $sector");
+        return ['success' => true, 'message' => 'No signatories to assign.', 'forms_affected' => 0, 'signatories_assigned' => 0];
+    }
+
+    // Check if Program Heads should be included dynamically
+    $settingsStmt = $connection->prepare("SELECT include_program_head FROM sector_clearance_settings WHERE clearance_type = ?");
+    $settingsStmt->execute([$sector]);
+    $includeProgramHead = $settingsStmt->fetchColumn() == 1;
+
+    $programHeadDesignationId = null;
+    if ($includeProgramHead) {
+        $programHeadDesignationId = $connection->query("SELECT designation_id FROM designations WHERE designation_name = 'Program Head'")->fetchColumn();
+    }
+
+    // Get all newly created clearance forms for this period that need signatories
+    $formsStmt = $connection->prepare("
+        SELECT cf.clearance_form_id, cf.user_id, s.department_id 
+        FROM clearance_forms cf
+        LEFT JOIN students s ON cf.user_id = s.user_id
+        WHERE cf.academic_year_id = ? AND cf.semester_id = ? AND cf.clearance_type = ?
+    ");
+    $formsStmt->execute([$academicYearId, $semesterId, $sector]);
+    $formsToProcess = $formsStmt->fetchAll(PDO::FETCH_ASSOC);
+    $formsAffected = count($formsToProcess);
+
+    // Prepare statement for inserting signatories
+    $insertStmt = $connection->prepare("
+        INSERT INTO clearance_signatories (clearance_form_id, designation_id, signatory_user_id, status)
+        VALUES (?, ?, ?, 'Pending')
+    ");
+
+    // Begin transaction for performance
+    $connection->beginTransaction();
+
+    try {
+        foreach ($formsToProcess as $form) {
+            $formId = $form['clearance_form_id'];
+            $studentUserId = $form['user_id'];
+            $studentDeptId = $form['department_id'];
+
+            foreach ($signatoryRules as $rule) {
+                $assign = true;
+
+                // The explicit is_program_head check is now deprecated in favor of dynamic assignment.
+                // This part of the loop now only handles regular, non-PH signatories.
+                if ($rule['is_program_head'] == 1) {
+                    continue; // Skip explicit PH assignments; they are handled dynamically below.
+                }
+
+                if ($assign) {
+                    // Check for duplicates before inserting
+                    $checkStmt = $connection->prepare("SELECT COUNT(*) FROM clearance_signatories WHERE clearance_form_id = ? AND designation_id = ?");
+                    $checkStmt->execute([$formId, $rule['designation_id']]);
+                    if ($checkStmt->fetchColumn() == 0) {
+                        $insertStmt->execute([$formId, $rule['designation_id'], $rule['user_id']]);
+                        $totalSignatoriesAssigned++;
+                    }
+                }
+            }
+
+            // NEW DYNAMIC LOGIC: If enabled, find and assign the correct Program Head for this specific student
+            if ($includeProgramHead && $programHeadDesignationId && $studentDeptId) {
+                $phStmt = $connection->prepare("SELECT user_id FROM staff WHERE department_id = ? AND staff_category = 'Program Head' AND is_active = 1 LIMIT 1");
+                $phStmt->execute([$studentDeptId]);
+                $programHeadUserId = $phStmt->fetchColumn();
+
+                if ($programHeadUserId) {
+                    $assign = true;
+                }
+
+                if ($assign) {
+                    // Check for duplicates before inserting
+                    $checkStmt = $connection->prepare("SELECT COUNT(*) FROM clearance_signatories WHERE clearance_form_id = ? AND designation_id = ?");
+                    $checkStmt->execute([$formId, $rule['designation_id']]);
+                    if ($checkStmt->fetchColumn() == 0) {
+                        $insertStmt->execute([$formId, $programHeadDesignationId, $programHeadUserId]);
+                        $totalSignatoriesAssigned++;
+                    }
+                }
+            }
+        }
+        // Commit the transaction
+        $connection->commit();
+    } catch (Exception $e) {
+        // Roll back the transaction if something failed
+        $connection->rollBack();
+        error_log("Error assigning signatories: " . $e->getMessage());
+        throw $e; // Re-throw the exception to be caught by the main handler
+    }
+
+    return [
+        'success' => true,
+        'message' => 'Signatories assigned successfully.',
+        'forms_affected' => $formsAffected,
+        'signatories_assigned' => $totalSignatoriesAssigned
+    ];
+}
+
 // Helper function to get sector statistics
 function getSectorStatistics($connection, $periods) {
     $statistics = [];
-    
-    foreach ($periods as $period) {
-        $sector = $period['sector'];
-        if (!isset($statistics[$sector])) {
-            $statistics[$sector] = [
-                'total_periods' => 0,
-                'ongoing_periods' => 0,
-                'closed_periods' => 0,
-                'total_forms' => 0,
-                'pending_forms' => 0,
-                'completed_forms' => 0
-            ];
-        }
-        
-        $statistics[$sector]['total_periods']++;
-        
-        if ($period['status'] === 'Ongoing') {
-            $statistics[$sector]['ongoing_periods']++;
-        } elseif ($period['status'] === 'Closed') {
-            $statistics[$sector]['closed_periods']++;
-        }
-        
-        // Get form statistics for this period
-        $stmt = $connection->prepare("
-            SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
-                SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as completed
-            FROM clearance_forms 
-            WHERE academic_year_id = ? AND semester_id = ? AND clearance_type = ?
-        ");
-        $stmt->execute([$period['academic_year_id'], $period['semester_id'], $period['sector']]);
-        $formStats = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        $statistics[$sector]['total_forms'] += $formStats['total'];
-        $statistics[$sector]['pending_forms'] += $formStats['pending'];
-        $statistics[$sector]['completed_forms'] += $formStats['completed'];
+
+        $periodIds = array_map(function($p) { return $p['period_id']; }, $periods);
+
+    if (empty($periodIds)) {
+        return [];
     }
-    
+
+    $placeholders = implode(',', array_fill(0, count($periodIds), '?'));
+
+    $sql = "
+        SELECT
+            cp.sector,
+            COUNT(DISTINCT cp.period_id) as total_periods,
+            SUM(CASE WHEN cp.status = 'Ongoing' THEN 1 ELSE 0 END) as ongoing_periods,
+            SUM(CASE WHEN cp.status = 'Closed' THEN 1 ELSE 0 END) as closed_periods,
+            COUNT(cf.clearance_form_id) as total_forms,
+            SUM(CASE WHEN cf.clearance_form_progress = 'in-progress' THEN 1 ELSE 0 END) as pending_forms,
+            SUM(CASE WHEN cf.clearance_form_progress = 'complete' THEN 1 ELSE 0 END) as completed_forms
+        FROM clearance_periods cp
+        LEFT JOIN clearance_forms cf ON cp.academic_year_id = cf.academic_year_id
+                                    AND cp.semester_id = cf.semester_id
+                                    AND cp.sector = cf.clearance_type
+        WHERE cp.period_id IN ($placeholders)
+        GROUP BY cp.sector
+    ";
+
+    $stmt = $connection->prepare($sql);
+    $stmt->execute($periodIds);
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($results as $row) {
+        $statistics[$row['sector']] = [
+            'total_periods' => (int)$row['total_periods'],
+            'ongoing_periods' => (int)$row['ongoing_periods'],
+            'closed_periods' => (int)$row['closed_periods'],
+            'total_forms' => (int)$row['total_forms'],
+            'pending_forms' => (int)$row['pending_forms'],
+            'completed_forms' => (int)$row['completed_forms']
+        ];
+    }
+
     return $statistics;
 }
 ?>

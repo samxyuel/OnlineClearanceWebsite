@@ -551,7 +551,7 @@ if (session_status() == PHP_SESSION_NONE) {
                 }
                 
                 // Enhanced render with required signatory styling
-                const html = items.map(it => {
+                const regularSignatoriesHtml = items.map(it => {
                     let itemClass = 'signatory-item optional';
                     let requirementText = '';
                     
@@ -583,14 +583,23 @@ if (session_status() == PHP_SESSION_NONE) {
                         <div class="${itemClass}">
                             <span class="signatory-name">${it.designation_name} — ${[it.first_name, it.last_name].filter(Boolean).join(' ')}${departmentInfo}</span>
                             ${requirementText}
-                            <button class="remove-signatory" onclick="removeScope('${type}', ${it.user_id}, '${it.designation_name.replace(/'/g, "\'")}')">
+                            <button class="remove-signatory" onclick="removeScope('${type}', ${it.user_id}, ${it.designation_id}, '${it.designation_name.replace(/'/g, "\'")}')">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
                     `;
                 }).join('');
                 
-                listEl.innerHTML = html;
+                let finalHtml = regularSignatoriesHtml;
+                if (settings.include_program_head == 1) {
+                    finalHtml = `
+                        <div class="signatory-item-header">
+                            <strong>Program Head (Dynamic)</strong>
+                            <span class="signatory-requirement">(Assigned based on student's department)</span>
+                        </div>
+                    ` + finalHtml;
+                }
+                listEl.innerHTML = finalHtml;
                 
             } catch (error) {
                 console.error('Error loading scope signatories:', error);
@@ -598,13 +607,33 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
 
-        async function removeScope(type, userId, designation){
+        function isSectorLocked(sector) {
+            if (!window.sectorPeriodsData || !window.sectorPeriodsData[sector]) {
+                // Data not loaded or sector doesn't exist, assume unlocked as a fallback.
+                return false; 
+            }
+            
+            // Get the most recent period for this sector.
+            const latestPeriod = window.sectorPeriodsData[sector][0];
+            if (!latestPeriod) return false;
+            
+            // Lock if the period is 'Ongoing' or 'Paused'.
+            return latestPeriod.status === 'Ongoing' || latestPeriod.status === 'Paused';
+        }
+
+        async function removeScope(type, userId, designationId, designationName){
             try {
                 // Normalize clearance type
                 const normalizedType = type === 'faculty' ? 'Faculty' : type;
                 
-                console.log(`🔧 Attempting to remove signatory: ${designation} (User ID: ${userId}) from ${normalizedType} scope`);
+                console.log(`🔧 Attempting to remove signatory: ${designationName} (User ID: ${userId}) from ${normalizedType} scope`);
                 
+                // Check if the sector's clearance period is locked
+                if (isSectorLocked(normalizedType)) {
+                    showToast(`Cannot remove signatories while the ${normalizedType} clearance period is Ongoing or Paused.`, 'warning');
+                    return;
+                }
+
                 // First, check if this signatory is currently required
                 const settingsData = await fetchJSON(`../../api/signatories/sector_settings.php?clearance_type=${encodeURIComponent(normalizedType)}`);
                 const settings = settingsData.settings?.[0] || {};
@@ -631,7 +660,7 @@ if (session_status() == PHP_SESSION_NONE) {
                     }
                 }
                 
-                console.log(`🔧 Proceeding with removal of non-required signatory: ${designation}`);
+                console.log(`🔧 Proceeding with removal of non-required signatory: ${designationName}`);
                 
                 // If not required, proceed with removal using new sector-based API
                 const response = await fetchJSON(`../../api/signatories/sector_assignments.php`,{
@@ -641,7 +670,7 @@ if (session_status() == PHP_SESSION_NONE) {
                     body: JSON.stringify({ 
                         clearance_type: normalizedType,
                         user_id: userId,
-                        designation: designation
+                        designation_id: designationId
                     })
                 });
                 
@@ -681,47 +710,37 @@ if (session_status() == PHP_SESSION_NONE) {
                     return;
                 }
                 
-                // Fetch current signatories to get their IDs
-                const signatoriesData = await fetchJSON(`../../api/signatories/sector_assignments.php?clearance_type=${encodeURIComponent(normalizedType)}`);
-                const signatories = signatoriesData.signatories || [];
-                
-                if (signatories.length === 0) {
-                    showToast('No signatories to remove', 'info');
-                    return;
-                }
-                
-                console.log(`🔧 Found ${signatories.length} signatories to remove`);
-                
-                // Remove all signatories
-                let successCount = 0;
-                let errorCount = 0;
-                
-                for (const signatory of signatories) {
-                    try {
-                        await fetchJSON(`../../api/signatories/sector_assignments.php`, {
-                            method: 'DELETE',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
-                            body: JSON.stringify({
-                                clearance_type: normalizedType,
-                                user_id: signatory.user_id,
-                                designation: signatory.designation_name
-                            })
-                        });
-                        successCount++;
-                    } catch (error) {
-                        console.error(`Error removing signatory ${signatory.designation_name}:`, error);
-                        errorCount++;
-                    }
-                }
-                
-                // Show results
-                if (successCount > 0 && errorCount === 0) {
-                    showToast(`Successfully removed all ${successCount} signatories`, 'success');
-                } else if (successCount > 0 && errorCount > 0) {
-                    showToast(`Removed ${successCount} signatories, ${errorCount} failed`, 'warning');
+                // New: Send a single bulk delete request
+                const response = await fetchJSON(`../../api/signatories/sector_assignments.php`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        action: 'bulk_delete',
+                        clearance_type: normalizedType
+                    })
+                });
+
+                // Also, disable the "Include Program Head" setting for this sector
+                await fetchJSON(`../../api/signatories/sector_settings.php`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        clearance_type: normalizedType,
+                        include_program_head: false,
+                        // Pass existing required settings to avoid overwriting them
+                        required_first_enabled: settings.required_first_enabled,
+                        required_first_designation_id: settings.required_first_designation_id,
+                        required_last_enabled: settings.required_last_enabled,
+                        required_last_designation_id: settings.required_last_designation_id
+                    })
+                });
+
+                if (response.removed_count > 0) {
+                    showToast(`Successfully removed all ${response.removed_count} signatories`, 'success');
                 } else {
-                    showToast('Failed to remove any signatories', 'error');
+                    showToast('No signatories to remove', 'info');
                 }
                 
                 // Refresh the signatory list
@@ -744,42 +763,59 @@ if (session_status() == PHP_SESSION_NONE) {
             document.getElementById('scopeTypeField').value = normalizedType;
             document.getElementById('scopeSearchInput').value = '';
             document.getElementById('scopeSearchResults').innerHTML = '';
+            window.scopeSelectedIds.clear();
+            window.scopeSelectedLabels.clear();
             renderScopeSelectedChips();
             
-            // Load include PH toggle using new sector-based API
-            try{
-                const data = await fetchJSON(`../../api/signatories/sector_settings.php?clearance_type=${encodeURIComponent(normalizedType)}`);
-                const on = !!(data.settings?.[0] && (data.settings[0].include_program_head==1 || data.settings[0].include_program_head===true));
-                const cb = document.getElementById('includeProgramHeadCheckbox');
-                if (cb) {
-                    cb.checked = on;
-                    // Initialize preview visibility based on checkbox state
+            // Load "Include Program Head" toggle state from the API
+            try {
+                const settingsData = await fetchJSON(`../../api/signatories/sector_settings.php?clearance_type=${encodeURIComponent(normalizedType)}`);
+                const settings = settingsData.settings?.[0] || {};
+                const includePH = settings.include_program_head == 1;
+                
+                const checkbox = document.getElementById('includeProgramHeadCheckbox');
+                if (checkbox) {
+                    checkbox.checked = includePH;
+                    // Ensure the preview visibility matches the initial state
                     toggleProgramHeadPreview();
                 }
-            }catch(e){ /* ignore */ }
+            } catch (e) {
+                console.error("Failed to load signatory assignments for modal:", e);
+            }
             
             const modal = document.getElementById('addScopeModal');
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
+            
+            // Correctly lock the "Add" button based on the specific sector's status
             const addBtn = modal.querySelector('.modal-action-primary');
-            if (addBtn){ addBtn.disabled = isPeriodLocked(); }
+            if (addBtn) {
+                addBtn.disabled = isSectorLocked(normalizedType);
+            }
             
             // Load Program Head preview for this sector
             await loadProgramHeadPreview(normalizedType);
             
             // Load all staff table (excluding PH)
-            try{
+            try {
+                // First, get the IDs of already assigned signatories for this sector
+                const assignedData = await fetchJSON(`../../api/signatories/sector_assignments.php?clearance_type=${encodeURIComponent(normalizedType)}`);
+                const assignedUserIds = new Set((assignedData.signatories || []).map(s => s.user_id));
+
+                // Then, get all staff, and we will filter out the assigned ones
                 const data = await fetchJSON('../../api/staff/list.php?limit=200&exclude_program_head=1');
                 
                 // Store staff data for designation lookup
                 window.scopeStaffData.clear();
-                (data.staff||[]).forEach(s => {
+                const availableStaff = (data.staff || []).filter(s => !assignedUserIds.has(s.user_id));
+
+                availableStaff.forEach(s => {
                     window.scopeStaffData.set(s.user_id, s);
                 });
                 
                 const tb = document.getElementById('scopeAllStaffTable');
                 if (tb){
-                    const rows = (data.staff||[]).map(s => {
+                    const rows = availableStaff.map(s => {
                         const uid = s.user_id;
                         const label = `${(s.first_name||'').trim()} ${(s.last_name||'').trim()} • ${(s.employee_number||s.username||'')}`.trim();
                         const checked = window.scopeSelectedIds.has(uid) ? 'checked' : '';
@@ -950,14 +986,37 @@ if (session_status() == PHP_SESSION_NONE) {
             const type = document.getElementById('scopeTypeField').value;
             const includePH = !!document.getElementById('includeProgramHeadCheckbox')?.checked;
             const ids = Array.from(window.scopeSelectedIds);
-            if (!ids.length && !includePH){ showToast('Select at least one staff or toggle Program Head','warning'); return; }
+
+            // Get current setting to see if anything changed
+            const settingsData = await fetchJSON(`../../api/signatories/sector_settings.php?clearance_type=${encodeURIComponent(type)}`);
+            const currentIncludePH = settingsData.settings?.[0]?.include_program_head == 1;
+
+            // Allow saving if new staff are selected OR if the PH checkbox state is being changed.
+            if (ids.length === 0 && includePH === currentIncludePH) {
+                showToast('No changes to save. Select staff or toggle the Program Head setting.', 'warning');
+                return;
+            }
             
             // Save scope setting first using new sector-based API
             try{
+                // Fetch current settings to preserve required first/last settings
+                const currentSettingsData = await fetchJSON(`../../api/signatories/sector_settings.php?clearance_type=${encodeURIComponent(type)}`);
+                const currentSettings = currentSettingsData.settings?.[0] || {};
+
                 await fetchJSON('../../api/signatories/sector_settings.php',{
                     method:'PUT', headers:{'Content-Type':'application/json'}, credentials:'include',
-                    body: JSON.stringify({ clearance_type:type, include_program_head: includePH })
+                    body: JSON.stringify({ 
+                        clearance_type:type, 
+                        include_program_head: includePH,
+                        required_first_enabled: currentSettings.required_first_enabled == 1,
+                        required_first_designation_id: currentSettings.required_first_designation_id,
+                        required_last_enabled: currentSettings.required_last_enabled,
+                        required_last_designation_id: currentSettings.required_last_designation_id
+                    })
                 });
+                if (includePH !== currentIncludePH) {
+                    showToast(`Program Head setting ${includePH ? 'enabled' : 'disabled'}.`, 'success');
+                }
             }catch(e){ /* surface but continue adds */ showToast('Saved PH setting with warnings','warning'); }
             
             // Add staff in parallel (limit fanout) using new sector-based API
@@ -985,25 +1044,6 @@ if (session_status() == PHP_SESSION_NONE) {
                 }catch(e){ 
                     console.error(`Error adding signatory ${uid}:`, e);
                     fail++; 
-                }
-            }
-            
-            // Handle Program Head auto-assignment if checkbox is checked
-            if (includePH) {
-                try {
-                    const phResponse = await fetchJSON('../../api/signatories/sector_assignments.php', {
-                        method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-                        body: JSON.stringify({ 
-                            action: 'assign_program_heads',
-                            clearance_type: type 
-                        })
-                    });
-                    if (phResponse.assigned_count > 0) {
-                        showToast(`Auto-assigned ${phResponse.assigned_count} Program Heads`, 'info');
-                    }
-                } catch (e) {
-                    console.error('Error auto-assigning Program Heads:', e);
-                    showToast('Failed to auto-assign Program Heads', 'warning');
                 }
             }
             
@@ -1079,12 +1119,20 @@ if (session_status() == PHP_SESSION_NONE) {
         let schoolYears = [];
         const API_BASE = '../../api/clearance';
 
-        function mapPeriodStatusToTermStatus(periodStatus, periodData = null) {
-            // Map database status to term status
-            if (periodStatus === 'Ongoing') return 'active';
-            if (periodStatus === 'Closed') return 'completed';
-            if (periodStatus === 'Paused') return 'deactivated';
-            if (periodStatus === 'Not Started') return 'inactive';
+        function mapTermStatus(semester, period) {
+            // Priority 1: Check the semester's own is_active flag. This is the source of truth for term activation.
+            if (semester && semester.is_active == 1) {
+                return 'active';
+            }
+
+            // Priority 2: If the semester is not active, check the related clearance period's status.
+            if (period) {
+                if (period.status === 'Closed' || period.status === 'ended') return 'completed';
+                if (period.status === 'Paused') return 'deactivated';
+                if (period.status === 'Not Started') return 'inactive';
+            }
+
+            // Default to inactive if no other status applies.
             return 'inactive';
         }
 
@@ -1125,25 +1173,27 @@ if (session_status() == PHP_SESSION_NONE) {
             const ayId = ctx.academic_year.academic_year_id;
             const term1SemId = ctx.terms.find(t => t.semester_name === '1st')?.semester_id || null;
             const term2SemId = ctx.terms.find(t => t.semester_name === '2nd')?.semester_id || null;
+            const term1SemData = ctx.terms.find(t => t.semester_name === '1st') || null;
+            const term2SemData = ctx.terms.find(t => t.semester_name === '2nd') || null;
 
             const periodsResp = await fetchJSON(`${API_BASE}/periods.php`);
             const periods = periodsResp.periods || [];
             
             function findPeriodForSemester(semId) {
-                return periods.find(p => p.academic_year_id === ayId && p.semester_id === semId) || null;
+                // Find the most recent period for the given semester
+                return periods.filter(p => p.academic_year_id == ayId && p.semester_id == semId)
+                              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null;
             }
             const p1 = term1SemId ? findPeriodForSemester(term1SemId) : null;
             const p2 = term2SemId ? findPeriodForSemester(term2SemId) : null;
-
-            // Status mapping for terms
 
             const yearObj = {
                 id: ctx.academic_year.year,
                 name: ctx.academic_year.year,
                 status: 'current',
                 terms: [
-                    { id: 'term1', name: 'Term 1', status: mapPeriodStatusToTermStatus(p1?.status, p1), periodId: p1?.period_id || null, semesterId: term1SemId, students: '0/0' },
-                    { id: 'term2', name: 'Term 2', status: mapPeriodStatusToTermStatus(p2?.status, p2), periodId: p2?.period_id || null, semesterId: term2SemId, students: '0/0' }
+                    { id: 'term1', name: 'Term 1', status: mapTermStatus(term1SemData, p1), periodId: p1?.period_id || null, semesterId: term1SemId, students: '0/0' },
+                    { id: 'term2', name: 'Term 2', status: mapTermStatus(term2SemData, p2), periodId: p2?.period_id || null, semesterId: term2SemId, students: '0/0' }
                 ],
                 canAddSchoolYear: true,
                 academicYearId: ayId
@@ -2390,6 +2440,7 @@ if (session_status() == PHP_SESSION_NONE) {
         // Load sector periods data
         async function loadSectorPeriods() {
             console.log(`📊 DEBUG: loadSectorPeriods called`);
+            window.sectorPeriodsData = {}; // Reset global data
             try {
                 console.log(`📊 DEBUG: Fetching from ${API_BASE}/sector-periods.php`);
                 // Check if the API endpoint exists first
@@ -2415,6 +2466,7 @@ if (session_status() == PHP_SESSION_NONE) {
                 const data = await response.json();
                 console.log(`📊 DEBUG: API response data:`, data);
                 
+                window.sectorPeriodsData = data.periods_by_sector || {}; // Store data globally
                 if (data.success && data.periods_by_sector) {
                     console.log(`📊 DEBUG: Updating display with API data:`, data.periods_by_sector);
                     updateSectorPeriodsDisplay(data.periods_by_sector);
