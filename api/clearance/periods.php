@@ -226,11 +226,7 @@ function handleCreatePeriod($connection) {
         
         $periodId = $connection->lastInsertId();
         
-        // If starting the period, create clearance forms for eligible users
-        if ($newStatus === 'Ongoing') {
-            createClearanceFormsForPeriod($connection, $periodId, $input['sector'], $input['academic_year_id'], $input['semester_id']);
-        }
-        
+
         http_response_code(201);
         echo json_encode([
             'success' => true,
@@ -326,17 +322,19 @@ function handleUpdatePeriod($connection) {
                     $afterUpdate = $checkStmt->fetchAll(PDO::FETCH_ASSOC);
                     error_log("🚀 API DEBUG: Periods after update: " . json_encode($afterUpdate));
                     
-                    // NEW: Trigger form distribution by calling the correct API endpoint
-                    $distributionUrl = "http://localhost/OnlineClearanceWebsite/api/clearance/sector-periods.php";
+                    // NEW: Trigger form distribution by calling the new dedicated API endpoint
+                    $distributionUrl = "http://localhost/OnlineClearanceWebsite/api/clearance/form_distribution.php";
                     $distributionData = [
-                        'action' => 'start',
-                        'period_id' => $existingPeriod['period_id']
+                        'clearance_type' => $sector,
+                        'academic_year_id' => $academicYearId,
+                        'semester_id' => $semesterId
                     ];
                     $options = [
                         'http' => [
                             'header'  => "Content-type: application/json\r\n",
-                            'method'  => 'PUT',
+                            'method'  => 'POST',
                             'content' => json_encode($distributionData),
+                            'ignore_errors' => true // To read response body on error
                         ],
                     ];
                     $context  = stream_context_create($options);
@@ -358,10 +356,30 @@ function handleUpdatePeriod($connection) {
                     $stmt = $connection->prepare("UPDATE clearance_periods SET status = 'Ongoing', start_date = ? WHERE period_id = ?");
                     $stmt->execute([$startDate, $existingPeriod['period_id']]);
                     error_log("✅ API DEBUG: Period resumed successfully");
+
+                    // NEW: Trigger form distribution when resuming, just in case it failed before.
+                    $distributionUrl = "http://localhost/OnlineClearanceWebsite/api/clearance/form_distribution.php";
+                    $distributionData = [
+                        'clearance_type' => $sector,
+                        'academic_year_id' => $academicYearId,
+                        'semester_id' => $semesterId
+                    ];
+                    $options = [
+                        'http' => [
+                            'header'  => "Content-type: application/json\r\n",
+                            'method'  => 'POST',
+                            'content' => json_encode($distributionData),
+                            'ignore_errors' => true
+                        ],
+                    ];
+                    $context  = stream_context_create($options);
+                    $result = file_get_contents($distributionUrl, false, $context);
+                    $formDistributionResult = json_decode($result, true);
                     
                     $response = [
                         'success' => true, 
-                        'message' => 'Clearance period resumed successfully'
+                        'message' => 'Clearance period resumed successfully',
+                        'form_distribution' => $formDistributionResult
                     ];
                     error_log("🚀 API DEBUG: Sending success response: " . json_encode($response));
                     echo json_encode($response);
@@ -379,17 +397,19 @@ function handleUpdatePeriod($connection) {
                 $periodId = $connection->lastInsertId();
                 error_log("✅ API DEBUG: New period created successfully with ID: $periodId");
                 
-                // NEW: Trigger form distribution by calling the correct API endpoint
-                $distributionUrl = "http://localhost/OnlineClearanceWebsite/api/clearance/sector-periods.php";
+                // NEW: Trigger form distribution by calling the new dedicated API endpoint
+                $distributionUrl = "http://localhost/OnlineClearanceWebsite/api/clearance/form_distribution.php";
                 $distributionData = [
-                    'action' => 'start',
-                    'period_id' => $periodId
+                    'clearance_type' => $sector,
+                    'academic_year_id' => $academicYearId,
+                    'semester_id' => $semesterId
                 ];
                 $options = [
                     'http' => [
                         'header'  => "Content-type: application/json\r\n",
-                        'method'  => 'PUT',
+                        'method'  => 'POST',
                         'content' => json_encode($distributionData),
+                        'ignore_errors' => true // To read response body on error
                     ],
                 ];
                 $context  = stream_context_create($options);

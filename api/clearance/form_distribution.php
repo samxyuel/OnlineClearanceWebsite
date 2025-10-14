@@ -13,7 +13,6 @@
  */
 
 require_once __DIR__ . '/../../includes/config/database.php';
-require_once __DIR__ . '/../../includes/functions/helpers.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -112,25 +111,39 @@ function handleFormDistribution($connection) {
         // Step 3: Create clearance forms for all eligible users
         $formsCreated = 0;
         $signatoriesAssigned = 0;
+        $formsSkipped = 0;
         
         foreach ($eligibleUsers as $user) {
             // Check if form already exists
             $existingForm = checkExistingForm($connection, $user['user_id'], $academicYearId, $semesterId, $clearanceType);
             
             if ($existingForm) {
-                error_log("⚠️ FORM DISTRIBUTION: Form already exists for user {$user['user_id']} ({$user['first_name']} {$user['last_name']})");
-                continue;
+                // Form exists, get its ID to check for signatories
+                $clearanceFormId = $existingForm['clearance_form_id'];
+                error_log("📝 FORM DISTRIBUTION: Form {$clearanceFormId} already exists for user {$user['user_id']}. Checking for missing signatories.");
+
+                // Check if signatories are already assigned
+                $stmt = $connection->prepare("SELECT COUNT(*) FROM clearance_signatories WHERE clearance_form_id = ?");
+                $stmt->execute([$clearanceFormId]);
+                $existingSignatoryCount = $stmt->fetchColumn();
+
+                if ($existingSignatoryCount > 0) {
+                    error_log("✅ FORM DISTRIBUTION: Signatories already exist for form {$clearanceFormId}. Skipping.");
+                    $formsSkipped++;
+                    continue;
+                }
+                error_log("⚠️ FORM DISTRIBUTION: Form {$clearanceFormId} exists but has no signatories. Assigning now.");
+            } else {
+                // Create clearance form if it doesn't exist and get its generated ID
+                $clearanceFormId = createClearanceForm($connection, $user, $academicYearId, $semesterId, $clearanceType);
+                $formsCreated++;
             }
             
-            // Create clearance form
-            $formId = createClearanceForm($connection, $user, $academicYearId, $semesterId, $clearanceType);
-            $formsCreated++;
-            
             // Assign signatories to the form
-            $assignedCount = assignSignatoriesToForm($connection, $formId, $signatoryAssignments, $user, $clearanceType);
+            $assignedCount = assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssignments, $user, $clearanceType);
             $signatoriesAssigned += $assignedCount;
             
-            error_log("✅ FORM DISTRIBUTION: Created form $formId for {$user['first_name']} {$user['last_name']} with $assignedCount signatories");
+            error_log("✅ FORM DISTRIBUTION: Processed form {$clearanceFormId} for {$user['first_name']} {$user['last_name']} with $assignedCount signatories");
         }
         
         // Commit transaction
@@ -142,6 +155,7 @@ function handleFormDistribution($connection) {
             'success' => true,
             'message' => "Successfully distributed clearance forms for $clearanceType",
             'forms_created' => $formsCreated,
+            'forms_skipped' => $formsSkipped,
             'signatories_assigned' => $signatoriesAssigned,
             'eligible_users' => count($eligibleUsers)
         ]);
@@ -163,30 +177,30 @@ function getEligibleUsers($connection, $clearanceType) {
     switch ($clearanceType) {
         case 'College':
             $sql = "
-                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
-                       s.program, s.department_id, d.department_name
+                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username, 
+                       p.program_name as program, s.department_id, d.department_name
                 FROM users u
                 INNER JOIN students s ON u.user_id = s.user_id
                 INNER JOIN departments d ON s.department_id = d.department_id
+                LEFT JOIN programs p ON s.program_id = p.program_id
                 INNER JOIN sectors sec ON d.sector_id = sec.sector_id
-                WHERE sec.sector_name = 'College'
-                AND u.is_active = 1
-                AND s.is_active = 1
+                WHERE sec.sector_name = 'College' 
+                AND u.account_status = 'active'
                 ORDER BY u.last_name, u.first_name
             ";
             break;
             
         case 'Senior High School':
             $sql = "
-                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
-                       s.program, s.department_id, d.department_name
+                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username, 
+                       p.program_name as program, s.department_id, d.department_name
                 FROM users u
                 INNER JOIN students s ON u.user_id = s.user_id
                 INNER JOIN departments d ON s.department_id = d.department_id
+                LEFT JOIN programs p ON s.program_id = p.program_id
                 INNER JOIN sectors sec ON d.sector_id = sec.sector_id
-                WHERE sec.sector_name = 'Senior High School'
-                AND u.is_active = 1
-                AND s.is_active = 1
+                WHERE sec.sector_name = 'Senior High School' 
+                AND u.account_status = 'active'
                 ORDER BY u.last_name, u.first_name
             ";
             break;
@@ -199,9 +213,7 @@ function getEligibleUsers($connection, $clearanceType) {
                 INNER JOIN faculty f ON u.user_id = f.user_id
                 INNER JOIN departments d ON f.department_id = d.department_id
                 INNER JOIN sectors sec ON d.sector_id = sec.sector_id
-                WHERE sec.sector_name = 'Faculty'
-                AND u.is_active = 1
-                AND f.is_active = 1
+                WHERE sec.sector_name = 'Faculty' AND u.account_status = 'active'
                 ORDER BY u.last_name, u.first_name
             ";
             break;
@@ -263,40 +275,49 @@ function checkExistingForm($connection, $userId, $academicYearId, $semesterId, $
  * Create a clearance form for a user
  */
 function createClearanceForm($connection, $user, $academicYearId, $semesterId, $clearanceType) {
-    // Generate clearance form ID using the existing trigger
+    // Generate a unique clearance form ID
+    $year = date('Y');
+    $stmt = $connection->prepare("SELECT clearance_form_id FROM clearance_forms WHERE clearance_form_id LIKE ? ORDER BY clearance_form_id DESC LIMIT 1");
+    $stmt->execute(["CF-$year-%"]);
+    $lastId = $stmt->fetchColumn();
+    $nextNum = $lastId ? (int)substr($lastId, -5) + 1 : 1;
+    $clearanceFormId = "CF-$year-" . str_pad($nextNum, 5, '0', STR_PAD_LEFT);
+
     $sql = "
         INSERT INTO clearance_forms (
+            clearance_form_id,
             user_id,
             academic_year_id,
             semester_id,
             clearance_type,
-            status,
+            clearance_form_progress,
             created_at
-        ) VALUES (?, ?, ?, ?, 'Unapplied', NOW())
+        ) VALUES (?, ?, ?, ?, ?, 'unapplied', NOW())
     ";
     
     $stmt = $connection->prepare($sql);
     $stmt->execute([
+        $clearanceFormId,
         $user['user_id'],
         $academicYearId,
         $semesterId,
         $clearanceType
     ]);
     
-    return $connection->lastInsertId();
+    return $clearanceFormId;
 }
 
 /**
  * Assign signatories to a clearance form
  */
-function assignSignatoriesToForm($connection, $formId, $signatoryAssignments, $user, $clearanceType) {
+function assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssignments, $user, $clearanceType) {
     $assignedCount = 0;
     
-    // Get the clearance form ID (varchar format)
-    $stmt = $connection->prepare("SELECT clearance_form_id FROM clearance_forms WHERE clearance_form_id = ?");
-    $stmt->execute([$formId]);
-    $form = $stmt->fetch(PDO::FETCH_ASSOC);
-    $clearanceFormId = $form['clearance_form_id'];
+    // The clearanceFormId is already the correct varchar ID, no need to look it up again.
+    if (!$clearanceFormId) {
+        error_log("❌ FORM DISTRIBUTION: Cannot assign signatories, clearanceFormId is empty.");
+        return 0;
+    }
     
     foreach ($signatoryAssignments as $assignment) {
         // Skip if this is a Program Head assignment and user doesn't belong to that department
@@ -335,11 +356,9 @@ function getDistributionStats($connection, $clearanceType, $academicYearId, $sem
     $sql = "
         SELECT 
             COUNT(*) as total_forms,
-            COUNT(CASE WHEN status = 'Unapplied' THEN 1 END) as unapplied_forms,
-            COUNT(CASE WHEN status = 'Applied' THEN 1 END) as applied_forms,
-            COUNT(CASE WHEN status = 'In Progress' THEN 1 END) as in_progress_forms,
-            COUNT(CASE WHEN status = 'Completed' THEN 1 END) as completed_forms,
-            COUNT(CASE WHEN status = 'Rejected' THEN 1 END) as rejected_forms
+            COUNT(CASE WHEN clearance_form_progress = 'unapplied' THEN 1 END) as unapplied_forms,
+            COUNT(CASE WHEN clearance_form_progress = 'in-progress' THEN 1 END) as in_progress_forms,
+            COUNT(CASE WHEN clearance_form_progress = 'complete' THEN 1 END) as completed_forms
         FROM clearance_forms
         WHERE clearance_type = ? AND academic_year_id = ? AND semester_id = ?
     ";

@@ -147,8 +147,8 @@ function assignSignatory($pdo, $data) {
     // If no assignment exists, insert a new one
     $sql = "
         INSERT INTO sector_signatory_assignments 
-        (clearance_type, user_id, designation_id, is_program_head, department_id, is_active)
-        VALUES (?, ?, ?, ?, ?, 1)
+        (clearance_type, user_id, designation_id, is_program_head, department_id, is_active, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, 1, NOW(), NOW())
     ";
     
     $stmt = $pdo->prepare($sql);
