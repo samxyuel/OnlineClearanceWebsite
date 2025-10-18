@@ -186,6 +186,37 @@ async function updateProgramsAndYearLevels() {
   }
 }
 
+async function onUserCreated(newUserId, userSector) {
+    // Only proceed if a valid sector is provided
+    if (!userSector) return;
+
+    try {
+        // 1. Check for an active clearance period
+        const context = await fetch('../../api/clearance/context.php', { credentials: 'include' }).then(r => r.json());
+        const activeSemester = context.terms.find(t => t.is_active === 1);
+
+        if (activeSemester) {
+            console.log(`Active period found for ${activeSemester.semester_name}. Creating clearance form for new user...`);
+
+            // 2. Call the distribution API for the single new user
+            const response = await fetch('../../api/clearance/form_distribution.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    user_id: newUserId,
+                    clearance_type: userSector,
+                    academic_year_id: context.academic_year.academic_year_id,
+                    semester_id: activeSemester.semester_id
+                })
+            }).then(r => r.json());
+            console.log('Auto form generation response:', response);
+        }
+    } catch (error) {
+        console.error('Failed to auto-generate clearance form for new user:', error);
+    }
+}
+
 // Form validation and submission
 function validateStudentRegistrationForm() {
   const form = document.getElementById('studentRegistrationForm');
@@ -248,6 +279,12 @@ function submitStudentRegistrationForm() {
   .then(data => {
     if (data.success) {
       showToast(data.message || 'Student added successfully!', 'success');
+      const newUserId = data.user_id || null;
+      if (newUserId) {
+          // Trigger automatic clearance form creation
+          onUserCreated(newUserId, 'Senior High School').catch(console.error);
+      }
+
       closeStudentRegistrationModal();
       form.reset();
       // Refresh the student list

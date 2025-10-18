@@ -56,18 +56,18 @@ user_id	int(11) DEFAULT NULL
 academic_year_id	int(11) DEFAULT NULL
 semester_id	int(11) DEFAULT NULL
 clearance_type	enum('College','Senior High School','Faculty') NOT NULL
-clearance_form_progress	enum('unapplied','in-progress','complete') NOT NULL DEFAULT 'unapplied'
-applied_at	timestamp NULL DEFAULT NULL
-completed_at	timestamp NULL DEFAULT NULL
-rejected_at	timestamp NULL DEFAULT NULL
-grace_period_ends	timestamp NULL DEFAULT NULL
+clearance_form_progress	enum('unapplied','in-progress','complete') NOT NULL DEFAULT 'unapplied' 
+applied_at	timestamp NULL DEFAULT NULL (When user first applied)
+completed_at	timestamp NULL DEFAULT NULL (When all signatories approved)
+rejected_at	timestamp NULL DEFAULT NULL (When any signatory rejected)
+grace_period_ends	timestamp NULL DEFAULT NULL (End of grace period for final status update)
 created_at	timestamp NOT NULL DEFAULT current_timestamp()
 updated_at	timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 
 
 clearance_periods
 Column Name	Data Type/Details
-period_id	int(11) NOT NULL (Primary Key)
+period_id	int(11) NOT NULL AUTO_INCREMENT (Primary Key)
 academic_year_id	int(11) DEFAULT NULL
 semester_id	int(11) DEFAULT NULL
 sector	enum('College','Senior High School','Faculty') NOT NULL DEFAULT 'College'
@@ -96,15 +96,14 @@ created_at	timestamp NOT NULL DEFAULT current_timestamp()
 clearance_signatories
 Column Name	Data Type/Details
 clearance_signatory_id	int(11) NOT NULL (Primary Key)
-clearance_form_id	varchar(20) NOT NULL
-designation_id	int(11) NOT NULL
-signatory_user_id	int(11) DEFAULT NULL
-status	enum('Pending','Approved','Rejected','Optional/Skipped') NOT NULL DEFAULT 'Pending'
-signed_at	timestamp NULL DEFAULT NULL
-rejection_reason_id	int(11) DEFAULT NULL
-additional_remarks	text DEFAULT NULL
-is_required	tinyint(1) DEFAULT 1
-is_optional	tinyint(1) DEFAULT 0
+clearance_form_id	varchar(20) DEFAULT NULL
+designation_id	int(11) DEFAULT NULL
+actual_user_id	int(11) DEFAULT NULL (Staff member who actually signed (for override))
+action	enum('Pending','Approved','Rejected') DEFAULT 'Pending'
+remarks text DEFAULT NULL (General remarks)
+rejection_reason_id	int(11) DEFAULT NULL (Predefined rejection reason)
+additional_remarks	text DEFAULT NULL (Additional details for rejection)
+date_signed timestamp DEFAULT NULL (When action was taken)
 created_at	timestamp NOT NULL DEFAULT current_timestamp()
 updated_at	timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 
@@ -147,7 +146,7 @@ faculty
 Column Name	Data Type/Details
 employee_number	varchar(8) NOT NULL (Primary Key)
 user_id	int(11) DEFAULT NULL
-employee_status enum('Full Time','Part Time','Part Time - Full Load') NOT NULL
+employment_status enum('Full Time','Part Time','Part Time - Full Load') NOT NULL
 department_id	int(11) DEFAULT NULL
 sector enum('College', 'Senior High School', 'Faculty') NOT NULL DEFAULT (Faculty)
 created_at	timestamp NOT NULL DEFAULT current_timestamp()

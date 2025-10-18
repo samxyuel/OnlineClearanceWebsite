@@ -223,6 +223,35 @@
   background: #fff3cd;
   border-left: 3px solid #ffc107;
 }
+.signatory-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+  cursor: pointer;
+  font-weight: 600;
+  color: #495057;
+}
+.signatory-item-header:hover {
+  background-color: #dde2e6;
+}
+.signatory-item-header i {
+  transition: transform 0.2s ease-in-out;
+}
+.signatory-item-group {
+  display: none;
+  padding-left: 1rem;
+  border-left: 3px solid #007bff;
+  background-color: #f8f9fa;
+}
+.signatory-item-group.expanded {
+  display: block;
+}
+.signatory-item-group .signatory-item-child {
+  padding: 0.5rem 0.75rem;
+}
 
 .signatory-item.optional {
   background: #f8f9fa;
@@ -580,7 +609,7 @@
 }
 
 .term-status.active {
-  color: #28a745;
+  color: white;
 }
 
 .term-status.inactive {
