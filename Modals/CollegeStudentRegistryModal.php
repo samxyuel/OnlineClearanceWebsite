@@ -149,7 +149,7 @@ async function populateCollegeDepartments() {
     departmentSelect.disabled = true;
 
     try {
-        const response = await fetch(`../../controllers/college_academics_api.php?action=get_departments`);
+        const response = await fetch(`../../api/departments/list.php?sector=College`);
         const data = await response.json();
 
         if (data.success && data.departments) {
@@ -186,15 +186,16 @@ async function updateProgramsAndYearLevels() {
   
   if (departmentId) {
     try {
-      const response = await fetch(`../../controllers/college_academics_api.php?action=get_programs&department_id=${departmentId}`);
+      // Use the modern, centralized API for programs, filtering by department.
+      const response = await fetch(`../../api/programs/list.php?department_id=${departmentId}`);
       const data = await response.json();
 
-      if (data.success) {
+      if (data.success && data.programs) {
         // Populate programs
         data.programs.forEach(program => {
           const option = document.createElement('option');
-          option.value = program.value; // Use program_code
-          option.textContent = program.display;
+          option.value = program.program_id;
+          option.textContent = program.program_name;
           programSelect.appendChild(option);
         });
 
