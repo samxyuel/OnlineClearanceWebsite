@@ -61,7 +61,9 @@ switch ($_SERVER['REQUEST_METHOD']) {
 function handleGetPeriods($connection) {
     try {
         // Get sector parameter if provided
-        $sector = $_GET['sector'] ?? null;
+        $sector = isset($_GET['sector']) ? $_GET['sector'] : null;
+        $semesterId = isset($_GET['semester_id']) ? (int)$_GET['semester_id'] : null;
+        $status = isset($_GET['status']) ? $_GET['status'] : null;
         
         // Fetch active periods by sector (for banner)
         $activeSql = "SELECT 
@@ -94,15 +96,29 @@ function handleGetPeriods($connection) {
                 JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id
                 JOIN semesters s ON cp.semester_id = s.semester_id";
         
+        $conditions = [];
+        $params = [];
+
         if ($sector) {
-            $sql .= " WHERE cp.sector = ?";
-            $sql .= " ORDER BY cp.created_at DESC";
-            $stmt = $connection->prepare($sql);
-            $stmt->execute([$sector]);
-        } else {
-            $sql .= " ORDER BY cp.created_at DESC";
-            $stmt = $connection->query($sql);
+            $conditions[] = "cp.sector = ?";
+            $params[] = $sector;
         }
+        if ($semesterId) {
+            $conditions[] = "cp.semester_id = ?";
+            $params[] = $semesterId;
+        }
+        if ($status) {
+            $conditions[] = "cp.status = ?";
+            $params[] = $status;
+        }
+
+        if (!empty($conditions)) {
+            $sql .= " WHERE " . implode(" AND ", $conditions);
+        }
+
+        $sql .= " ORDER BY cp.created_at DESC";
+        $stmt = $connection->prepare($sql);
+        $stmt->execute($params);
         
         $periods = $stmt->fetchAll(PDO::FETCH_ASSOC);
         

@@ -66,7 +66,14 @@ function handleFormDistribution($connection) {
     $academicYearId = (int)$input['academic_year_id'];
     $semesterId = (int)$input['semester_id'];
     
-    error_log("🚀 FORM DISTRIBUTION: Starting distribution for $clearanceType, AY: $academicYearId, Semester: $semesterId");
+    // Check for an optional single user_id
+    $targetUserId = isset($input['user_id']) ? (int)$input['user_id'] : null;
+    
+    if ($targetUserId) {
+        error_log("🚀 FORM DISTRIBUTION: Starting single-user distribution for user_id: $targetUserId, type: $clearanceType, AY: $academicYearId, Semester: $semesterId");
+    } else {
+        error_log("🚀 FORM DISTRIBUTION: Starting bulk distribution for $clearanceType, AY: $academicYearId, Semester: $semesterId");
+    }
     
     // Validate clearance type
     $validTypes = ['College', 'Senior High School', 'Faculty'];
@@ -81,7 +88,12 @@ function handleFormDistribution($connection) {
     
     try {
         // Step 1: Get all eligible users for this sector
-        $eligibleUsers = getEligibleUsers($connection, $clearanceType);
+        if ($targetUserId) {
+            // If a single user is specified, only fetch that user's data
+            $eligibleUsers = getSingleEligibleUser($connection, $targetUserId, $clearanceType);
+        } else {
+            $eligibleUsers = getEligibleUsers($connection, $clearanceType);
+        }
         error_log("👥 FORM DISTRIBUTION: Found " . count($eligibleUsers) . " eligible users for $clearanceType");
         
         if (empty($eligibleUsers)) {
@@ -122,25 +134,39 @@ function handleFormDistribution($connection) {
                 $clearanceFormId = $existingForm['clearance_form_id'];
                 error_log("📝 FORM DISTRIBUTION: Form {$clearanceFormId} already exists for user {$user['user_id']}. Checking for missing signatories.");
 
-                // Check if signatories are already assigned
-                $stmt = $connection->prepare("SELECT COUNT(*) FROM clearance_signatories WHERE clearance_form_id = ?");
+                // Get currently assigned designation IDs for this form
+                $stmt = $connection->prepare("SELECT designation_id FROM clearance_signatories WHERE clearance_form_id = ?");
                 $stmt->execute([$clearanceFormId]);
-                $existingSignatoryCount = $stmt->fetchColumn();
+                $existingDesignationIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-                if ($existingSignatoryCount > 0) {
-                    error_log("✅ FORM DISTRIBUTION: Signatories already exist for form {$clearanceFormId}. Skipping.");
+                // Get required designation IDs from the current sector assignments
+                $requiredDesignationIds = array_column($signatoryAssignments, 'designation_id');
+
+                // Find which required designations are missing from the form
+                $missingDesignationIds = array_diff($requiredDesignationIds, $existingDesignationIds);
+
+                if (empty($missingDesignationIds)) {
+                    error_log("✅ FORM DISTRIBUTION: All required signatories already exist for form {$clearanceFormId}. Skipping.");
                     $formsSkipped++;
                     continue;
                 }
-                error_log("⚠️ FORM DISTRIBUTION: Form {$clearanceFormId} exists but has no signatories. Assigning now.");
+
+                // Filter the main assignments list to only include the missing ones
+                $missingAssignments = array_filter($signatoryAssignments, function($assignment) use ($missingDesignationIds) {
+                    return in_array($assignment['designation_id'], $missingDesignationIds);
+                });
+
+                error_log("⚠️ FORM DISTRIBUTION: Form {$clearanceFormId} is missing " . count($missingAssignments) . " signatories. Assigning now.");
+                $signatoryAssignmentsToProcess = $missingAssignments;
             } else {
                 // Create clearance form if it doesn't exist and get its generated ID
                 $clearanceFormId = createClearanceForm($connection, $user, $academicYearId, $semesterId, $clearanceType);
                 $formsCreated++;
+                $signatoryAssignmentsToProcess = $signatoryAssignments;
             }
             
             // Assign signatories to the form
-            $assignedCount = assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssignments, $user, $clearanceType);
+            $assignedCount = assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssignmentsToProcess, $user, $clearanceType);
             $signatoriesAssigned += $assignedCount;
             
             error_log("✅ FORM DISTRIBUTION: Processed form {$clearanceFormId} for {$user['first_name']} {$user['last_name']} with $assignedCount signatories");
@@ -165,6 +191,50 @@ function handleFormDistribution($connection) {
         error_log("❌ FORM DISTRIBUTION ERROR: " . $e->getMessage());
         throw $e;
     }
+}
+
+/**
+ * Get a single eligible user for a specific clearance type
+ */
+function getSingleEligibleUser($connection, $userId, $clearanceType) {
+    $sql = "";
+    $params = [$userId];
+
+    switch ($clearanceType) {
+        case 'College':
+        case 'Senior High School':
+            $sql = "
+                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username, 
+                       p.program_name as program, s.department_id, d.department_name
+                FROM users u
+                INNER JOIN students s ON u.user_id = s.user_id
+                INNER JOIN departments d ON s.department_id = d.department_id
+                LEFT JOIN programs p ON s.program_id = p.program_id
+                WHERE u.user_id = ? AND u.account_status = 'active'
+            ";
+            break;
+            
+        case 'Faculty':
+            $sql = "
+                SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
+                       f.employment_status, f.department_id, d.department_name
+                FROM users u
+                INNER JOIN faculty f ON u.user_id = f.user_id
+                INNER JOIN departments d ON f.department_id = d.department_id
+                WHERE u.user_id = ? AND u.account_status = 'active'
+            ";
+            break;
+        
+        default:
+            return [];
+    }
+
+    $stmt = $connection->prepare($sql);
+    $stmt->execute($params);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Return the user as an array containing a single user, to match the format of getEligibleUsers
+    return $user ? [$user] : [];
 }
 
 /**
@@ -320,27 +390,24 @@ function assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssign
     }
     
     foreach ($signatoryAssignments as $assignment) {
-        // Skip if this is a Program Head assignment and user doesn't belong to that department
-        if ($assignment['is_program_head'] && $assignment['department_id'] != $user['department_id']) {
-            continue;
-        }
+        
+        error_log("✅ Assigning designation '{$assignment['designation_name']}' to form {$clearanceFormId}");
         
         // Create signatory entry
         $sql = "
             INSERT INTO clearance_signatories (
                 clearance_form_id,
                 designation_id,
-                actual_user_id,
+                actual_user_id, -- This should be NULL on creation
                 action,
                 created_at
-            ) VALUES (?, ?, ?, 'Pending', NOW())
+            ) VALUES (?, ?, NULL, 'Pending', NOW())
         ";
         
         $stmt = $connection->prepare($sql);
         $stmt->execute([
             $clearanceFormId,
-            $assignment['designation_id'],
-            $assignment['user_id']
+            $assignment['designation_id']
         ]);
         
         $assignedCount++;

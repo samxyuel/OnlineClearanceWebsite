@@ -249,6 +249,12 @@ window.submitStaffRegistrationForm = function() {
                 });
             }catch(e){}
             // If Program Head, perform assignments to selected departments (with transfer support)
+            const newUserId = data.user_id || data.userId || data.created_user_id || null;
+            if (newUserId && isAlsoFaculty) {
+                // Trigger automatic clearance form creation for the new faculty member
+                onUserCreated(newUserId, 'Faculty').catch(console.error);
+            }
+
             const isPH = normalizedDesignation.toLowerCase() === 'program head';
             const selectedCategory = document.getElementById('programHeadCategory').value;
             const selectedDeptInputs = document.querySelectorAll('input[name="assignedDepartments[]"]:checked');
@@ -281,7 +287,6 @@ window.submitStaffRegistrationForm = function() {
 
             if (isPH && selectedDeptIds.length > 0) {
                 // Determine user_id of the newly created staff
-                const newUserId = data.user_id || data.userId || data.created_user_id || null;
                 if (!newUserId) {
                     // Fallback: cannot assign without user_id
                     proceedAfterAssign();
@@ -333,6 +338,38 @@ window.submitStaffRegistrationForm = function() {
         showToast('An error occurred while registering staff member.', 'error');
     });
 };
+
+async function onUserCreated(newUserId, userSector) {
+    // Only proceed if a valid sector is provided (e.g., 'Faculty')
+    if (!userSector) return;
+
+    try {
+        // 1. Check for an active clearance period
+        const context = await fetch('../../api/clearance/context.php', { credentials: 'include' }).then(r => r.json());
+        const activeSemester = context.terms.find(t => t.is_active === 1);
+
+        if (activeSemester) {
+            console.log(`Active period found for ${activeSemester.semester_name}. Creating clearance form for new user...`);
+
+            // 2. Call the distribution API for the single new user
+            const response = await fetch('../../api/clearance/form_distribution.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    user_id: newUserId, // The new, crucial parameter
+                    clearance_type: userSector,
+                    academic_year_id: context.academic_year.academic_year_id,
+                    semester_id: activeSemester.semester_id
+                })
+            }).then(r => r.json());
+
+            console.log('Auto form generation response:', response);
+        }
+    } catch (error) {
+        console.error('Failed to auto-generate clearance form for new user:', error);
+    }
+}
 
     // Toggle faculty section visibility
     window.toggleFacultySection = function() {

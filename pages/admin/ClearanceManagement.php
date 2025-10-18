@@ -1560,12 +1560,50 @@ if (session_status() == PHP_SESSION_NONE) {
             setTermButtonsState(true);
             // Hide global loading indicator if needed
         }
+ 
+        /* 
+        // DEPRECATED Function
         function isPeriodLocked(){
             const cy = schoolYears[currentSchoolYearIndex];
             if (!cy) return false;
             return (cy.terms||[]).some(t => t.status === 'active' || t.status === 'deactivated');
         }
+        */
 
+        function isSectorLocked(sector) {
+            if (!window.sectorPeriodsData || !window.sectorPeriodsData[sector]) {
+                // Data not loaded or sector doesn't exist, assume unlocked as a fallback.
+                return false; 
+            }
+            
+            // Get the most recent period for this sector.
+            const latestPeriod = window.sectorPeriodsData[sector][0];
+            if (!latestPeriod) return false;
+            
+            // Lock if the period is 'Ongoing' or 'Paused'.
+            return latestPeriod.status === 'Ongoing' || latestPeriod.status === 'Paused';
+        }
+
+        function updateLockUI(){
+            const sectors = ['College', 'Senior High School', 'Faculty'];
+            sectors.forEach(sector => {
+                const locked = isSectorLocked(sector);
+                const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
+                const card = document.getElementById(`${sectorKey}-sector-card`);
+                if (!card) return;
+
+                // Disable signatory management buttons for the specific sector
+                card.querySelectorAll('.signatory-actions button, .remove-signatory').forEach(btn => {
+                    btn.disabled = locked;
+                    btn.style.pointerEvents = locked ? 'none' : 'auto';
+                    btn.style.opacity = locked ? '0.5' : '1';
+                    btn.title = locked ? `Signatory management is locked while the period is ${window.sectorPeriodsData[sector][0].status}.` : '';
+                });
+            });
+        }
+
+        /* 
+        // OLD Function that uses isPeriodLocked
         function updateLockUI(){
             const locked = isPeriodLocked();
             // Disable Add New buttons in both accordions
@@ -1601,6 +1639,7 @@ if (session_status() == PHP_SESSION_NONE) {
                 }
             });
         }
+        */
 
         function navigateSchoolYear(direction) {
             // prev/next disabled for now
@@ -1920,7 +1959,8 @@ if (session_status() == PHP_SESSION_NONE) {
                             );
                             
                             if (!confirmed) {
-                                throw new Error('Term ending cancelled by user');
+                                showToast('Term ending cancelled.', 'info');
+                                return; // Exit gracefully if user cancels
                             }
                         }
 
@@ -1967,7 +2007,10 @@ if (session_status() == PHP_SESSION_NONE) {
                 );
             } catch (error) {
                 console.error('Error ending term:', error);
-                showToast(error.message || 'Failed to end term', 'error');
+                // Only show toast for actual errors, not user cancellation
+                if (error.message !== 'Term ending cancelled by user') {
+                    showToast(error.message || 'Failed to end term', 'error');
+                }
             }
         }
         
@@ -1999,7 +2042,8 @@ if (session_status() == PHP_SESSION_NONE) {
                         );
                         
                         if (!confirmed) {
-                            throw new Error('Term skip/end cancelled by user');
+                            showToast('Term skip/end cancelled.', 'info');
+                            return; // Exit gracefully if user cancels
                         }
 
                         // First, end the semester
@@ -2045,7 +2089,10 @@ if (session_status() == PHP_SESSION_NONE) {
                 );
             } catch (error) {
                 console.error('Error skipping/ending term:', error);
-                showToast(error.message || 'Failed to skip/end term', 'error');
+                // Only show toast for actual errors, not user cancellation
+                if (error.message !== 'Term skip/end cancelled by user') {
+                    showToast(error.message || 'Failed to skip/end term', 'error');
+                }
             }
         }
         
@@ -2054,6 +2101,7 @@ if (session_status() == PHP_SESSION_NONE) {
         async function checkOngoingClearancePeriods(semesterId) {
             try {
                 const response = await fetchJSON(`${API_BASE}/periods.php?semester_id=${semesterId}&status=Ongoing`);
+                // The API returns periods with 'Ongoing' status.
                 return response.periods || [];
             } catch (error) {
                 console.error('Error checking ongoing clearance periods:', error);
