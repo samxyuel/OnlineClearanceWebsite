@@ -110,16 +110,6 @@
                             </div>
                         </div>
                         
-                        <div class="stat-card">
-                            <div class="stat-icon warning">
-                                <i class="fas fa-hourglass-half"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="daysRemaining">15</h3>
-                                <p class="stat-number">Days</p>
-                                <p class="stat-label">Remaining</p>
-                            </div>
-                        </div>
                         
                         <div class="stat-card">
                             <div class="stat-icon success">
@@ -156,71 +146,6 @@
                     </div>
                 </div>
 
-                <!-- Quick Actions Grid -->
-                <div class="quick-actions-section">
-                    <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
-                    <div class="actions-grid">
-                        <div class="action-card" onclick="navigateTo('clearance')">
-                            <div class="card-icon">
-                                <i class="fas fa-eye"></i>
-                            </div>
-                            <div class="card-content">
-                                <h4>View Clearance</h4>
-                                <p>Check your clearance status and progress</p>
-                            </div>
-                        </div>
-                        
-                        <div class="action-card" onclick="navigateTo('requirements')">
-                            <div class="card-icon">
-                                <i class="fas fa-clipboard-check"></i>
-                            </div>
-                            <div class="card-content">
-                                <h4>Check Requirements</h4>
-                                <p>View detailed clearance requirements</p>
-                            </div>
-                        </div>
-                        
-                        <div class="action-card" onclick="navigateTo('calendar')">
-                            <div class="card-icon">
-                                <i class="fas fa-calendar-alt"></i>
-                            </div>
-                            <div class="card-content">
-                                <h4>Academic Calendar</h4>
-                                <p>Important dates and deadlines</p>
-                            </div>
-                        </div>
-                        
-                        <div class="action-card" onclick="navigateTo('support')">
-                            <div class="card-icon">
-                                <i class="fas fa-headset"></i>
-                            </div>
-                            <div class="card-content">
-                                <h4>Contact Support</h4>
-                                <p>Get help and support</p>
-                            </div>
-                        </div>
-                        
-                        <div class="action-card" onclick="navigateTo('settings')">
-                            <div class="card-icon">
-                                <i class="fas fa-cog"></i>
-                            </div>
-                            <div class="card-content">
-                                <h4>Settings</h4>
-                                <p>Account and notification preferences</p>
-                            </div>
-                        </div>
-                        
-                        <div class="action-card" onclick="navigateTo('records')">
-                            <div class="card-icon">
-                                <i class="fas fa-graduation-cap"></i>
-                            </div>
-                            <div class="card-content">
-                                <h4>Academic Records</h4>
-                                <p>Grades, transcripts, and records</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- Content Grid -->
                 <div class="content-grid">

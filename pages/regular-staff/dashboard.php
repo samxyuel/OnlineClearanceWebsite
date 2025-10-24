@@ -41,31 +41,24 @@
                         <!-- Current Term Status (Read-only for Staff) -->
                         <div class="card active-period-status">
                             <div class="status-content">
-                                <div class="status-info">
+                                <div class="status-header">
                                     <h3><i class="fas fa-calendar-check"></i> 2024-2025 Term 1 (ACTIVE)</h3>
                                     <p>Duration: 45 days | Started: Jan 15, 2024</p>
-                                    <div class="period-stats">
-                                        <span class="stat-item">
-                                            <i class="fas fa-user-graduate"></i> Students: 156 pending signatures
-                                        </span>
-                                        <span class="stat-item">
-                                            <i class="fas fa-chalkboard-teacher"></i> Faculty: 23 pending signatures
-                                        </span>
-                                        <span class="stat-item">
-                                            <i class="fas fa-clock"></i> Your Pending: 34 total
-                                        </span>
-                                    </div>
                                 </div>
-                                <div class="status-actions">
-                                    <button class="btn btn-success" onclick="viewPendingClearances()">
-                                        <i class="fas fa-signature"></i> Sign Clearances
-                                    </button>
-                                    <button class="btn btn-info" onclick="exportStaffReport()">
-                                        <i class="fas fa-file-export"></i> Export Report
-                                    </button>
-                                    <a href="StudentManagement.php" class="btn btn-primary">
-                                        <i class="fas fa-users"></i> Manage Students
-                                    </a>
+                                
+                                <div class="status-stats">
+                                    <div class="stat-item">
+                                        <i class="fas fa-user-graduate"></i>
+                                        <span>Students: 156 pending signatures</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <i class="fas fa-chalkboard-teacher"></i>
+                                        <span>Faculty: 23 pending signatures</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <i class="fas fa-clock"></i>
+                                        <span>Your Pending: 34 total</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -110,50 +103,6 @@
                             </div>
                         </div>
 
-                        <!-- Quick Actions -->
-                        <div class="management-section">
-                            <div class="section-header">
-                                <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
-                            </div>
-                            <div class="quick-actions-grid">
-                                <a href="StudentManagement.php" class="action-card">
-                                    <div class="action-icon">
-                                        <i class="fas fa-user-graduate"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Student Clearances</h4>
-                                        <p>Review and sign student clearance requests</p>
-                                    </div>
-                                </a>
-                                <a href="FacultyManagement.php" class="action-card">
-                                    <div class="action-icon">
-                                        <i class="fas fa-chalkboard-teacher"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Faculty Clearances</h4>
-                                        <p>Review and sign faculty clearance requests</p>
-                                    </div>
-                                </a>
-                                <a href="#" class="action-card" onclick="viewPendingClearances()">
-                                    <div class="action-icon">
-                                        <i class="fas fa-signature"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Sign Clearances</h4>
-                                        <p>Approve or reject pending clearances</p>
-                                    </div>
-                                </a>
-                                <a href="#" class="action-card" onclick="exportStaffReport()">
-                                    <div class="action-icon">
-                                        <i class="fas fa-file-export"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Export Report</h4>
-                                        <p>Generate your clearance signing report</p>
-                                    </div>
-                                </a>
-                            </div>
-                        </div>
 
                         <!-- Recent Activity -->
                         <div class="management-section">
@@ -204,56 +153,6 @@
                             </div>
                         </div>
 
-                        <!-- Position Overview -->
-                        <div class="management-section">
-                            <div class="section-header">
-                                <h3><i class="fas fa-user-shield"></i> Position Overview</h3>
-                            </div>
-                            <div class="department-overview">
-                                <div class="overview-card">
-                                    <h4><i class="fas fa-signature"></i> Clearance Signing Stats</h4>
-                                    <div class="clearance-stats">
-                                        <div class="status-item completed">
-                                            <span class="status-label">Approved</span>
-                                            <span class="status-count">1,156</span>
-                                        </div>
-                                        <div class="status-item pending">
-                                            <span class="status-label">Pending</span>
-                                            <span class="status-count">34</span>
-                                        </div>
-                                        <div class="status-item rejected">
-                                            <span class="status-label">Rejected</span>
-                                            <span class="status-count">89</span>
-                                        </div>
-                                        <div class="status-item in-progress">
-                                            <span class="status-label">In Progress</span>
-                                            <span class="status-count">12</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="overview-card">
-                                    <h4><i class="fas fa-chart-line"></i> This Month's Performance</h4>
-                                    <div class="performance-stats">
-                                        <div class="performance-item">
-                                            <span class="performance-label">Average Response Time</span>
-                                            <span class="performance-value">2.3 hours</span>
-                                        </div>
-                                        <div class="performance-item">
-                                            <span class="performance-label">Approval Rate</span>
-                                            <span class="performance-value">92.8%</span>
-                                        </div>
-                                        <div class="performance-item">
-                                            <span class="performance-label">Clearances Processed</span>
-                                            <span class="performance-value">156</span>
-                                        </div>
-                                        <div class="performance-item">
-                                            <span class="performance-label">Satisfaction Score</span>
-                                            <span class="performance-value">4.7/5.0</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 

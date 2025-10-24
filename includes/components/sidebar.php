@@ -99,7 +99,7 @@ $sidebarLinks = [
             // ['icon' => 'fas fa-chart-line', 'text' => 'Progress', 'link' => '../../pages/student/progress.php']
         ],
         'bottom' => [
-            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/profile.php'],
+            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
             ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]
@@ -115,7 +115,7 @@ $sidebarLinks = [
             // ['icon' => 'fas fa-chart-line', 'text' => 'Progress', 'link' => '../../pages/faculty/progress.php']
         ],
         'bottom' => [
-            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/profile.php'],
+            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
             ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]
@@ -137,7 +137,7 @@ $sidebarLinks = [
             ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
         'bottom' => [
-            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/profile.php'],
+            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
             ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]
@@ -153,7 +153,7 @@ $sidebarLinks = [
             ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
         'bottom' => [
-            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/profile.php'],
+            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
             ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]
@@ -169,7 +169,7 @@ $sidebarLinks = [
             ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
         'bottom' => [
-            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/profile.php'],
+            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
             ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]
@@ -185,7 +185,7 @@ $sidebarLinks = [
             ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
         'bottom' => [
-            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/profile.php'],
+            ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
             ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]

@@ -40,28 +40,20 @@
                         <!-- Current Term Status (Read-only for Program Head) -->
                         <div class="card active-period-status">
                             <div class="status-content">
-                                <div class="status-info">
+                                <div class="status-header">
                                     <h3><i class="fas fa-calendar-check"></i> <span id="currentPeriodDisplay">Loading current period...</span></h3>
                                     <p id="periodDuration">Loading period information...</p>
-                                    <div class="period-stats">
-                                        <span class="stat-item">
-                                            <i class="fas fa-user-graduate"></i> <span id="studentStats">Loading student statistics...</span>
-                                        </span>
-                                        <span class="stat-item">
-                                            <i class="fas fa-clock"></i> <span id="pendingStats">Loading pending signatures...</span>
-                                        </span>
-                                    </div>
                                 </div>
-                                <div class="status-actions">
-                                    <button class="btn btn-success" onclick="viewPendingClearances()">
-                                        <i class="fas fa-signature"></i> Sign Clearances
-                                    </button>
-                                    <button class="btn btn-info" onclick="exportClearanceReport()">
-                                        <i class="fas fa-file-export"></i> Export Report
-                                    </button>
-                                    <a href="StudentManagement.php" class="btn btn-primary">
-                                        <i class="fas fa-users"></i> Manage Students
-                                    </a>
+                                
+                                <div class="status-stats">
+                                    <div class="stat-item">
+                                        <i class="fas fa-user-graduate"></i>
+                                        <span id="studentStats">Loading student statistics...</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <i class="fas fa-clock"></i>
+                                        <span id="pendingStats">Loading pending signatures...</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -75,6 +67,15 @@
                                 <div class="stat-content">
                                     <h3>456</h3>
                                     <p>Total Students</p>
+                                </div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-icon">
+                                    <i class="fas fa-chalkboard-teacher"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3>28</h3>
+                                    <p>Total Faculty</p>
                                 </div>
                             </div>
                             <div class="stat-card">
@@ -95,61 +96,8 @@
                                     <p>Pending Signatures</p>
                                 </div>
                             </div>
-                            <div class="stat-card">
-                                <div class="stat-icon">
-                                    <i class="fas fa-file-alt"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h3>23</h3>
-                                    <p>This Week's Reports</p>
-                                </div>
-                            </div>
                         </div>
 
-                        <!-- Quick Actions -->
-                        <div class="management-section">
-                            <div class="section-header">
-                                <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
-                            </div>
-                            <div class="quick-actions-grid">
-                                <a href="StudentManagement.php" class="action-card">
-                                    <div class="action-icon">
-                                        <i class="fas fa-user-graduate"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Manage Students</h4>
-                                        <p>View and manage student records</p>
-                                    </div>
-                                </a>
-                                <a href="#" class="action-card" onclick="viewPendingClearances()">
-                                    <div class="action-icon">
-                                        <i class="fas fa-signature"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Sign Clearances</h4>
-                                        <p>Approve or reject student clearances</p>
-                                    </div>
-                                </a>
-                                <a href="#" class="action-card" onclick="exportClearanceReport()">
-                                    <div class="action-icon">
-                                        <i class="fas fa-file-export"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Export Reports</h4>
-                                        <p>Generate clearance reports</p>
-                                    </div>
-                                </a>
-                                <a href="#" class="action-card" onclick="viewDepartmentStats()">
-                                    <div class="action-icon">
-                                        <i class="fas fa-chart-bar"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Department Stats</h4>
-                                        <p>View detailed statistics</p>
-                                    </div>
-                                </a>
-                            </div>
-                        </div>
 
                         <!-- Recent Activity -->
                         <div class="management-section">

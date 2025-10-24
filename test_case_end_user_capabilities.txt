@@ -1,0 +1,62 @@
+TEST CASE: End User System Capabilities and Clearance Management Functions
+
+ID: TC-ENDUSER-001
+Type: Functional Testing
+Target Description: End User (Students and Faculty) System Capabilities and Clearance Management Functions within the Online Clearance System
+Priority: High
+
+Preconditions:
+1. The Online Clearance System is accessible and running properly
+2. Valid end user accounts exist for College students, Senior High School students, and Faculty members
+3. End users are successfully logged in and redirected to their respective dashboards
+4. Database connection is established and all end user management modules are functional
+5. Sample clearance periods and signatory assignments exist for testing purposes
+6. The clearance system supports both College and Senior High School sectors with appropriate signatory workflows
+7. Faculty clearance workflows are properly configured with department-specific requirements
+
+Steps and Expected Results:
+
+Step 1: Access and verify the End User Dashboard functionality for different user types
+Expected Results: The end user dashboard should display the main dashboard interface with the page header showing "Student Dashboard" for students or "Faculty Dashboard" for faculty members, along with a personalized welcome message containing the user's name. The dashboard should show user-specific quick stats including clearance status, current semester information, days remaining, and clearance progress completion. The main action section should display an appropriate clearance action button that changes based on user type and clearance period status. For students, the button should show "Apply for Clearance" when period is open and not applied, "Go to My Clearance" when already applied, or "Clearance Period Closed" when period is not active. For faculty, the button should show "Go to My Clearance" when period is open or "Clearance Period Closed" when period is not active.
+
+Step 2: Test College Student dashboard functionality and clearance application process
+Expected Results: College students should see a dashboard specifically tailored for college-level clearance requirements with appropriate quick stats and action buttons. The quick actions grid should provide access to view clearance status, check requirements, academic calendar, contact support, settings, and academic records. The recent activity section should display college-specific clearance activities and timeline. The main clearance action button should implement mass apply functionality for students, allowing them to apply to all signatories at once when the clearance period is open and they haven't applied yet. The system should handle the complex logic for student clearance applications including manual mode detection and localStorage management for application states.
+
+Step 3: Test Senior High School Student dashboard functionality and clearance application process
+Expected Results: Senior High School students should see a dashboard specifically tailored for SHS-level clearance requirements with appropriate quick stats and action buttons. The dashboard should display SHS-specific information and clearance workflows. The main clearance action button should implement the same mass apply functionality as college students, allowing them to apply to all SHS signatories at once. The system should properly handle SHS-specific clearance periods and signatory assignments. The recent activity section should display SHS-specific clearance activities and timeline appropriate for senior high school students.
+
+Step 4: Test Faculty dashboard functionality and clearance application process
+Expected Results: Faculty members should see a dashboard specifically tailored for faculty clearance requirements with appropriate quick stats and action buttons. The dashboard should display faculty-specific information and clearance workflows. The main clearance action button should implement simplified logic for faculty, always showing "Go to My Clearance" when the period is open or "Clearance Period Closed" when the period is not active. Faculty should not have mass apply functionality but should be able to navigate directly to their clearance status page. The dashboard should include debug functionality for faculty members to test APIs and check period status for troubleshooting purposes.
+
+Step 5: Test clearance status viewing and management functionality
+Expected Results: End users should be able to access the clearance status page which displays "My Clearance" with appropriate user type descriptions. The page should show a period status banner indicating whether the clearance period is active, paused, closed, or not started with appropriate visual indicators and messages. The period selector should allow users to select different school year and term combinations, loading their clearance forms dynamically. The clearance form banner should display the clearance form ID and period information when a form is selected. The overall clearance progress status badge should show the current clearance status with appropriate visual styling.
+
+Step 6: Test clearance viewing interfaces and tab navigation
+Expected Results: The clearance page should provide three viewing interfaces accessible through tab navigation: Card View, Table View, and Timeline View. The Card View should display signatory cards in a grid layout showing designation name, status description, status value with appropriate color coding, date signed, remarks, action buttons, and signatory information. The Table View should display the same information in a tabular format with columns for signatory/role, name, status, date signed, remarks, and actions. The Timeline View should show a chronological timeline of clearance activities including application submission, awaiting approvals, and completion status with appropriate visual markers and dates.
+
+Step 7: Test signatory application and interaction functionality
+Expected Results: End users should be able to apply to individual signatories using the Apply button on each signatory card or table row. The system should check period status before allowing applications and display appropriate error messages if the period is closed, paused, or not started. When applying to a signatory, the button should show a loading spinner and disable interaction during the application process. Upon successful application, the button should update to show "Applied" status with success styling and display a success notification. The system should handle reapplication for rejected clearances with appropriate button states and tooltips. All application actions should be properly logged and reflected in real-time updates.
+
+Step 8: Test real-time monitoring and status updates
+Expected Results: The clearance system should implement real-time monitoring that refreshes clearance data every 30 seconds when the period is active (ongoing, grace period, paused, or paused grace period). The system should handle API errors gracefully during real-time monitoring without stopping the monitoring process. Status updates should be reflected immediately in the user interface without requiring manual page refresh. The system should properly handle network connectivity issues and provide appropriate error handling for failed API calls during real-time updates.
+
+Step 9: Test period status management and validation
+Expected Results: The system should properly validate clearance period status and display appropriate banners and messages based on the current period state. When the period is not started, users should see a "Clearance Period Not Started" banner with appropriate messaging. When the period is ongoing or in grace period, users should see an "Active" banner allowing applications. When the period is paused, users should see a "Paused" banner with messaging about disabled applications. When the period is closed, users should see a "Closed" banner indicating no more applications are accepted. All period status changes should be reflected in real-time across all user interfaces.
+
+Step 10: Test clearance data export and reporting functionality
+Expected Results: End users should be able to export their clearance reports using the "Export Clearance Report" button. The export functionality should generate user-specific clearance reports containing their clearance status, signatory information, dates, and progress. The export process should show a loading indicator during generation and provide success notifications upon completion. The exported reports should be comprehensive and include all relevant clearance information for the selected period. The export functionality should work consistently across all user types (College students, SHS students, and Faculty) with appropriate data formatting.
+
+Step 11: Test navigation and quick actions functionality
+Expected Results: The quick actions grid should provide functional navigation to various system features including clearance viewing, requirements checking, academic calendar, support contact, settings management, and academic records. Each action card should display appropriate icons, titles, and descriptions. The navigation function should handle routing to different pages with appropriate loading indicators and success notifications. For pages under development, the system should display appropriate "Page under development" messages. The navigation should work consistently across all user types with appropriate access controls and permissions.
+
+Step 12: Test user type differentiation and sector-specific functionality
+Expected Results: The system should properly differentiate between College students, Senior High School students, and Faculty members throughout all interfaces. College students should see college-specific clearance workflows, signatories, and requirements. Senior High School students should see SHS-specific clearance workflows, signatories, and requirements. Faculty members should see faculty-specific clearance workflows, signatories, and requirements. The system should handle sector-specific signatory assignments and clearance processes appropriately. User type information should be consistently displayed and used throughout the application for proper functionality and access control.
+
+Step 13: Test error handling and system resilience
+Expected Results: The system should handle various error conditions gracefully including network connectivity issues, API failures, invalid data inputs, and session timeouts. Error messages should be user-friendly and provide appropriate guidance for resolution. The system should maintain data integrity during operations and provide proper rollback mechanisms for failed transactions. All error conditions should be properly logged for system monitoring and debugging purposes. The system should continue to function properly even when individual components fail, providing appropriate fallback mechanisms and error recovery.
+
+Step 14: Test mobile responsiveness and cross-browser compatibility
+Expected Results: The end user interface should be fully responsive across different device sizes and screen resolutions, with proper mobile navigation and touch-friendly controls. The interface should work consistently across different web browsers including Chrome, Firefox, Safari, and Edge. All functionality should be accessible and usable on mobile devices with appropriate touch targets and navigation patterns. The responsive design should maintain usability and functionality across all supported devices and browsers. The sidebar should properly collapse and expand on different screen sizes with appropriate backdrop handling.
+
+Step 15: Test session management and authentication integration
+Expected Results: The system should properly manage user sessions and authentication throughout all end user operations. Session variables should be correctly set up for header and sidebar components to ensure proper functionality. The system should handle session timeouts gracefully and redirect users to login when appropriate. User information should be consistently available throughout the application for proper personalization and functionality. The system should support both authenticated and demo modes for testing purposes while maintaining proper security measures for production use.

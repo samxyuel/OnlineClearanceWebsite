@@ -40,18 +40,22 @@
                     <!-- Active Period Status -->
                     <div class="card active-period-status">
                         <div class="status-content">
-                            <div class="status-info">
+                            <div class="status-header">
                                 <h3><i class="fas fa-calendar-check"></i> 2024-2025 Term 1 (ACTIVE)</h3>
                                 <p>Duration: 45 days | Started: Jan 15, 2024</p>
-                                <div class="period-stats">
-                                    <span class="stat-item">
-                                        <i class="fas fa-user-graduate"></i> Students: 45 applied, 32 completed (71%)
-                                    </span>
-                                    <span class="stat-item">
-                                        <i class="fas fa-chalkboard-teacher"></i> Faculty: 12 applied, 8 completed (67%)
-                                    </span>
+                            </div>
+                            
+                            <div class="status-stats">
+                                <div class="stat-item">
+                                    <i class="fas fa-user-graduate"></i>
+                                    <span>Students: 45 applied, 32 completed (71%)</span>
+                                </div>
+                                <div class="stat-item">
+                                    <i class="fas fa-chalkboard-teacher"></i>
+                                    <span>Faculty: 12 applied, 8 completed (67%)</span>
                                 </div>
                             </div>
+                            
                             <div class="status-actions">
                                 <button class="btn btn-warning" onclick="deactivateCurrentTerm()">
                                     <i class="fas fa-pause"></i> Deactivate
@@ -106,50 +110,6 @@
                         </div>
                     </div>
 
-                    <!-- Quick Actions -->
-                    <div class="management-section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
-                        </div>
-                        <div class="quick-actions-grid">
-                            <a href="StudentManagement.php" class="action-card">
-                                <div class="action-icon">
-                                    <i class="fas fa-user-graduate"></i>
-                                </div>
-                                <div class="action-content">
-                                    <h4>Manage Students</h4>
-                                    <p>View and manage student accounts</p>
-                                </div>
-                            </a>
-                            <a href="FacultyManagement.php" class="action-card">
-                                <div class="action-icon">
-                                    <i class="fas fa-chalkboard-teacher"></i>
-                                </div>
-                                <div class="action-content">
-                                    <h4>Manage Faculty</h4>
-                                    <p>View and manage faculty accounts</p>
-                                </div>
-                            </a>
-                            <a href="StaffManagement.php" class="action-card">
-                                <div class="action-icon">
-                                    <i class="fas fa-user-cog"></i>
-                                </div>
-                                <div class="action-content">
-                                    <h4>Manage Staff</h4>
-                                    <p>View and manage staff accounts</p>
-                                </div>
-                            </a>
-                            <a href="ClearanceManagement.php" class="action-card">
-                                <div class="action-icon">
-                                    <i class="fas fa-clipboard-check"></i>
-                                </div>
-                                <div class="action-content">
-                                    <h4>Clearance Management</h4>
-                                    <p>Manage clearance periods and signatories</p>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
 
                     <!-- Recent Activity -->
                     <div class="management-section">
