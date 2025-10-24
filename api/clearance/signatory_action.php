@@ -42,8 +42,11 @@ if (!$input || empty($input['applicant_user_id']) || empty($input['action'])) {
 $applicantId     = (int)$input['applicant_user_id'];
 $action          = trim($input['action']);
 $remarks         = isset($input['remarks']) ? trim($input['remarks']) : null;
+$reasonId        = isset($input['reason_id']) ? (int)$input['reason_id'] : null;
+$additionalRemarks = isset($input['additional_remarks']) ? trim($input['additional_remarks']) : null; // Assuming frontend might send this separately
 $designationId   = isset($input['designation_id']) ? (int)$input['designation_id'] : null;
 $designationName = isset($input['designation_name']) ? trim($input['designation_name']) : null;
+$actingUserId    = $auth->getUserId(); // Get the currently logged-in staff user
 
 if ($action !== 'Approved' && $action !== 'Rejected') {
     http_response_code(400); echo json_encode(['success'=>false,'message'=>'Invalid action']); exit;
@@ -51,22 +54,30 @@ if ($action !== 'Approved' && $action !== 'Rejected') {
 
 try {
     $pdo = Database::getInstance()->getConnection();
-
-    // Resolve designation_id if only name provided
-    if (!$designationId && $designationName) {
-        $stmt = $pdo->prepare("SELECT designation_id FROM designations WHERE designation_name = ? AND is_active=1 LIMIT 1");
-        $stmt->execute([$designationName]);
-        $designationId = (int)$stmt->fetchColumn();
+    
+    // Get the acting user's designation_id from the staff table based on their session user_id
+    // If a designation_name is passed (like 'Program Head'), we might not need to look up the staff's single designation.
+    if (!$designationId && !$designationName) {
+        $staffStmt = $pdo->prepare("SELECT designation_id FROM staff WHERE user_id = ? AND is_active = 1");
+        $staffStmt->execute([$actingUserId]);
+        $designationId = $staffStmt->fetchColumn();
     }
-    if (!$designationId) { 
-        http_response_code(400); 
-        echo json_encode(['success'=>false,'message'=>'designation_id or designation_name required']); 
-        exit; 
+    
+    if (!$designationId && !$designationName) {
+        http_response_code(400);
+        echo json_encode(['success'=>false,'message'=>'Acting user has no valid designation or no designation was specified in the request.']);
+        exit;
+    }
+
+    if ($designationName && !$designationId) {
+        $desigIdStmt = $pdo->prepare("SELECT designation_id FROM designations WHERE designation_name = ?");
+        $desigIdStmt->execute([$designationName]);
+        $designationId = $desigIdStmt->fetchColumn();
     }
 
     // Active period
-    $cp = $pdo->query("SELECT academic_year_id, semester_id, status FROM clearance_periods WHERE is_active=1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-    if (!$cp || $cp['status'] !== 'active') { http_response_code(400); echo json_encode(['success'=>false,'message'=>'No active clearance period']); exit; }
+    $cp = $pdo->query("SELECT academic_year_id, semester_id, status FROM clearance_periods WHERE status = 'Ongoing' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if (!$cp) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'No active clearance period']); exit; }
     $ayId  = (int)$cp['academic_year_id'];
     $semId = (int)$cp['semester_id'];
 
@@ -79,16 +90,15 @@ try {
     $clearanceType = strtolower($formData['clearance_type']); // 'student' or 'faculty'
 
     // Department-aware routing for Program Head
-    $actingUserId = $auth->getUserId();
-    $isProgramHead = false;
-    try {
+    $isProgramHeadRequest = (isset($designationName) && strcasecmp($designationName, 'Program Head') === 0);
+    if (!$isProgramHeadRequest && $designationId) {
         $name = $pdo->prepare("SELECT designation_name FROM designations WHERE designation_id=? LIMIT 1");
         $name->execute([$designationId]);
         $dname = (string)$name->fetchColumn();
-        $isProgramHead = (strcasecmp($dname,'Program Head')===0);
-    } catch (Exception $e) { /* ignore */ }
+        $isProgramHeadRequest = (strcasecmp($dname, 'Program Head') === 0);
+    }
 
-    if ($isProgramHead) {
+    if ($isProgramHeadRequest) {
         // Applicant department
         $deptId = null;
         $q1 = $pdo->prepare("SELECT department_id FROM faculty WHERE user_id=? LIMIT 1");
@@ -104,16 +114,25 @@ try {
         // Ensure acting user is PH of that department
         $chk = $pdo->prepare("SELECT 1 FROM staff WHERE user_id=? AND staff_category='Program Head' AND is_active=1 AND department_id=? LIMIT 1");
         $chk->execute([$actingUserId,(int)$deptId]);
-        if (!$chk->fetchColumn()) { http_response_code(403); echo json_encode(['success'=>false,'message'=>'Only the Program Head of the applicant\'s department can perform this action']); exit; }
+        if (!$chk->fetchColumn()) {
+            http_response_code(403);
+            echo json_encode(['success'=>false,'message'=>'Only the Program Head of the applicant\'s department can perform this action']);
+            exit;
+        }
     } else {
-        // For other designations, ensure the acting user matches a staff with that designation (active)
-        $chk = $pdo->prepare("SELECT 1 FROM staff WHERE user_id=? AND designation_id=? AND is_active=1 LIMIT 1");
-        $chk->execute([$actingUserId,$designationId]);
-        if (!$chk->fetchColumn()) { http_response_code(403); echo json_encode(['success'=>false,'message'=>'You are not the assigned signatory for this designation']); exit; }
+        // For other designations, ensure the acting user is assigned as a signatory for the applicant's clearance type (sector).
+        $chk = $pdo->prepare("
+            SELECT 1 FROM sector_signatory_assignments ssa
+            WHERE ssa.user_id = ? AND ssa.designation_id = ? AND ssa.clearance_type = ? AND ssa.is_active = 1 LIMIT 1
+        ");
+        $chk->execute([$actingUserId, $designationId, $formData['clearance_type']]);
+        if (!$chk->fetchColumn()) {
+            http_response_code(403); echo json_encode(['success'=>false,'message'=>'You are not the assigned signatory for this designation']); exit;
+        }
     }
 
     // Required First/Last Signatory Validation
-    $scopeSettings = $pdo->prepare("SELECT required_first_enabled, required_first_designation_id, required_last_enabled, required_last_designation_id FROM scope_settings WHERE clearance_type = ? LIMIT 1");
+    $scopeSettings = $pdo->prepare("SELECT required_first_enabled, required_first_designation_id, required_last_enabled, required_last_designation_id FROM sector_clearance_settings WHERE clearance_type = ? LIMIT 1");
     $scopeSettings->execute([$clearanceType]);
     $scope = $scopeSettings->fetch(PDO::FETCH_ASSOC);
     
@@ -179,30 +198,48 @@ try {
     $get = $pdo->prepare("SELECT 1 FROM clearance_signatories WHERE clearance_form_id=? AND designation_id=? LIMIT 1");
     $get->execute([$formId,$designationId]);
     if ($get->fetch()) {
-        $upd = $pdo->prepare("UPDATE clearance_signatories SET action=?, remarks=?, updated_at=NOW() WHERE clearance_form_id=? AND designation_id=?");
-        $upd->execute([$action,$remarks,$formId,$designationId]);
+        if ($action === 'Approved') {
+            // On approval, set the user ID and the signing date, clear rejection info.
+            $upd = $pdo->prepare("UPDATE clearance_signatories SET action=?, remarks=?, reason_id=NULL, additional_remarks=NULL, updated_at=NOW(), actual_user_id=?, date_signed=NOW() WHERE clearance_form_id=? AND designation_id=?");
+            $upd->execute([$action, $remarks, $actingUserId, $formId, $designationId]); // Use $remarks for general remarks
+        } else {
+            // On rejection, set rejection reason and additional remarks, clear actual_user_id and date_signed.
+            // The 'remarks' from frontend is treated as 'additional_remarks' for rejection.
+            $upd = $pdo->prepare("UPDATE clearance_signatories SET action=?, remarks=NULL, reason_id=?, additional_remarks=?, updated_at=NOW(), actual_user_id=NULL, date_signed=NULL WHERE clearance_form_id=? AND designation_id=?");
+            $upd->execute([$action, $reasonId, $remarks, $formId, $designationId]);
+        }
     } else {
-        $ins = $pdo->prepare("INSERT INTO clearance_signatories (clearance_form_id,designation_id,action,remarks,created_at,updated_at) VALUES (?,?,?,?,NOW(),NOW())");
-        $ins->execute([$formId,$designationId,$action,$remarks]);
+        // Corrected INSERT logic
+        $userIdToInsert = ($action === 'Approved') ? $actingUserId : null;
+        $dateToInsert = ($action === 'Approved') ? date('Y-m-d H:i:s') : null;
+        $generalRemarks = ($action === 'Approved') ? $remarks : null;
+        $rejectionRemarks = ($action === 'Rejected') ? $remarks : null;
+
+        $ins = $pdo->prepare("INSERT INTO clearance_signatories (clearance_form_id, designation_id, action, remarks, reason_id, additional_remarks, created_at, updated_at, actual_user_id, date_signed) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?)");
+        $ins->execute([$formId, $designationId, $action, $generalRemarks, $reasonId, $rejectionRemarks, $userIdToInsert, $dateToInsert]);
     }
 
     // Optionally lift overall status to In Progress or Complete
     // Count states
     $st = $pdo->prepare("SELECT action FROM clearance_signatories WHERE clearance_form_id=?");
     $st->execute([$formId]);
-    $rows = $st->fetchAll(PDO::FETCH_COLUMN,0);
+    $rows = $st->fetchAll(PDO::FETCH_COLUMN, 0);
     $total = count($rows);
     $approved = 0; $active = 0;
     foreach ($rows as $a) { if ($a!==null && $a!=='') $active++; if ($a==='Approved') $approved++; }
-    $overall = ($active===0) ? 'Unapplied' : (($approved===$total) ? 'Complete' : 'In Progress');
-    $pdo->prepare("UPDATE clearance_forms SET status=?, updated_at=NOW() WHERE clearance_form_id=?")->execute([$overall,$formId]);
+    $overallProgress = ($active === 0) ? 'unapplied' : (($approved === $total && $total > 0) ? 'complete' : 'in-progress');
+    
+    // Conditionally set completed_at timestamp
+    if ($overallProgress === 'complete') {
+        $pdo->prepare("UPDATE clearance_forms SET clearance_form_progress='complete', completed_at=NOW(), updated_at=NOW() WHERE clearance_form_id=?")->execute([$formId]);
+    } else {
+        $pdo->prepare("UPDATE clearance_forms SET clearance_form_progress=?, updated_at=NOW() WHERE clearance_form_id=?")->execute([$overallProgress, $formId]);
+    }
 
-    logActivity($actingUserId,'Signatory Action',[ 'target_user_id'=>$applicantId, 'designation_id'=>$designationId, 'action'=>$action ]);
-    echo json_encode(['success'=>true,'message'=>'Action recorded','overall_status'=>$overall]);
+    logActivity($actingUserId, 'Signatory Action', ['target_user_id' => $applicantId, 'designation_id' => $designationId, 'action' => $action]);
+    echo json_encode(['success' => true, 'message' => 'Action recorded', 'overall_status' => $overallProgress]);
 
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success'=>false,'message'=>$e->getMessage()]);
 }
-
-

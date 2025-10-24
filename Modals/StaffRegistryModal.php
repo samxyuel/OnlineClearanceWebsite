@@ -151,28 +151,58 @@ window.closeStaffRegistrationModal = function() {
 };
 
 window.submitStaffRegistrationForm = function() {
-    const form = document.getElementById('staffRegistrationForm');
-    const formData = new FormData(form);
-    
-    // Handle designation (free-text with validation)
-    const designationInput = document.getElementById('designationInput');
-    const rawDesignation = (designationInput.value || '').trim();
-    const normalizedDesignation = normalizeDesignation(rawDesignation);
-    if (!isValidDesignation(normalizedDesignation)) {
-        showToast('Invalid designation. Use 2–50 allowed characters.', 'error');
-        designationInput.focus();
+    if (!validateStaffRegistrationForm()) {
+        showToast('Please correct the errors in the form.', 'error');
         return;
     }
-    // send under expected key for backend compatibility
-    formData.set('staffPosition', normalizedDesignation);
-    
-    // Handle faculty validation
+
+    // Generate credentials locally first
+    const form = document.getElementById('staffRegistrationForm');
+    const empId = form.employeeId.value.trim();
+    const lastName = form.lastName.value.trim().replace(/\s+/g, '');
+    const username = empId;
+    const password = `${lastName}${empId}`; // Case-sensitive as per previous request
+
+    // Prepare the data for the modal and the final submission
+    const credentialData = { username, password };
+
+    // The callback function that will be executed when "Confirm & Save" is clicked
+    const confirmCallback = () => {
+      confirmStaffCreation(credentialData);
+    };
+
+    // Open the unified credentials modal
+    openGeneratedCredentialsModal('newAccount', credentialData, confirmCallback);
+};
+
+function validateStaffRegistrationForm() {
+    const form = document.getElementById('staffRegistrationForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return false;
+    }
+
     const isAlsoFaculty = document.getElementById('isAlsoFaculty').checked;
     const facultyEmploymentStatus = document.getElementById('facultyEmploymentStatus').value;
     
     if (isAlsoFaculty && !facultyEmploymentStatus) {
         showToast('Faculty Employment Status is required when "Is also a faculty" is checked.', 'error');
         document.getElementById('facultyEmploymentStatus').focus();
+        return false;
+    }
+
+    return true;
+}
+
+function confirmStaffCreation(credentialData) {
+    const form = document.getElementById('staffRegistrationForm');
+    const formData = new FormData(form);
+    const designationInput = document.getElementById('designationInput');
+    const rawDesignation = (designationInput.value || '').trim();
+    const normalizedDesignation = normalizeDesignation(rawDesignation);
+    if (!isValidDesignation(normalizedDesignation)) {
+        showToast('Invalid designation. Use 2–50 allowed characters.', 'error');
+        designationInput.focus();
         return;
     }
     
@@ -193,17 +223,23 @@ window.submitStaffRegistrationForm = function() {
         }
     }
     
-    // Validate form
-    if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-    }
-    
     // Convert to JSON
     const jsonData = {};
     formData.forEach((value, key) => {
         jsonData[key] = value;
     });
+
+    // Manually collect department assignments for Program Heads, as FormData doesn't handle array-like names well.
+    const isAlsoFaculty = document.getElementById('isAlsoFaculty').checked;
+    const facultyEmploymentStatus = document.getElementById('facultyEmploymentStatus').value;
+
+    if (normalizedDesignation.toLowerCase() === 'program head') {
+        const assignedDeptCheckboxes = document.querySelectorAll('#staffRegistrationForm input[name="assignedDepartments[]"]:checked');
+        if (assignedDeptCheckboxes.length > 0) {
+            jsonData['assignedDepartments'] = Array.from(assignedDeptCheckboxes).map(cb => cb.value);
+        }
+    }
+
     // Build name parts
     const lastName = (jsonData.lastName || '').trim();
     const firstName = (jsonData.firstName || '').trim();
@@ -217,10 +253,19 @@ window.submitStaffRegistrationForm = function() {
     jsonData['first_name'] = firstName;
     jsonData['last_name'] = lastName;
     if (middleName) jsonData['middle_name'] = middleName;
+
+    // Add generated credentials to the payload
+    jsonData['username'] = credentialData.username;
+    jsonData['password'] = credentialData.password;
+
     // Optional fields normalization
     if (!jsonData.staffEmail) delete jsonData.staffEmail;
     if (!jsonData.staffContact) delete jsonData.staffContact;
     
+    // Use the correct key for the backend to recognize the designation
+    jsonData['staffPosition'] = normalizedDesignation;
+    delete jsonData['designation']; // Remove the incorrect key
+
     // Submit form
     fetch(form.dataset.endpoint, {
         method: 'POST',
@@ -231,6 +276,10 @@ window.submitStaffRegistrationForm = function() {
     })
     .then(response => response.json())
     .then(data => {
+        // Re-enable the primary button in the credentials modal
+        const confirmBtn = document.getElementById('credentialModalConfirmBtn');
+        if(confirmBtn) confirmBtn.disabled = false;
+
         if (data.status === 'success') {
             // Fire audit log (non-blocking)
             try{
@@ -240,6 +289,12 @@ window.submitStaffRegistrationForm = function() {
                 });
             }catch(e){}
             // If Program Head, perform assignments to selected departments (with transfer support)
+            const newUserId = data.user_id || data.userId || data.created_user_id || null;
+            if (newUserId && isAlsoFaculty) {
+                // Trigger automatic clearance form creation for the new faculty member
+                onUserCreated(newUserId, 'Faculty').catch(console.error);
+            }
+
             const isPH = normalizedDesignation.toLowerCase() === 'program head';
             const selectedCategory = document.getElementById('programHeadCategory').value;
             const selectedDeptInputs = document.querySelectorAll('input[name="assignedDepartments[]"]:checked');
@@ -267,12 +322,12 @@ window.submitStaffRegistrationForm = function() {
                     document.dispatchEvent(new CustomEvent('staff-added', { detail: payload }));
                 }catch(e){}
                 showToast('Staff member registered successfully!', 'success');
+                closeGeneratedCredentialsModal(); // Close the credentials modal
                 closeStaffRegistrationModal();
             };
 
             if (isPH && selectedDeptIds.length > 0) {
                 // Determine user_id of the newly created staff
-                const newUserId = data.user_id || data.userId || data.created_user_id || null;
                 if (!newUserId) {
                     // Fallback: cannot assign without user_id
                     proceedAfterAssign();
@@ -320,10 +375,49 @@ window.submitStaffRegistrationForm = function() {
         }
     })
     .catch(error => {
+        // Re-enable the primary button in the credentials modal on error
+        const confirmBtn = document.getElementById('credentialModalConfirmBtn');
+        if(confirmBtn) confirmBtn.disabled = false;
+
         console.error('Error:', error);
         showToast('An error occurred while registering staff member.', 'error');
     });
+    // Disable the primary button in the credentials modal to prevent double-clicks
+    const confirmBtn = document.getElementById('credentialModalConfirmBtn');
+    if(confirmBtn) confirmBtn.disabled = true;
 };
+
+async function onUserCreated(newUserId, userSector) {
+    // Only proceed if a valid sector is provided (e.g., 'Faculty')
+    if (!userSector) return;
+
+    try {
+        // 1. Check for an active clearance period
+        const context = await fetch('../../api/clearance/context.php', { credentials: 'include' }).then(r => r.json());
+        const activeSemester = context.terms.find(t => t.is_active === 1);
+
+        if (activeSemester) {
+            console.log(`Active period found for ${activeSemester.semester_name}. Creating clearance form for new user...`);
+
+            // 2. Call the distribution API for the single new user
+            const response = await fetch('../../api/clearance/form_distribution.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    user_id: newUserId, // The new, crucial parameter
+                    clearance_type: userSector,
+                    academic_year_id: context.academic_year.academic_year_id,
+                    semester_id: activeSemester.semester_id
+                })
+            }).then(r => r.json());
+
+            console.log('Auto form generation response:', response);
+        }
+    } catch (error) {
+        console.error('Failed to auto-generate clearance form for new user:', error);
+    }
+}
 
     // Toggle faculty section visibility
     window.toggleFacultySection = function() {

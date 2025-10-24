@@ -306,9 +306,15 @@ async function saveSignatorySettings() {
         saveBtn.textContent = 'Saving...';
         
         try {
+            // Fetch current settings to get the include_program_head value
+            const currentSettingsResponse = await fetch(`/OnlineClearanceWebsite/api/signatories/sector_settings.php?clearance_type=${window.currentClearanceType}`);
+            const currentSettingsData = await currentSettingsResponse.json();
+            const currentSettings = currentSettingsData.settings && currentSettingsData.settings[0] ? currentSettingsData.settings[0] : {};
+            const includeProgramHead = currentSettings.include_program_head == 1;
+
             const settingsData = {
                 clearance_type: window.currentClearanceType,
-                include_program_head: false, // Keep existing value, we're only updating required fields
+                include_program_head: includeProgramHead, // Preserve the existing value
                 required_first_enabled: formData.get('requiredFirstEnabled') === 'on',
                 required_first_designation_id: getDesignationIdByName(formData.get('requiredFirstPosition')),
                 required_last_enabled: formData.get('requiredLastEnabled') === 'on',
@@ -367,6 +373,16 @@ function validateSignatorySettings(formData) {
     const requiredFirstEnabled = formData.get('requiredFirstEnabled') === 'on';
     const requiredLastEnabled = formData.get('requiredLastEnabled') === 'on';
     
+    // Enhanced validation: Check if the same position is selected for both
+    if (requiredFirstEnabled && requiredLastEnabled) {
+        const firstPosition = formData.get('requiredFirstPosition');
+        const lastPosition = formData.get('requiredLastPosition');
+        if (firstPosition && lastPosition && firstPosition === lastPosition) {
+            showToast('Required First and Required Last positions cannot be the same.', 'error');
+            return false;
+        }
+    }
+
     if (requiredFirstEnabled) {
         const requiredFirstPosition = formData.get('requiredFirstPosition');
         if (!requiredFirstPosition) {
@@ -379,17 +395,6 @@ function validateSignatorySettings(formData) {
         const requiredLastPosition = formData.get('requiredLastPosition');
         if (!requiredLastPosition) {
             showToast('Please select a position for Required Last signatory.', 'error');
-            return false;
-        }
-    }
-    
-    // Check if same position is selected for both
-    if (requiredFirstEnabled && requiredLastEnabled) {
-        const firstPosition = formData.get('requiredFirstPosition');
-        const lastPosition = formData.get('requiredLastPosition');
-        
-        if (firstPosition && lastPosition && firstPosition === lastPosition) {
-            showToast('Required First and Required Last positions cannot be the same.', 'error');
             return false;
         }
     }

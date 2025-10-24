@@ -992,6 +992,7 @@ ob_start();
                 const data = await res.json();
                 if(!data.success){showToastNotification(data.message||'Failed to load faculty','error');return;}
                 const f = data.faculty;
+                document.getElementById('editFacultyForm').dataset.userId = f.user_id; // Store user_id
                 document.getElementById('editFacultyId').value = empId;
                 document.getElementById('editEmployeeNumber').value = empId;
                 document.getElementById('editEmploymentStatus').value = f.employment_status.toLowerCase().replace(/ /g,'-');

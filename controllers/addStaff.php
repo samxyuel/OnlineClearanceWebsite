@@ -36,6 +36,7 @@ try {
     $lastName     = trim($input['last_name'] ?? '');
     $middleName   = trim($input['middle_name'] ?? '');
     $emailInput   = trim($input['staffEmail'] ?? '');
+    $employmentStatus = trim($input['facultyEmploymentStatus'] ?? '');
     $contactInput = trim($input['staffContact'] ?? '');
 
     if ($firstName === '' || $lastName === '') {
@@ -48,21 +49,21 @@ try {
 
     // Resolve role from designation (Program Head => Program Head role, School Administrator => School Administrator role, else Staff)
     $designationLower = strtolower($designation);
-    $roleName = 'Staff';
+    $roleName = 'Regular Staff';
     if ($designationLower === 'program head') { $roleName = 'Program Head'; }
     else if ($designationLower === 'school administrator') { $roleName = 'School Administrator'; }
 
     $r = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
     $r->execute([$roleName]);
     $row = $r->fetch(PDO::FETCH_ASSOC);
-    $roleId = $row ? (int)$row['role_id'] : 4;
+    $roleId = $row ? (int)$row['role_id'] : 7;
 
     // Build user payload
-    // Normalize and validate employee ID format (LLLDDDL)
+    // Normalize and validate employee ID format (LLLDDDDL)
     if ($employeeId !== '') { $employeeId = strtoupper($employeeId); }
-    if ($employeeId === '' || !preg_match('/^[A-Z]{3}[0-9]{3}[A-Z]$/', $employeeId)) {
+    if ($employeeId === '' || !preg_match('/^[A-Z]{3}[0-9]{4}[A-Z]$/', $employeeId)) {
         http_response_code(400);
-        echo json_encode(['status'=>'error','message'=>'Employee ID must match LCA123P format']);
+        echo json_encode(['status'=>'error','message'=>'Employee ID must match LCA1234P format']);
         exit;
     }
 
@@ -78,9 +79,10 @@ try {
         'email'      => $email,
         'password'   => $plainPassword,
         'first_name' => $firstName,
+        'middle_name' => $middleName,
         'last_name'  => $lastName,
         'role_id'    => $roleId,
-        'status'     => 'active'
+        'account_status'     => 'active'
     ]);
 
     if (!$createRes['success']) {
@@ -90,6 +92,13 @@ try {
     }
 
     $newUserId = (int)$createRes['user_id'];
+    $departmentIdToSet = null;
+
+    // A Program Head is assigned to a single department.
+    if (isset($input['assignedDepartments']) && is_array($input['assignedDepartments']) && !empty($input['assignedDepartments'][0])) {
+        $departmentIdToSet = (int)$input['assignedDepartments'][0];
+    }
+
     $employeeOut = null;
 
     // Always create or update a staff row using the provided employeeId (LCA123P format)
@@ -116,19 +125,38 @@ try {
         if ($employeeId !== '' && $employeeId !== $employeeOut) {
             $employeeOut = $employeeId;
         }
-        $upd = $pdo->prepare("UPDATE staff SET employee_number = ?, designation_id = ?, staff_category = ?, department_id = NULL, is_active = 1, updated_at = NOW() WHERE user_id = ?");
-        $upd->execute([$employeeOut, $designationId, $staffCategory, $newUserId]);
+        $upd = $pdo->prepare("UPDATE staff SET employee_number = ?, designation_id = ?, staff_category = ?, employment_status = ?, department_id = ?, is_active = 1, updated_at = NOW() WHERE user_id = ?");
+        $upd->execute([$employeeOut, $designationId, $staffCategory, $employmentStatus ?: null, $departmentIdToSet, $newUserId]);
     } else {
         // Insert new staff row with provided employeeId (validated by client pattern)
         $employeeOut = $employeeId !== '' ? $employeeId : null;
         if ($employeeOut === null) {
             // Fallback: derive from username if it matches expected pattern; otherwise keep a simple placeholder
-            if (preg_match('/^[A-Z]{3}[0-9]{3}[A-Z]$/', $username)) { $employeeOut = $username; }
-            else { $employeeOut = 'LCA000A'; }
+            if (preg_match('/^[A-Z]{3}[0-9]{4}[A-Z]$/', $username)) { $employeeOut = $username; }
+            else { $employeeOut = 'LCA0000A'; }
         }
-        $ins = $pdo->prepare("INSERT INTO staff (employee_number, user_id, designation_id, staff_category, department_id, is_active, created_at, updated_at) VALUES (?,?,?,?,?,1,NOW(),NOW())");
-        $ins->execute([$employeeOut, $newUserId, $designationId, $staffCategory, null]);
+        $ins = $pdo->prepare("INSERT INTO staff (employee_number, user_id, designation_id, staff_category, employment_status, department_id, is_active, created_at, updated_at) VALUES (?,?,?,?,?,?,1,NOW(),NOW())");
+        $ins->execute([$employeeOut, $newUserId, $designationId, $staffCategory, $employmentStatus ?: null, $departmentIdToSet]);
     }
+
+    // Handle "Is also a faculty" logic
+    $isAlsoFaculty = isset($input['isAlsoFaculty']) && $input['isAlsoFaculty'] === 'on';
+    if ($isAlsoFaculty) {
+        // Check if a faculty record already exists
+        $stmt = $pdo->prepare("SELECT 1 FROM faculty WHERE user_id = ?");
+        $stmt->execute([$newUserId]);
+        $facultyExists = $stmt->fetchColumn();
+
+        if (!$facultyExists) {
+            // Create new faculty record
+            if ($employmentStatus) {
+                $ins = $pdo->prepare("INSERT INTO faculty (employee_number, user_id, employment_status, department_id, created_at) VALUES (?, ?, ?, ?, NOW())");
+                $ins->execute([$employeeOut, $newUserId, $employmentStatus, $departmentIdToSet]); // Use the same department ID
+            }
+        }
+    }
+
+
 
     // Audit
     require_once __DIR__ . '/../includes/functions/audit_functions.php';
@@ -151,4 +179,3 @@ try {
     echo json_encode(['status'=>'error','message'=>'Server error: '.$e->getMessage()]);
 }
 ?>
-

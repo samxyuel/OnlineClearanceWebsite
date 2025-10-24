@@ -103,6 +103,13 @@
                         <div id="editDepartmentCheckboxesList" class="checkbox-group">
                             <!-- Checkboxes will be populated dynamically -->
                         </div>
+                        <div class="form-group" style="margin-top:10px;">
+                            <label class="checkbox-label" style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" id="editPhTransferToggle" checked>
+                                <span>Transfer existing Program Head if a department is already assigned</span>
+                            </label>
+                            <small class="form-help">When checked, assigning will replace the current Program Head for occupied departments.</small>
+                        </div>
                     </div>
                 </div>
                 
@@ -116,16 +123,6 @@
                     <label for="editStaffContact">Contact Number</label>
                     <input type="tel" id="editStaffContact" name="staffContact" 
                            placeholder="+63 912 345 6789" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="editStaffStatus">Staff Status</label>
-                    <select id="editStaffStatus" name="staffStatus" required>
-                        <option value="">Select Status</option>
-                        <option value="essential">Essential Staff</option>
-                        <option value="optional">Optional Staff</option>
-                    </select>
-                    <small class="form-help">Essential staff cannot be deleted and are critical for clearance workflow.</small>
                 </div>
                 
                 <!-- Faculty Section Divider -->
@@ -162,6 +159,19 @@
                                style="background-color: #f8f9fa; color: #6c757d;">
                         <small class="form-help">Auto-filled from Employee ID (read-only)</small>
                     </div>
+                </div>
+
+                <!-- Password Management Section -->
+                <div class="form-section-divider">
+                    <hr>
+                    <span class="divider-text">Password Management</span>
+                </div>
+                <div class="form-group">
+                    <label>Password Actions</label>
+                    <button type="button" class="btn btn-outline-warning" onclick="handlePasswordReset()">
+                        <i class="fas fa-key"></i> Reset Password
+                    </button>
+                    <small class="form-help">This will generate a new secure password for the user. The new password will be displayed for you to copy.</small>
                 </div>
             </form>
         </div>
@@ -247,39 +257,35 @@ window.populateEditStaffForm = function(staffData) {
 };
 
 // Load existing department assignments for Program Head
-window.loadExistingAssignments = function(staffData) {
+window.loadExistingAssignments = async function(staffData) {
     const userId = staffData.user_id || staffData.id;
     if (!userId) {
         console.error('No user ID found for loading assignments');
         return;
     }
 
-    // Fetch existing assignments
-    fetch(`../../api/staff/assignments.php?staff_id=${userId}`, {
-        credentials: 'include'
-    })
-    .then(response => response.json())
-    .then(data => {
+    try {
+        // Fetch existing assignments
+        const response = await fetch(`../../api/staff/assignments.php?staff_id=${userId}`, { credentials: 'include' });
+        const data = await response.json();
+
         if (data.success && data.assignments) {
             // Store existing assignments for later use
             window.currentAssignments = data.assignments;
-            
+
             // Display current assignments
             displayCurrentAssignments(data.assignments);
-            
+
             // Determine the sector from existing assignments
             const sectors = [...new Set(data.assignments.map(a => a.sector_name))];
             if (sectors.length > 0) {
-                // Set the sector (assuming single sector for now)
+                // Set the sector
                 const sectorSelect = document.getElementById('editProgramHeadCategory');
                 if (sectorSelect) {
                     sectorSelect.value = sectors[0];
-                    updateEditDepartmentCheckboxes();
-                    
-                    // After checkboxes are loaded, mark existing assignments
-                    setTimeout(() => {
-                        markExistingAssignments(data.assignments);
-                    }, 200);
+                    // Wait for checkboxes to be loaded, then mark existing assignments
+                    await updateEditDepartmentCheckboxes();
+                    markExistingAssignments(data.assignments);
                 }
             }
         } else {
@@ -287,12 +293,11 @@ window.loadExistingAssignments = function(staffData) {
             hideCurrentAssignments();
             updateEditDepartmentCheckboxes();
         }
-    })
-    .catch(error => {
+    } catch (error) {
         console.error('Error loading assignments:', error);
         hideCurrentAssignments();
         updateEditDepartmentCheckboxes();
-    });
+    }
 };
 
 // Display current assignments
@@ -468,12 +473,12 @@ window.submitEditStaffForm = function() {
     
     // Validation: Must have either standard position OR custom position, not both
     if (!standardPosition && !customPosition) {
-        showToast('Please select a standard position or enter a custom position.', 'error');
+        showToastNotification('Please select a standard position or enter a custom position.', 'error');
         return;
     }
     
     if (standardPosition && customPosition) {
-        showToast('Please select either a standard position OR enter a custom position, not both.', 'error');
+        showToastNotification('Please select either a standard position OR enter a custom position, not both.', 'error');
         return;
     }
     
@@ -486,7 +491,7 @@ window.submitEditStaffForm = function() {
     const facultyEmploymentStatus = document.getElementById('editFacultyEmploymentStatus').value;
     
     if (isAlsoFaculty && !facultyEmploymentStatus) {
-        showToast('Faculty Employment Status is required when "Is also a faculty" is checked.', 'error');
+        showToastNotification('Faculty Employment Status is required when "Is also a faculty" is checked.', 'error');
         document.getElementById('editFacultyEmploymentStatus').focus();
         return;
     }
@@ -503,13 +508,13 @@ window.submitEditStaffForm = function() {
         const assignedDepartments = document.querySelectorAll('input[name="assignedDepartments[]"]:checked');
         
         if (!programHeadCategory) {
-            showToast('Please select a category for Program Head assignment.', 'error');
+            showToastNotification('Please select a category for Program Head assignment.', 'error');
             document.getElementById('editProgramHeadCategory').focus();
             return;
         }
         
         if (assignedDepartments.length === 0) {
-            showToast('Please select at least one department for Program Head assignment.', 'error');
+            showToastNotification('Please select at least one department for Program Head assignment.', 'error');
             return;
         }
     }
@@ -526,12 +531,20 @@ window.submitEditStaffForm = function() {
         jsonData[key] = value;
     });
     
+    // Manually collect department assignments for Program Heads
+    if (editValidationFinalPosition === 'Program Head') {
+        const assignedDeptCheckboxes = document.querySelectorAll('input[name="assignedDepartments[]"]:checked');
+        if (assignedDeptCheckboxes.length > 0) {
+            jsonData['assignedDepartments'] = Array.from(assignedDeptCheckboxes).map(cb => cb.value);
+        }
+    }
+
     // Build name parts
     const lastName = (jsonData.lastName || '').trim();
     const firstName = (jsonData.firstName || '').trim();
     const middleName = (jsonData.middleName || '').trim();
     if (!lastName || !firstName) {
-        showToast('First and Last name are required.', 'error');
+        showToastNotification('First and Last name are required.', 'error');
         return;
     }
     
@@ -566,25 +579,27 @@ window.submitEditStaffForm = function() {
                 if (hadAssignments) {
                     removeAllAssignments(userId);
                 } else {
-            showToast('Staff member updated successfully!', 'success');
-            closeEditStaffModal();
-            location.reload();
+                    showToastNotification('Staff member updated successfully!', 'success');
+                    setTimeout(() => {
+                        closeEditStaffModal();
+                        location.reload();
+                    }, 1500); // Wait 1.5 seconds before reloading
                 }
             }
         } else {
-            showToast(data.message || 'Failed to update staff member.', 'error');
+            showToastNotification(data.message || 'Failed to update staff member.', 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showToast('An error occurred while updating staff member.', 'error');
+        showToastNotification('An error occurred while updating staff member.', 'error');
     });
 };
 
 // Update Program Head department assignments
 window.updateProgramHeadAssignments = function(userId) {
     if (!userId) {
-        showToast('Staff member updated, but assignment update failed - no user ID.', 'error');
+        showToastNotification('Staff member updated, but assignment update failed - no user ID.', 'error');
         closeEditStaffModal();
         location.reload();
         return;
@@ -645,27 +660,33 @@ window.updateProgramHeadAssignments = function(userId) {
         .then(results => {
             const hasErrors = results.some(r => !r.success);
             if (hasErrors) {
-                showToast('Staff member updated, but some assignment changes failed.', 'warning');
+                showToastNotification('Staff member updated, but some assignment changes failed.', 'warning');
             } else {
-                showToast('Staff member and assignments updated successfully!', 'success');
+                showToastNotification('Staff member and assignments updated successfully!', 'success');
             }
-            closeEditStaffModal();
-            location.reload();
+            setTimeout(() => {
+                closeEditStaffModal();
+                location.reload();
+            }, 1500);
         })
         .catch(error => {
             console.error('Error updating assignments:', error);
-            showToast('Staff member updated, but assignment update failed.', 'warning');
-            closeEditStaffModal();
-            location.reload();
+            showToastNotification('Staff member updated, but assignment update failed.', 'warning');
+            setTimeout(() => {
+                closeEditStaffModal();
+                location.reload();
+            }, 1500);
         });
 };
 
 // Remove all department assignments (when changing from Program Head to another role)
 window.removeAllAssignments = function(userId) {
     if (!userId || !window.currentAssignments) {
-        showToast('Staff member updated successfully!', 'success');
-        closeEditStaffModal();
-        location.reload();
+        showToastNotification('Staff member updated successfully!', 'success');
+        setTimeout(() => {
+            closeEditStaffModal();
+            location.reload();
+        }, 1500);
         return;
     }
 
@@ -687,18 +708,22 @@ window.removeAllAssignments = function(userId) {
         .then(results => {
             const hasErrors = results.some(r => !r.success);
             if (hasErrors) {
-                showToast('Staff member updated, but some assignment removals failed.', 'warning');
+                showToastNotification('Staff member updated, but some assignment removals failed.', 'warning');
             } else {
-                showToast('Staff member updated and assignments removed successfully!', 'success');
+                showToastNotification('Staff member updated and assignments removed successfully!', 'success');
             }
-            closeEditStaffModal();
-            location.reload();
+            setTimeout(() => {
+                closeEditStaffModal();
+                location.reload();
+            }, 1500);
         })
         .catch(error => {
             console.error('Error removing assignments:', error);
-            showToast('Staff member updated, but assignment removal failed.', 'warning');
-            closeEditStaffModal();
-            location.reload();
+            showToastNotification('Staff member updated, but assignment removal failed.', 'warning');
+            setTimeout(() => {
+                closeEditStaffModal();
+                location.reload();
+            }, 1500);
     });
 };
 
@@ -784,95 +809,85 @@ window.removeAllAssignments = function(userId) {
         const selectedCategory = categorySelect.value;
         
         if (!selectedCategory) {
-            checkboxesContainer.style.display = 'none';
-            return;
+            checkboxesContainer.style.display = 'none'; 
+            return Promise.resolve(); // Return a resolved promise
         }
         
-        // Load departments from API filtered by sector/category
-        const url = `../../api/departments/list.php?sector=${encodeURIComponent(selectedCategory)}&include_ph=1&limit=500`;
-        checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">Loading departments...</div>';
-        
-        fetch(url, { credentials: 'include' })
-            .then(r => r.json())
-            .then(resp => {
-                checkboxesList.innerHTML = '';
-                if (!resp || resp.success !== true) {
-                    checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Failed to load departments</div>';
-                    return;
-                }
-                const departments = resp.departments || [];
-                if (departments.length === 0) {
-                    checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">No departments found for this sector</div>';
-                }
-                
-                departments.forEach(dep => {
-                    const depId = dep.department_id;
-                    const depName = dep.department_name;
-                    const phUserId = dep.current_program_head_user_id || null;
-                    const phName = dep.current_program_head_name || '';
-                    const phEmployeeNumber = dep.current_program_head_employee_number || '';
-                    
-                    const disabled = !!phUserId; // lock if already has a PH
-                    const option = document.createElement('div');
-                    option.className = 'checkbox-option';
-                    const inputId = `edit_dept_${depId}`;
-                    
-                    // Create enhanced label with Program Head info
-                    let phInfo = '';
-                    if (disabled) {
-                        phInfo = `
-                            <div class="current-ph-info">
-                                <span class="ph-assigned-label">Currently assigned to:</span>
-                                <span class="ph-name">${phName}</span>
-                                <span class="ph-employee">(${phEmployeeNumber})</span>
-                            </div>
-                        `;
+        return new Promise((resolve, reject) => {
+            // Load departments from API filtered by sector/category
+            const url = `../../api/departments/list.php?sector=${encodeURIComponent(selectedCategory)}&include_ph=1&limit=500`;
+            checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">Loading departments...</div>';
+            
+            fetch(url, { credentials: 'include' })
+                .then(r => r.json())
+                .then(resp => {
+                    checkboxesList.innerHTML = '';
+                    if (!resp || resp.success !== true) {
+                        checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Failed to load departments</div>';
+                        reject(new Error('Failed to load departments'));
+                        return;
+                    }
+                    const departments = resp.departments || [];
+                    if (departments.length === 0) {
+                        checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">No departments found for this sector</div>';
                     }
                     
-                    option.innerHTML = `
-                        <input type="checkbox" id="${inputId}" name="assignedDepartments[]" value="${depId}" ${disabled ? 'disabled' : ''}>
-                        <label for="${inputId}">
-                            <div class="dept-label-main">${depName}</div>
-                            ${phInfo}
-                        </label>
-                    `;
-                    checkboxesList.appendChild(option);
-                });
+                    departments.forEach(dep => {
+                        const depId = dep.department_id;
+                        const depName = dep.department_name;
+                        const phUserId = dep.current_program_head_user_id || null;
+                        const phName = dep.current_program_head_name || '';
+                        const phEmployeeNumber = dep.current_program_head_employee_number || '';
+                        
+                        const disabled = false; // Always allow selection, transfer toggle will handle logic
+                        const option = document.createElement('div');
+                        option.className = 'checkbox-option';
+                        const inputId = `edit_dept_${depId}`;
+                        
+                        // Create enhanced label with Program Head info
+                        let phInfo = '';
+                        if (phUserId) { // Show info if a PH is assigned
+                            phInfo = `
+                                <div class="current-ph-info">
+                                    <span class="ph-assigned-label">Currently assigned to:</span>
+                                    <span class="ph-name">${phName}</span>
+                                    <span class="ph-employee">(${phEmployeeNumber})</span>
+                                </div>
+                            `;
+                        }
+                        
+                        option.innerHTML = `
+                            <input type="checkbox" id="${inputId}" name="assignedDepartments[]" value="${depId}" ${disabled ? 'disabled' : ''}>
+                            <label for="${inputId}">
+                                <div class="dept-label-main">${depName}</div>
+                                ${phInfo}
+                            </label>
+                        `;
+                        checkboxesList.appendChild(option);
+                    });
 
-                // Sync visual selection state with checked state (multi-select)
-                const syncSelectedClass = () => {
-                    const allOptions = checkboxesList.querySelectorAll('.checkbox-option');
-                    allOptions.forEach(opt => {
-                        const cb = opt.querySelector('input[type="checkbox"]');
-                        if (cb && cb.checked) {
-                            opt.classList.add('selected');
-                        } else {
-                            opt.classList.remove('selected');
+                    // Sync visual selection state with checked state (multi-select)
+                    checkboxesList.addEventListener('change', function(e){
+                        if (e.target && e.target.matches('input[type="checkbox"]')) {
+                            const container = e.target.closest('.checkbox-option');
+                            if (container) {
+                                if (e.target.checked) container.classList.add('selected');
+                                else container.classList.remove('selected');
+                            }
                         }
                     });
-                };
-                checkboxesList.addEventListener('change', function(e){
-                    if (e.target && e.target.matches('input[type="checkbox"]')) {
-                        const container = e.target.closest('.checkbox-option');
-                        if (container) {
-                            if (e.target.checked) container.classList.add('selected');
-                            else container.classList.remove('selected');
-                        }
-                    }
+                    resolve(); // Resolve the promise when done
+                })
+                .catch((err) => {
+                    checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Error loading departments</div>';
+                    reject(err); // Reject the promise on error
+                })
+                .finally(() => {
+                    checkboxesContainer.style.display = 'block';
+                    checkboxesContainer.style.opacity = '0';
+                    setTimeout(() => { checkboxesContainer.style.opacity = '1'; }, 10);
                 });
-                // initial sync
-                syncSelectedClass();
-            })
-            .catch(() => {
-                checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Error loading departments</div>';
-            })
-            .finally(() => {
-        checkboxesContainer.style.display = 'block';
-        checkboxesContainer.style.opacity = '0';
-                setTimeout(() => { checkboxesContainer.style.opacity = '1'; }, 10);
-            });
-        
-        // Container visibility is handled in the fetch finally block
+        });
     };
 
     // Clear edit Program Head fields
@@ -926,4 +941,66 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// --- Password Reset Logic ---
+
+function handlePasswordReset() {
+    const userId = document.getElementById('editStaffForm').dataset.userId;
+    const username = document.getElementById('editEmployeeId').value;
+
+    if (!userId) {
+        showToastNotification('Cannot reset password. User ID is missing.', 'error');
+        return;
+    }
+
+    showConfirmationModal(
+        'Reset Password',
+        `Are you sure you want to reset the password for ${username}? A new password will be generated.`,
+        'Reset',
+        'Cancel',
+        async () => {
+            try {
+                // Generate a new secure password on the client-side for immediate display
+                const newPassword = generateSecurePassword();
+
+                const response = await fetch('../../api/users/password.php', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        user_id: userId,
+                        new_password: newPassword
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred.' }));
+                    throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+                }
+
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Use the new unified GeneratedCredentialsModal
+                    openGeneratedCredentialsModal('passwordReset', { username: username, password: newPassword });
+                } else {
+                    throw new Error(data.message || 'Failed to reset password.');
+                }
+            } catch (error) {
+                showToastNotification(error.message, 'error');
+            }
+        },
+        'warning'
+    );
+}
+
+function generateSecurePassword(length = 12) {
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+    let password = "";
+    for (let i = 0, n = charset.length; i < length; ++i) {
+        password += charset.charAt(Math.floor(Math.random() * n));
+    }
+    return password;
+}
 </script> 

@@ -32,9 +32,8 @@
         <!-- Department (SHS Only) -->
         <div class="form-group">
           <label for="department">Department *</label>
-          <select id="department" name="department" required onchange="updateProgramsAndYearLevels()">
-            <option value="">Select Department</option>
-            <option value="Senior High School">Senior High School</option>
+          <select id="department" name="department" required readonly style="background-color: #e9ecef; pointer-events: none;">
+            <option value="Senior High School" selected>Senior High School</option>
           </select>
         </div>
         
@@ -50,7 +49,8 @@
         <div class="form-group">
           <label for="yearLevel">Year Level *</label>
           <select id="yearLevel" name="yearLevel" required>
-            <option value="">Select Year Level</option>
+            <option value="Grade 11">Grade 11</option>
+            <option value="Grade 12">Grade 12</option>
           </select>
         </div>
         
@@ -139,63 +139,82 @@
 </div>
 
 <script>
-// SHS-specific Department → Program mapping
-if (typeof window.shsDepartmentPrograms === 'undefined') {
-window.shsDepartmentPrograms = {
-  'Senior High School': [
-    'Accountancy, Business and Management (ABM)',
-    'Humanities and Social Sciences (HUMSS)',
-    'Science, Technology, Engineering and Mathematics (STEM)',
-    'Information and Communications Technology (ICT)',
-    'Home Economics (HE)',
-    'Industrial Arts (IA)',
-    'Agricultural, Fishery Arts (AFA)',
-    'Sports (SPORTS)',
-    'Arts and Design (AD)',
-    'General Academic Strand (GAS)'
-  ]
-};
-
-// SHS-specific Department → Year Level mapping
-window.shsDepartmentYearLevels = {
-  'Senior High School': [
-    'Grade 11',
-    'Grade 12'
-  ]
-};
-} // End of conditional block
-
-// Update programs and year levels when department changes
-function updateProgramsAndYearLevels() {
+// Fetch programs and year levels when the modal is opened
+async function updateProgramsAndYearLevels() {
   const department = document.getElementById('department').value;
   const programSelect = document.getElementById('program');
-  const yearLevelSelect = document.getElementById('yearLevel');
+  const yearLevelSelect = document.getElementById('yearLevel'); // Year level is now static
   
   // Clear current options
   programSelect.innerHTML = '<option value="">Select Program</option>';
   yearLevelSelect.innerHTML = '<option value="">Select Year Level</option>';
+  programSelect.disabled = true;
+  yearLevelSelect.disabled = true;
   
   if (department) {
-    // Update programs
-    if (window.shsDepartmentPrograms && window.shsDepartmentPrograms[department]) {
-      window.shsDepartmentPrograms[department].forEach(program => {
-        const option = document.createElement('option');
-        option.value = program;
-        option.textContent = program;
-        programSelect.appendChild(option);
-      });
-    }
-    
-    // Update year levels
-    if (window.shsDepartmentYearLevels && window.shsDepartmentYearLevels[department]) {
-      window.shsDepartmentYearLevels[department].forEach(yearLevel => {
-        const option = document.createElement('option');
-        option.value = yearLevel;
-        option.textContent = yearLevel;
-        yearLevelSelect.appendChild(option);
-      });
+    try {
+      // The department name in the dropdown is "Senior High School"
+      const response = await fetch(`../../controllers/programs.php?department_type=${encodeURIComponent(department)}`);
+      const data = await response.json();
+
+      if (data.success) {
+        // Populate programs
+        data.programs.forEach(program => {
+          const option = document.createElement('option');
+          option.value = program.value;
+          option.textContent = program.display;
+          programSelect.appendChild(option);
+        });
+
+        // Populate year levels
+        data.year_levels.forEach(year => {
+          const option = document.createElement('option');
+          option.value = year;
+          option.textContent = year;
+          yearLevelSelect.appendChild(option);
+        });
+
+        programSelect.disabled = false;
+        yearLevelSelect.disabled = false;
+      } else {
+        showToast(data.message || 'Could not load programs.', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to fetch academic data:', error);
+      showToast('An error occurred while loading programs.', 'error');
     }
   }
+}
+
+async function onUserCreated(newUserId, userSector) {
+    // Only proceed if a valid sector is provided
+    if (!userSector) return;
+
+    try {
+        // 1. Check for an active clearance period
+        const context = await fetch('../../api/clearance/context.php', { credentials: 'include' }).then(r => r.json());
+        const activeSemester = context.terms.find(t => t.is_active === 1);
+
+        if (activeSemester) {
+            console.log(`Active period found for ${activeSemester.semester_name}. Creating clearance form for new user...`);
+
+            // 2. Call the distribution API for the single new user
+            const response = await fetch('../../api/clearance/form_distribution.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    user_id: newUserId,
+                    clearance_type: userSector,
+                    academic_year_id: context.academic_year.academic_year_id,
+                    semester_id: activeSemester.semester_id
+                })
+            }).then(r => r.json());
+            console.log('Auto form generation response:', response);
+        }
+    } catch (error) {
+        console.error('Failed to auto-generate clearance form for new user:', error);
+    }
 }
 
 // Form validation and submission
@@ -204,12 +223,12 @@ function validateStudentRegistrationForm() {
   const formData = new FormData(form);
   
   // Check required fields
-  const requiredFields = ['studentNumber', 'department', 'program', 'yearLevel', 'section', 'lastName', 'firstName', 'email', 'password', 'confirmPassword'];
+  const requiredFields = ['studentNumber', 'department', 'program', 'yearLevel', 'section', 'lastName', 'firstName', 'email', 'address', 'password', 'confirmPassword'];
   
   for (const field of requiredFields) {
     const input = form.querySelector(`[name="${field}"]`);
     if (!input.value.trim()) {
-      showToastNotification(`Please fill in the ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`, 'error');
+      showToast(`Please fill in the ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`, 'error');
       input.focus();
       return false;
     }
@@ -220,7 +239,7 @@ function validateStudentRegistrationForm() {
   const confirmPassword = formData.get('confirmPassword');
   
   if (password !== confirmPassword) {
-    showToastNotification('Passwords do not match', 'error');
+    showToast('Passwords do not match', 'error');
     document.getElementById('confirmPassword').focus();
     return false;
   }
@@ -229,7 +248,7 @@ function validateStudentRegistrationForm() {
   const email = formData.get('email');
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    showToastNotification('Please enter a valid email address', 'error');
+    showToast('Please enter a valid email address', 'error');
     document.getElementById('email').focus();
     return false;
   }
@@ -259,7 +278,13 @@ function submitStudentRegistrationForm() {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      showToastNotification('Student added successfully!', 'success');
+      showToast(data.message || 'Student added successfully!', 'success');
+      const newUserId = data.user_id || null;
+      if (newUserId) {
+          // Trigger automatic clearance form creation
+          onUserCreated(newUserId, 'Senior High School').catch(console.error);
+      }
+
       closeStudentRegistrationModal();
       form.reset();
       // Refresh the student list
@@ -267,12 +292,12 @@ function submitStudentRegistrationForm() {
         loadStudentsData();
       }
     } else {
-      showToastNotification(data.message || 'Failed to add student', 'error');
+      showToast(data.message || 'Failed to add student.', 'error');
     }
   })
   .catch(error => {
     console.error('Error:', error);
-    showToastNotification('An error occurred while adding the student', 'error');
+    showToast('An unexpected error occurred. Please check the console.', 'error');
   })
   .finally(() => {
     // Re-enable submit button
@@ -300,6 +325,9 @@ function openStudentRegistrationModal() {
   const modal = document.getElementById('studentRegistrationModal');
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
+
+  // Fetch programs as soon as the modal opens
+  updateProgramsAndYearLevels();
   
   // Focus on first input
   setTimeout(() => {

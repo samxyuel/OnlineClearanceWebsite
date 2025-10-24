@@ -114,38 +114,45 @@ function handleGetAssignments($pdo) {
 function handleCreateAssignment($pdo, $auth) {
     $input = json_decode(file_get_contents('php://input'), true);
     if (!$input) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Invalid JSON body']);
-        return;
+        // Fallback for non-JSON form data if needed, but we expect JSON
+        $input = $_POST;
     }
     
     $staffId = $input['staff_id'] ?? null;
     $departmentId = $input['department_id'] ?? null;
-    $sectorId = $input['sector_id'] ?? null;
     $isPrimary = $input['is_primary'] ?? false;
     
-    if (!$staffId || !$departmentId || !$sectorId) {
+    if (!$staffId || !$departmentId) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'staff_id, department_id, and sector_id are required']);
+        echo json_encode(['success' => false, 'message' => 'staff_id and department_id are required']);
         return;
     }
     
     // Validate staff is a Program Head
-    $stmt = $pdo->prepare("SELECT staff_category FROM staff WHERE employee_number = ?");
+    $stmt = $pdo->prepare("SELECT staff_category FROM staff WHERE user_id = ?");
     $stmt->execute([$staffId]);
     $staff = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$staff || $staff['staff_category'] !== 'Program Head') {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Only Program Heads can be assigned to departments']);
+        echo json_encode(['success' => false, 'message' => 'Only Program Heads can be assigned to departments. The selected user is not a Program Head.']);
         return;
     }
     
+    // Get sector_id from department_id
+    $secStmt = $pdo->prepare("SELECT sector_id FROM departments WHERE department_id = ?");
+    $secStmt->execute([$departmentId]);
+    $sectorId = $secStmt->fetchColumn();
+    if (!$sectorId) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'message' => 'Department not found or has no sector assigned']);
+        return;
+    }
+
     // Check if assignment already exists
-    $stmt = $pdo->prepare("SELECT assignment_id FROM staff_department_assignments WHERE staff_id = ? AND department_id = ? AND is_active = 1");
+    $stmt = $pdo->prepare("SELECT assignment_id FROM staff_department_assignments WHERE staff_id = ? AND department_id = ?");
     $stmt->execute([$staffId, $departmentId]);
     if ($stmt->fetch()) {
-        http_response_code(409);
         echo json_encode(['success' => false, 'message' => 'Assignment already exists']);
         return;
     }
@@ -158,7 +165,7 @@ function handleCreateAssignment($pdo, $auth) {
     
     // Create new assignment
     $stmt = $pdo->prepare("INSERT INTO staff_department_assignments (staff_id, department_id, sector_id, is_primary, assigned_by) VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute([$staffId, $departmentId, $sectorId, $isPrimary ? 1 : 0, $auth->getUserId()]);
+    $stmt->execute([$staffId, $departmentId, $sectorId, $isPrimary ? 1 : 0, $auth->getUserId() ?? 1]);
     
     echo json_encode([
         'success' => true,
@@ -231,11 +238,11 @@ function handleDeleteAssignment($pdo, $auth) {
     
     if ($assignmentId) {
         // Delete by assignment ID
-        $stmt = $pdo->prepare("UPDATE staff_department_assignments SET is_active = 0 WHERE assignment_id = ?");
+        $stmt = $pdo->prepare("DELETE FROM staff_department_assignments WHERE assignment_id = ?");
         $stmt->execute([$assignmentId]);
     } else {
         // Delete by staff_id and department_id
-        $stmt = $pdo->prepare("UPDATE staff_department_assignments SET is_active = 0 WHERE staff_id = ? AND department_id = ? AND is_active = 1");
+        $stmt = $pdo->prepare("DELETE FROM staff_department_assignments WHERE staff_id = ? AND department_id = ?");
         $stmt->execute([$staffId, $departmentId]);
     }
     

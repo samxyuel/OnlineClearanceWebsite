@@ -52,20 +52,23 @@ try {
     $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
     $sql = "SELECT s.user_id, s.employee_number, u.first_name, u.last_name, u.username, u.email, u.contact_number,
+                   s.department_id as staff_department_id, 
+                   reg_dept.department_name as staff_department_name, /* Direct department name for non-PH */
                    d.designation_id, d.designation_name, s.staff_category, s.employment_status, s.is_active,
-                   GROUP_CONCAT(DISTINCT dept.department_name ORDER BY dept.department_name SEPARATOR '|') as departments,
-                   GROUP_CONCAT(DISTINCT dept.department_id ORDER BY dept.department_id SEPARATOR '|') as department_ids,
-                   GROUP_CONCAT(DISTINCT sec.sector_name ORDER BY sec.sector_name SEPARATOR '|') as sectors,
-                   GROUP_CONCAT(DISTINCT sec.sector_id ORDER BY sec.sector_id SEPARATOR '|') as sector_ids,
-                   GROUP_CONCAT(DISTINCT sda.is_primary ORDER BY dept.department_name SEPARATOR '|') as is_primary_flags
+                   GROUP_CONCAT(DISTINCT sda_dept.department_name ORDER BY sda_dept.department_name SEPARATOR '|') as assigned_departments,
+                   GROUP_CONCAT(DISTINCT sda_dept.department_id ORDER BY sda_dept.department_id SEPARATOR '|') as assigned_department_ids,
+                   GROUP_CONCAT(DISTINCT sda_sec.sector_name ORDER BY sda_sec.sector_name SEPARATOR '|') as assigned_sectors,
+                   GROUP_CONCAT(DISTINCT sda_sec.sector_id ORDER BY sda_sec.sector_id SEPARATOR '|') as assigned_sector_ids,
+                   GROUP_CONCAT(DISTINCT sda.is_primary ORDER BY sda_dept.department_name SEPARATOR '|') as is_primary_flags
             FROM staff s
             JOIN users u ON u.user_id = s.user_id
             LEFT JOIN designations d ON d.designation_id = s.designation_id
-            LEFT JOIN staff_department_assignments sda ON s.employee_number = sda.staff_id AND sda.is_active = 1
-            LEFT JOIN departments dept ON sda.department_id = dept.department_id
-            LEFT JOIN sectors sec ON sda.sector_id = sec.sector_id
+            LEFT JOIN staff_department_assignments sda ON s.user_id = sda.staff_id AND sda.is_active = 1
+            LEFT JOIN departments sda_dept ON sda.department_id = sda_dept.department_id
+            LEFT JOIN sectors sda_sec ON sda.sector_id = sda_sec.sector_id
+            LEFT JOIN departments reg_dept ON s.department_id = reg_dept.department_id
             $whereSql
-            GROUP BY s.employee_number, s.user_id, u.first_name, u.last_name, u.username, u.email, u.contact_number, d.designation_id, d.designation_name, s.staff_category, s.employment_status, s.is_active
+            GROUP BY s.user_id
             ORDER BY u.last_name ASC, u.first_name ASC
             LIMIT :limit OFFSET :offset";
     $stmt = $pdo->prepare($sql);
@@ -80,9 +83,9 @@ try {
                  FROM staff s
                  JOIN users u ON u.user_id = s.user_id
                  LEFT JOIN designations d ON d.designation_id = s.designation_id
-                 LEFT JOIN staff_department_assignments sda ON s.employee_number = sda.staff_id AND sda.is_active = 1
-                 LEFT JOIN departments dept ON sda.department_id = dept.department_id
-                 LEFT JOIN sectors sec ON sda.sector_id = sec.sector_id
+                 LEFT JOIN staff_department_assignments sda ON s.user_id = sda.staff_id AND sda.is_active = 1
+                 LEFT JOIN departments sda_dept ON sda.department_id = sda_dept.department_id
+                 LEFT JOIN sectors sda_sec ON sda.sector_id = sda_sec.sector_id
                  $whereSql";
     $cntStmt = $pdo->prepare($countSql);
     foreach ($params as $k=>$v) { $cntStmt->bindValue($k, $v, PDO::PARAM_STR); }
@@ -105,14 +108,16 @@ try {
             'staff_category' => $row['staff_category'],
             'employment_status' => $row['employment_status'],
             'is_active' => $row['is_active'],
+            'department_id' => $row['staff_department_id'], 
+            'department_name' => $row['staff_department_name'], // For non-PH staff
             'departments' => [],
             'sectors' => []
         ];
         
         // Parse departments
-        if (!empty($row['departments'])) {
-            $deptNames = explode('|', $row['departments']);
-            $deptIds = explode('|', $row['department_ids']);
+        if (!empty($row['assigned_departments'])) {
+            $deptNames = explode('|', $row['assigned_departments']);
+            $deptIds = explode('|', $row['assigned_department_ids']);
             $isPrimaryFlags = explode('|', $row['is_primary_flags']);
             
             for ($i = 0; $i < count($deptNames); $i++) {
@@ -127,9 +132,9 @@ try {
         }
         
         // Parse sectors
-        if (!empty($row['sectors'])) {
-            $sectorNames = explode('|', $row['sectors']);
-            $sectorIds = explode('|', $row['sector_ids']);
+        if (!empty($row['assigned_sectors'])) {
+            $sectorNames = explode('|', $row['assigned_sectors']);
+            $sectorIds = explode('|', $row['assigned_sector_ids']);
             
             for ($i = 0; $i < count($sectorNames); $i++) {
                 if (!empty($sectorNames[$i])) {
@@ -155,5 +160,3 @@ try {
     http_response_code(500);
     echo json_encode(['success'=>false,'message'=>'Server error: '.$e->getMessage()]);
 }
-
-

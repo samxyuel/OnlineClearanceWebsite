@@ -29,7 +29,7 @@ try {
     
     if ($requestedFormId) {
         // Fetch specific form by ID
-        $formStmt = $pdo->prepare("SELECT clearance_form_id, status, academic_year_id, semester_id FROM clearance_forms WHERE clearance_form_id=? AND user_id=? LIMIT 1");
+        $formStmt = $pdo->prepare("SELECT clearance_form_id, clearance_form_progress, academic_year_id, semester_id FROM clearance_forms WHERE clearance_form_id=? AND user_id=? LIMIT 1");
         $formStmt->execute([$requestedFormId, $userId]);
         $form = $formStmt->fetch(PDO::FETCH_ASSOC);
         
@@ -45,8 +45,8 @@ try {
         // Get active clearance period (same logic as user_periods.php)
         $activePeriodStmt = $pdo->query("
             SELECT academic_year_id, semester_id 
-            FROM clearance_periods 
-            WHERE is_active = 1 
+            FROM clearance_periods
+            WHERE status = 'Ongoing'
             LIMIT 1
         ");
         $activePeriod = $activePeriodStmt->fetch(PDO::FETCH_ASSOC);
@@ -60,8 +60,8 @@ try {
         $semId = $activePeriod['semester_id'];
 
         // Clearance form (if any)
-        $formStmt = $pdo->prepare("SELECT clearance_form_id, status FROM clearance_forms WHERE user_id=? AND academic_year_id=? AND semester_id=? LIMIT 1");
-        $formStmt->execute([$userId,$ayId,$semId]);
+        $formStmt = $pdo->prepare("SELECT clearance_form_id, clearance_form_progress FROM clearance_forms WHERE user_id=? AND academic_year_id=? AND semester_id=? LIMIT 1");
+        $formStmt->execute([$userId, $ayId, $semId]);
         $form = $formStmt->fetch(PDO::FETCH_ASSOC);
     }
 
@@ -107,52 +107,21 @@ try {
     $sigStmt->execute([$form['clearance_form_id']]);
     $signatories = $sigStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Derive dynamic overall status (Unapplied | Applied | In Progress | Complete)
-    $overall = $form['status'];
-    if ($signatories) {
-        $total        = count($signatories);
-        $approvedCnt  = 0;
-        $rejectedCnt  = 0;
-        $pendingCnt   = 0; // action = 'Pending'
-        $activeCnt    = 0; // actions that are NOT NULL / ''
-
-        foreach ($signatories as $s) {
-            $action = $s['action'];
-            if ($action !== null && $action !== '') { $activeCnt++; }
-            if ($action === 'Approved') { $approvedCnt++; }
-            if ($action === 'Rejected') { $rejectedCnt++; }
-            if ($action === 'Pending')  { $pendingCnt++; }
-        }
-
-        if ($activeCnt === 0) {
-            $overall = 'Unapplied';
-        } elseif ($approvedCnt === $total) {
-            $overall = 'Complete';
-        } elseif ($activeCnt > 0) {
-            // User has applied to one or more signatories
-            $overall = 'In Progress';
-        } else {
-            $overall = 'Unapplied';
-        }
-
-        // Persist change if status differs
-        if ($overall !== $form['status']) {
-            $upd = $pdo->prepare("UPDATE clearance_forms SET status=?, updated_at=NOW() WHERE clearance_form_id=?");
-            $upd->execute([$overall, $form['clearance_form_id']]);
-        }
-    }
+    // The overall status is now correctly managed by signatory_action.php
+    // We just read the value from the `clearance_form_progress` column.
+    $overallProgress = $form['clearance_form_progress'] ?? 'unapplied';
 
     // Determine if user has taken any action yet (used by dashboards)
     $hasApplied = false;
     foreach($signatories as $s){
-        if($s['action'] !== null && $s['action'] !== ''){ $hasApplied = true; break; }
+        if($s['action'] !== null && $s['action'] !== '' && $s['action'] !== 'Unapplied'){ $hasApplied = true; break; }
     }
 
     echo json_encode([
         'success'            => true,
         'applied'            => $hasApplied,
         'clearance_form_id'  => $form['clearance_form_id'],
-        'overall_status'     => $overall,
+        'overall_status'     => ucfirst(str_replace('-', ' ', $overallProgress)),
         'signatories'        => $signatories
     ]);
 

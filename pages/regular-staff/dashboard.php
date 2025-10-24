@@ -70,7 +70,7 @@
                                     <i class="fas fa-signature"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>1,245</h3>
+                                    <h3 id="totalSigned">0</h3>
                                     <p>Total Signed</p>
                                 </div>
                             </div>
@@ -79,7 +79,7 @@
                                     <i class="fas fa-check-circle"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>1,156</h3>
+                                    <h3 id="totalApproved">0</h3>
                                     <p>Approved</p>
                                 </div>
                             </div>
@@ -88,7 +88,7 @@
                                     <i class="fas fa-times-circle"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>89</h3>
+                                    <h3 id="totalRejected">0</h3>
                                     <p>Rejected</p>
                                 </div>
                             </div>
@@ -97,7 +97,7 @@
                                     <i class="fas fa-clock"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>34</h3>
+                                    <h3 id="totalPending">0</h3>
                                     <p>Pending</p>
                                 </div>
                             </div>
@@ -241,6 +241,7 @@
         function loadUserInfo() {
             // Get user info from the header component (it's already loaded)
             const userNameElement = document.querySelector('.user-name');
+            
             if (userNameElement) {
                 const fullName = userNameElement.textContent.trim();
                 const welcomeMessage = document.getElementById('welcomeMessage');
@@ -251,6 +252,9 @@
 
             // Load staff position information
             loadStaffPosition();
+
+            // Load dashboard summary data
+            loadDashboardSummary();
         }
 
         // Load staff position information
@@ -276,6 +280,48 @@
                     positionElement.textContent = 'Position: Staff - Clearance Signatory';
                 }
             });
+        }
+
+        // Load dashboard summary data
+        async function loadDashboardSummary() {
+            try {
+                const response = await fetch('../../api/dashboard/staff_summary.php', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+
+                    // Update Active Period Card
+                    const activePeriodNameEl = document.getElementById('activePeriodName');
+                    const activePeriodDetailsEl = document.getElementById('activePeriodDetails');
+                    if (data.active_period) {
+                        activePeriodNameEl.innerHTML = `<i class="fas fa-calendar-check"></i> ${data.active_period.academic_year} ${data.active_period.semester_name} (ACTIVE)`;
+                        activePeriodDetailsEl.textContent = `Started: ${new Date(data.active_period.start_date).toLocaleDateString()}`;
+                    } else {
+                        activePeriodNameEl.innerHTML = `<i class="fas fa-calendar-times"></i> No Active Period`;
+                        activePeriodDetailsEl.textContent = 'Clearance activities are currently paused.';
+                    }
+
+                    // Update Pending Counts
+                    document.getElementById('pendingStudentsStat').innerHTML = `<i class="fas fa-user-graduate"></i> Students: ${data.pending_clearances.student} pending signatures`;
+                    document.getElementById('pendingFacultyStat').innerHTML = `<i class="fas fa-chalkboard-teacher"></i> Faculty: ${data.pending_clearances.faculty} pending signatures`;
+                    document.getElementById('yourTotalPendingStat').innerHTML = `<i class="fas fa-clock"></i> Your Pending: ${data.pending_clearances.total} total`;
+
+                    // Update Staff Statistics Dashboard
+                    document.getElementById('totalSigned').textContent = data.signing_stats.total_signed.toLocaleString();
+                    document.getElementById('totalApproved').textContent = data.signing_stats.approved.toLocaleString();
+                    document.getElementById('totalRejected').textContent = data.signing_stats.rejected.toLocaleString();
+                    document.getElementById('totalPending').textContent = data.pending_clearances.total.toLocaleString();
+
+                } else {
+                    showToast(result.message || 'Failed to load dashboard data.', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading dashboard summary:', error);
+                showToast('An error occurred while loading dashboard data.', 'error');
+            }
         }
     </script>
 </body>

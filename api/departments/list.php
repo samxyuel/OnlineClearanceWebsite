@@ -46,23 +46,10 @@ $offset     = ($page - 1) * $limit;
 try {
     $pdo = Database::getInstance()->getConnection();
 
-    // Detect sector column dynamically (sector or sector_id) to avoid schema mismatch
-    $colStmt = $pdo->prepare("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'departments' AND COLUMN_NAME IN ('sector', 'sector_id')");
-    $colStmt->execute();
-    $cols = $colStmt->fetchAll(PDO::FETCH_COLUMN, 0);
-    $hasSectorName = in_array('sector', $cols, true);
-    $hasSectorId   = in_array('sector_id', $cols, true);
-
     $select = [
         'dep.department_id AS department_id',
         'dep.department_name AS department_name'
     ];
-    if ($hasSectorName) {
-        $select[] = 'dep.sector AS sector';
-    }
-    if ($hasSectorId) {
-        $select[] = 'dep.sector_id AS sector_id';
-    }
 
     $joins = [];
     if ($includePH) {
@@ -73,6 +60,7 @@ try {
         $select[] = 's.user_id AS current_program_head_user_id';
         $select[] = "CONCAT(COALESCE(u.first_name,''), ' ', COALESCE(u.last_name,'')) AS current_program_head_name";
         $select[] = 'd.designation_name AS current_program_head_designation';
+        $select[] = 's.employee_number AS current_program_head_employee_number';
     }
 
     $where = [];
@@ -87,42 +75,12 @@ try {
     }
 
     if ($sector !== '') {
-        $appliedSectorFilter = false;
-        if ($hasSectorName) {
-            $widx++;
-            $ph = ':w' . $widx;
-            $where[] = 'dep.sector = ' . $ph;
-            $namedParams[$ph] = $sector;
-            $appliedSectorFilter = true;
-        } elseif ($hasSectorId) {
-            // If sector_id exists but we received a name, try to resolve via sectors table
-            try {
-                $sidStmt = $pdo->prepare("SELECT sector_id FROM sectors WHERE sector_name = ? LIMIT 1");
-                $sidStmt->execute([$sector]);
-                $secId = $sidStmt->fetchColumn();
-                if ($secId) {
-                    $widx++;
-                    $ph = ':w' . $widx;
-                    $where[] = 'dep.sector_id = ' . $ph;
-                    $namedParams[$ph] = (int)$secId;
-                    $appliedSectorFilter = true;
-                }
-            } catch (Exception $e) {
-                // no sectors table or lookup failed
-            }
-        }
-        // strict mode: if sector filter was requested but could not be applied, return empty
-        if (!$appliedSectorFilter) {
-            echo json_encode([
-                'success' => true,
-                'departments' => [],
-                'page' => $page,
-                'limit' => $limit,
-                'total' => 0,
-                'total_pages' => 0
-            ]);
-            exit;
-        }
+        // Always join sectors table to filter by name, as sector_id is the reliable link.
+        $joins[] = "JOIN sectors sec ON dep.sector_id = sec.sector_id";
+        $widx++;
+        $ph = ':w' . $widx;
+        $where[] = 'sec.sector_name = ' . $ph;
+        $namedParams[$ph] = $sector;
     }
 
     $whereSql = '';
@@ -133,7 +91,7 @@ try {
     $selectSql = 'SELECT ' . implode(', ', $select) . ' FROM departments dep ' . implode(' ', $joins) . ' ' . $whereSql . ' ORDER BY dep.department_name ASC LIMIT :limit OFFSET :offset';
 
     // Total count (without pagination)
-    $countSql  = 'SELECT COUNT(*) FROM departments dep ' . $whereSql;
+    $countSql  = 'SELECT COUNT(*) FROM departments dep ' . implode(' ', $joins) . ' ' . $whereSql;
 
     $countStmt = $pdo->prepare($countSql);
     foreach ($namedParams as $name => $value) {
@@ -141,6 +99,19 @@ try {
     }
     $countStmt->execute();
     $total = (int)$countStmt->fetchColumn();
+
+    if ($total === 0 && $sector !== '') {
+        // If no results for a specific sector, it's a valid empty set, not an error.
+        echo json_encode([
+            'success' => true,
+            'departments' => [],
+            'page' => $page,
+            'limit' => $limit,
+            'total' => 0,
+            'total_pages' => 0
+        ]);
+        exit;
+    }
 
     $stmt = $pdo->prepare($selectSql);
     foreach ($namedParams as $name => $value) {
@@ -164,6 +135,3 @@ try {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
 }
-// -----------------------------------------------------------------------------
-// End of file
-// -----------------------------------------------------------------------------

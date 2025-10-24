@@ -39,16 +39,17 @@ class UserManager {
             $passwordHash = password_hash($userData['password'], PASSWORD_DEFAULT);
             
             // Insert user
-            $sql = "INSERT INTO users (username, email, password, first_name, last_name, status, created_at) 
-                    VALUES (?, ?, ?, ?, ?, ?, NOW())";
+            $sql = "INSERT INTO users (username, email, password, first_name, middle_name, last_name, account_status, created_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
             $stmt = $this->connection->prepare($sql);
             $stmt->execute([
                 $userData['username'],
                 $userData['email'],
                 $passwordHash,
                 $userData['first_name'],
+                $userData['middle_name'] ?? null,
                 $userData['last_name'],
-                $userData['status'] ?? 'active'
+                $userData['account_status'] ?? 'active'
             ]);
             
             $userId = $this->connection->lastInsertId();
@@ -110,7 +111,7 @@ class UserManager {
             'first_name' => $data['first_name'],
             'last_name'  => $data['last_name'],
             'role_id'    => 4, // Faculty
-            'status'     => 'active'
+            'account_status'     => 'active'
         ];
 
         try {
@@ -267,7 +268,7 @@ class UserManager {
             $updateFields = [];
             $params = [];
             
-            $allowedFields = ['username', 'email', 'first_name', 'last_name', 'status'];
+            $allowedFields = ['username', 'email', 'first_name', 'last_name', 'middle_name', 'account_status', 'contact_number'];
             foreach ($allowedFields as $field) {
                 if (isset($userData[$field])) {
                     $updateFields[] = "$field = ?";
@@ -275,7 +276,11 @@ class UserManager {
                 }
             }
             
-            if (empty($updateFields)) {
+            // Allow role-only updates
+            if (empty($updateFields) && !isset($userData['role_id'])) {
+                if (isset($userData['status'])) {
+                    return ['success' => false, 'message' => 'The user status field is now `account_status`. Please update the call site.'];
+                }
                 return ['success' => false, 'message' => 'No fields to update'];
             }
             
@@ -313,7 +318,7 @@ class UserManager {
 
             // build user update payload
             $userPayload=[];
-            foreach(['email','first_name','last_name','middle_name','contact_number','status'] as $f){
+            foreach(['email','first_name','last_name','middle_name','contact_number','account_status'] as $f){
                 if(isset($data[$f])) $userPayload[$f]=$data[$f];
             }
             if(!empty($userPayload)){
@@ -519,7 +524,7 @@ class UserManager {
             $del->execute([$employeeId]);
 
             // Rather than deleting users row (may break FK), mark as deleted
-            $upd=$this->connection->prepare("UPDATE users SET status='deleted', updated_at=NOW() WHERE user_id=?");
+            $upd=$this->connection->prepare("UPDATE users SET account_status='deleted', updated_at=NOW() WHERE user_id=?");
             $upd->execute([$userId]);
 
             $this->connection->commit();

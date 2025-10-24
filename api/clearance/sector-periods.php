@@ -227,6 +227,9 @@ function handleUpdateSectorPeriod($connection) {
             } elseif ($action === 'resume') {
                 return resumeSectorPeriod($connection, $periodId);
             } elseif ($action === 'close') {
+                // Note: The 'close' action in sector-periods.php is different from the one in periods.php
+                // This one is for closing a *sector-specific* period, not a whole term.
+                // The logic in periods.php for 'end_semester' and 'cascade_close_periods' handles term-level closing.
                 return closeSectorPeriod($connection, $periodId);
             }
         }
@@ -291,8 +294,8 @@ function startSectorPeriod($connection, $periodId, $period) {
         ");
         $stmt->execute([$periodId]);
         
-        // Create clearance forms for eligible users
-        createClearanceFormsForSectorPeriod($connection, $periodId, $period['sector'], $period['academic_year_id'], $period['semester_id']);
+        // The form distribution is now handled by the form_distribution.php API,
+        // which is called from periods.php when a period is started.
         
         echo json_encode([
             'success' => true,
@@ -353,29 +356,27 @@ function closeSectorPeriod($connection, $periodId) {
         $stmt = $connection->prepare("
             UPDATE clearance_periods 
             SET status = 'Closed', end_date = CURDATE(), ended_at = NOW(), updated_at = NOW() 
-            WHERE period_id = ?
+            WHERE period_id = ? AND status != 'Closed'
         ");
         $stmt->execute([$periodId]);
         
         // Update any pending forms to rejected
         $stmt = $connection->prepare("
             UPDATE clearance_forms cf
-            JOIN clearance_periods cp ON (
-                cf.academic_year_id = cp.academic_year_id 
-                AND cf.semester_id = cp.semester_id 
-                AND cf.clearance_type = cp.sector
-            )
             SET cf.clearance_form_progress = 'in-progress',
                 cf.rejected_at = NOW(),
                 cf.updated_at = NOW()
-            WHERE cp.period_id = ? 
-            AND cf.clearance_form_progress IN ('unapplied', 'in-progress')
+            WHERE cf.academic_year_id = (SELECT academic_year_id FROM clearance_periods WHERE period_id = ?)
+              AND cf.semester_id = (SELECT semester_id FROM clearance_periods WHERE period_id = ?)
+              AND cf.clearance_type = (SELECT sector FROM clearance_periods WHERE period_id = ?)
+              AND cf.clearance_form_progress IN ('unapplied', 'in-progress')
+
         ");
-        $stmt->execute([$periodId]);
+        $stmt->execute([$periodId, $periodId, $periodId]);
         
         echo json_encode([
             'success' => true,
-            'message' => 'Clearance period closed successfully'
+            'message' => 'Clearance period closed successfully. Pending forms have been updated.'
         ]);
         
     } catch (PDOException $e) {
@@ -446,128 +447,50 @@ function handleDeleteSectorPeriod($connection) {
     }
 }
 
-// Helper function to create clearance forms for sector period
-function createClearanceFormsForSectorPeriod($connection, $periodId, $sector, $academicYearId, $semesterId) {
-    try {
-        if ($sector === 'College') {
-            $stmt = $connection->prepare("
-                INSERT INTO clearance_forms (
-                    clearance_form_id,
-                    user_id, 
-                    academic_year_id, 
-                    semester_id, 
-                    clearance_type, 
-                    status
-                )
-                SELECT 
-                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
-                    s.user_id,
-                    ?,
-                    ?,
-                    'College',
-                    'Unapplied'
-                FROM students s
-                WHERE s.sector = 'College' 
-                AND u.account_status = 'active'
-                AND s.user_id IS NOT NULL
-            ");
-            $stmt->execute([$academicYearId, $semesterId]);
-            
-        } elseif ($sector === 'Senior High School') {
-            $stmt = $connection->prepare("
-                INSERT INTO clearance_forms (
-                    clearance_form_id,
-                    user_id, 
-                    academic_year_id, 
-                    semester_id, 
-                    clearance_type, 
-                    status
-                )
-                SELECT 
-                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
-                    s.user_id,
-                    ?,
-                    ?,
-                    'Senior High School',
-                    'Unapplied'
-                FROM students s
-                WHERE s.sector = 'Senior High School' 
-                AND u.account_status = 'active'
-                AND s.user_id IS NOT NULL
-            ");
-            $stmt->execute([$academicYearId, $semesterId]);
-            
-        } elseif ($sector === 'Faculty') {
-            $stmt = $connection->prepare("
-                INSERT INTO clearance_forms (
-                    clearance_form_id,
-                    user_id, 
-                    academic_year_id, 
-                    semester_id, 
-                    clearance_type, 
-                    status
-                )
-                SELECT 
-                    CONCAT('CF-', YEAR(CURDATE()), '-', LPAD(ROW_NUMBER() OVER(), 5, '0')),
-                    f.user_id,
-                    ?,
-                    ?,
-                    'Faculty',
-                    'Unapplied'
-                FROM faculty f
-                WHERE f.user_id IS NOT NULL
-            ");
-            $stmt->execute([$academicYearId, $semesterId]);
-        }
-        
-    } catch (Exception $e) {
-        error_log("Error creating clearance forms for sector period: " . $e->getMessage());
-        throw $e;
-    }
-}
-
 // Helper function to get sector statistics
 function getSectorStatistics($connection, $periods) {
     $statistics = [];
-    
-    foreach ($periods as $period) {
-        $sector = $period['sector'];
-        if (!isset($statistics[$sector])) {
-            $statistics[$sector] = [
-                'total_periods' => 0,
-                'ongoing_periods' => 0,
-                'closed_periods' => 0,
-                'total_forms' => 0,
-                'pending_forms' => 0,
-                'completed_forms' => 0
-            ];
-        }
-        
-        $statistics[$sector]['total_periods']++;
-        
-        if ($period['status'] === 'Ongoing') {
-            $statistics[$sector]['ongoing_periods']++;
-        } elseif ($period['status'] === 'Closed') {
-            $statistics[$sector]['closed_periods']++;
-        }
-        
-        // Get form statistics for this period
-        $stmt = $connection->prepare("
-            SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
-                SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as completed
-            FROM clearance_forms 
-            WHERE academic_year_id = ? AND semester_id = ? AND clearance_type = ?
-        ");
-        $stmt->execute([$period['academic_year_id'], $period['semester_id'], $period['sector']]);
-        $formStats = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        $statistics[$sector]['total_forms'] += $formStats['total'];
-        $statistics[$sector]['pending_forms'] += $formStats['pending'];
-        $statistics[$sector]['completed_forms'] += $formStats['completed'];
+
+        $periodIds = array_map(function($p) { return $p['period_id']; }, $periods);
+
+    if (empty($periodIds)) {
+        return [];
     }
-    
+
+    $placeholders = implode(',', array_fill(0, count($periodIds), '?'));
+
+    $sql = "
+        SELECT
+            cp.sector,
+            COUNT(DISTINCT cp.period_id) as total_periods,
+            SUM(CASE WHEN cp.status = 'Ongoing' THEN 1 ELSE 0 END) as ongoing_periods,
+            SUM(CASE WHEN cp.status = 'Closed' THEN 1 ELSE 0 END) as closed_periods,
+            COUNT(cf.clearance_form_id) as total_forms,
+            SUM(CASE WHEN cf.clearance_form_progress = 'in-progress' THEN 1 ELSE 0 END) as pending_forms,
+            SUM(CASE WHEN cf.clearance_form_progress = 'complete' THEN 1 ELSE 0 END) as completed_forms
+        FROM clearance_periods cp
+        LEFT JOIN clearance_forms cf ON cp.academic_year_id = cf.academic_year_id
+                                    AND cp.semester_id = cf.semester_id
+                                    AND cp.sector = cf.clearance_type
+        WHERE cp.period_id IN ($placeholders)
+        GROUP BY cp.sector
+    ";
+
+    $stmt = $connection->prepare($sql);
+    $stmt->execute($periodIds);
+    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($results as $row) {
+        $statistics[$row['sector']] = [
+            'total_periods' => (int)$row['total_periods'],
+            'ongoing_periods' => (int)$row['ongoing_periods'],
+            'closed_periods' => (int)$row['closed_periods'],
+            'total_forms' => (int)$row['total_forms'],
+            'pending_forms' => (int)$row['pending_forms'],
+            'completed_forms' => (int)$row['completed_forms']
+        ];
+    }
+
     return $statistics;
 }
 ?>

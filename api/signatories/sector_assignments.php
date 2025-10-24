@@ -113,29 +113,42 @@ function assignSignatory($pdo, $data) {
         throw new Exception("Invalid clearance type");
     }
     
-    // Check if assignment already exists
+    error_log("API: Attempting to assign signatory. Data: " . json_encode($data));
+    
+    // Check if assignment already exists (active or inactive)
     $checkSql = "
-        SELECT assignment_id FROM sector_signatory_assignments 
+        SELECT assignment_id, is_active FROM sector_signatory_assignments 
         WHERE clearance_type = ? AND user_id = ? AND designation_id = ?
-        AND (department_id = ? OR (department_id IS NULL AND ? IS NULL))
     ";
     $stmt = $pdo->prepare($checkSql);
     $stmt->execute([
         $data['clearance_type'],
         $data['user_id'],
-        $data['designation_id'],
-        $data['department_id'] ?? null,
-        $data['department_id'] ?? null
+        $data['designation_id']
     ]);
+    $existingAssignment = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    if ($stmt->fetch()) {
-        throw new Exception("Assignment already exists");
+    if ($existingAssignment) {
+        if ($existingAssignment['is_active'] == 1) {
+            error_log("API: Assignment already exists and is active. No action needed.");
+            // It's already active, do nothing.
+            return $existingAssignment['assignment_id'];
+        } else {
+            // It's inactive, so reactivate it (soft-undelete)
+            error_log("API: Reactivating existing inactive assignment ID: " . $existingAssignment['assignment_id']);
+            $updateSql = "UPDATE sector_signatory_assignments SET is_active = 1, updated_at = NOW() WHERE assignment_id = ?";
+            $updateStmt = $pdo->prepare($updateSql);
+            $updateStmt->execute([$existingAssignment['assignment_id']]);
+            return $existingAssignment['assignment_id'];
+        }
     }
     
+    error_log("API: No existing assignment found. Creating a new one.");
+    // If no assignment exists, insert a new one
     $sql = "
         INSERT INTO sector_signatory_assignments 
-        (clearance_type, user_id, designation_id, is_program_head, department_id, is_required_first, is_required_last, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+        (clearance_type, user_id, designation_id, is_program_head, department_id, is_active, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, 1, NOW(), NOW())
     ";
     
     $stmt = $pdo->prepare($sql);
@@ -144,16 +157,14 @@ function assignSignatory($pdo, $data) {
         $data['user_id'],
         $data['designation_id'],
         $data['is_program_head'] ?? 0,
-        $data['department_id'] ?? null,
-        $data['is_required_first'] ?? 0,
-        $data['is_required_last'] ?? 0
+        $data['department_id'] ?? null
     ]);
     
     return $pdo->lastInsertId();
 }
 
 function removeSignatory($pdo, $data) {
-    $requiredFields = ['clearance_type', 'user_id'];
+    $requiredFields = ['clearance_type', 'user_id', 'designation_id'];
     foreach ($requiredFields as $field) {
         if (!isset($data[$field])) {
             throw new Exception("Missing required field: $field");
@@ -167,80 +178,16 @@ function removeSignatory($pdo, $data) {
     $sql = "
         UPDATE sector_signatory_assignments 
         SET is_active = 0, updated_at = NOW()
-        WHERE clearance_type = ? AND user_id = ?
+        WHERE clearance_type = ? AND user_id = ? AND designation_id = ?
     ";
     
-    if (isset($data['designation_id'])) {
-        $sql .= " AND designation_id = ?";
-        $params = [$data['clearance_type'], $data['user_id'], $data['designation_id']];
-    } else {
-        $params = [$data['clearance_type'], $data['user_id']];
-    }
+    $params = [$data['clearance_type'], $data['user_id'], $data['designation_id']];
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
+    error_log("API: Removed " . $stmt->rowCount() . " signatory assignment(s).");
     
     return $stmt->rowCount();
-}
-
-function assignProgramHeadsToSector($pdo, $clearanceType) {
-    if (!validateClearanceType($clearanceType)) {
-        throw new Exception("Invalid clearance type");
-    }
-    
-    // Get Program Head designation ID
-    $stmt = $pdo->prepare("SELECT designation_id FROM designations WHERE designation_name = 'Program Head' LIMIT 1");
-    $stmt->execute();
-    $programHeadDesignation = $stmt->fetch();
-    
-    if (!$programHeadDesignation) {
-        throw new Exception("Program Head designation not found");
-    }
-    
-    $designationId = $programHeadDesignation['designation_id'];
-    
-    // Get all Program Heads assigned to departments in this sector
-    $sql = "
-        SELECT DISTINCT sda.staff_id, sda.department_id
-        FROM staff_department_assignments sda
-        JOIN departments d ON sda.department_id = d.department_id
-        JOIN sectors s ON d.sector_id = s.sector_id
-        WHERE s.sector_name = ? AND sda.is_primary = 1
-    ";
-    
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([$clearanceType]);
-    $programHeads = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    $assignedCount = 0;
-    foreach ($programHeads as $ph) {
-        try {
-            // Check if already assigned
-            $checkSql = "
-                SELECT assignment_id FROM sector_signatory_assignments 
-                WHERE clearance_type = ? AND user_id = ? AND designation_id = ? AND department_id = ?
-            ";
-            $checkStmt = $pdo->prepare($checkSql);
-            $checkStmt->execute([$clearanceType, $ph['staff_id'], $designationId, $ph['department_id']]);
-            
-            if (!$checkStmt->fetch()) {
-                // Insert new assignment
-                $insertSql = "
-                    INSERT INTO sector_signatory_assignments 
-                    (clearance_type, user_id, designation_id, is_program_head, department_id, is_active)
-                    VALUES (?, ?, ?, 1, ?, 1)
-                ";
-                $insertStmt = $pdo->prepare($insertSql);
-                $insertStmt->execute([$clearanceType, $ph['staff_id'], $designationId, $ph['department_id']]);
-                $assignedCount++;
-            }
-        } catch (Exception $e) {
-            // Continue with other assignments
-            continue;
-        }
-    }
-    
-    return $assignedCount;
 }
 
 function removeProgramHeadsFromSector($pdo, $clearanceType) {
@@ -274,7 +221,7 @@ function removeProgramHeadsFromSector($pdo, $clearanceType) {
 // Route handling
 switch ($method) {
     case 'GET':
-        $clearanceType = $_GET['clearance_type'] ?? null;
+         $clearanceType = $_GET['clearance_type'] ?? null;
         
         if ($clearanceType && !validateClearanceType($clearanceType)) {
             http_response_code(400);
@@ -294,43 +241,18 @@ switch ($method) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
         break;
-        
+
     case 'POST':
         if (!$input) {
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'No input data provided']);
             exit();
         }
-        
+
         try {
             if (isset($input['action'])) {
-                switch ($input['action']) {
-                    case 'assign_program_heads':
-                        $count = assignProgramHeadsToSector($pdo, $input['clearance_type']);
-                        echo json_encode([
-                            'success' => true,
-                            'message' => "Assigned $count Program Heads to {$input['clearance_type']} clearance",
-                            'assigned_count' => $count
-                        ]);
-                        break;
-                        
-                    case 'remove_program_heads':
-                        $count = removeProgramHeadsFromSector($pdo, $input['clearance_type']);
-                        echo json_encode([
-                            'success' => true,
-                            'message' => "Removed $count Program Heads from {$input['clearance_type']} clearance",
-                            'removed_count' => $count
-                        ]);
-                        break;
-                        
-                    default:
-                        $assignmentId = assignSignatory($pdo, $input);
-                        echo json_encode([
-                            'success' => true,
-                            'message' => 'Signatory assigned successfully',
-                            'assignment_id' => $assignmentId
-                        ]);
-                }
+                // No POST actions are currently supported besides direct assignment.
+                throw new Exception("Invalid action specified");
             } else {
                 $assignmentId = assignSignatory($pdo, $input);
                 echo json_encode([
@@ -351,7 +273,13 @@ switch ($method) {
             echo json_encode(['success' => false, 'message' => 'No input data provided']);
             exit();
         }
-        
+
+        // Check for bulk delete action
+        if (isset($input['action']) && $input['action'] === 'bulk_delete') {
+            handleBulkRemove($pdo, $input);
+            exit();
+        }
+
         try {
             $removedCount = removeSignatory($pdo, $input);
             echo json_encode([
@@ -364,10 +292,42 @@ switch ($method) {
             echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
         break;
-        
+
     default:
         http_response_code(405);
         echo json_encode(['success' => false, 'message' => 'Method not allowed']);
         break;
+}
+
+function handleBulkRemove($pdo, $data)
+{
+    if (empty($data['clearance_type'])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'clearance_type is required for bulk delete']);
+        exit();
+    }
+
+    if (!validateClearanceType($data['clearance_type']))
+    {
+        throw new Exception("Invalid clearance type");
+    }
+
+    error_log("API: Bulk removing all signatories for clearance_type: " . $data['clearance_type']);    
+    $sql = "
+        UPDATE sector_signatory_assignments 
+        SET is_active = 0, updated_at = NOW()
+        WHERE clearance_type = ? AND is_active = 1
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$data['clearance_type']]);
+    $removedCount = $stmt->rowCount();
+    error_log("API: Bulk removed " . $removedCount . " assignments.");    
+
+    echo json_encode([
+        'success' => true,
+        'message' => "Bulk removal successful for {$data['clearance_type']}",
+        'removed_count' => $removedCount
+    ]);
 }
 ?>

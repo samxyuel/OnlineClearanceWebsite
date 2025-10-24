@@ -32,7 +32,7 @@ try {
     
     // Get rejection reasons from database
     $stmt = $connection->prepare("
-        SELECT rejection_reason_id, reason_name, description, is_active
+        SELECT reason_id, reason_name, reason_category, is_active
         FROM rejection_reasons 
         WHERE is_active = 1
         ORDER BY reason_name ASC
@@ -41,47 +41,68 @@ try {
     $reasons = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // If no reasons in database, provide default ones
+    // Also, filter by the requested category if provided
+    $category = $_GET['category'] ?? null;
+
+    if ($category && !empty($reasons)) {
+        $reasons = array_values(array_filter($reasons, function($reason) use ($category) {
+            return $reason['reason_category'] === $category || $reason['reason_category'] === 'both';
+        }));
+    }
+
     if (empty($reasons)) {
-        $reasons = [
+        $defaultReasons = [
             [
-                'rejection_reason_id' => 1,
+                'reason_id' => 1,
                 'reason_name' => 'Incomplete Documentation',
-                'description' => 'Required documents are missing or incomplete',
+                'reason_category' => 'student',
                 'is_active' => 1
             ],
             [
-                'rejection_reason_id' => 2,
-                'reason_name' => 'Outstanding Obligations',
-                'description' => 'Student has outstanding financial or academic obligations',
+                'reason_id' => 2,
+                'reason_name' => 'Unpaid Fees',
+                'reason_category' => 'both',
                 'is_active' => 1
             ],
             [
-                'rejection_reason_id' => 3,
+                'reason_id' => 3,
+                'reason_name' => 'Academic Requirements Not Met',
+                'reason_category' => 'both',
+                'is_active' => 1
+            ],
+            [
+                'reason_id' => 4,
                 'reason_name' => 'Disciplinary Issues',
-                'description' => 'Student has unresolved disciplinary matters',
+                'reason_category' => 'both',
                 'is_active' => 1
             ],
             [
-                'rejection_reason_id' => 4,
-                'reason_name' => 'Library Fines',
-                'description' => 'Student has unpaid library fines or overdue books',
+                'reason_id' => 5,
+                'reason_name' => 'Missing Clearance Items',
+                'reason_category' => 'both',
                 'is_active' => 1
             ],
             [
-                'rejection_reason_id' => 5,
-                'reason_name' => 'Laboratory Clearance',
-                'description' => 'Student has not completed laboratory clearance requirements',
+                'reason_id' => 6,
+                'reason_name' => 'Unreturned University Property',
+                'reason_category' => 'faculty',
                 'is_active' => 1
             ],
             [
-                'rejection_reason_id' => 6,
+                'reason_id' => 7,
                 'reason_name' => 'Other',
-                'description' => 'Other reasons not listed above',
+                'reason_category' => 'both',
                 'is_active' => 1
             ]
         ];
     }
     
+    if ($category && !empty($defaultReasons)) {
+        $reasons = array_filter($defaultReasons, function($reason) use ($category) {
+            return $reason['reason_category'] === $category || $reason['reason_category'] === 'both';
+        });
+    }
+
     echo json_encode([
         'success' => true,
         'rejection_reasons' => $reasons,
