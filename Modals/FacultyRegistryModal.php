@@ -150,19 +150,28 @@
       return;
     }
 
-    // Generate credentials
-    const empId = document.getElementById('employeeNumber').value.trim();
-    const lastName = document.getElementById('lastName').value.trim().replace(/\s+/g, '');
-    const username = empId;
-    const password = `${lastName}${empId}`;
+    // Generate credentials locally first
+    const form = document.getElementById('facultyRegistrationForm');
+    const empId = form.employeeNumber.value.trim();
+    const lastName = form.lastName.value.trim().replace(/\s+/g, '');
+    const username = empId; // Use employee number as username
+    const password = `${lastName}${empId}`; // e.g., TiborLCA5030P
 
-    document.getElementById('generatedUsername').value = username;
-    document.getElementById('generatedPassword').value = password;
-    document.getElementById('credentialModal').style.display = 'flex';
+    // Prepare the data for the modal and the final submission
+    const credentialData = { username, password };
+
+    // The callback function that will be executed when "Confirm & Save" is clicked
+    const confirmCallback = () => {
+      // Pass the generated credentials along with the form data
+      confirmFacultyCreation(credentialData);
+    };
+
+    // Open the unified credentials modal
+    openGeneratedCredentialsModal('newAccount', credentialData, confirmCallback);
   }
 
   function closeCredentialModal() {
-    document.getElementById('credentialModal').style.display = 'none';
+    closeGeneratedCredentialsModal();
   }
 
   function copyCredentials() {
@@ -179,21 +188,23 @@
     });
   }
 
-  function confirmFacultyCreation() {
+  function confirmFacultyCreation(credentialData) {
     const form = document.getElementById('facultyRegistrationForm');
     const data = {
       employee_number: form.employeeNumber.value.trim(),
       employment_status: form.employmentStatus.value,
       first_name: form.firstName.value.trim(),
       last_name: form.lastName.value.trim(),
-      middle_name: form.middleName.value.trim(),
-      email: form.email.value.trim(),
-      contact_number: form.contactNumber.value.trim(),
-      username: document.getElementById('generatedUsername').value,
-      password: document.getElementById('generatedPassword').value
+      middle_name: form.middleName.value.trim() || null,
+      email: form.email.value.trim() || null,
+      contact_number: form.contactNumber.value.trim() || null,
+      username: credentialData.username,
+      password: credentialData.password,
+      department_id: 50 // Automatically assign to General Education department
     };
 
-    document.getElementById('confirmFacultyCreateBtn').disabled = true;
+    const confirmBtn = document.getElementById('credentialModalConfirmBtn');
+    if(confirmBtn) confirmBtn.disabled = true;
 
     fetch('../../api/users/create_faculty.php', {
       method: 'POST',
@@ -204,20 +215,20 @@
     .then(r=>r.json())
     .then(res=>{
         if(res.success){
-            showToastNotification('Faculty registered successfully','success');
-            closeCredentialModal();
+            showToastNotification('Faculty registered successfully!','success');
+            closeGeneratedCredentialsModal();
             closeFacultyRegistrationModal();
             // notify parent page
             document.dispatchEvent(new CustomEvent('faculty-added',{detail:{employee_number:data.employee_number}}));
         } else {
             showToastNotification(res.message||'Error registering faculty','error');
-            document.getElementById('confirmFacultyCreateBtn').disabled = false;
+            if(confirmBtn) confirmBtn.disabled = false;
         }
     })
     .catch(err=>{
         console.error(err);
         showToastNotification('Network error','error');
-        document.getElementById('confirmFacultyCreateBtn').disabled = false;
+        if(confirmBtn) confirmBtn.disabled = false;
     });
   }
   

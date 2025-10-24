@@ -98,48 +98,97 @@ function handleApplyOperation($connection, $userId, $input) {
     $signatoryId = (int)$input['signatory_id'];
     $clearanceFormId = $input['clearance_form_id'];
     
-    // Verify the clearance form belongs to the user
-    $stmt = $connection->prepare("
-        SELECT clearance_form_id, status 
-        FROM clearance_forms 
-        WHERE clearance_form_id = ? AND user_id = ?
-    ");
-    $stmt->execute([$clearanceFormId, $userId]);
-    $form = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$form) {
-        http_response_code(404);
-        echo json_encode([
-            'success' => false, 
-            'message' => 'Clearance form not found or access denied'
-        ]);
-        exit;
-    }
-    
-    // Update the signatory status to 'Pending'
-    $stmt = $connection->prepare("
-        UPDATE clearance_signatories 
-        SET action = 'Pending', updated_at = NOW() 
-        WHERE signatory_id = ? AND clearance_form_id = ?
-    ");
-    $result = $stmt->execute([$signatoryId, $clearanceFormId]);
-    
-    if ($result && $stmt->rowCount() > 0) {
-        // Log the application
+    try {
+        $connection->beginTransaction();
+
+        // 1. Verify the user owns the clearance form and get its progress
+        $stmt = $connection->prepare("
+            SELECT clearance_form_id, clearance_form_progress, applied_at 
+            FROM clearance_forms 
+            WHERE clearance_form_id = ? AND user_id = ?
+        ");
+        $stmt->execute([$clearanceFormId, $userId]);
+        $form = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$form) {
+            http_response_code(404);
+            echo json_encode([
+                'success' => false, 
+                'message' => 'Clearance form not found or access denied'
+            ]);
+            $connection->rollBack();
+            exit;
+        }
+
+        // 2. Check the signatory's current status
+        $stmt = $connection->prepare("SELECT action FROM clearance_signatories WHERE signatory_id = ? AND clearance_form_id = ?");
+        $stmt->execute([$signatoryId, $clearanceFormId]);
+        $signatory = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$signatory) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Signatory not found for this clearance form.']);
+            $connection->rollBack();
+            exit;
+        }
+
+        // 3. Allow application only if status is 'Unapplied' or 'Rejected'
+        if ($signatory['action'] !== 'Unapplied' && $signatory['action'] !== 'Rejected') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'You have already applied to this signatory. Current status: ' . $signatory['action']]);
+            $connection->rollBack();
+            exit;
+        }
+        
+        // 4. Update the signatory status to 'Pending'
+        $stmt = $connection->prepare("
+            UPDATE clearance_signatories 
+            SET action = 'Pending', updated_at = NOW() 
+            WHERE signatory_id = ? AND clearance_form_id = ?
+        ");
+        $result = $stmt->execute([$signatoryId, $clearanceFormId]);
+
+        if (!$result || $stmt->rowCount() === 0) {
+            $connection->rollBack();
+            echo json_encode([
+                'success' => false,
+                'message' => 'Failed to submit application. Please try again.'
+            ]);
+            exit;
+        }
+
+        // 5. Update the overall form progress to 'in-progress' if it's the first application
+        if ($form['clearance_form_progress'] === 'unapplied') {
+            $updateFormSql = "UPDATE clearance_forms SET clearance_form_progress = 'in-progress'";
+            if ($form['applied_at'] === null) {
+                $updateFormSql .= ", applied_at = NOW()";
+            }
+            $updateFormSql .= " WHERE clearance_form_id = ?";
+            
+            $stmt = $connection->prepare($updateFormSql);
+            $stmt->execute([$clearanceFormId]);
+        }
+        
+        // 6. Log the application
         logActivity($userId, 'Signatory Apply', [
             'form_id' => $clearanceFormId,
             'signatory_id' => $signatoryId
         ]);
+
+        $connection->commit();
         
         echo json_encode([
             'success' => true,
             'message' => 'Application submitted successfully'
         ]);
-    } else {
-        echo json_encode([
-            'success' => false,
-            'message' => 'Failed to submit application'
-        ]);
+
+    } catch (Exception $e) {
+        if ($connection->inTransaction()) {
+            $connection->rollBack();
+        }
+        http_response_code(500);
+        error_log("Apply signatory error: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'An error occurred while processing your application.']);
     }
 }
 

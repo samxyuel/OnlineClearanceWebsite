@@ -40,10 +40,10 @@ error_message	text DEFAULT NULL
 
 clearance_applications
 Column Name	Data Type/Details
-application_id	int(11) NOT NULL (Primary Key)
+application_id	int(11) NOT NULL (Primary Key) AUTO_INCREMENT
 user_id	int(11) NOT NULL
 period_id	int(11) NOT NULL
-status	enum('pending','in-progress','completed','rejected') DEFAULT 'pending'
+status	enum('pending','approved','rejected') DEFAULT 'pending'
 applied_at	timestamp NOT NULL DEFAULT current_timestamp()
 completed_at	timestamp NULL DEFAULT NULL
 updated_at	timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -95,29 +95,15 @@ created_at	timestamp NOT NULL DEFAULT current_timestamp()
 
 clearance_signatories
 Column Name	Data Type/Details
-clearance_signatory_id	int(11) NOT NULL (Primary Key)
+signatory_id	int(11) NOT NULL (Primary Key)
 clearance_form_id	varchar(20) DEFAULT NULL
 designation_id	int(11) DEFAULT NULL
 actual_user_id	int(11) DEFAULT NULL (Staff member who actually signed (for override))
-action	enum('Pending','Approved','Rejected') DEFAULT 'Pending'
+action	enum('Unapplied', 'Pending','Approved','Rejected') DEFAULT 'Unapplied'
 remarks text DEFAULT NULL (General remarks)
-rejection_reason_id	int(11) DEFAULT NULL (Predefined rejection reason)
+reason_id	int(11) DEFAULT NULL (Predefined rejection reason)
 additional_remarks	text DEFAULT NULL (Additional details for rejection)
 date_signed timestamp DEFAULT NULL (When action was taken)
-created_at	timestamp NOT NULL DEFAULT current_timestamp()
-updated_at	timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-
-
-clearance_signatories_new
-Column Name	Data Type/Details
-signatory_id	int(11) NOT NULL (Primary Key)
-staff_id	varchar(8) NOT NULL (Employee number)
-clearance_period_id	int(11) NOT NULL
-designation_id	int(11) NOT NULL
-department_id	int(11) DEFAULT NULL
-is_required_first	tinyint(1) DEFAULT 0
-is_required_last	tinyint(1) DEFAULT 0
-is_active	tinyint(1) DEFAULT 1
 created_at	timestamp NOT NULL DEFAULT current_timestamp()
 updated_at	timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 

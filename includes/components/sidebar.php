@@ -166,6 +166,7 @@ $sidebarLinks = [
             ['icon' => 'fas fa-university', 'text' => 'College Student Management', 'link' => '../../pages/program-head/CollegeStudentManagement.php'],
             ['icon' => 'fas fa-graduation-cap', 'text' => 'Senior High School Student Management', 'link' => '../../pages/program-head/SeniorHighStudentManagement.php'],
             ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Faculty Management', 'link' => '../../pages/program-head/FacultyManagement.php'],
+            
             ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
         'bottom' => [
@@ -260,10 +261,6 @@ if ($isUserLoggedIn) {
                     $text = $link['text'];
                     $disabled = false;
                     if ($currentRole === 'program_head') {
-                        if ($text === 'Student Management' && !$enableStudentMgmt) $disabled = true;
-                        if ($text === 'Faculty Management' && !$enableFacultyMgmt) $disabled = true;
-                    }
-                    if ($currentRole === 'staff') {
                         if ($text === 'Student Management' && !$enableStudentMgmt) $disabled = true;
                         if ($text === 'Faculty Management' && !$enableFacultyMgmt) $disabled = true;
                     }

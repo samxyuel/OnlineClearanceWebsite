@@ -63,24 +63,30 @@ class ClearanceButtonManager {
         throw new Error(data.message || "Failed to check button status");
       }
 
+      // The API returns 'button_states' which is an array.
+      // We need to derive a single 'button_status' for the manager's logic.
+      // Let's assume we take the status of the first signatory or a default.
+      const buttonStatus = data.button_states && data.button_states.length > 0
+        ? data.button_states[0].button_state
+        : {
+            buttons_enabled: false,
+            disabled_reasons: ["No signatory status returned from API"],
+          };
+
       // Cache the result
       this.cache.set(cacheKey, {
-        data: data.button_status,
+        data: buttonStatus,
         timestamp: Date.now(),
       });
 
-      return data.button_status;
+      return buttonStatus;
     } catch (error) {
       console.error("Error checking button status:", error);
 
       // Return default disabled state on error
       return {
         buttons_enabled: false,
-        conditions: {
-          has_active_term: false,
-          user_is_signatory: false,
-          faculty_has_applied: false,
-        },
+        conditions: {},
         disabled_reasons: ["Error checking status: " + error.message],
       };
     }

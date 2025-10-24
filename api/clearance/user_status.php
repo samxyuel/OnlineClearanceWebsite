@@ -116,14 +116,29 @@ try {
     ";
     $stmt = $connection->prepare($periodStatusSql);
     $stmt->execute([$clearanceType, $semesterId, $academicYearId]);
-    $periodStatus = $stmt->fetch(PDO::FETCH_ASSOC);
-    $periodStatusValue = $periodStatus ? $periodStatus['period_status'] : 'Unknown';
+    $periodStatusRow = $stmt->fetch(PDO::FETCH_ASSOC);
     
+    // Format the status to match frontend expectations (e.g., 'Not Started' -> 'not_started')
+    $rawStatus = $periodStatusRow ? $periodStatusRow['period_status'] : 'Unknown';
+    $periodStatusValue = strtolower(str_replace(' ', '_', $rawStatus));
+    
+    // Get sector clearance settings for required first/last logic
+    $settingsSql = "
+        SELECT * 
+        FROM sector_clearance_settings 
+        WHERE clearance_type = ? 
+        LIMIT 1
+    ";
+    $settingsStmt = $connection->prepare($settingsSql);
+    $settingsStmt->execute([$clearanceType]);
+    $settings = $settingsStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
     // Get signatories for this clearance form
     $signatoriesSql = "
         SELECT 
             cs.signatory_id,
             cs.action,
+            cs.designation_id,
             cs.remarks,
             cs.date_signed,
             cs.created_at,
@@ -169,6 +184,7 @@ try {
         
         $processedSignatories[] = [
             'signatory_id' => $signatory['signatory_id'],
+            'designation_id' => $signatory['designation_id'],
             'designation_name' => $signatory['designation_name'],
             'action' => $action,
             'remarks' => $signatory['remarks'],
@@ -220,6 +236,7 @@ try {
         'applied_at' => $form['applied_at'],
         'completed_at' => $form['completed_at'],
         'period_status' => $periodStatusValue,
+        'settings' => $settings,
         'can_apply' => $periodStatusValue !== 'Closed',
         'signatories' => $processedSignatories,
         'total_signatories' => count($processedSignatories),

@@ -45,10 +45,10 @@
                                     <p id="periodDuration">Loading period information...</p>
                                     <div class="period-stats">
                                         <span class="stat-item">
-                                            <i class="fas fa-user-graduate"></i> <span id="studentStats">Loading student statistics...</span>
+                                            <i class="fas fa-user-graduate"></i> <span id="studentStats">Students: 0 applied, 0 completed (0%)</span>
                                         </span>
                                         <span class="stat-item">
-                                            <i class="fas fa-clock"></i> <span id="pendingStats">Loading pending signatures...</span>
+                                            <i class="fas fa-clock"></i> <span id="pendingStats">Pending: 0 students, 0 faculty</span>
                                         </span>
                                     </div>
                                 </div>
@@ -73,17 +73,17 @@
                                     <i class="fas fa-users"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>456</h3>
+                                    <h3 id="totalStudentsStat">0</h3>
                                     <p>Total Students</p>
                                 </div>
                             </div>
                             <div class="stat-card">
                                 <div class="stat-icon active">
-                                    <i class="fas fa-check-circle"></i>
+                                    <i class="fas fa-chalkboard-teacher"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>142</h3>
-                                    <p>Completed Clearances</p>
+                                    <h3 id="totalFacultyStat">0</h3>
+                                    <p>Total Faculty</p>
                                 </div>
                             </div>
                             <div class="stat-card">
@@ -91,17 +91,17 @@
                                     <i class="fas fa-clock"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>14</h3>
+                                    <h3 id="pendingSignaturesStat">0</h3>
                                     <p>Pending Signatures</p>
                                 </div>
                             </div>
                             <div class="stat-card">
                                 <div class="stat-icon">
-                                    <i class="fas fa-file-alt"></i>
+                                    <i class="fas fa-check-circle"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>23</h3>
-                                    <p>This Week's Reports</p>
+                                    <h3 id="completedClearancesStat">0</h3>
+                                    <p>Completed Clearances</p>
                                 </div>
                             </div>
                         </div>
@@ -209,43 +209,13 @@
                                 <div class="overview-card">
                                     <h4><i class="fas fa-graduation-cap"></i> Programs</h4>
                                     <div class="program-stats">
-                                        <div class="program-item">
-                                            <span class="program-name">BSIT</span>
-                                            <span class="program-count">156 students</span>
-                                        </div>
-                                        <div class="program-item">
-                                            <span class="program-name">BSCS</span>
-                                            <span class="program-count">142 students</span>
-                                        </div>
-                                        <div class="program-item">
-                                            <span class="program-name">BSIS</span>
-                                            <span class="program-count">98 students</span>
-                                        </div>
-                                        <div class="program-item">
-                                            <span class="program-name">BSCpE</span>
-                                            <span class="program-count">60 students</span>
-                                        </div>
+                                        <!-- Program stats will be loaded dynamically -->
                                     </div>
                                 </div>
                                 <div class="overview-card">
                                     <h4><i class="fas fa-clipboard-check"></i> Clearance Status</h4>
                                     <div class="clearance-stats">
-                                        <div class="status-item completed">
-                                            <span class="status-label">Completed</span>
-                                            <span class="status-count">142</span>
-                                        </div>
-                                        <div class="status-item pending">
-                                            <span class="status-label">Pending</span>
-                                            <span class="status-count">14</span>
-                                        </div>
-                                        <div class="status-item rejected">
-                                            <span class="status-label">Rejected</span>
-                                            <span class="status-count">8</span>
-                                        </div>
-                                        <div class="status-item in-progress">
-                                            <span class="status-label">In Progress</span>
-                                            <span class="status-count">12</span>
-                                        </div>
+                                        <!-- Clearance stats will be loaded dynamically -->
                                     </div>
                                 </div>
                             </div>
@@ -266,115 +236,6 @@
     <script src="../../assets/js/activity-tracker.js"></script>
     <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
-        // Load user and department information
-        async function loadUserInfo() {
-            try {
-                const response = await fetch('../../api/users/read.php', {
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                
-                if (data.success && data.user) {
-                    const user = data.user;
-                    const welcomeMessage = document.getElementById('welcomeMessage');
-                    if (welcomeMessage) {
-                        welcomeMessage.textContent = `Welcome back, ${user.first_name} ${user.last_name}! Monitor your department's clearance status and manage records.`;
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading user info:', error);
-            }
-        }
-        
-        // Load department information
-        async function loadDepartmentInfo() {
-            try {
-                const response = await fetch('../../api/users/get_current_staff_designation.php', {
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                
-                if (data.success && data.designation_name) {
-                    const departmentScope = document.getElementById('departmentScope');
-                    const departmentOverviewTitle = document.getElementById('departmentOverviewTitle');
-                    
-                    if (departmentScope) {
-                        departmentScope.textContent = `Scope: ${data.designation_name}`;
-                    }
-                    if (departmentOverviewTitle) {
-                        departmentOverviewTitle.textContent = `${data.designation_name} Overview`;
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading department info:', error);
-                const departmentScope = document.getElementById('departmentScope');
-                if (departmentScope) {
-                    departmentScope.textContent = 'Scope: Faculty Department';
-                }
-            }
-        }
-        
-        // Load current period information
-        async function loadCurrentPeriod() {
-            try {
-                const response = await fetch('../../api/clearance/periods.php', {
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                
-                if (data.success && data.active_period) {
-                    const period = data.active_period;
-                    const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
-                    const periodDuration = document.getElementById('periodDuration');
-                    
-                    if (currentPeriodDisplay) {
-                        const termMap = { '1st': 'Term 1', '2nd': 'Term 2', '3rd': 'Term 3' };
-                        const semLabel = termMap[period.semester_name] || period.semester_name || '';
-                        currentPeriodDisplay.textContent = `${period.school_year} ${semLabel} (ACTIVE)`;
-                    }
-                    
-                    if (periodDuration) {
-                        const startDate = new Date(period.start_date);
-                        const endDate = new Date(period.end_date);
-                        const today = new Date();
-                        const daysElapsed = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
-                        const totalDays = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
-                        
-                        periodDuration.textContent = `Duration: ${totalDays} days | Started: ${startDate.toLocaleDateString()}`;
-                    }
-                } else {
-                    const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
-                    if (currentPeriodDisplay) {
-                        currentPeriodDisplay.textContent = 'No active clearance period';
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading current period:', error);
-                const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
-                if (currentPeriodDisplay) {
-                    currentPeriodDisplay.textContent = 'Unable to load period';
-                }
-            }
-        }
-        
-        // Load department statistics
-        async function loadDepartmentStats() {
-            try {
-                // This would be replaced with actual API calls to get real statistics
-                const studentStats = document.getElementById('studentStats');
-                const pendingStats = document.getElementById('pendingStats');
-                
-                if (studentStats) {
-                    studentStats.textContent = 'Faculty: 0 applied, 0 completed (0%)';
-                }
-                if (pendingStats) {
-                    pendingStats.textContent = 'Pending Signatures: 0 faculty';
-                }
-            } catch (error) {
-                console.error('Error loading department stats:', error);
-            }
-        }
-
         function viewPendingClearances() {
             showToast('Opening pending clearances...', 'info');
             setTimeout(() => {
@@ -431,15 +292,107 @@
             }
         }
 
+        async function loadDashboardSummary() {
+            try {
+                const response = await fetch('../../api/dashboard/program_head_summary.php', {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+                    updateUI(data);
+                } else {
+                    showToast(result.message || 'Failed to load dashboard data.', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading dashboard summary:', error);
+                showToast('An error occurred while loading dashboard data.', 'error');
+            }
+        }
+
+        function updateUI(data) {
+            // Welcome Message and Scope
+            if (data.user) {
+                document.getElementById('welcomeMessage').textContent = `Welcome back, ${data.user.first_name}! Monitor your department's clearance status and manage records.`;
+            }
+            if (data.departments && data.departments.length > 0) {
+                const deptNames = data.departments.map(d => d.department_name).join(', ');
+                document.getElementById('departmentScope').textContent = `Scope: ${deptNames}`;
+                document.getElementById('departmentOverviewTitle').textContent = `${deptNames} Overview`;
+            } else {
+                document.getElementById('departmentScope').textContent = 'Scope: No departments assigned';
+            }
+
+            // Active Period Card
+            if (data.active_period) {
+                const period = data.active_period;
+                document.getElementById('currentPeriodDisplay').textContent = `${period.academic_year} ${period.semester_name} (ACTIVE)`;
+                
+                const startDate = new Date(period.start_date);
+                const endDate = new Date(period.end_date);
+                const totalDays = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24));
+                document.getElementById('periodDuration').textContent = `Duration: ${totalDays} days | Started: ${startDate.toLocaleDateString()}`;
+
+                const studentApplied = data.clearance_stats.student.applied || 0;
+                const studentCompleted = data.clearance_stats.student.completed || 0;
+                const studentCompletionRate = studentApplied > 0 ? ((studentCompleted / studentApplied) * 100).toFixed(0) : 0;
+                document.getElementById('studentStats').textContent = `Students: ${studentApplied} applied, ${studentCompleted} completed (${studentCompletionRate}%)`;
+                
+                const pendingStudents = data.pending_signatures.student || 0;
+                const pendingFaculty = data.pending_signatures.faculty || 0;
+                document.getElementById('pendingStats').textContent = `Pending: ${pendingStudents} students, ${pendingFaculty} faculty`;
+            } else {
+                document.getElementById('currentPeriodDisplay').textContent = 'No Active Period';
+                document.getElementById('periodDuration').textContent = 'Clearance activities are currently paused.';
+            }
+
+            // Statistics Dashboard
+            document.getElementById('totalStudentsStat').textContent = data.total_students.toLocaleString();
+            document.getElementById('totalFacultyStat').textContent = data.total_faculty.toLocaleString();
+            document.getElementById('pendingSignaturesStat').textContent = (data.pending_signatures.student + data.pending_signatures.faculty).toLocaleString();
+            document.getElementById('completedClearancesStat').textContent = (data.clearance_stats.student.completed + data.clearance_stats.faculty.completed).toLocaleString();
+
+            // Department Overview - Programs
+            const programStatsContainer = document.querySelector('.program-stats');
+            programStatsContainer.innerHTML = '';
+            if (data.programs && data.programs.length > 0) {
+                data.programs.forEach(prog => {
+                    const item = document.createElement('div');
+                    item.className = 'program-item';
+                    item.innerHTML = `
+                        <span class="program-name">${prog.program_code}</span>
+                        <span class="program-count">${prog.student_count} students</span>
+                    `;
+                    programStatsContainer.appendChild(item);
+                });
+            } else {
+                programStatsContainer.innerHTML = '<p>No programs found for your department(s).</p>';
+            }
+
+            // Department Overview - Clearance Status
+            const clearanceStatsContainer = document.querySelector('.clearance-stats');
+            clearanceStatsContainer.innerHTML = '';
+            const statuses = ['completed', 'pending', 'rejected', 'in-progress'];
+            statuses.forEach(status => {
+                const count = (data.clearance_stats.student[status] || 0) + (data.clearance_stats.faculty[status] || 0);
+                const item = document.createElement('div');
+                item.className = `status-item ${status}`;
+                item.innerHTML = `
+                    <span class="status-label">${status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}</span>
+                    <span class="status-count">${count.toLocaleString()}</span>
+                `;
+                clearanceStatsContainer.appendChild(item);
+            });
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Program Head Dashboard loaded');
             
             // Load dynamic content
-            loadUserInfo();
-            loadDepartmentInfo();
-            loadCurrentPeriod();
-            loadDepartmentStats();
+            loadDashboardSummary();
+
             
             // Initialize Activity Tracker
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {

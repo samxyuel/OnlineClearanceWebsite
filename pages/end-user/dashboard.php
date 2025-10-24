@@ -93,7 +93,7 @@
                                 <i class="fas fa-clock"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>Pending</h3>
+                                <h3 id="clearanceStatus">Loading...</h3>
                                 <p class="stat-number">Clearance</p>
                                 <p class="stat-label">Status</p>
                             </div>
@@ -104,9 +104,9 @@
                                 <i class="fas fa-calendar-alt"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>1st Sem</h3>
-                                <p class="stat-number">2027-2028</p>
-                                <p class="stat-label">Current</p>
+                                <h3 id="currentSemester">--</h3>
+                                <p class="stat-number" id="currentAcademicYear">--</p>
+                                <p class="stat-label">Current Period</p>
                             </div>
                         </div>
                         
@@ -115,7 +115,7 @@
                                 <i class="fas fa-hourglass-half"></i>
                             </div>
                             <div class="stat-content">
-                                <h3 id="daysRemaining">15</h3>
+                                <h3 id="daysRemaining">--</h3>
                                 <p class="stat-number">Days</p>
                                 <p class="stat-label">Remaining</p>
                             </div>
@@ -123,7 +123,7 @@
                         
                         <div class="stat-card">
                             <div class="stat-icon success">
-                                <h3 id="clearanceProgress">8/11</h3>
+                                <h3 id="clearanceProgress">--/--</h3>
                                 <p class="stat-number">Done</p>
                                 <p class="stat-label">Complete</p>
                             </div>
@@ -327,6 +327,113 @@
     </main>
 
     <script>
+    // --- Dashboard Data Loading ---
+    async function loadDashboardData() {
+        try {
+            const response = await fetch('../../api/dashboard/summary.php', { credentials: 'include' });
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.message || 'Failed to load dashboard data.');
+            }
+
+            const data = result.data;
+
+            // Update Quick Stats
+            document.getElementById('clearanceStatus').textContent = data.clearance.status || 'Not Started';
+            document.getElementById('clearanceProgress').textContent = data.clearance.progress_text || '--/--';
+            
+            if (data.period) {
+                document.getElementById('currentSemester').textContent = data.period.semester_name || '--';
+                document.getElementById('currentAcademicYear').textContent = data.period.academic_year || '--';
+                document.getElementById('daysRemaining').textContent = data.period.days_remaining;
+                const periodName = `${data.period.academic_year} ${data.period.semester_name}`;
+                document.querySelector('#clearancePeriodInfo span').textContent = `Clearance period is now open for ${periodName}`;
+                document.getElementById('clearancePeriodInfo').style.display = 'block';
+            } else {
+                document.getElementById('currentSemester').textContent = 'N/A';
+                document.getElementById('currentAcademicYear').textContent = 'No Active Period';
+                document.getElementById('daysRemaining').textContent = '--';
+                document.getElementById('clearancePeriodInfo').style.display = 'none';
+            }
+
+            // Update Main Action Button
+            updateMainActionButton(data);
+
+            // Update Recent Activity
+            updateRecentActivity(data.recent_activity);
+
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+            showToast('Could not load dashboard data.', 'error');
+        }
+    }
+
+    function updateMainActionButton(data) {
+        const btn = document.getElementById('applyClearanceBtn');
+        const text = document.getElementById('applyBtnText');
+        const desc = document.getElementById('actionDescription');
+        const icon = btn.querySelector('i');
+
+        if (!data.period) { // No active period
+            btn.disabled = true;
+            text.textContent = 'Clearance Period Closed';
+            icon.className = 'fas fa-clock';
+            desc.textContent = 'There is no active clearance period.';
+        } else if (data.clearance.status !== 'Not Started' && data.clearance.status !== 'Unapplied') {
+            // Already applied
+            text.textContent = 'Go to My Clearance';
+            icon.className = 'fas fa-eye';
+            desc.textContent = 'View your clearance status and progress.';
+            btn.disabled = false;
+        } else {
+            // Can apply
+            text.textContent = 'Apply for Clearance';
+            icon.className = 'fas fa-file-alt';
+            desc.textContent = 'Begin your clearance application for the current semester.';
+            btn.disabled = false;
+        }
+    }
+
+    function updateRecentActivity(activities) {
+        const timeline = document.getElementById('activityTimeline');
+        if (!activities || activities.length === 0) {
+            timeline.innerHTML = '<div class="activity-item"><div class="activity-content"><p>No recent activity.</p></div></div>';
+            return;
+        }
+
+        timeline.innerHTML = activities.map(activity => {
+            let iconClass = 'fas fa-info-circle';
+            let statusClass = 'pending';
+            let title = `Update from ${activity.designation_name}`;
+
+            if (activity.action === 'Approved') {
+                iconClass = 'fas fa-check-circle';
+                statusClass = 'completed';
+                title = `${activity.designation_name} Approved`;
+            } else if (activity.action === 'Rejected') {
+                iconClass = 'fas fa-times-circle';
+                statusClass = 'rejected';
+                title = `${activity.designation_name} Rejected`;
+            }
+
+            const date = new Date(activity.date_signed);
+            const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+            return `
+                <div class="activity-item ${statusClass}">
+                    <div class="activity-marker"></div>
+                    <div class="activity-content">
+                        <h4>${title}</h4>
+                        <p>Action recorded for your clearance form.</p>
+                        <span class="activity-date">${formattedDate}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+
     // User information from PHP
     const userInfo = {
         id: <?php echo $user_id; ?>,
@@ -338,153 +445,15 @@
 
     // Handle clearance action based on user type
     function handleClearanceAction() {
-        if (userInfo.type === 'faculty') {
-            // Faculty: Simply redirect to clearance page (no mass apply)
-            window.location.href = 'clearance.php';
-        } else {
-            // Student: Use mass apply functionality
-            applyForStudentClearance();
-        }
+        window.location.href = 'clearance.php';
     }
 
     // Apply for student clearance function (mass apply)
     function applyForStudentClearance() {
-        const btn = document.getElementById('applyClearanceBtn');
-        const text = document.getElementById('applyBtnText');
-        const desc = document.getElementById('actionDescription');
-
-        btn.disabled = true;
-        const originalHTML = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-
-        fetch('/OnlineClearanceWebsite/api/clearance/apply_all.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        })
-        .then(r => r.json())
-        .then(res => {
-            if (res.success) {
-                text.textContent = 'Go to My Clearance';
-                btn.querySelector('i').className = 'fas fa-eye';
-                desc.textContent = 'View your clearance status and progress';
-                showToast(res.message || 'Clearance application submitted', 'success');
-                setTimeout(() => window.location.href = 'clearance.php', 1200);
-            } else {
-                // If form already exists, redirect immediately
-                if (res.message && res.message.includes('already')) {
-                    window.location.href = 'clearance.php';
-                } else {
-                    showToast(res.message || 'Error', 'error');
-                    btn.innerHTML = originalHTML;
-                    btn.disabled = false;
-                }
-            }
-        })
-        .catch(() => {
-            showToast('Network error', 'error');
-            btn.innerHTML = originalHTML;
-            btn.disabled = false;
-        });
-    }
-
-    // Check if clearance period is open
-    async function isClearancePeriodOpenAsync() {
-        try {
-            const res = await fetch(`/OnlineClearanceWebsite/api/clearance/periods.php?sector=${userInfo.sector}`, {
-                credentials: 'same-origin'
-            });
-            const json = await res.json();
-            if (!json.success || json.total === 0) return false;
-            const p = json.periods[0];
-            const now = new Date();
-            return now >= new Date(p.start_date) && now <= new Date(p.end_date);
-        } catch (e) { 
-            return false; 
-        }
-    }
-
-    // Initialize clearance button state
-    async function initializeClearanceButton() {
-        const applyBtn = document.getElementById('applyClearanceBtn');
-        const text = document.getElementById('applyBtnText');
-        const desc = document.getElementById('actionDescription');
-        const info = document.getElementById('clearancePeriodInfo');
-
-        const periodOpen = await isClearancePeriodOpenAsync();
-
-        if (userInfo.type === 'faculty') {
-            // Faculty: Simplified logic - always show "Go to My Clearance" if period is open
-            if (periodOpen) {
-                text.textContent = 'Go to My Clearance';
-                applyBtn.querySelector('i').className = 'fas fa-eye';
-                desc.textContent = 'View your faculty clearance status and progress';
-                applyBtn.disabled = false;
-                info.style.display = 'block';
-            } else {
-                applyBtn.disabled = true;
-                text.textContent = 'Clearance Period Closed';
-                applyBtn.querySelector('i').className = 'fas fa-clock';
-                desc.textContent = 'Clearance period is currently closed';
-            }
-        } else {
-            // Student: Complex logic with mass apply functionality
-            let applied = false;
-            let manualApplied = false;
-            
-            try {
-                const res = await fetch('/OnlineClearanceWebsite/api/clearance/status.php', { credentials: 'same-origin' });
-                const json = await res.json();
-                applied = json.success && json.applied;
-                manualApplied = json.success && json.manual_applied;
-            } catch (e) { 
-                applied = false; 
-                manualApplied = false; 
-            }
-
-            // Check for manual mode in localStorage
-            const manualMode = localStorage.getItem('clearance_manual_mode') === 'true';
-            const manualModeTimestamp = localStorage.getItem('clearance_manual_mode_timestamp');
-            
-            // If manual mode was set more than 24 hours ago, clear it (allow reset)
-            if (manualMode && manualModeTimestamp) {
-                const hoursSinceManual = (Date.now() - parseInt(manualModeTimestamp)) / (1000 * 60 * 60);
-                if (hoursSinceManual > 24) {
-                    localStorage.removeItem('clearance_manual_mode');
-                    localStorage.removeItem('clearance_manual_mode_timestamp');
-                }
-            }
-
-            if (applied) {
-                if (manualApplied || manualMode) {
-                    // User has manually applied to signatories - show manual mode
-                    text.textContent = 'Go to My Clearance';
-                    applyBtn.querySelector('i').className = 'fas fa-eye';
-                    desc.textContent = 'View your clearance status and progress (Manual Mode)';
-                    applyBtn.disabled = false;
-                    info.style.display = 'block';
-                } else {
-                    // User has used mass apply - show quick link
-                    text.textContent = 'Go to My Clearance';
-                    applyBtn.querySelector('i').className = 'fas fa-eye';
-                    desc.textContent = 'View your clearance status and progress';
-                    applyBtn.disabled = false;
-                    info.style.display = 'block';
-                }
-            } else if (!periodOpen) {
-                // Period closed – cannot apply
-                applyBtn.disabled = true;
-                text.textContent = 'Clearance Period Closed';
-                applyBtn.querySelector('i').className = 'fas fa-clock';
-                desc.textContent = 'Clearance period is currently closed';
-            } else {
-                // Period open & not applied yet – show Apply button
-                applyBtn.disabled = false;
-                text.textContent = 'Apply for Clearance';
-                applyBtn.querySelector('i').className = 'fas fa-file-alt';
-                desc.textContent = 'Begin your clearance application for the current semester';
-                info.style.display = 'block';
-            }
-        }
+        // This function is now deprecated. The main action button directly navigates
+        // to the clearance page.
+        console.warn('applyForStudentClearance() is deprecated. Navigating directly.');
+        window.location.href = 'clearance.php';
     }
     
     // Navigation function
@@ -644,7 +613,7 @@
         });
 
         // Initialize clearance button state
-        initializeClearanceButton();
+        loadDashboardData();
     });
     </script>
 </body>

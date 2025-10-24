@@ -145,30 +145,65 @@ document.addEventListener('DOMContentLoaded', function() {
 async function populateCollegeDepartments() {
     const departmentSelect = document.getElementById('department');
     if (!departmentSelect) return;
-    departmentSelect.innerHTML = '<option value="">Loading Departments...</option>';
-    departmentSelect.disabled = true;
 
-    try {
-        const response = await fetch(`../../api/departments/list.php?sector=College`);
-        const data = await response.json();
+    // Check if it's a Program Head with specific departments
+    if (window.managedDepartments && Array.isArray(window.managedDepartments)) {
+        const managedDepts = window.managedDepartments;
 
-        if (data.success && data.departments) {
-            departmentSelect.innerHTML = '<option value="">Select Department</option>';
-            data.departments.forEach(dept => {
+        if (managedDepts.length > 0) {
+            departmentSelect.innerHTML = ''; // Clear loading message
+
+            if (managedDepts.length === 1) {
+                // If only one department, pre-select and lock it
+                const dept = managedDepts[0];
                 const option = document.createElement('option');
-                option.value = dept.department_id; // Send the ID
+                option.value = dept.department_id;
                 option.textContent = dept.department_name;
+                option.selected = true;
                 departmentSelect.appendChild(option);
-            });
-            departmentSelect.disabled = false;
+                departmentSelect.disabled = true;
+                updateProgramsAndYearLevels(); // Automatically trigger program loading
+            } else {
+                // If multiple departments, populate dropdown and allow selection
+                departmentSelect.innerHTML = '<option value="">Select your department</option>';
+                managedDepts.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept.department_id;
+                    option.textContent = dept.department_name;
+                    departmentSelect.appendChild(option);
+                });
+                departmentSelect.disabled = false;
+            }
         } else {
-            showToast(data.message || 'Could not load departments.', 'error');
+            departmentSelect.innerHTML = '<option value="">No departments assigned</option>';
+            departmentSelect.disabled = true;
+            showToast('You are not assigned to any departments to add students.', 'error');
+        }
+    } else {
+        // Fallback for Admin or other roles: fetch all college departments
+        departmentSelect.innerHTML = '<option value="">Loading Departments...</option>';
+        departmentSelect.disabled = true;
+        try {
+            const response = await fetch(`../../api/departments/list.php?sector=College`);
+            const data = await response.json();
+
+            if (data.success && data.departments) {
+                departmentSelect.innerHTML = '<option value="">Select Department</option>';
+                data.departments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept.department_id;
+                    option.textContent = dept.department_name;
+                    departmentSelect.appendChild(option);
+                });
+                departmentSelect.disabled = false;
+            } else {
+                throw new Error(data.message || 'Could not load departments.');
+            }
+        } catch (error) {
+            console.error('Failed to fetch departments:', error);
+            showToast('An error occurred while loading departments.', 'error');
             departmentSelect.innerHTML = '<option value="">Error loading</option>';
         }
-    } catch (error) {
-        console.error('Failed to fetch departments:', error);
-        showToast('An error occurred while loading departments.', 'error');
-        departmentSelect.innerHTML = '<option value="">Error loading</option>';
     }
 }
 
@@ -200,12 +235,14 @@ async function updateProgramsAndYearLevels() {
         });
 
         // Populate year levels from the same API response
-        data.year_levels.forEach(yearLevel => {
-          const option = document.createElement('option');
-          option.value = yearLevel;
-          option.textContent = yearLevel;
-          yearLevelSelect.appendChild(option);
-        });
+        if (data.year_levels) {
+            data.year_levels.forEach(yearLevel => {
+              const option = document.createElement('option');
+              option.value = yearLevel;
+              option.textContent = yearLevel;
+              yearLevelSelect.appendChild(option);
+            });
+        }
 
         programSelect.disabled = false;
         yearLevelSelect.disabled = false;

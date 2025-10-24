@@ -194,15 +194,46 @@
   
 
   
-  function resetFacultyPassword() {
-    const facultyId = document.getElementById('editFacultyId').value;
+  function resetFacultyPassword() { // Renamed from resetFacultyPassword to avoid conflict
+    const userId = document.getElementById('editFacultyForm').dataset.userId;
+    const username = document.getElementById('editEmployeeNumber').value;
+
+    if (!userId) {
+        showToastNotification('Cannot reset password. User ID is missing.', 'error');
+        return;
+    }
+
     showConfirmationModal(
       'Reset Password',
-      `Are you sure you want to reset the password for faculty ${facultyId}? A new password will be generated and sent to their email.`,
+      `Are you sure you want to reset the password for ${username}? A new, secure password will be generated.`,
       'Reset Password',
       'Cancel',
-      () => {
-        showToastNotification('Password reset email sent successfully!', 'success');
+      async () => {
+        try {
+            // Generate a new secure password on the client-side for immediate display
+            const newPassword = generateSecurePassword();
+
+            const response = await fetch('../../api/users/password.php', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    user_id: userId,
+                    new_password: newPassword
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Use the unified GeneratedCredentialsModal to show the new password
+                openGeneratedCredentialsModal('passwordReset', { username: username, password: newPassword });
+            } else {
+                throw new Error(data.message || 'Failed to reset password.');
+            }
+        } catch (error) {
+            showToastNotification(error.message, 'error');
+        }
       },
       'warning'
     );
@@ -271,14 +302,19 @@
     // form.submit();
   };
   
-  window.resetFacultyPassword = function() {
-    resetFacultyPassword();
-  };
-  
   window.sendPasswordEmail = function() {
     sendPasswordEmail();
   };
   
+  function generateSecurePassword(length = 12) {
+      const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+      let password = "";
+      for (let i = 0, n = charset.length; i < length; ++i) {
+          password += charset.charAt(Math.floor(Math.random() * n));
+      }
+      return password;
+  }
+
   // Add event listeners
   document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('editFacultyForm');

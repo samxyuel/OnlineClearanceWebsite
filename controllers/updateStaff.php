@@ -61,10 +61,7 @@ try {
     if (isset($input['staffEmail'])) $userData['email'] = $input['staffEmail'];
     if (isset($input['staffContact'])) {
         // Pass the contact number to the user update payload
-        $userData['contact_number'] = $input['staffContact'];
-    }
-    if (isset($input['staffStatus'])) {
-        $userData['account_status'] = ($input['staffStatus'] === 'essential' || $input['staffStatus'] === 'active') ? 'active' : 'inactive';
+                $userData['contact_number'] = $input['staffContact'] ?: null;
     }
 
     // Handle role change if staffPosition is provided
@@ -145,7 +142,7 @@ try {
     }
 
     // Handle "Is also a faculty" logic
-    $isAlsoFaculty = isset($input['isAlsoFaculty']) && $input['isAlsoFaculty'] === 'on';
+    $isAlsoFaculty = !empty($input['isAlsoFaculty']);
     if ($isAlsoFaculty) {
         // Check if a faculty record already exists
         $stmt = $pdo->prepare("SELECT 1 FROM faculty WHERE user_id = ?");
