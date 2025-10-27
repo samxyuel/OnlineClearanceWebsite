@@ -99,8 +99,8 @@
                 <div class="form-group text-center">
                     <a href="forgot_password.php" class="forgot-link">Forgot Password?</a>
                 </div>
-            </form>
             -->
+            </form>
 
             <!-- Login Result Messages -->
             <div id="loginResult" style="display: none;"></div>

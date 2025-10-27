@@ -223,6 +223,11 @@
                 })
             });
 
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred.' }));
+                throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+            }
+
             const data = await response.json();
 
             if (data.success) {

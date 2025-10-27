@@ -600,7 +600,7 @@
                 </div>
                 <div class="remarks-info">
                     <span class="remarks-label">Remarks:</span>
-                    <span class="remarks-value">${signatory.remarks || 'None'}</span>
+                    <span class="remarks-value">${signatory.action === 'Rejected' ? (signatory.additional_remarks || 'None') : (signatory.remarks || 'None')}</span>
                 </div>
                 <div class="card-actions">
                     ${getActionButton(signatory)}
@@ -650,7 +650,7 @@
             <td>
                 ${(signatory.action === 'Approved' || signatory.action === 'Rejected') && signatory.date_signed ? new Date(signatory.date_signed).toLocaleDateString() : 'N/A'}
             </td>
-            <td>${signatory.remarks || 'None'}</td>
+            <td>${signatory.action === 'Rejected' ? (signatory.additional_remarks || 'None') : (signatory.remarks || 'None')}</td>
             <td>
                 <div class="action-buttons">
                     ${getActionButton(signatory)}

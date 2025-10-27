@@ -742,7 +742,7 @@ handleFacultyManagementPageRequest();
             const search = currentSearch;
 
             // Force clearance_status to 'pending' to only show actionable items.
-            let url = `../../api/staff/signatoryList.php?type=faculty&page=${currentPage}&limit=${entriesPerPage}&clearance_status=pending`;
+            let url = `../../api/staff/signatoryList.php?type=faculty&page=${currentPage}&limit=${entriesPerPage}&clearance_status=pending&clearance_status=rejected`;
             if (search) url += `&search=${encodeURIComponent(search)}`;
             if (accountStatus) url += `&account_status=${encodeURIComponent(accountStatus)}`;
             if (employmentStatus) url += `&employment_status=${encodeURIComponent(employmentStatus)}`;
@@ -1253,6 +1253,7 @@ handleFacultyManagementPageRequest();
             
             // Get rejection data
             const rejectionReason = reasonSelect.value;
+            const reasonId = parseInt(rejectionReason);
             const additionalRemarks = remarksTextarea.value.trim();
             
             // Validation

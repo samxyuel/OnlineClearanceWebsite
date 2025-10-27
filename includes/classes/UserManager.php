@@ -126,8 +126,10 @@ class UserManager {
             $userId = $userRes['user_id'];
 
             // Insert into faculty table
-            $stmt = $this->connection->prepare("INSERT INTO faculty (employee_number, user_id, employment_status, created_at) VALUES (?,?,?,NOW())");
-            $stmt->execute([$data['employee_number'], $userId, $employmentStatus]);
+            // Include department_id if provided
+            $departmentId = $data['department_id'] ?? 50;
+            $stmt = $this->connection->prepare("INSERT INTO faculty (employee_number, user_id, employment_status, department_id, created_at) VALUES (?,?,?,?,NOW())");
+            $stmt->execute([$data['employee_number'], $userId, $employmentStatus, $departmentId]);
 
             $this->connection->commit();
             return ['success'=>true,'message'=>'Faculty registered','user_id'=>$userId];

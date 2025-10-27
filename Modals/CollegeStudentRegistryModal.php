@@ -93,49 +93,18 @@
           <input type="tel" id="phoneNumber" name="phoneNumber" 
                  placeholder="+63 9XX XXX XXXX" maxlength="15">
         </div>
-        
-        <!-- Address Information -->
-        <div class="form-group">
-          <label for="address">Address *</label>
-          <textarea id="address" name="address" required 
-                    placeholder="Enter complete address" rows="3" maxlength="200"></textarea>
-        </div>
-        
-        <!-- Account Settings -->
-        <div class="form-section">
-          <h3 class="form-section-title">Account Settings</h3>
-          
-          <div class="form-group">
-            <label for="password">Initial Password *</label>
-            <input type="password" id="password" name="password" required 
-                   placeholder="Enter initial password" minlength="8">
-            <small class="form-help">Minimum 8 characters</small>
-          </div>
-          
-          <div class="form-group">
-            <label for="confirmPassword">Confirm Password *</label>
-            <input type="password" id="confirmPassword" name="confirmPassword" required 
-                   placeholder="Confirm initial password" minlength="8">
-          </div>
-          
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="sendWelcomeEmail" name="sendWelcomeEmail" checked>
-              <span class="checkmark"></span>
-              Send welcome email with login credentials
-            </label>
-          </div>
-        </div>
       </form>
     </div>
     
     <!-- Modal Actions -->
     <div class="modal-actions">
       <button class="modal-action-secondary" onclick="closeStudentRegistrationModal()">Cancel</button>
-      <button class="modal-action-primary" onclick="submitStudentRegistrationForm()" id="submitBtn">Add Student</button>
+      <button class="modal-action-primary" onclick="submitStudentRegistrationForm()" id="submitBtn">Generate Credentials</button>
     </div>
   </div>
 </div>
+
+<?php include __DIR__ . '/GeneratedCredentialsModal.php'; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -291,7 +260,7 @@ function validateStudentRegistrationForm() {
   const formData = new FormData(form);
   
   // Check required fields
-  const requiredFields = ['studentNumber', 'department', 'program', 'yearLevel', 'section', 'lastName', 'firstName', 'email', 'address', 'password', 'confirmPassword'];
+  const requiredFields = ['studentNumber', 'department', 'program', 'yearLevel', 'section', 'lastName', 'firstName', 'email'];
   
   for (const field of requiredFields) {
     const input = form.querySelector(`[name="${field}"]`);
@@ -300,16 +269,6 @@ function validateStudentRegistrationForm() {
       input.focus();
       return false;
     }
-  }
-  
-  // Validate password match
-  const password = formData.get('password');
-  const confirmPassword = formData.get('confirmPassword');
-  
-  if (password !== confirmPassword) {
-    showToast('Passwords do not match', 'error');
-    document.getElementById('confirmPassword').focus();
-    return false;
   }
   
   // Validate email format
@@ -328,49 +287,91 @@ function submitStudentRegistrationForm() {
   if (!validateStudentRegistrationForm()) {
     return;
   }
-  
-  const form = document.getElementById('studentRegistrationForm');
-  const formData = new FormData(form);
-  const submitBtn = document.getElementById('submitBtn');
-  
-  // Disable submit button
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Adding Student...';
-  
-  // Submit form
-  fetch(form.dataset.endpoint, {
-    method: 'POST',
-    body: formData,
-    credentials: 'include'
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      showToast('Student added successfully!', 'success');
-      const newUserId = data.user_id || null;
-      if (newUserId) {
-          // Trigger automatic clearance form creation
-          onUserCreated(newUserId, 'College').catch(console.error);
-      }
 
+  // Generate credentials locally first
+  const form = document.getElementById('studentRegistrationForm');
+  const studentId = form.studentNumber.value.trim();
+  const lastName = form.lastName.value.trim().replace(/\s+/g, '');
+  const username = studentId; // Use student number as username
+  const password = `${lastName}${studentId}`; // e.g., Doe02000288327
+
+  // Prepare the data for the modal and the final submission
+  const credentialData = { username, password };
+
+  // The callback function that will be executed when "Confirm & Save" is clicked
+  const confirmCallback = () => {
+    // Pass the generated credentials along with the form data
+    confirmStudentCreation(credentialData);
+  };
+
+  // Open the unified credentials modal
+  openGeneratedCredentialsModal('newAccount', credentialData, confirmCallback);
+}
+
+function confirmStudentCreation(credentialData) {
+  const form = document.getElementById('studentRegistrationForm');
+  const formData = {
+    student_number: form.studentNumber.value.trim(),
+    department_id: form.department.value,
+    program_id: form.program.value,
+    year_level: form.yearLevel.value,
+    section: form.section.value.trim(),
+    first_name: form.firstName.value.trim(),
+    last_name: form.lastName.value.trim(),
+    middle_name: form.middleName.value.trim() || null,
+    email: form.email.value.trim() || null,
+    phone_number: form.phoneNumber.value.trim() || null,
+    username: credentialData.username,
+    password: credentialData.password,
+    sector: 'college'
+  };
+
+  const confirmBtn = document.getElementById('credentialModalConfirmBtn');
+  if(confirmBtn) confirmBtn.disabled = true;
+  const submitBtn = document.getElementById('submitBtn');
+  if(submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding Student...';
+  }
+
+  fetch('../../controllers/addUsers.php', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(Object.entries(formData))
+  })
+  .then(r => r.json())
+  .then(res => {
+    if(res.success){
+      showToastNotification('Student registered successfully!', 'success');
+      closeGeneratedCredentialsModal();
       closeStudentRegistrationModal();
-      form.reset();
       // Refresh the student list
       if (typeof loadStudentsData === 'function') {
         loadStudentsData();
       }
+      // Trigger automatic clearance form creation
+      const newUserId = res.user_id || null;
+      if (newUserId) {
+        onUserCreated(newUserId, 'College').catch(console.error);
+      }
+      // notify parent page
+      document.dispatchEvent(new CustomEvent('student-added', { detail: { student_number: formData.student_number } }));
     } else {
-      showToast(data.message || 'Failed to add student', 'error');
+      showToastNotification(res.message || 'Error registering student', 'error');
+      if(confirmBtn) confirmBtn.disabled = false;
     }
   })
-  .catch(error => {
-    console.error('Error:', error);
-    showToast('An error occurred while adding the student', 'error');
+  .catch(err => {
+    console.error(err);
+    showToastNotification('Network error', 'error');
+    if(confirmBtn) confirmBtn.disabled = false;
   })
   .finally(() => {
-    // Re-enable submit button
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Add Student';
+    if(submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Generate Credentials';
+    }
   });
 }
 
