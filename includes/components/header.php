@@ -101,7 +101,7 @@ if ($userRole === 'Staff' && $userPosition) {
                 </div>
             </div>
             <div class="user-info">
-                <span class="user-name"><?php echo htmlspecialchars($displayName); ?></span>
+                <span class="user-name" id="userDisplayName"><?php echo htmlspecialchars($displayName); ?></span>
                 <div class="user-dropdown">
                     <button class="dropdown-toggle">▼</button>
                     <div class="dropdown-menu">
@@ -114,3 +114,63 @@ if ($userRole === 'Staff' && $userPosition) {
         </div>
     </div>
 </header>
+
+<script>
+// Responsive User Name Display
+function updateUserDisplayName() {
+    const userDisplayName = document.getElementById('userDisplayName');
+    if (!userDisplayName) return;
+    
+    const fullName = userDisplayName.textContent;
+    const screenWidth = window.innerWidth;
+    
+    if (screenWidth <= 320) {
+        // Small mobile: Very abbreviated (First initial + Last initial + Role)
+        userDisplayName.textContent = abbreviateName(fullName, 'small');
+    } else if (screenWidth <= 480) {
+        // Mobile: Abbreviated (First + Last initial + Role)
+        userDisplayName.textContent = abbreviateName(fullName, 'medium');
+    } else if (screenWidth <= 768) {
+        // Tablet: Slightly abbreviated (First + Last initial + Role)
+        userDisplayName.textContent = abbreviateName(fullName, 'tablet');
+    } else {
+        // Desktop: Full name
+        userDisplayName.textContent = fullName;
+    }
+}
+
+function abbreviateName(fullName, size) {
+    // Extract name and role from format: "John Kristoffer Tibor (Faculty)"
+    const roleMatch = fullName.match(/\(([^)]+)\)$/);
+    const role = roleMatch ? roleMatch[1] : '';
+    const namePart = fullName.replace(/\s*\([^)]+\)$/, '').trim();
+    
+    const nameParts = namePart.split(' ');
+    if (nameParts.length < 2) return fullName;
+    
+    const firstName = nameParts[0];
+    const lastName = nameParts[nameParts.length - 1];
+    
+    switch (size) {
+        case 'small':
+            // Very abbreviated: J. Tibor (Faculty) -> J. T. (Faculty)
+            return `${firstName.charAt(0)}. ${lastName.charAt(0)}.${role ? ` (${role})` : ''}`;
+        case 'medium':
+            // Mobile: John Kristoffer Tibor (Faculty) -> John T. (Faculty)
+            return `${firstName} ${lastName.charAt(0)}.${role ? ` (${role})` : ''}`;
+        case 'tablet':
+            // Tablet: John Kristoffer Tibor (Faculty) -> John K. Tibor (Faculty)
+            if (nameParts.length > 2) {
+                const middleInitial = nameParts[1].charAt(0);
+                return `${firstName} ${middleInitial}. ${lastName}${role ? ` (${role})` : ''}`;
+            }
+            return `${firstName} ${lastName}${role ? ` (${role})` : ''}`;
+        default:
+            return fullName;
+    }
+}
+
+// Update on load and resize
+document.addEventListener('DOMContentLoaded', updateUserDisplayName);
+window.addEventListener('resize', updateUserDisplayName);
+</script>

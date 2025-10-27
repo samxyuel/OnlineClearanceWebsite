@@ -249,6 +249,9 @@ try {
                                     <button class="btn btn-outline-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
+                                    <button class="btn btn-success" onclick="openCollegeBatchUpdateModal()">
+                                        <i class="fas fa-users-cog"></i> Batch Update
+                                    </button>
                                     <div class="selection-counter-pill" onclick="clearAllSelectionsAndFilters()" id="selectionCounterPill">
                                         <span id="selectionCounter">0 selected</span>
                                         <i class="fas fa-times" id="clearSelectionIcon"></i>
@@ -362,6 +365,9 @@ try {
     
     <!-- Include Import Modal -->
     <?php include '../../Modals/ImportModal.php'; ?>
+    
+    <!-- Include College Batch Update Modal -->
+    <?php include '../../Modals/CollegeBatchUpdateModal.php'; ?>
     
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionFiltersModal" class="modal-overlay" style="display: none;">

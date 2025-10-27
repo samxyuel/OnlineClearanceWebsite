@@ -175,6 +175,9 @@ ob_start();
                                     <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
+                                    <button class="btn btn-success" onclick="openFacultyBatchUpdateModal()">
+                                        <i class="fas fa-users-cog"></i> Batch Update
+                                    </button>
                                     <button class="selection-counter-display" id="selectionCounterPill" type="button" title="">
                                         <span id="selectionCounter">0 selected</span>
                                     </button>
@@ -422,6 +425,9 @@ ob_start();
     <?php include '../../Modals/FacultyExportModal.php'; ?>
     <?php include '../../Modals/FacultyImportModal.php'; ?>
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
+    
+    <!-- Include Faculty Batch Update Modal -->
+    <?php include '../../Modals/FacultyBatchUpdateModal.php'; ?>
 
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">

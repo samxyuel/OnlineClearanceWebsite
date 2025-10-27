@@ -244,17 +244,19 @@ body {
   text-align: center;
 }
 
-/* Header Styles */
+/* Responsive Header Styles */
 .header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 60px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 15px;
+  flex-shrink: 0;
 }
 
 .logo h1 {
@@ -262,6 +264,7 @@ body {
   font-size: 1.8rem;
   font-weight: bold;
   margin: 0;
+  white-space: nowrap;
 }
 
 .logo p {
@@ -275,14 +278,21 @@ body {
 .user-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   position: relative;
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 0; /* Allow flex item to shrink below content size */
 }
 
 .user-name {
   color: white;
   font-weight: 500;
   font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .user-dropdown {
@@ -1645,6 +1655,23 @@ body {
     font-size: 1rem;
   }
 
+  /* Responsive Header - Tablet */
+  .header-content {
+    min-height: 55px;
+  }
+
+  .logo h1 {
+    font-size: 1.6rem;
+  }
+
+  .user-name {
+    font-size: 13px;
+  }
+
+  .user-info {
+    gap: 6px;
+  }
+
   /* Mobile Menu Toggle */
   .mobile-menu-toggle {
     display: block;
@@ -1695,6 +1722,33 @@ body {
 
 /* Mobile phones - Additional optimizations */
 @media (max-width: 480px) {
+  /* Responsive Header - Mobile */
+  .header-content {
+    min-height: 50px;
+    padding: 0 10px;
+  }
+
+  .header-left {
+    gap: 10px;
+  }
+
+  .logo h1 {
+    font-size: 1.4rem;
+  }
+
+  .user-name {
+    font-size: 12px;
+  }
+
+  .user-info {
+    gap: 4px;
+  }
+
+  .dropdown-toggle {
+    font-size: 10px;
+    padding: 4px;
+  }
+
   .sidebar {
     width: 100vw;
     top: 80px;
@@ -1728,6 +1782,33 @@ body {
 
 /* Very small phones */
 @media (max-width: 320px) {
+  /* Responsive Header - Very Small Mobile */
+  .header-content {
+    min-height: 45px;
+    padding: 0 8px;
+  }
+
+  .header-left {
+    gap: 8px;
+  }
+
+  .logo h1 {
+    font-size: 1.2rem;
+  }
+
+  .user-name {
+    font-size: 11px;
+  }
+
+  .user-info {
+    gap: 3px;
+  }
+
+  .dropdown-toggle {
+    font-size: 9px;
+    padding: 3px;
+  }
+
   .sidebar-link {
     padding: 14px 15px;
     font-size: 0.9rem;
@@ -2244,13 +2325,13 @@ body {
 }
 
 .btn-outline-primary {
-  background: transparent;
-  border: 1px solid var(--medium-muted-blue);
-  color: var(--medium-muted-blue);
+  background: var(--bright-golden-yellow);
+  border: 1px solid var(--bright-golden-yellow);
+  color: var(--dark-primary);
 }
 
 .btn-outline-primary:hover {
-  background: var(--medium-muted-blue);
+  background: var(--bright-golden-yellow);
   color: white;
 }
 
@@ -8648,4 +8729,444 @@ body {
 .selection-counter-display.all-selected:hover {
   transform: translateY(-1px);
   box-shadow: 0 3px 8px rgba(231, 192, 29, 0.25);
+}
+
+/* Sector Status Indicators */
+.sector-status-indicators {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.sector-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  background: var(--medium-muted-blue);
+  border: 1px solid var(--medium-muted-blue);
+  font-size: 0.9rem;
+}
+
+.sector-indicator i {
+  font-size: 1rem;
+}
+
+.sector-name {
+  font-weight: 600;
+  color: var(--background-light);
+}
+
+.sector-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.sector-status.status-ongoing {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.sector-status.status-paused {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.sector-status.status-closed {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.sector-status.status-not-started {
+  background: #e2e3e5;
+  color: #6c757d;
+  border: 1px solid #d6d8db;
+}
+
+/* Pill-shaped indicators */
+.pill-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  background: var(--medium-muted-blue);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0.5rem 0.5rem 0.5rem 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.pill-indicator:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.pill-indicator i {
+  font-size: 1rem;
+}
+
+.department-scope-info.pill-indicator {
+  background: var(--medium-muted-blue);
+}
+
+.handled-sector-info.pill-indicator {
+  background: var(--bright-golden-yellow);
+  color: var(--dark-primary);
+}
+
+.school-scope-info.pill-indicator {
+  background: var(--deep-navy-blue);
+  color: white;
+}
+
+/* User Information Indicators */
+.user-info-indicators {
+  display: flex;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  flex-wrap: wrap;
+}
+
+.info-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.info-indicator:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.info-indicator i {
+  font-size: 1rem;
+}
+
+.info-label {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.info-value {
+  font-weight: 700;
+}
+
+.sector-indicator {
+  background: var(--bright-golden-yellow);
+  color: var(--dark-primary);
+}
+
+.department-indicator {
+  background: var(--medium-muted-blue);
+  color: white;
+}
+
+.program-indicator {
+  background: var(--deep-navy-blue);
+  color: white;
+}
+
+/* Compact Design Styles */
+.page-header-compact {
+  margin-bottom: 1rem;
+}
+
+.page-header-compact h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--dark-primary);
+  font-weight: 600;
+}
+
+.card-compact {
+  background: var(--very-light-off-white);
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Status Header Compact */
+.status-header-compact {
+  margin-bottom: 0.75rem;
+}
+
+.academic-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.academic-year-semester {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--dark-primary);
+}
+
+.academic-year-semester i {
+  margin-right: 0.5rem;
+  color: var(--primary-color);
+}
+
+.term-duration {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* User Context Inline */
+.user-context-inline {
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.context-item {
+  display: inline;
+  font-weight: 500;
+}
+
+.context-item i {
+  font-size: 0.8rem;
+  margin-right: 0.25rem;
+  color: var(--primary-color);
+}
+
+.context-separator {
+  margin: 0 0.5rem;
+  color: var(--text-muted);
+  font-weight: 300;
+}
+
+.context-item span {
+  font-weight: 600;
+  color: var(--dark-primary);
+}
+
+/* Priority Action Compact */
+.priority-action-compact {
+  text-align: center;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: var(--very-light-cool-white);
+  border-radius: 8px;
+}
+
+.btn-primary-compact {
+  width: 100%;
+  max-width: 300px;
+  height: 50px;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 6px;
+  background: var(--bright-golden-yellow);
+  color: var(--dark-primary);
+  border: none;
+  margin-bottom: 0.5rem;
+}
+
+.btn-primary-compact:hover {
+  background: #1a237e;
+}
+
+.btn-primary-compact i {
+  font-size: 16px;
+  margin-right: 0.5rem;
+}
+
+.action-description-compact {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.9rem;
+  color: var(--deep-navy-blue);
+  font-weight: 500;
+}
+
+.period-info-compact {
+  font-size: 0.8rem;
+  color: var(--deep-navy-blue);
+  font-weight: 600;
+}
+
+.period-info-compact i {
+  margin-right: 0.25rem;
+  color: var(--success-color);
+}
+
+/* Status Row Compact */
+.status-row-compact {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.status-card-compact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--very-light-cool-white);
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.status-card-compact i {
+  font-size: 14px;
+  color: var(--primary-color);
+}
+
+.status-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.status-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--dark-primary);
+}
+
+.status-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Debug Section Compact */
+.debug-section-compact {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.debug-section-compact h4 {
+  margin: 0 0 0.5rem 0;
+  color: var(--dark-primary);
+  font-size: 0.9rem;
+}
+
+.debug-section-compact button {
+  margin-right: 0.25rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.8rem;
+}
+
+#debugOutput {
+  margin-top: 0.5rem;
+  font-family: "Courier New", monospace;
+  font-size: 11px;
+  background: white;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+/* Compact Design Responsive */
+@media (max-width: 768px) {
+  .page-header-compact h2 {
+    font-size: 1.25rem;
+  }
+
+  .card-compact {
+    padding: 0.75rem;
+  }
+
+  .academic-info {
+    gap: 0.125rem;
+  }
+
+  .academic-year-semester {
+    font-size: 0.9rem;
+  }
+
+  .term-duration {
+    font-size: 0.8rem;
+  }
+
+  .user-context-inline {
+    font-size: 0.8rem;
+    margin-bottom: 0.75rem;
+    line-height: 1.5;
+  }
+
+  .context-separator {
+    margin: 0 0.25rem;
+  }
+
+  .context-item i {
+    font-size: 0.7rem;
+    margin-right: 0.2rem;
+  }
+
+  .priority-action-compact {
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .btn-primary-compact {
+    height: 45px;
+    font-size: 14px;
+  }
+
+  .action-description-compact {
+    font-size: 0.8rem;
+  }
+
+  .period-info-compact {
+    font-size: 0.75rem;
+  }
+
+  .status-row-compact {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .status-card-compact {
+    padding: 0.5rem;
+  }
+
+  .status-value {
+    font-size: 0.8rem;
+  }
+
+  .status-label {
+    font-size: 0.65rem;
+  }
+}
+
+/* Tablet Responsive */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .btn-primary-compact {
+    max-width: 250px;
+    height: 48px;
+    font-size: 15px;
+  }
+
+  .priority-action-compact {
+    padding: 0.875rem;
+  }
+
+  .status-row-compact {
+    gap: 0.375rem;
+  }
 }

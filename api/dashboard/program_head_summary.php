@@ -202,7 +202,48 @@ try {
     $programStmt->execute($departmentIds);
     $programs = $programStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 8. Assemble the final response
+    // 8. Get sector statistics for the current period
+    $sectorStats = [
+        'college' => ['applied' => 0, 'completed' => 0],
+        'shs' => ['applied' => 0, 'completed' => 0],
+        'faculty' => ['applied' => 0, 'completed' => 0]
+    ];
+
+    if ($activePeriod) {
+        // Get clearance stats for each sector
+        $sectorStatsSql = "
+            SELECT 
+                cf.clearance_type,
+                COUNT(DISTINCT cf.user_id) as applied_count,
+                COUNT(DISTINCT CASE WHEN cf.clearance_form_progress = 'Completed' THEN cf.user_id END) as completed_count
+            FROM clearance_forms cf
+            LEFT JOIN students s ON cf.user_id = s.user_id
+            LEFT JOIN faculty f ON cf.user_id = f.user_id
+            WHERE (COALESCE(s.department_id, f.department_id) IN ($placeholders))
+              AND cf.academic_year_id = ? 
+              AND cf.semester_id = ? 
+              AND cf.clearance_type IN ('College', 'Senior High School', 'Faculty')
+            GROUP BY cf.clearance_type
+        ";
+        $sectorStatsStmt = $pdo->prepare($sectorStatsSql);
+        $sectorStatsStmt->execute(array_merge($departmentIds, [$activePeriod['academic_year_id'], $activePeriod['semester_id']]));
+        $sectorResults = $sectorStatsStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($sectorResults as $row) {
+            if ($row['clearance_type'] === 'College') {
+                $sectorStats['college']['applied'] = (int)$row['applied_count'];
+                $sectorStats['college']['completed'] = (int)$row['completed_count'];
+            } elseif ($row['clearance_type'] === 'Senior High School') {
+                $sectorStats['shs']['applied'] = (int)$row['applied_count'];
+                $sectorStats['shs']['completed'] = (int)$row['completed_count'];
+            } elseif ($row['clearance_type'] === 'Faculty') {
+                $sectorStats['faculty']['applied'] = (int)$row['applied_count'];
+                $sectorStats['faculty']['completed'] = (int)$row['completed_count'];
+            }
+        }
+    }
+
+    // 9. Assemble the final response
     $summaryData = [
         'user' => [
             'first_name' => $user['first_name'] ?? null,
@@ -217,6 +258,7 @@ try {
             'faculty' => (int)($pendingSignatures['faculty'] ?? 0)
         ],
         'clearance_stats' => $clearanceStats,
+        'sector_stats' => $sectorStats,
         'programs' => $programs
     ];
 

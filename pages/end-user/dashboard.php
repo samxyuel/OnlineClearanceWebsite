@@ -79,71 +79,86 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="content-wrapper">
-                <!-- Page Header -->
-                <div class="page-header">
-                    <h2><i class="fas fa-chart-line"></i> <?php echo ucfirst($user_type); ?> Dashboard</h2>
-                    <p class="page-description">Welcome back, <?php echo $display_name; ?></p>
+                <!-- Page Header (Minimal) -->
+                <div class="page-header-compact">
+                    <h2><i class="fas fa-chart-line"></i><!-- < ?php echo ucfirst($user_type); ?> --> Dashboard - Welcome back, <?php echo $display_name; ?></h2>
                 </div>
 
-                <!-- Quick Stats Bar -->
-                <div class="quick-stats-section">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon pending">
-                                <i class="fas fa-clock"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="clearanceStatus">Loading...</h3>
-                                <p class="stat-number">Clearance</p>
-                                <p class="stat-label">Status</p>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon info">
-                                <i class="fas fa-calendar-alt"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 id="currentSemester">--</h3>
-                                <p class="stat-number" id="currentAcademicYear">--</p>
-                                <p class="stat-label">Current Period</p>
+                <!-- User Clearance Status Card (Compact) -->
+                <div class="card-compact">
+                    <!-- Status Header (Condensed) -->
+                    <div class="status-header-compact">
+                        <div class="academic-info">
+                            <span class="academic-year-semester">
+                                <i class="fas fa-calendar-check"></i> 
+                                <span id="currentAcademicYear">Loading...</span> - <span id="currentSemester">Loading...</span>
+                            </span>
+                            <span class="term-duration" id="termDuration">Loading term information...</span>
                             </div>
                         </div>
                         
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon success">
-                                <h3 id="clearanceProgress">--/--</h3>
-                                <p class="stat-number">Done</p>
-                                <p class="stat-label">Complete</p>
-                            </div>
-                        </div>
+                    <!-- User Context Block (Inline text) -->
+                    <div class="user-context-inline">
+                        <span class="context-item">
+                            <i class="fas fa-graduation-cap"></i> Sector: <span id="userSector"><?php echo $user_sector; ?></span>
+                        </span>
+                        <span class="context-separator">|</span>
+                        <span class="context-item">
+                            <i class="fas fa-building"></i> Department: <span id="userDepartment">Loading...</span>
+                        </span>
+                        <span class="context-separator">|</span>
+                        <span class="context-item">
+                            <i class="fas fa-book"></i> Program: <span id="userProgram">Loading...</span>
+                        </span>
                     </div>
-                </div>
 
-                <!-- Main Action Section -->
-                <div class="main-action-section">
-                    <div class="action-container">
-                        <button class="btn btn-primary btn-large" id="applyClearanceBtn" onclick="handleClearanceAction()">
+                    <!-- Priority Action (Central focus) -->
+                    <div class="priority-action-compact">
+                        <button class="btn-primary-compact" id="applyClearanceBtn" onclick="handleClearanceAction()">
                             <i class="fas fa-file-alt"></i>
                             <span id="applyBtnText">Apply for Clearance</span>
                         </button>
-                        <p class="action-description" id="actionDescription">Begin your clearance application for the current semester</p>
-                        <div class="clearance-period-info" id="clearancePeriodInfo" style="display: none;">
+                    <!--    <p class="action-description-compact" id="actionDescription">Begin your clearance application</p> -->
+                        <div class="period-info-compact" id="clearancePeriodInfo" style="display: none;">
                             <i class="fas fa-calendar-check"></i>
-                            <span>Clearance period is now open for 2027-2028 1st Semester</span>
+                            <span>Clearance period is now open</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Status Row (Compact horizontal cards) -->
+                    <div class="status-row-compact">
+                        <div class="status-card-compact">
+                            <i class="fas fa-clock"></i>
+                            <div class="status-info">
+                                <span class="status-value" id="clearanceStatus">Loading...</span>
+                                <span class="status-label">Status</span>
+                            </div>
+                        </div>
+                        <div class="status-card-compact">
+                            <i class="fas fa-check-circle"></i>
+                            <div class="status-info">
+                                <span class="status-value" id="clearanceProgress">--/--</span>
+                                <span class="status-label">Progress</span>
+                            </div>
+                        </div>
+                        <div class="status-card-compact">
+                            <i class="fas fa-calendar-alt"></i>
+                            <div class="status-info">
+                                <span class="status-value" id="periodStatus">Active</span>
+                                <span class="status-label">Period</span>
+                            </div>
+                        </div>
                         </div>
                         
                         <!-- Debug Section (only for faculty) -->
                         <?php if ($user_type === 'faculty'): ?>
-                        <div class="debug-section" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 8px;">
+                    <div class="debug-section-compact">
                             <h4>Debug Information</h4>
                             <button class="btn btn-sm btn-outline" onclick="testAPIs()">Test APIs</button>
                             <button class="btn btn-sm btn-outline" onclick="checkPeriodStatus()">Check Period Status</button>
-                            <div id="debugOutput" style="margin-top: 1rem; font-family: monospace; font-size: 12px;"></div>
+                        <div id="debugOutput"></div>
                         </div>
                         <?php endif; ?>
-                    </div>
                 </div>
 
 
@@ -264,22 +279,31 @@
 
             const data = result.data;
 
-            // Update Quick Stats
-            document.getElementById('clearanceStatus').textContent = data.clearance.status || 'Not Started';
-            document.getElementById('clearanceProgress').textContent = data.clearance.progress_text || '--/--';
-            
+            // Update Academic Info
             if (data.period) {
                 document.getElementById('currentSemester').textContent = data.period.semester_name || '--';
                 document.getElementById('currentAcademicYear').textContent = data.period.academic_year || '--';
-                document.getElementById('daysRemaining').textContent = data.period.days_remaining;
+                document.getElementById('termDuration').textContent = `Duration: ${data.period.start_date} to ${data.period.end_date}`;
                 const periodName = `${data.period.academic_year} ${data.period.semester_name}`;
                 document.querySelector('#clearancePeriodInfo span').textContent = `Clearance period is now open for ${periodName}`;
                 document.getElementById('clearancePeriodInfo').style.display = 'block';
             } else {
                 document.getElementById('currentSemester').textContent = 'N/A';
                 document.getElementById('currentAcademicYear').textContent = 'No Active Period';
-                document.getElementById('daysRemaining').textContent = '--';
+                document.getElementById('termDuration').textContent = 'No active clearance period';
                 document.getElementById('clearancePeriodInfo').style.display = 'none';
+            }
+
+            // Update Status Cards
+            document.getElementById('clearanceStatus').textContent = data.clearance.status || 'Not Started';
+            document.getElementById('clearanceProgress').textContent = data.clearance.progress_text || '--/--';
+            
+            // Update Period Status
+            const periodStatusEl = document.getElementById('periodStatus');
+            if (data.period) {
+                periodStatusEl.textContent = 'Active';
+            } else {
+                periodStatusEl.textContent = 'Inactive';
             }
 
             // Update Main Action Button
@@ -287,6 +311,9 @@
 
             // Update Recent Activity
             updateRecentActivity(data.recent_activity);
+
+            // Update User Information Indicators
+            updateUserInfoIndicators(data);
 
         } catch (error) {
             console.error('Error loading dashboard data:', error);
@@ -356,6 +383,30 @@
                 </div>
             `;
         }).join('');
+    }
+
+    function updateUserInfoIndicators(data) {
+        // Update Department
+        const departmentEl = document.getElementById('userDepartment');
+        if (departmentEl && data.department) {
+            departmentEl.textContent = data.department;
+        } else if (departmentEl) {
+            departmentEl.textContent = 'Not Assigned';
+        }
+
+        // Update Program
+        const programEl = document.getElementById('userProgram');
+        if (programEl && data.program) {
+            programEl.textContent = data.program;
+        } else if (programEl) {
+            programEl.textContent = 'Not Assigned';
+        }
+
+        // Sector is already set from PHP, but we can update it if needed
+        const sectorEl = document.getElementById('userSector');
+        if (sectorEl && data.sector) {
+            sectorEl.textContent = data.sector;
+        }
     }
 
 

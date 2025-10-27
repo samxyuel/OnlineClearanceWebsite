@@ -224,6 +224,9 @@ handleFacultyManagementPageRequest();
                             <!-- Table Header with Bulk Actions -->
                             <div class="table-header-section">
                                 <div class="bulk-controls">
+                                    <button class="btn btn-success" onclick="openFacultyBatchUpdateModal()">
+                                        <i class="fas fa-users-cog"></i> Batch Update
+                                    </button>
                                     <label class="select-all-checkbox">
                                         <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
                                         <span class="checkmark"></span>
@@ -1421,5 +1424,8 @@ handleFacultyManagementPageRequest();
         }
     </script>
     <script src="../../assets/js/alerts.js"></script>
+    
+    <!-- Include Faculty Batch Update Modal -->
+    <?php include '../../Modals/FacultyBatchUpdateModal.php'; ?>
 </body>
 </html>

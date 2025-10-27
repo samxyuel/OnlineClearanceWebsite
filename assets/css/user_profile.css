@@ -21,6 +21,16 @@
   box-sizing: border-box;
 }
 
+/* Override global user-info styles specifically for profile page */
+.profile-container .user-info {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  margin-left: 20px !important;
+  max-width: calc(100% - 120px) !important;
+}
+
 /* Body styles are handled by styles.css to avoid conflicts */
 
 .profile-container {
@@ -62,6 +72,11 @@
 
 .profile-header .user-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin-left: 20px;
+  max-width: calc(100% - 120px); /* Prevent overflow */
 }
 
 .profile-header .user-name {
@@ -101,7 +116,7 @@
 }
 
 .role-badge.role-faculty {
-  background: var(--darker-saturated-blue);
+  background: var(--bright-golden-yellow);
   color: white;
 }
 
@@ -812,8 +827,36 @@ input:checked + .slider:before {
     max-width: 100%;
   }
 
+  /* Fix user-info layout on mobile */
+  .profile-container .user-info {
+    margin-left: 15px !important;
+    max-width: calc(100% - 100px) !important;
+  }
+
+  .profile-header .user-info {
+    margin-left: 15px;
+    max-width: calc(100% - 100px);
+  }
+
   .user-role {
     margin-bottom: 15px;
+  }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .profile-container .user-info {
+    margin-left: 10px !important;
+    max-width: calc(100% - 90px) !important;
+  }
+
+  .profile-header .user-info {
+    margin-left: 10px;
+    max-width: calc(100% - 90px);
+  }
+
+  .profile-header .user-name {
+    font-size: 20px;
   }
 
   .header-actions {

@@ -104,7 +104,66 @@ try {
         'total_signed' => (int)($rawStats['Approved'] ?? 0) + (int)($rawStats['Rejected'] ?? 0)
     ];
 
-    // 5. Combine and return the data
+    // 5. Get sector statistics for the current period
+    $sectorStats = [
+        'college' => ['applied' => 0, 'completed' => 0],
+        'shs' => ['applied' => 0, 'completed' => 0],
+        'faculty' => ['applied' => 0, 'completed' => 0]
+    ];
+
+    if ($activePeriod) {
+        $academicYearId = null;
+        $semesterId = null;
+        
+        // Get academic year and semester IDs
+        $periodInfoSql = "
+            SELECT ay.academic_year_id, s.semester_id
+            FROM clearance_periods p
+            JOIN semesters s ON p.semester_id = s.semester_id
+            JOIN academic_years ay ON p.academic_year_id = ay.academic_year_id
+            WHERE p.status = 'Ongoing'
+            ORDER BY p.start_date DESC
+            LIMIT 1
+        ";
+        $periodInfoStmt = $pdo->query($periodInfoSql);
+        $periodInfo = $periodInfoStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($periodInfo) {
+            $academicYearId = $periodInfo['academic_year_id'];
+            $semesterId = $periodInfo['semester_id'];
+            
+            // Get clearance stats for each sector
+            $sectorStatsSql = "
+                SELECT 
+                    cf.clearance_type,
+                    COUNT(DISTINCT cf.user_id) as applied_count,
+                    COUNT(DISTINCT CASE WHEN cf.clearance_form_progress = 'Completed' THEN cf.user_id END) as completed_count
+                FROM clearance_forms cf
+                WHERE cf.academic_year_id = ? 
+                  AND cf.semester_id = ? 
+                  AND cf.clearance_type IN ('College', 'Senior High School', 'Faculty')
+                GROUP BY cf.clearance_type
+            ";
+            $sectorStatsStmt = $pdo->prepare($sectorStatsSql);
+            $sectorStatsStmt->execute([$academicYearId, $semesterId]);
+            $sectorResults = $sectorStatsStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            foreach ($sectorResults as $row) {
+                if ($row['clearance_type'] === 'College') {
+                    $sectorStats['college']['applied'] = (int)$row['applied_count'];
+                    $sectorStats['college']['completed'] = (int)$row['completed_count'];
+                } elseif ($row['clearance_type'] === 'Senior High School') {
+                    $sectorStats['shs']['applied'] = (int)$row['applied_count'];
+                    $sectorStats['shs']['completed'] = (int)$row['completed_count'];
+                } elseif ($row['clearance_type'] === 'Faculty') {
+                    $sectorStats['faculty']['applied'] = (int)$row['applied_count'];
+                    $sectorStats['faculty']['completed'] = (int)$row['completed_count'];
+                }
+            }
+        }
+    }
+
+    // 6. Combine and return the data
     $response = [
         'success' => true,
         'data' => [
@@ -115,7 +174,8 @@ try {
                 'start_date' => $activePeriod['start_date']
             ] : null,
             'pending_clearances' => $pendingCounts,
-            'signing_stats' => $signingStats
+            'signing_stats' => $signingStats,
+            'sector_stats' => $sectorStats
         ]
     ];
 

@@ -192,6 +192,9 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
+                                    <button class="btn btn-success" onclick="openCollegeBatchUpdateModal()">
+                                        <i class="fas fa-users-cog"></i> Batch Update
+                                    </button>
                                     <button class="selection-counter-display" id="selectionCounterPill" type="button" title="">
                                         <span id="selectionCounter">0 selected</span>
                                     </button>
@@ -381,6 +384,9 @@ if (session_status() == PHP_SESSION_NONE) {
     
     <!-- Include Clearance Progress Modal -->
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
+    
+    <!-- Include College Batch Update Modal -->
+    <?php include '../../Modals/CollegeBatchUpdateModal.php'; ?>
 
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">

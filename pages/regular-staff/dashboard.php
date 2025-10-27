@@ -42,22 +42,41 @@
                         <div class="card active-period-status">
                             <div class="status-content">
                                 <div class="status-header">
-                                    <h3><i class="fas fa-calendar-check"></i> 2024-2025 Term 1 (ACTIVE)</h3>
-                                    <p>Duration: 45 days | Started: Jan 15, 2024</p>
+                                    <h3><i class="fas fa-calendar-check"></i> <span id="currentAcademicYear">Loading...</span> - <span id="currentActiveTerm">Loading...</span></h3>
+                                    <p id="termDuration">Loading term information...</p>
+                                    
+                                    <!-- Sector Status Indicators -->
+                                    <div class="sector-status-indicators">
+                                        <div class="sector-indicator college-sector">
+                                            <i class="fas fa-university"></i>
+                                            <span class="sector-name">College</span>
+                                            <span class="sector-status" id="college-status">Loading...</span>
+                                        </div>
+                                        <div class="sector-indicator shs-sector">
+                                            <i class="fas fa-graduation-cap"></i>
+                                            <span class="sector-name">Senior High School</span>
+                                            <span class="sector-status" id="shs-status">Loading...</span>
+                                        </div>
+                                        <div class="sector-indicator faculty-sector">
+                                            <i class="fas fa-chalkboard-teacher"></i>
+                                            <span class="sector-name">Faculty</span>
+                                            <span class="sector-status" id="faculty-status">Loading...</span>
+                                        </div>
+                                    </div>
                                 </div>
                                 
                                 <div class="status-stats">
                                     <div class="stat-item">
-                                        <i class="fas fa-user-graduate"></i>
-                                        <span>Students: 156 pending signatures</span>
+                                        <i class="fas fa-university"></i>
+                                        <span id="college-stats">College: 0 applied, 0 completed (0%)</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <i class="fas fa-graduation-cap"></i>
+                                        <span id="shs-stats">Senior High School: 0 applied, 0 completed (0%)</span>
                                     </div>
                                     <div class="stat-item">
                                         <i class="fas fa-chalkboard-teacher"></i>
-                                        <span>Faculty: 23 pending signatures</span>
-                                    </div>
-                                    <div class="stat-item">
-                                        <i class="fas fa-clock"></i>
-                                        <span>Your Pending: 34 total</span>
+                                        <span id="faculty-stats">Faculty: 0 applied, 0 completed (0%)</span>
                                     </div>
                                 </div>
                             </div>
@@ -253,8 +272,8 @@
             // Load staff position information
             loadStaffPosition();
 
-            // Load dashboard summary data
-            loadDashboardSummary();
+            // Load dashboard data
+            loadDashboardData();
         }
 
         // Load staff position information
@@ -282,45 +301,123 @@
             });
         }
 
-        // Load dashboard summary data
-        async function loadDashboardSummary() {
+        // Load dashboard data
+        async function loadDashboardData() {
             try {
-                const response = await fetch('../../api/dashboard/staff_summary.php', {
-                    credentials: 'include'
-                });
-                const result = await response.json();
+                // Load academic context and sector periods in parallel
+                const [contextResponse, sectorResponse, summaryResponse] = await Promise.all([
+                    fetch('../../api/clearance/context.php', { credentials: 'include' }),
+                    fetch('../../api/clearance/sector-periods.php', { credentials: 'include' }),
+                    fetch('../../api/dashboard/staff_summary.php', { credentials: 'include' })
+                ]);
 
-                if (result.success) {
-                    const data = result.data;
+                const [contextResult, sectorResult, summaryResult] = await Promise.all([
+                    contextResponse.json(),
+                    sectorResponse.json(),
+                    summaryResponse.json()
+                ]);
 
-                    // Update Active Period Card
-                    const activePeriodNameEl = document.getElementById('activePeriodName');
-                    const activePeriodDetailsEl = document.getElementById('activePeriodDetails');
-                    if (data.active_period) {
-                        activePeriodNameEl.innerHTML = `<i class="fas fa-calendar-check"></i> ${data.active_period.academic_year} ${data.active_period.semester_name} (ACTIVE)`;
-                        activePeriodDetailsEl.textContent = `Started: ${new Date(data.active_period.start_date).toLocaleDateString()}`;
-                    } else {
-                        activePeriodNameEl.innerHTML = `<i class="fas fa-calendar-times"></i> No Active Period`;
-                        activePeriodDetailsEl.textContent = 'Clearance activities are currently paused.';
-                    }
-
-                    // Update Pending Counts
-                    document.getElementById('pendingStudentsStat').innerHTML = `<i class="fas fa-user-graduate"></i> Students: ${data.pending_clearances.student} pending signatures`;
-                    document.getElementById('pendingFacultyStat').innerHTML = `<i class="fas fa-chalkboard-teacher"></i> Faculty: ${data.pending_clearances.faculty} pending signatures`;
-                    document.getElementById('yourTotalPendingStat').innerHTML = `<i class="fas fa-clock"></i> Your Pending: ${data.pending_clearances.total} total`;
-
-                    // Update Staff Statistics Dashboard
-                    document.getElementById('totalSigned').textContent = data.signing_stats.total_signed.toLocaleString();
-                    document.getElementById('totalApproved').textContent = data.signing_stats.approved.toLocaleString();
-                    document.getElementById('totalRejected').textContent = data.signing_stats.rejected.toLocaleString();
-                    document.getElementById('totalPending').textContent = data.pending_clearances.total.toLocaleString();
-
-                } else {
-                    showToast(result.message || 'Failed to load dashboard data.', 'error');
+                // Update academic year and term display
+                updateAcademicYearDisplay(contextResult);
+                
+                // Update sector status display
+                if (sectorResult.success) {
+                    updateSectorStatusDisplay(sectorResult.data);
                 }
+
+                // Update dashboard statistics
+                if (summaryResult.success) {
+                    updateStatisticsDisplay(summaryResult.data);
+                }
+
             } catch (error) {
-                console.error('Error loading dashboard summary:', error);
+                console.error('Error loading dashboard data:', error);
                 showToast('An error occurred while loading dashboard data.', 'error');
+            }
+        }
+
+        // Update academic year and term display
+        function updateAcademicYearDisplay(contextResult) {
+            const academicYearEl = document.getElementById('currentAcademicYear');
+            const activeTermEl = document.getElementById('currentActiveTerm');
+            const termDurationEl = document.getElementById('termDuration');
+
+            if (contextResult.success && contextResult.data) {
+                const data = contextResult.data;
+                
+                if (academicYearEl) academicYearEl.textContent = data.academic_year || 'No Academic Year';
+                if (activeTermEl) activeTermEl.textContent = data.active_term || 'No Active Term';
+                
+                if (data.active_term && data.term_duration) {
+                    if (termDurationEl) {
+                        termDurationEl.textContent = `Duration: ${data.term_duration} days | Started: ${new Date(data.term_start_date).toLocaleDateString()}`;
+                    }
+                } else {
+                    if (termDurationEl) termDurationEl.textContent = 'No active term information available.';
+                }
+            } else {
+                if (academicYearEl) academicYearEl.textContent = 'No Academic Year';
+                if (activeTermEl) activeTermEl.textContent = 'No Active Term';
+                if (termDurationEl) termDurationEl.textContent = 'No active term information available.';
+            }
+        }
+
+        // Update sector status display
+        function updateSectorStatusDisplay(sectorData) {
+            const sectors = [
+                { id: 'college-status', name: 'College' },
+                { id: 'shs-status', name: 'Senior High School' },
+                { id: 'faculty-status', name: 'Faculty' }
+            ];
+
+            sectors.forEach(sector => {
+                const statusElement = document.getElementById(sector.id);
+                if (statusElement && sectorData[sector.name.toLowerCase().replace(' ', '_')]) {
+                    const sectorInfo = sectorData[sector.name.toLowerCase().replace(' ', '_')];
+                    statusElement.textContent = sectorInfo.status || 'Not Started';
+                    statusElement.className = `sector-status status-${(sectorInfo.status || 'not-started').toLowerCase().replace(' ', '-')}`;
+                }
+            });
+        }
+
+        // Update statistics display
+        function updateStatisticsDisplay(data) {
+            // Update Staff Statistics Dashboard
+            if (data.signing_stats) {
+                const totalSignedEl = document.getElementById('totalSigned');
+                const totalApprovedEl = document.getElementById('totalApproved');
+                const totalRejectedEl = document.getElementById('totalRejected');
+                const totalPendingEl = document.getElementById('totalPending');
+
+                if (totalSignedEl) totalSignedEl.textContent = data.signing_stats.total_signed?.toLocaleString() || '0';
+                if (totalApprovedEl) totalApprovedEl.textContent = data.signing_stats.approved?.toLocaleString() || '0';
+                if (totalRejectedEl) totalRejectedEl.textContent = data.signing_stats.rejected?.toLocaleString() || '0';
+                if (totalPendingEl) totalPendingEl.textContent = data.pending_clearances?.total?.toLocaleString() || '0';
+            }
+
+            // Update sector statistics
+            if (data.sector_stats) {
+                const collegeStatsEl = document.getElementById('college-stats');
+                const shsStatsEl = document.getElementById('shs-stats');
+                const facultyStatsEl = document.getElementById('faculty-stats');
+
+                if (collegeStatsEl && data.sector_stats.college) {
+                    const college = data.sector_stats.college;
+                    const collegePercentage = college.applied > 0 ? Math.round((college.completed / college.applied) * 100) : 0;
+                    collegeStatsEl.textContent = `College: ${college.applied} applied, ${college.completed} completed (${collegePercentage}%)`;
+                }
+
+                if (shsStatsEl && data.sector_stats.shs) {
+                    const shs = data.sector_stats.shs;
+                    const shsPercentage = shs.applied > 0 ? Math.round((shs.completed / shs.applied) * 100) : 0;
+                    shsStatsEl.textContent = `Senior High School: ${shs.applied} applied, ${shs.completed} completed (${shsPercentage}%)`;
+                }
+
+                if (facultyStatsEl && data.sector_stats.faculty) {
+                    const faculty = data.sector_stats.faculty;
+                    const facultyPercentage = faculty.applied > 0 ? Math.round((faculty.completed / faculty.applied) * 100) : 0;
+                    facultyStatsEl.textContent = `Faculty: ${faculty.applied} applied, ${faculty.completed} completed (${facultyPercentage}%)`;
+                }
             }
         }
     </script>
