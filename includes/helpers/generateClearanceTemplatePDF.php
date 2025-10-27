@@ -183,6 +183,21 @@ function generateClearanceTemplatePDF($templateData, $signatories, $schoolTempla
             continue;
         }
         $htmlContent = file_get_contents($tempHtmlPath);
+        
+        // Clean up excessive blank paragraphs that cause large white spaces in PDF
+        $htmlContent = preg_replace(
+            '/(Registrar<\/p>)(?:\s*<p[^>]*>(&nbsp;|\s)*<\/p>)+/i',
+            '$1',
+            $htmlContent
+        );
+
+        // Also remove 3+ consecutive empty paragraphs anywhere in the document (general cleanup)
+        $htmlContent = preg_replace(
+            '/(<p[^>]*>(&nbsp;|\s)*<\/p>){3,}/i',
+            '',
+            $htmlContent
+        );
+
 
         // 7️⃣ Build header (logo absolute path + header text + copy label)
         $logoPath = realpath(__DIR__ . '/../../assets/images/STI_Lucena_Logo.jpg');
