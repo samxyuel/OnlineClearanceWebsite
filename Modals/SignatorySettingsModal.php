@@ -418,7 +418,4 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Debug: Log that all functions are defined
 console.log('🔧 All SignatorySettingsModal functions defined successfully!');
-
-// Debug: Log that all functions are defined
-console.log('🔧 All SignatorySettingsModal functions defined successfully!');
 </script>

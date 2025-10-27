@@ -30,6 +30,37 @@ require_once '../../includes/config/database.php';
 try {
     $connection = Database::getInstance()->getConnection();
     
+    // Check if we are fetching details for a specific signatory's rejection
+    $signatoryId = $_GET['signatory_id'] ?? null;
+
+    if ($signatoryId) {
+        $stmt = $connection->prepare("
+            SELECT reason_id, additional_remarks
+            FROM clearance_signatories
+            WHERE signatory_id = :signatory_id
+            LIMIT 1
+        ");
+        $stmt->execute(['signatory_id' => $signatoryId]);
+        $details = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($details) {
+            echo json_encode([
+                'success' => true,
+                'details' => [
+                    'reason_id' => $details['reason_id'] ?? null,
+                    'additional_remarks' => $details['additional_remarks'] ?? ''
+                ]
+            ]);
+        } else {
+            // No rejection details found, but not an error.
+            echo json_encode([
+                'success' => true,
+                'details' => null
+            ]);
+        }
+        exit;
+    }
+
     // Get rejection reasons from database
     $stmt = $connection->prepare("
         SELECT reason_id, reason_name, reason_category, is_active

@@ -724,10 +724,10 @@ handleFacultyManagementPageRequest();
             const row = document.querySelector(`.faculty-checkbox[data-id="${employeeId}"]`).closest('tr');
             const facultyUserId = row.getAttribute('data-faculty-id');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
+            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
             
             if (!clearanceBadge) {
-                showToastNotification('No clearance to approve', 'warning');
+                showToastNotification('Invalid clearance status to approve', 'warning');
                 return;
             }
             
@@ -749,22 +749,43 @@ handleFacultyManagementPageRequest();
             );
         }
 
-        function rejectFacultyClearance(employeeId) {
+        async function rejectFacultyClearance(employeeId) {
             if (!canPerformActions) {
                 showToastNotification('You do not have permission to perform this action.', 'warning');
                 return;
             }
+
             const row = document.querySelector(`.faculty-checkbox[data-id="${employeeId}"]`).closest('tr');
             const facultyUserId = row.getAttribute('data-faculty-id');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-completed');
-            
+            const clearanceBadge = row.querySelector('.status-badge.clearance-rejected, .status-badge.clearance-pending');
+
             if (!clearanceBadge) {
-                showToastNotification('No clearance to reject', 'warning');
+                showToastNotification('Invalid clearance status to reject', 'warning');
                 return;
             }
+
+            let existingRemarks = '';
+            let existingReasonId = '';
+            const signatoryId = row.getAttribute('data-signatory-id');
+
+            try {
+                const response = await fetch(`../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.details) {
+                    existingRemarks = data.details.additional_remarks || '';
+                    existingReasonId = data.details.reason_id || '';
+                }
+            } catch (error) {
+                console.error("Error fetching rejection details:", error);
+                showToastNotification('Could not load existing rejection details.', 'error');
+            }
+        
+            console.log('Opening rejection modal for', facultyName);
+            console.log('Existing reason ID:', existingReasonId);
+            console.log('Existing remarks:', existingRemarks);
             
-            openRejectionRemarksModal(facultyUserId, facultyName, 'faculty', false);
+            openRejectionRemarksModal(facultyUserId, facultyName, 'faculty', false, [], existingRemarks, existingReasonId);
         }
 
         // Filter functions
@@ -947,6 +968,11 @@ handleFacultyManagementPageRequest();
             showToastNotification('Export functionality will be implemented soon.', 'info');
         }
 
+        function escapeHtml(unsafe) {
+            return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+
         // Fetch faculty list from backend and build table body
         async function fetchFaculty() {
             const tableBody = document.getElementById('facultyTableBody');
@@ -1022,15 +1048,19 @@ handleFacultyManagementPageRequest();
         function createFacultyRow(faculty) {
             const tr = document.createElement('tr');
             tr.setAttribute('data-faculty-id', faculty.user_id);
+            tr.setAttribute('data-signatory-id', faculty.signatory_id);
             
             const statusRaw = faculty.clearance_status;
             const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
             const accountStatus = (faculty.account_status || 'inactive').toLowerCase();
             
             let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
-            let rejectBtnDisabled = !canPerformActions || !['Pending', 'Approved'].includes(faculty.clearance_status);
+            // Enable reject button for 'Pending' and 'Rejected' statuses to allow for edits.
+            let rejectBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
             let approveTitle = 'Approve Clearance';
-            let rejectTitle = 'Reject Clearance';
+            // Change button title if the faculty member is already rejected.
+            let rejectTitle = faculty.clearance_status === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Clearance';
+
             if (!canPerformActions) {
                 approveTitle = rejectTitle = '<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a faculty signatory."; ?>';
             }
@@ -1398,13 +1428,15 @@ handleFacultyManagementPageRequest();
             targetIds: []
         };
 
-        function openRejectionRemarksModal(targetId, targetName, targetType = 'faculty', isBulk = false, targetIds = []) {
+        function openRejectionRemarksModal(targetId, targetName, targetType = 'faculty', isBulk = false, targetIds = [], existingRemarks = '', existingReasonId = '') {
             currentRejectionData = {
                 targetId: targetId,
                 targetName: targetName,
                 targetType: targetType,
                 isBulk: isBulk,
-                targetIds: targetIds
+                targetIds: targetIds,
+                existingRemarks: existingRemarks,
+                existingReasonId: existingReasonId
             };
 
             // Update modal content based on target type
@@ -1415,8 +1447,8 @@ handleFacultyManagementPageRequest();
             const remarksTextarea = document.getElementById('additionalRemarks');
 
             // Reset form
-            reasonSelect.value = '';
-            remarksTextarea.value = '';
+            reasonSelect.value = existingReasonId || '';
+            remarksTextarea.value = existingRemarks || '';
 
             // Update display
             if (isBulk) {
@@ -1632,17 +1664,5 @@ handleFacultyManagementPageRequest();
         }
     </script>
     <script src="../../assets/js/alerts.js"></script>
-                    updateSignatoryActionUI(userId, 'Rejected');
-                if (pill.getAttribute('data-status') === status) {
-                    pill.classList.add('active');
-                }
-            });
-            applyTabFilter(status);
-        }
-
-        function escapeHtml(unsafe) {
-            return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-        }
-    </script>
 </body>
 </html>

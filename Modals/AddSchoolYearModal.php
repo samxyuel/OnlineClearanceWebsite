@@ -227,11 +227,6 @@ window.createSchoolYear = async function() {
     const form = document.getElementById('addSchoolYearForm');
     const formData = new FormData(form);
     
-    // Validate form
-    if (!validateSchoolYearForm(formData)) {
-        return;
-    }
-    
     // Show loading state
     const createBtn = document.querySelector('.modal-actions .btn-primary');
     const originalText = createBtn.innerHTML;
@@ -241,6 +236,13 @@ window.createSchoolYear = async function() {
     try {
         const schoolYearName = formData.get('schoolYearName');
         const termCount = formData.get('termCount');
+
+        // Validate form right before sending the request
+        if (!validateSchoolYearForm(formData)) {
+            // Re-enable the button if validation fails
+            throw new Error("Validation failed. Please check the form.");
+        }
+
         // Always create exactly 2 terms on backend; keep 3-term UI non-functional
         const resp = await fetch('../../api/clearance/years.php', {
             method: 'POST',
@@ -265,7 +267,10 @@ window.createSchoolYear = async function() {
         closeAddSchoolYearModal();
     } catch (e) {
         console.error(e);
-        showToast(e.message || 'Failed to create school year', 'error');
+        // Only show toast if it's not a validation error, which already shows a toast.
+        if (e.message !== "Validation failed. Please check the form.") {
+            showToast(e.message || 'Failed to create school year', 'error');
+        }
     } finally {
         createBtn.innerHTML = originalText;
         createBtn.disabled = false;

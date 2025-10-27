@@ -57,8 +57,7 @@
         <!-- Section -->
         <div class="form-group">
           <label for="section">Section *</label>
-          <input type="text" id="section" name="section" required 
-                 placeholder="e.g., 1/1-1" maxlength="10">
+          <input type="text" id="section" name="section" placeholder="e.g., 11/1-1" maxlength="10">
         </div>
         
         <!-- Student Names -->
@@ -84,22 +83,14 @@
         
         <!-- Contact Information -->
         <div class="form-group">
-          <label for="email">Email Address *</label>
-          <input type="email" id="email" name="email" required 
-                 placeholder="student@email.com" maxlength="100">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" placeholder="student@email.com" maxlength="100">
         </div>
         
         <div class="form-group">
           <label for="phoneNumber">Phone Number</label>
           <input type="tel" id="phoneNumber" name="phoneNumber" 
                  placeholder="+63 9XX XXX XXXX" maxlength="15">
-        </div>
-        
-        <!-- Address Information -->
-        <div class="form-group">
-          <label for="address">Address *</label>
-          <textarea id="address" name="address" required 
-                    placeholder="Enter complete address" rows="3" maxlength="200"></textarea>
         </div>
         
         <!-- Account Settings -->
@@ -223,7 +214,7 @@ function validateStudentRegistrationForm() {
   const formData = new FormData(form);
   
   // Check required fields
-  const requiredFields = ['studentNumber', 'department', 'program', 'yearLevel', 'section', 'lastName', 'firstName', 'email', 'address', 'password', 'confirmPassword'];
+  const requiredFields = ['studentNumber', 'department', 'program', 'yearLevel', 'lastName', 'firstName', 'password', 'confirmPassword'];
   
   for (const field of requiredFields) {
     const input = form.querySelector(`[name="${field}"]`);
@@ -246,11 +237,13 @@ function validateStudentRegistrationForm() {
   
   // Validate email format
   const email = formData.get('email');
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    showToast('Please enter a valid email address', 'error');
-    document.getElementById('email').focus();
-    return false;
+  if (email) { // Only validate if an email is provided
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showToast('Please enter a valid email address', 'error');
+      document.getElementById('email').focus();
+      return false;
+    }
   }
   
   return true;
@@ -277,20 +270,29 @@ function submitStudentRegistrationForm() {
   })
   .then(response => response.json())
   .then(data => {
-    if (data.success) {
-      showToast(data.message || 'Student added successfully!', 'success');
-      const newUserId = data.user_id || null;
-      if (newUserId) {
-          // Trigger automatic clearance form creation
-          onUserCreated(newUserId, 'Senior High School').catch(console.error);
-      }
+    if (data.success && data.credentials) {
+      // On success, open the credentials modal
+      const confirmCallback = () => {
+        closeGeneratedCredentialsModal();
+        closeStudentRegistrationModal();
+        form.reset();
+        
+        // Refresh the student list on the parent page
+        if (typeof loadStudentsData === 'function') {
+          loadStudentsData();
+        }
 
-      closeStudentRegistrationModal();
-      form.reset();
-      // Refresh the student list
-      if (typeof loadStudentsData === 'function') {
-        loadStudentsData();
-      }
+        // Trigger automatic clearance form creation for the new user
+        const newUserId = data.user_id || null;
+        if (newUserId) {
+            onUserCreated(newUserId, 'Senior High School').catch(console.error);
+        }
+
+        showToast('Student added successfully!', 'success');
+      };
+
+      // Open the credentials modal with the new credentials and the confirm callback
+      openGeneratedCredentialsModal('newAccount', data.credentials, confirmCallback);
     } else {
       showToast(data.message || 'Failed to add student.', 'error');
     }
