@@ -1625,7 +1625,7 @@ body {
 }
 
 .content-wrapper p {
-  color: var(--light-muted-blue);
+  color: var(--medium-muted-blue);
   font-size: 16px;
 }
 
@@ -8917,7 +8917,7 @@ body {
 }
 
 .card-compact {
-  background: var(--very-light-off-white);
+  background: white;
   border: 1px solid #e9ecef;
   border-radius: 8px;
   padding: 1rem;
