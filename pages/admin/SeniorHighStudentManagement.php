@@ -380,6 +380,9 @@ if (session_status() == PHP_SESSION_NONE) {
     <!-- Include Clearance Progress Modal -->
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
 
+    <!-- Include Generated Credentials Modal -->
+    <?php include '../../Modals/GeneratedCredentialsModal.php'; ?>
+
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
         <div class="modal-window bulk-selection-modal">

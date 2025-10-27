@@ -269,18 +269,30 @@
     
     // Export clearance function
     function exportClearance() {
+        const select = document.getElementById('schoolYearTerm');
+        const formId = select.value;
+
+        if (!formId) {
+            showToast('Please select a clearance period to export.', 'warning');
+            return;
+        }
+
         const exportBtn = event.target.closest('button');
-        const originalText = exportBtn.innerHTML;
-        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+        const originalHTML = exportBtn.innerHTML;
+        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing Report...';
         exportBtn.disabled = true;
-        
-        // Simulate export process with user-specific message
+
+        // The API endpoint will handle the file download directly.
+        // We can use a simple window.location change to trigger it.
+        window.location.href = `../../api/clearance/export_report.php?form_id=${formId}`;
+
+        // Since the download is initiated, we can revert the button state after a short delay.
+        // The browser will handle the download prompt.
         setTimeout(() => {
-            exportBtn.innerHTML = originalText;
+            exportBtn.innerHTML = originalHTML;
             exportBtn.disabled = false;
-            const userType = userInfo.type === 'faculty' ? 'Faculty' : 'Student';
-            showToast(`${userType} clearance report exported successfully!`, 'success');
-        }, 2000);
+            showToast('Your report is being generated for download.', 'info');
+        }, 2500);
     }
     
     // Toast notification function

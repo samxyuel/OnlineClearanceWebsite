@@ -99,35 +99,62 @@ try {
     }
 
     if ($isProgramHeadRequest) {
-        // Applicant department
-        $deptId = null;
-        $q1 = $pdo->prepare("SELECT department_id FROM faculty WHERE user_id=? LIMIT 1");
-        $q1->execute([$applicantId]);
-        $deptId = $q1->fetchColumn();
-        if ($deptId === false || $deptId === null) {
-            $q2 = $pdo->prepare("SELECT department_id FROM students WHERE user_id=? LIMIT 1");
-            $q2->execute([$applicantId]);
-            $deptId = $q2->fetchColumn();
+        // For Program Head, first check if they are included in the sector's settings.
+        $settingsStmt = $pdo->prepare("SELECT include_program_head FROM sector_clearance_settings WHERE clearance_type = ? LIMIT 1");
+        $settingsStmt->execute([$formData['clearance_type']]);
+        $includeProgramHead = $settingsStmt->fetchColumn();
+
+        if (!$includeProgramHead) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Program Head is not configured as a signatory for ' . htmlspecialchars($formData['clearance_type']) . ' clearances.']);
+            exit;
         }
-        if (!$deptId) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Applicant department not set']); exit; }
+
+        // If included, verify department scope, UNLESS it's for Senior High School.
+        if ($formData['clearance_type'] !== 'Senior High School') {
+        // Get the applicant's department ID
+        $applicantDeptId = null;
+        if ($formData['clearance_type'] === 'Faculty') {
+            $deptStmt = $pdo->prepare("SELECT department_id FROM faculty WHERE user_id = ? LIMIT 1");
+            $deptStmt->execute([$applicantId]);
+            $applicantDeptId = $deptStmt->fetchColumn();
+        } else { // Assumes 'College'
+            $deptStmt = $pdo->prepare("SELECT department_id FROM students WHERE user_id = ? LIMIT 1");
+            $deptStmt->execute([$applicantId]);
+            $applicantDeptId = $deptStmt->fetchColumn();
+        }
+
+        if (!$applicantDeptId) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Applicant department not set']); exit; }
 
         // Ensure acting user is PH of that department
-        $chk = $pdo->prepare("SELECT 1 FROM staff WHERE user_id=? AND staff_category='Program Head' AND is_active=1 AND department_id=? LIMIT 1");
-        $chk->execute([$actingUserId,(int)$deptId]);
-        if (!$chk->fetchColumn()) {
+        $phCheckStmt = $pdo->prepare("SELECT 1 FROM staff WHERE user_id=? AND staff_category='Program Head' AND is_active=1 AND department_id=? LIMIT 1");
+        $phCheckStmt->execute([$actingUserId, (int)$applicantDeptId]);
+        if (!$phCheckStmt->fetchColumn()) {
             http_response_code(403);
             echo json_encode(['success'=>false,'message'=>'Only the Program Head of the applicant\'s department can perform this action']);
             exit;
         }
+        }
     } else {
-        // For other designations, ensure the acting user is assigned as a signatory for the applicant's clearance type (sector).
-        $chk = $pdo->prepare("
-            SELECT 1 FROM sector_signatory_assignments ssa
-            WHERE ssa.user_id = ? AND ssa.designation_id = ? AND ssa.clearance_type = ? AND ssa.is_active = 1 LIMIT 1
+        // For other designations, perform a two-step check:
+        // 1. Verify the acting user actually holds the designation they claim to be.
+        $userHasDesigStmt = $pdo->prepare("SELECT 1 FROM staff WHERE user_id = ? AND designation_id = ? AND is_active = 1 LIMIT 1");
+        $userHasDesigStmt->execute([$actingUserId, $designationId]);
+        if (!$userHasDesigStmt->fetchColumn()) {
+            http_response_code(403); echo json_encode(['success'=>false,'message'=>'Your account does not hold the specified designation.']); exit;
+        }
+
+        // 2. Verify that this designation is assigned to sign for the applicant's clearance type.
+        // This allows any user with the correct designation to sign.
+        $assignmentCheckStmt = $pdo->prepare("
+            SELECT COUNT(*) FROM sector_signatory_assignments 
+            WHERE designation_id = ? AND clearance_type = ? AND is_active = 1
         ");
-        $chk->execute([$actingUserId, $designationId, $formData['clearance_type']]);
-        if (!$chk->fetchColumn()) {
-            http_response_code(403); echo json_encode(['success'=>false,'message'=>'You are not the assigned signatory for this designation']); exit;
+        $assignmentCheckStmt->execute([$designationId, $formData['clearance_type']]);
+        if ($assignmentCheckStmt->fetchColumn() == 0) {
+            http_response_code(403); 
+            echo json_encode(['success' => false, 'message' => 'The ' . htmlspecialchars($designationName) . ' designation is not assigned to sign for ' . htmlspecialchars($formData['clearance_type']) . ' clearances.']); 
+            exit;
         }
     }
 

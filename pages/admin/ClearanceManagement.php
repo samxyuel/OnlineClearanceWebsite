@@ -543,15 +543,28 @@ if (session_status() == PHP_SESSION_NONE) {
                 ]);
                 
                 const items = signatoriesData.signatories || [];
-                const settings = settingsData.settings?.[0] || {};
+                const settings = settingsData.settings ? settingsData.settings[0] : {};
+                const includeProgramHead = settings && (settings.include_program_head == 1 || settings.include_program_head === true);
                 
-                if (items.length === 0) {
+                if (items.length === 0 && !includeProgramHead) {
                     listEl.innerHTML = '<div style="color:#6c757d;padding:6px 0;">No signatories assigned to this sector yet</div>';
                     return;
                 }
                 
+                let finalHtml = '';
+
+                // Add the dynamic "Program Head" header if enabled for the sector
+                if (includeProgramHead) {
+                    const userTypeName = (normalizedType === 'Faculty') ? 'faculty' : 'student';
+                    finalHtml += `
+                        <div class="signatory-item-header">
+                            <strong>Program Head (Dynamic)</strong>
+                            <span class="signatory-requirement">(Assigned based on ${userTypeName}'s department)</span>
+                        </div>`;
+                }
+
                 // Enhanced render with required signatory styling
-                const regularSignatoriesHtml = items.map(it => {
+                finalHtml += items.map(it => {
                     let itemClass = 'signatory-item optional';
                     let requirementText = '';
                     
@@ -590,15 +603,6 @@ if (session_status() == PHP_SESSION_NONE) {
                     `;
                 }).join('');
                 
-                let finalHtml = regularSignatoriesHtml;
-                if (settings.include_program_head == 1) {
-                    finalHtml = `
-                        <div class="signatory-item-header">
-                            <strong>Program Head (Dynamic)</strong>
-                            <span class="signatory-requirement">(Assigned based on student's department)</span>
-                        </div>
-                    ` + finalHtml;
-                }
                 listEl.innerHTML = finalHtml;
                 
             } catch (error) {
@@ -848,14 +852,19 @@ if (session_status() == PHP_SESSION_NONE) {
                 const previewContainer = document.getElementById('programHeadPreviewContainer');
                 const previewTitle = document.getElementById('programHeadPreviewTitle');
                 const previewList = document.getElementById('programHeadPreviewList');
-                
+
+                if (!previewContainer || !previewTitle || !previewList) {
+                    console.error('❌ Program Head preview elements not found in DOM');
+                    return;
+                }
+
                 if (previewContainer && previewTitle && previewList) {
                     // Update title
                     previewTitle.textContent = `Program Heads in ${sector}`;
                     
                     if (programHeads.length === 0) {
-                        previewList.innerHTML = '<div style="color:#6c757d;padding:8px;font-style:italic;">No Program Heads assigned to departments in this sector</div>';
-                        previewContainer.style.display = 'block'; // Show even when empty for user awareness
+                        previewList.innerHTML = '<div style="color:#6c757d;padding:8px;font-style:italic;">No Program Heads assigned to departments in this sector.</div>';
+                        previewContainer.style.display = 'block';
                     } else {
                         const html = programHeads.map(ph => `
                             <div class="program-head-preview-item">
@@ -872,9 +881,6 @@ if (session_status() == PHP_SESSION_NONE) {
                         previewContainer.style.display = 'block';
                     }
                     
-                    console.log(`✅ Program Head preview updated for ${sector}`);
-                } else {
-                    console.error('❌ Program Head preview elements not found in DOM');
                 }
             } catch (error) {
                 console.error('❌ Error loading Program Head preview:', error);

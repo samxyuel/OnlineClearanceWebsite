@@ -1225,31 +1225,41 @@ handleFacultyManagementPageRequest();
             targetIds: []
         };
 
-        function openRejectionRemarksModal(targetId, targetName, targetType = 'faculty', isBulk = false, targetIds = []) {
+        function openRejectionRemarksModal(targetId, targetName, targetType = 'faculty', isBulk = false, targetIds = [], existingRemarks = '', existingReasonId = '') {
             currentRejectionData = { // Note: targetId is now userId for individual, or null for bulk
                 targetId: targetId,
                 targetName: targetName,
                 targetType: targetType,
                 isBulk: isBulk,
-                targetIds: targetIds
+                targetIds: targetIds,
+                existingRemarks: existingRemarks,
+                existingReasonId: existingReasonId
             };
 
             // Update modal content based on target type
             const modal = document.getElementById('rejectionRemarksModal');
             const targetNameElement = document.getElementById('rejectionTargetName');
             const targetTypeElement = document.getElementById('rejectionType');
+            const submitButton = modal.querySelector('.modal-action-primary');
             const reasonSelect = document.getElementById('rejectionReason');
             const remarksTextarea = document.getElementById('additionalRemarks');
 
-            // Reset form
-            reasonSelect.value = '';
-            remarksTextarea.value = '';
+            // Pre-fill form if data exists, otherwise reset
+            reasonSelect.value = existingReasonId || '';
+            remarksTextarea.value = existingRemarks || '';
 
             // Update display
             if (isBulk) {
                 targetNameElement.textContent = `Rejecting: ${targetIds.length} Selected ${targetType === 'student' ? 'Students' : 'Faculty'}`;
             } else {
                 targetNameElement.textContent = `Rejecting: ${targetName}`;
+            }
+
+            // Update button text if editing
+            if (existingReasonId || existingRemarks) {
+                submitButton.textContent = 'Update Rejection';
+            } else {
+                submitButton.textContent = 'Close Clearance';
             }
             targetTypeElement.textContent = targetType === 'student' ? 'Student' : 'Faculty';
 
