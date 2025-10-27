@@ -183,7 +183,7 @@ function generateClearanceTemplatePDF($templateData, $signatories, $schoolTempla
             continue;
         }
         $htmlContent = file_get_contents($tempHtmlPath);
-        
+
         // Clean up excessive blank paragraphs that cause large white spaces in PDF
         $htmlContent = preg_replace(
             '/(Registrar<\/p>)(?:\s*<p[^>]*>(&nbsp;|\s)*<\/p>)+/i',
@@ -247,6 +247,7 @@ function generateClearanceTemplatePDF($templateData, $signatories, $schoolTempla
         $pdf->SetAuthor('goSTI College');
         $pdf->SetTitle('Clearance Form');
         $pdf->SetMargins(15, 15, 15);
+        $pdf->setPrintFooter(false);
         $pdf->AddPage();
         $pdf->writeHTML($htmlContent, true, false, true, false, '');
         $pdf->Output($pdfTempPath, 'F');
