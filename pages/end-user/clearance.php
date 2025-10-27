@@ -642,10 +642,6 @@
             <td>
                 <div class="action-buttons">
                     ${getActionButton(signatory)}
-                    <button class="btn btn-sm btn-outline" onclick="viewDetails('${signatory.designation_name.toLowerCase().replace(/\s+/g, '-')}')">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    
                 </div>
             </td>
         `;
