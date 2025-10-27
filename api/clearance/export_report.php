@@ -87,18 +87,18 @@ try {
         $studentDetails = $studentStmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    // Fetch Registrar's name for the template
-    $registrarStmt = $pdo->prepare("
-        SELECT CONCAT(u.first_name, ' ', u.last_name) as registrar_name
-        FROM sector_signatory_assignments ssa
-        JOIN users u ON ssa.user_id = u.user_id
-        JOIN designations d ON ssa.designation_id = d.designation_id
-        WHERE d.designation_name = 'Registrar' AND ssa.clearance_type = ?
-        LIMIT 1
-    ");
-    $registrarStmt->execute([$formDetails['clearance_type']]);
-    $registrar = $registrarStmt->fetch(PDO::FETCH_ASSOC);
-    $registrarName = $registrar ? $registrar['registrar_name'] : 'N/A';
+    // Extract Registrar from signatories
+    $registrarName = 'Registrar'; // default fallback
+    $registrarAction = 'Pending'; // default fallback
+    foreach ($signatories as $s) {
+        if (isset($s['designation_name']) && stripos($s['designation_name'], 'Registrar') !== false) {
+            if (!empty($s['signatory_name'])) {
+                $registrarName = $s['signatory_name'];
+            }
+            $registrarAction = $s['action'] ?? 'Pending';
+            break; // Found the registrar, stop looping
+        }
+    }
 
 } catch (Exception $e) {
     http_response_code(500);
@@ -124,6 +124,7 @@ $templateData = [
     'COMPLETION_DATE' => $formDetails['completed_at'] ? date('F j, Y', strtotime($formDetails['completed_at'])) : 'N/A',
     'DATE_GENERATED' => date('F j, Y, g:i a'),
     'REGISTRAR_NAME' => $registrarName,
+    'REGISTRAR_ACTION' => $registrarAction,
     'CLEARANCE_FORM_ID' => $form_id,
 ];
 // 4. Define Template Paths and Output File
