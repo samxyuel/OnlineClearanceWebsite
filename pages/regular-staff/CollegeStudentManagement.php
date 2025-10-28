@@ -26,7 +26,7 @@ try {
     $hasStudentSignatoryAccess = false;
     if ($designationId) {
         // 2. Check if this designation is assigned to sign for 'College' students
-        $studentSignatoryCheck = $pdo->prepare("SELECT COUNT(*) FROM sector_signatory_assignments WHERE designation_id=? AND clearance_type='College' AND is_active=1");
+        $studentSignatoryCheck = $pdo->prepare("SELECT COUNT(*) FROM sector_signatory_assignments WHERE designation_id = ? AND clearance_type = 'College' AND is_active = 1");
         $studentSignatoryCheck->execute([$designationId]);
         $hasStudentSignatoryAccess = (int)$studentSignatoryCheck->fetchColumn() > 0;
     }
@@ -240,32 +240,28 @@ try {
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
-                                <i class="fas fa-search"></i>
-                                <input type="text" id="searchInput" placeholder="Search students by name, ID, or program...">
+                                <i class="fas fa-search" style="pointer-events: none;"></i>
+                                <input type="text" id="searchInput" placeholder="Search students by name, ID, or program..." onchange="">
                             </div>
                             
                             <div class="filter-dropdowns">
                                 <!-- Clearance Status Filter -->
-                                <select id="clearanceStatusFilter" class="filter-select">
+                                <!-- Add this inside onchange="applyFilters()" for selection based changes-->
+                                <select id="clearanceStatusFilter" class="filter-select" >
                                     <option value="">All Clearance Status</option>
-                                    <option value="unapplied">Unapplied</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="in-progress">In Progress</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="rejected">Rejected</option>
+                                    <option value="">Loading...</option>
                                 </select>
                                 
                                 <!-- School Term Filter -->
-                                <select id="schoolTermFilter" class="filter-select" onchange="applyFilters()">
+                                <select id="schoolTermFilter" class="filter-select">
                                     <option value="">All School Terms</option>
+                                    <option value="">Loading...</option>
                                 </select>
                                 
                                 <!-- Account Status Filter -->
                                 <select id="accountStatusFilter" class="filter-select">
                                     <option value="">All Account Status</option>
-                                    <option value="active">Active Only</option>
-                                    <option value="inactive">Inactive Only</option>
-                                    <option value="graduated">Graduated Only</option>
+                                    <option value="">Loading...</option>
                                 </select>
                             </div>
                             
@@ -634,14 +630,17 @@ try {
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value;
 
-            let url = `../../api/staff/signatoryList.php?sector=College&page=${currentPage}&limit=${entriesPerPage}`;
+            let url = new URL('../../api/staff/signatoryList.php', window.location.href);
+            url.searchParams.append('sector', 'College');
+            url.searchParams.append('page', currentPage);
+            url.searchParams.append('limit', entriesPerPage);
             if (search) url += `&search=${encodeURIComponent(search)}`;
             if (clearanceStatus) url += `&clearance_status=${encodeURIComponent(clearanceStatus)}`;
             if (accountStatus) url += `&account_status=${encodeURIComponent(accountStatus)}`;
             if (schoolTerm) url += `&school_term=${encodeURIComponent(schoolTerm)}`;
 
             try {
-                const response = await fetch(url, { credentials: 'include' });
+                const response = await fetch(url.toString(), { credentials: 'include' });
                 const data = await response.json();
 
                 if (!data.success) {
@@ -751,7 +750,8 @@ try {
             document.getElementById('searchInput').value = '';
             document.getElementById('clearanceStatusFilter').value = '';
             document.getElementById('accountStatusFilter').value = '';
-            applyFilters();
+            document.getElementById('schoolTermFilter').value = '';
+            fetchStudents();
             showToastNotification('All filters cleared', 'info');
         }
 
@@ -806,48 +806,6 @@ try {
             );
         }
 
-        // Check if Regular Staff is assigned as signatory for College sector
-        async function checkCollegeSignatoryAssignment() {
-            try {
-                const response = await fetch('../../api/clearance/check_signatory_status.php?sector=College', {
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                return data.success && data.is_signatory;
-            } catch (error) {
-                console.error('Error checking college signatory assignment:', error);
-                return false;
-            }
-        }
-
-        // Initialize signatory access control
-        async function initializeSignatoryAccessControl() {
-            const isAssignedToCollege = await checkCollegeSignatoryAssignment();
-            
-            if (!isAssignedToCollege) {
-                // Hide signatory action buttons if not assigned to College sector
-                document.querySelectorAll('.approve-btn, .reject-btn').forEach(btn => {
-                    btn.style.display = 'none';
-                });
-                
-                // Update the Clearance Status column to show "Not Assigned" instead of hiding it
-                document.querySelectorAll('#studentTableBody tr').forEach(row => {
-                    const cells = row.children;
-                    // Update the Clearance Status column (7th column, index 6) to show "Not Assigned"
-                    if (cells[6]) {
-                        const statusBadge = cells[6].querySelector('.status-badge');
-                        if (statusBadge) {
-                            statusBadge.textContent = 'Not Assigned';
-                            statusBadge.className = 'status-badge clearance-not-assigned';
-                        }
-                    }
-                });
-                
-                // Show restriction message
-                showToastNotification('You are not assigned as a signatory for College sector. You can view data but cannot perform signatory actions.', 'info');
-            }
-        }
-
         // Load staff position information
         async function loadStaffPosition() {
             try {
@@ -886,6 +844,42 @@ try {
                 console.error('Error loading staff position:', error);
                 document.getElementById('positionInfo').textContent = 'Position: Staff - Clearance Signatory';
             }
+        }
+
+        async function populateFilter(selectId, url, placeholder, valueField = 'value', textField = 'text') {
+            const select = document.getElementById(selectId);
+            try {
+                const response = await fetch(url, { credentials: 'include' });
+                const data = await response.json();
+
+                select.innerHTML = `<option value="">${placeholder}</option>`;
+                if (data.success && data.options) {
+                    data.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = typeof option === 'object' ? option[valueField] : option;
+                        optionElement.textContent = typeof option === 'object' ? option[textField] : option;
+                        select.appendChild(optionElement);
+                    });
+                }
+            } catch (error) {
+                console.error(`Error loading options for ${selectId}:`, error);
+                select.innerHTML = `<option value="">Error loading options</option>`;
+            }
+        }
+
+        async function loadClearanceStatuses() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=clearance_signatories&column=action`;
+            await populateFilter('clearanceStatusFilter', url, 'All Clearance Statuses');
+        }
+
+        async function loadAccountStatuses() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=users&column=account_status&exclude=resigned`;
+            await populateFilter('accountStatusFilter', url, 'All Account Statuses');
+        }
+
+        async function loadSchoolTerms() {
+            const url = `../../api/clearance/get_filter_options.php?type=school_terms`;
+            await populateFilter('schoolTermFilter', url, 'All School Terms');
         }
 
         // Initialize page
@@ -902,9 +896,6 @@ try {
                 }
             });
 
-            // Initialize signatory access control
-            initializeSignatoryAccessControl();
-            
             // Initialize Activity Tracker
             window.sidebarHandledByPage = true;
             window.activityTrackerInstance = new ActivityTracker();
@@ -913,7 +904,16 @@ try {
             fetchStudents();
             loadRejectionReasons();
             loadSchoolTerms();
+            loadClearanceStatuses();
+            loadAccountStatuses();
             loadStaffPosition();
+
+            document.getElementById('searchInput').addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault(); // Prevent form submission if it's in a form
+                    applyFilters();
+                }
+            });
         });
 
         function escapeHtml(unsafe) {

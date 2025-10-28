@@ -44,5 +44,9 @@ class Database {
         $stmt->execute($params);
         return $stmt;
     }
+
+    public function getDbName() {
+        return DB_NAME;
+    }
 }
 ?>

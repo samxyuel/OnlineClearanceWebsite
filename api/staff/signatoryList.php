@@ -58,10 +58,11 @@ try {
     $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
     $limit = isset($_GET['limit']) ? max(1, (int)$_GET['limit']) : 20;
     $offset = ($page - 1) * $limit;
-    $search = $_GET['search'] ?? '';
+    $search = trim($_GET['search'] ?? '');
     $clearanceStatus = $_GET['clearance_status'] ?? '';
     $accountStatus = $_GET['account_status'] ?? '';
     $requestSector = $_GET['sector'] ?? ''; // 'College' or 'Senior High School'
+    $schoolTerm = $_GET['school_term'] ?? ''; // e.g., "2024-2025|2"
     // Other filters like program, year level can be added here.
 
     // 4. Build the query based on type
@@ -126,12 +127,24 @@ try {
 
     // Apply filters
     if (!empty($search)) {
+        $searchTerms = explode(' ', $search);
         $searchClauses = [];
+        $termIndex = 0;
+
+        // Special handling for full name search
+        $searchClauses[] = "CONCAT(u.first_name, ' ', u.last_name) LIKE :searchFullName";
+        $params[':searchFullName'] = "%$search%";
+
+        // Add individual field searches
         foreach ($searchFields as $field) {
-            $searchClauses[] = "$field LIKE :search";
+            // Avoid duplicating name search
+            if ($field !== 'u.first_name' && $field !== 'u.last_name') {
+                $searchClauses[] = "$field LIKE :search" . $termIndex;
+                $params[":search" . $termIndex] = "%$search%";
+                $termIndex++;
+            }
         }
         $where .= " AND (" . implode(' OR ', $searchClauses) . ")";
-        $params[':search'] = "%$search%";
     }
 
     if (!empty($clearanceStatus) && $clearanceStatus !== 'all') {
@@ -144,8 +157,28 @@ try {
     }
 
     if (!empty($accountStatus)) {
-        $where .= " AND u.status = :accountStatus";
+        $where .= " AND u.account_status = :accountStatus";
         $params[':accountStatus'] = $accountStatus;
+    }
+
+    if (!empty($schoolTerm)) {
+        $termParts = explode('|', $schoolTerm);
+        if (count($termParts) === 2) {
+            $yearName = $termParts[0];
+            $semesterId = $termParts[1];
+            
+            $where .= " AND cp.academic_year_id = (SELECT academic_year_id FROM academic_years WHERE year = :yearName LIMIT 1)";
+            $where .= " AND cp.semester_id = :semesterId";
+            $params[':yearName'] = $yearName;
+            $params[':semesterId'] = $semesterId;
+        }
+    }
+
+    // Add sector filtering for students
+    if ($type === 'student' && !empty($requestSector)) {
+        // Assuming 'students' table has a 'sector' column ('College' or 'Senior High School')
+        $where .= " AND s.sector = :requestSector";
+        $params[':requestSector'] = $requestSector;
     }
 
     $orderBy = " ORDER BY u.last_name, u.first_name";
