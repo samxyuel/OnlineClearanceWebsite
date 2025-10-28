@@ -235,7 +235,15 @@ try {
                                 </button>
                             </div>
                         </div>
-                        
+
+                        <!-- Current Period Banner -->
+                        <div class="current-period-banner-wrapper">
+                            <span class="academic-year-semester">
+                                <i class="fas fa-calendar-check"></i> 
+                                <span id="currentAcademicYear">Loading...</span> - <span id="currentSemester">Loading...</span>
+                            </span>
+                        </div>
+
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
@@ -1071,20 +1079,33 @@ try {
                 });
                 const data = await response.json();
                 
-                if (data.success && data.periods && data.periods.length > 0) {
-                    const currentPeriod = data.periods.find(p => p.is_active == 1);
-                    if (currentPeriod) {
-                        document.getElementById('currentPeriodText').textContent = 
-                            `Current Period: ${currentPeriod.period_name} (${currentPeriod.status})`;
-                    } else {
-                        document.getElementById('currentPeriodText').textContent = 'No active clearance period';
-                    }
+                const yearEl = document.getElementById('currentAcademicYear');
+                const semesterEl = document.getElementById('currentSemester');
+                
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    const currentPeriod = data.active_periods[0];
+                    const termMap = {
+                        '1st': '1st Semester',
+                        '2nd': '2nd Semester',
+                        '3rd': '3rd Semester',
+                        '1st Semester': '1st Semester',
+                        '2nd Semester': '2nd Semester',
+                        '3rd Semester': '3rd Semester',
+                        'Summer': 'Summer'
+                    };
+                    const semLabel = termMap[currentPeriod.semester_name] || currentPeriod.semester_name || '';
+                    if (yearEl) yearEl.textContent = currentPeriod.school_year;
+                    if (semesterEl) semesterEl.textContent = semLabel;
                 } else {
-                    document.getElementById('currentPeriodText').textContent = 'No clearance periods found';
+                    if (yearEl) yearEl.textContent = 'No active period';
+                    if (semesterEl) semesterEl.textContent = 'No term';
                 }
             } catch (error) {
                 console.error('Error loading current period:', error);
-                document.getElementById('currentPeriodText').textContent = 'Error loading period information';
+                const yearEl = document.getElementById('currentAcademicYear');
+                const semesterEl = document.getElementById('currentSemester');
+                if (yearEl) yearEl.textContent = 'Error loading';
+                if (semesterEl) semesterEl.textContent = 'Error';
             }
         }
 

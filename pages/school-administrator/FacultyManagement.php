@@ -1066,13 +1066,13 @@ handleFacultyManagementPageRequest();
             }
             
             tr.innerHTML = `
-                <td><input type="checkbox" class="faculty-checkbox" data-id="${faculty.id}"></td>
-                <td>${faculty.id}</td>
-                <td>${escapeHtml(faculty.name)}</td>
-                <td><span class="status-badge employment-${(faculty.employment_status || '').toLowerCase().replace(/ /g, '-')}">${escapeHtml(faculty.employment_status || 'N/A')}</span></td>
-                <td><span class="status-badge account-${accountStatus}">${faculty.account_status || 'N/A'}</span></td>
-                <td><span class="status-badge clearance-${clearanceKey}">${faculty.clearance_status || 'N/A'}</span></td>
-                <td>
+                <td class="checkbox-column"><input type="checkbox" class="faculty-checkbox" data-id="${faculty.id}"></td>
+                <td data-label="Employee Number:">${faculty.id}</td>
+                <td data-label="Name:">${escapeHtml(faculty.name)}</td>
+                <td data-label="Employment Status:"><span class="status-badge employment-${(faculty.employment_status || '').toLowerCase().replace(/ /g, '-')}">${escapeHtml(faculty.employment_status || 'N/A')}</span></td>
+                <td data-label="Account Status:"><span class="status-badge account-${accountStatus}">${faculty.account_status || 'N/A'}</span></td>
+                <td data-label="Clearance Progress:"><span class="status-badge clearance-${clearanceKey}">${faculty.clearance_status || 'N/A'}</span></td>
+                <td class="action-buttons">
                     <div class="action-buttons">
                         <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${faculty.user_id}')" title="View Clearance Progress"><i class="fas fa-tasks"></i></button>
                         <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${faculty.id}')" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>

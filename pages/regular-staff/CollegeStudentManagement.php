@@ -231,10 +231,10 @@ try {
 
                         <!-- Current Period Banner -->
                         <div class="current-period-banner-wrapper">
-                            <div id="currentPeriodBanner" class="current-period-banner">
-                                <i class="fas fa-calendar-alt banner-icon" aria-hidden="true"></i>
-                                <span id="currentPeriodText">Loading current period...</span>
-                            </div>
+                            <span class="academic-year-semester">
+                                <i class="fas fa-calendar-check"></i> 
+                                <span id="currentAcademicYear">Loading...</span> - <span id="currentSemester">Loading...</span>
+                            </span>
                         </div>
 
                         <!-- Search and Filters Section -->
@@ -1082,11 +1082,15 @@ try {
                         document.getElementById('currentPeriodText').textContent = 'No active clearance period';
                     }
                 } else {
-                    document.getElementById('currentPeriodText').textContent = 'No clearance periods found';
+                    if (yearEl) yearEl.textContent = 'No active period';
+                    if (semesterEl) semesterEl.textContent = 'No term';
                 }
             } catch (error) {
                 console.error('Error loading current period:', error);
-                document.getElementById('currentPeriodText').textContent = 'Error loading period information';
+                const yearEl = document.getElementById('currentAcademicYear');
+                const semesterEl = document.getElementById('currentSemester');
+                if (yearEl) yearEl.textContent = 'Error loading';
+                if (semesterEl) semesterEl.textContent = 'Error';
             }
         }
 

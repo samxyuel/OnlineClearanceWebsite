@@ -313,8 +313,8 @@
 }
 
 .activity-tracker-header {
-  background: var(--deep-navy-blue);
-  color: white;
+  background: var(--very-light-off-white);
+  color: var(--deep-navy-blue);
   padding: 20px;
   display: flex;
   align-items: center;
