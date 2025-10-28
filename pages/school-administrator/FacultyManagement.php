@@ -238,16 +238,16 @@ handleFacultyManagementPageRequest();
                             <!-- Table Header with Bulk Actions -->
                             <div class="table-header-section">
                                 <div class="bulk-controls">
-                                    <label class="select-all-checkbox">
-                                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                        <span class="checkmark"></span>
-                                        Select All
-                                    </label>
+                                    <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
+                                        <i class="fas fa-filter"></i> Bulk Selection Filters
+                                    </button>
+                                    <button class="selection-counter-display" id="selectionCounterPill" type="button" title="">
+                                        <span id="selectionCounter">0 selected</span>
+                                    </button>
                                     <div class="bulk-buttons">
                                         <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
                                             <i class="fas fa-undo"></i> Undo
                                         </button>
-                                        <span id="selectionCounter">0 selected</span>
                                         <button class="btn btn-success" onclick="approveSelected()" disabled>
                                             <i class="fas fa-check"></i> Approve
                                         </button>
@@ -340,7 +340,7 @@ handleFacultyManagementPageRequest();
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     
     <!-- Bulk Selection Filters Modal -->
-    <div id="bulkSelectionFiltersModal" class="modal-overlay" style="display: none;">
+    <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
         <div class="modal-window bulk-selection-modal">
             <div class="modal-header">
                 <h3 class="modal-title"><i class="fas fa-filter"></i> Bulk Selection Filters</h3>
@@ -349,11 +349,106 @@ handleFacultyManagementPageRequest();
                 </button>
             </div>
             <div class="modal-content-area">
+                <div class="filter-sections">
+                    <!-- Employment Status Section -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Employment Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterFullTime" value="full-time">
+                                <span class="checkmark"></span>
+                                with "Full Time"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterPartTime" value="part-time">
+                                <span class="checkmark"></span>
+                                with "Part Time"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterPartTimeFullLoad" value="part-time-full-load">
+                                <span class="checkmark"></span>
+                                with "Part Time - Full Load"
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Account Status Section -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Account Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterActive" value="active">
+                                <span class="checkmark"></span>
+                                with "active"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterInactive" value="inactive">
+                                <span class="checkmark"></span>
+                                with "inactive"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterResigned" value="resigned">
+                                <span class="checkmark"></span>
+                                with "resigned"
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Clearance Progress Section -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Clearance Progress:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterUnapplied" value="unapplied">
+                                <span class="checkmark"></span>
+                                with "unapplied"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterApplied" value="applied">
+                                <span class="checkmark"></span>
+                                with "applied"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterInProgress" value="in-progress">
+                                <span class="checkmark"></span>
+                                with "in progress"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterComplete" value="complete">
+                                <span class="checkmark"></span>
+                                with "complete"
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Clearance Status Section (Signatory Perspective) -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Clearance Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterPending" value="pending">
+                                <span class="checkmark"></span>
+                                with "pending" (for my approval)
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterApproved" value="approved">
+                                <span class="checkmark"></span>
+                                with "approved" (by me)
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterRejected" value="rejected">
+                                <span class="checkmark"></span>
+                                with "rejected" (by me)
+                            </label>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-actions">
-                <button class="modal-action-secondary" onclick="resetBulkSelectionFilters()">Reset</button>
                 <button class="modal-action-secondary" onclick="closeBulkSelectionModal()">Cancel</button>
-                <button class="modal-action-primary" onclick="applyBulkSelection()">Apply Selection</button>
+                <button class="modal-action-primary" onclick="applyBulkSelection()">
+                    <i class="fas fa-check"></i> Select All
+                </button>
             </div>
         </div>
     </div>
@@ -1136,6 +1231,150 @@ handleFacultyManagementPageRequest();
             document.getElementById('activeFaculty').textContent = active;
             document.getElementById('inactiveFaculty').textContent = inactive;
             document.getElementById('resignedFaculty').textContent = resigned;
+        }
+
+        // Bulk Selection Modal Functions
+        function openBulkSelectionModal() {
+            const modal = document.getElementById('bulkSelectionModal');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeBulkSelectionModal() {
+            const modal = document.getElementById('bulkSelectionModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function resetBulkSelectionFilters() {
+            const checkboxes = ['filterFullTime', 'filterPartTime', 'filterPartTimeFullLoad', 'filterActive', 'filterInactive', 'filterResigned', 'filterUnapplied', 'filterApplied', 'filterInProgress', 'filterComplete', 'filterPending', 'filterApproved', 'filterRejected'];
+            checkboxes.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.checked = false;
+            });
+        }
+
+        function applyBulkSelection() {
+            const filters = {
+                fullTime: document.getElementById('filterFullTime')?.checked || false,
+                partTime: document.getElementById('filterPartTime')?.checked || false,
+                partTimeFullLoad: document.getElementById('filterPartTimeFullLoad')?.checked || false,
+                active: document.getElementById('filterActive')?.checked || false,
+                inactive: document.getElementById('filterInactive')?.checked || false,
+                resigned: document.getElementById('filterResigned')?.checked || false,
+                unapplied: document.getElementById('filterUnapplied')?.checked || false,
+                applied: document.getElementById('filterApplied')?.checked || false,
+                inProgress: document.getElementById('filterInProgress')?.checked || false,
+                complete: document.getElementById('filterComplete')?.checked || false,
+                pending: document.getElementById('filterPending')?.checked || false,
+                approved: document.getElementById('filterApproved')?.checked || false,
+                rejected: document.getElementById('filterRejected')?.checked || false
+            };
+            
+            // Check if any filter is selected
+            const anyFilterChecked = Object.values(filters).some(val => val === true);
+            
+            if (!anyFilterChecked) {
+                // No filters checked - select all visible rows
+                selectAllVisibleFacultyRows();
+            } else {
+                // Filters are checked - select only matching rows
+                selectFacultyByFilters(filters);
+            }
+            
+            closeBulkSelectionModal();
+        }
+        
+        function selectAllVisibleFacultyRows() {
+            const checkboxes = document.querySelectorAll('.faculty-checkbox');
+            let selectedCount = 0;
+            
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                // Only select if row is visible (respects current table filters/search)
+                if (row && row.style.display !== 'none') {
+                    checkbox.checked = true;
+                    selectedCount++;
+                }
+            });
+            
+            updateSelectionCounter();
+            updateBulkButtons();
+            showToastNotification(`Selected all ${selectedCount} visible faculty`, 'success');
+        }
+
+        function selectFacultyByFilters(filters) {
+            const checkboxes = document.querySelectorAll('.faculty-checkbox');
+            let selectedCount = 0;
+            
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                
+                // Skip hidden rows (respects table filters)
+                if (!row || row.style.display === 'none') {
+                    checkbox.checked = false;
+                    return;
+                }
+                
+                const employmentBadge = row.querySelector('.status-badge[class*="employment-"]');
+                const accountBadge = row.querySelector('.status-badge[class*="account-"]');
+                const clearanceBadge = row.querySelector('.status-badge[class*="clearance-"]');
+                
+                let employmentMatch = false;
+                let accountMatch = false;
+                let progressMatch = false;
+                let statusMatch = false;
+                
+                // Check employment status filters
+                const hasEmploymentFilter = filters.fullTime || filters.partTime || filters.partTimeFullLoad;
+                if (hasEmploymentFilter && employmentBadge) {
+                    if (filters.fullTime && employmentBadge.classList.contains('employment-full-time')) employmentMatch = true;
+                    if (filters.partTime && employmentBadge.classList.contains('employment-part-time')) employmentMatch = true;
+                    if (filters.partTimeFullLoad && employmentBadge.classList.contains('employment-part-time-full-load')) employmentMatch = true;
+                } else if (!hasEmploymentFilter) {
+                    employmentMatch = true; // No employment filter = wildcard
+                }
+                
+                // Check account status filters
+                const hasAccountFilter = filters.active || filters.inactive || filters.resigned;
+                if (hasAccountFilter && accountBadge) {
+                    if (filters.active && accountBadge.classList.contains('account-active')) accountMatch = true;
+                    if (filters.inactive && accountBadge.classList.contains('account-inactive')) accountMatch = true;
+                    if (filters.resigned && accountBadge.classList.contains('account-resigned')) accountMatch = true;
+                } else if (!hasAccountFilter) {
+                    accountMatch = true; // No account filter = wildcard
+                }
+                
+                // Check clearance progress filters
+                const hasProgressFilter = filters.unapplied || filters.applied || filters.inProgress || filters.complete;
+                if (hasProgressFilter && clearanceBadge) {
+                    if (filters.unapplied && clearanceBadge.classList.contains('clearance-unapplied')) progressMatch = true;
+                    if (filters.applied && clearanceBadge.classList.contains('clearance-applied')) progressMatch = true;
+                    if (filters.inProgress && clearanceBadge.classList.contains('clearance-in-progress')) progressMatch = true;
+                    if (filters.complete && clearanceBadge.classList.contains('clearance-complete')) progressMatch = true;
+                } else if (!hasProgressFilter) {
+                    progressMatch = true; // No progress filter = wildcard
+                }
+                
+                // Check clearance status filters (signatory perspective)
+                const hasStatusFilter = filters.pending || filters.approved || filters.rejected;
+                if (hasStatusFilter && clearanceBadge) {
+                    if (filters.pending && clearanceBadge.classList.contains('clearance-pending')) statusMatch = true;
+                    if (filters.approved && clearanceBadge.classList.contains('clearance-approved')) statusMatch = true;
+                    if (filters.rejected && clearanceBadge.classList.contains('clearance-rejected')) statusMatch = true;
+                } else if (!hasStatusFilter) {
+                    statusMatch = true; // No status filter = wildcard
+                }
+                
+                // Select if all filter categories match
+                const shouldSelect = employmentMatch && accountMatch && progressMatch && statusMatch;
+                checkbox.checked = shouldSelect;
+                if (shouldSelect) selectedCount++;
+            });
+            
+            updateSelectionCounter();
+            updateBulkButtons();
+            showToastNotification(`Selected ${selectedCount} faculty based on filters`, 'success');
         }
 
         // Initialize page

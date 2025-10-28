@@ -227,8 +227,25 @@ try {
                             </div>
                         </div>
 
-                        <!-- Current Period Banner -->
-                        <div class="current-period-banner-wrapper">
+                        <!-- Tabs + Current Period Wrapper -->
+                        <div class="tab-banner-wrapper">
+                            <!-- Tab Navigation for quick status views -->
+                            <div class="tab-nav" id="studentTabNav">
+                                <button class="tab-pill active" data-status="" onclick="switchStudentTab(this)">Overall</button>
+                                <button class="tab-pill" data-status="active" onclick="switchStudentTab(this)">Active</button>
+                                <button class="tab-pill" data-status="inactive" onclick="switchStudentTab(this)">Inactive</button>
+                                <button class="tab-pill" data-status="graduated" onclick="switchStudentTab(this)">Graduated</button>
+                            </div>
+                            <!-- Mobile dropdown alternative -->
+                            <div class="tab-nav-mobile" id="studentTabSelectWrapper">
+                                <select id="studentTabSelect" class="tab-select" onchange="handleTabSelectChange(this)">
+                                    <option value="" selected>Overall</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="graduated">Graduated</option>
+                                </select>
+                            </div>
+                            <!-- Current Period Banner -->
                             <span class="academic-year-semester">
                                 <i class="fas fa-calendar-check"></i> 
                                 <span id="currentAcademicYear">Loading...</span> - <span id="currentSemester">Loading...</span>
@@ -289,11 +306,14 @@ try {
                             <!-- Table Header with Bulk Actions -->
                             <div class="table-header-section">
                                 <div class="bulk-controls">
-                                    <button class="btn btn-primary select-all-btn" onclick="toggleSelectAll()">
-                                        <i class="fas fa-check-square"></i> Select All
+                                    <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
+                                        <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
-                                    <button class="selection-counter-display" id="selectionCounterPill" type="button" title="" aria-disabled="true">
-                                        <span id="selectionCounter">0 selected</span>
+                                    <button class="selection-counter-display" id="selectionCounterPill" onclick="openBulkSelectionModal()">
+                                        <i class="fas fa-check-square"></i> <span id="selectionCounter">0 selected</span>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn" onclick="clearAllSelections()" disabled>
+                                        <i class="fas fa-times"></i> Clear
                                     </button>
                                     <div class="bulk-buttons">
                                         <button class="btn btn-success" onclick="approveSelected()" disabled>
@@ -462,6 +482,71 @@ try {
     <!-- Include Modals -->
     <?php include '../../Modals/CollegeStudentRegistryModal.php'; ?>
     <?php include '../../Modals/CollegeEditStudentModal.php'; ?>
+    
+    <!-- Bulk Selection Filters Modal -->
+    <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
+        <div class="modal-window bulk-selection-modal">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-filter"></i> Bulk Selection Filters</h3>
+                <button class="modal-close" onclick="closeBulkSelectionModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content-area">
+                <div class="filter-sections">
+                    <!-- Account Status Section -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Account Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterActive" value="active">
+                                <span class="checkmark"></span>
+                                with "active"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterInactive" value="inactive">
+                                <span class="checkmark"></span>
+                                with "inactive"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterGraduated" value="graduated">
+                                <span class="checkmark"></span>
+                                with "graduated"
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Clearance Status Section (Signatory Perspective) -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Clearance Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterPending" value="pending">
+                                <span class="checkmark"></span>
+                                with "pending" (for my approval)
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterApproved" value="approved">
+                                <span class="checkmark"></span>
+                                with "approved" (by me)
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterRejected" value="rejected">
+                                <span class="checkmark"></span>
+                                with "rejected" (by me)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-secondary" onclick="closeBulkSelectionModal()">Cancel</button>
+                <button class="modal-action-primary" onclick="applyBulkSelection()">
+                    <i class="fas fa-check"></i> Select All
+                </button>
+            </div>
+        </div>
+    </div>
     <?php include '../../Modals/ClearanceExportModal.php'; ?>
 
     <!-- Rejection Remarks Modal -->
@@ -536,17 +621,122 @@ try {
             }
         }
 
-        // Select all functionality
-        function toggleSelectAll() {
-            const selectAllCheckbox = document.getElementById('selectAll');
-            const studentCheckboxes = document.querySelectorAll('.student-checkbox');
-            const bulkButtons = document.querySelectorAll('.bulk-buttons button');
+        // Bulk selection modal functions
+        function openBulkSelectionModal() {
+            const modal = document.getElementById('bulkSelectionModal');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeBulkSelectionModal() {
+            const modal = document.getElementById('bulkSelectionModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+
+        function applyBulkSelection() {
+            const filters = {
+                active: document.getElementById('filterActive').checked,
+                inactive: document.getElementById('filterInactive').checked,
+                graduated: document.getElementById('filterGraduated').checked,
+                pending: document.getElementById('filterPending').checked,
+                approved: document.getElementById('filterApproved').checked,
+                rejected: document.getElementById('filterRejected').checked
+            };
             
-            studentCheckboxes.forEach(checkbox => {
-                checkbox.checked = selectAllCheckbox.checked;
+            // Check if any filter is selected
+            const anyFilterChecked = Object.values(filters).some(val => val === true);
+            
+            if (!anyFilterChecked) {
+                // No filters checked - select all visible rows
+                selectAllVisibleRows();
+            } else {
+                // Filters are checked - select only matching rows
+                selectStudentsByFilters(filters);
+            }
+            
+            closeBulkSelectionModal();
+        }
+
+        function selectAllVisibleRows() {
+            const checkboxes = document.querySelectorAll('.student-checkbox');
+            let selectedCount = 0;
+            
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                
+                // Skip hidden rows (respects table filters)
+                if (row.style.display === 'none') {
+                    checkbox.checked = false;
+                    return;
+                }
+                
+                checkbox.checked = true;
+                selectedCount++;
             });
             
+            updateSelectionCounter();
             updateBulkButtons();
+            showToastNotification(`Selected all ${selectedCount} visible students`, 'success');
+        }
+
+        function selectStudentsByFilters(filters) {
+            const checkboxes = document.querySelectorAll('.student-checkbox');
+            let selectedCount = 0;
+            
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                
+                // Skip hidden rows (respects table filters)
+                if (row.style.display === 'none') {
+                    checkbox.checked = false;
+                    return;
+                }
+                
+                const accountBadge = row.querySelector('.status-badge[class*="account-"]');
+                const clearanceBadge = row.querySelector('.status-badge[class*="clearance-"]');
+                
+                let accountMatch = false;
+                let statusMatch = false;
+                
+                // Check account status filters
+                const hasAccountFilter = filters.active || filters.inactive || filters.graduated;
+                if (hasAccountFilter && accountBadge) {
+                    if (filters.active && accountBadge.classList.contains('account-active')) accountMatch = true;
+                    if (filters.inactive && accountBadge.classList.contains('account-inactive')) accountMatch = true;
+                    if (filters.graduated && accountBadge.classList.contains('account-graduated')) accountMatch = true;
+                } else if (!hasAccountFilter) {
+                    accountMatch = true; // No account filter = wildcard
+                }
+                
+                // Check clearance status filters (signatory perspective)
+                const hasStatusFilter = filters.pending || filters.approved || filters.rejected;
+                if (hasStatusFilter && clearanceBadge) {
+                    if (filters.pending && clearanceBadge.classList.contains('clearance-pending')) statusMatch = true;
+                    if (filters.approved && clearanceBadge.classList.contains('clearance-approved')) statusMatch = true;
+                    if (filters.rejected && clearanceBadge.classList.contains('clearance-rejected')) statusMatch = true;
+                } else if (!hasStatusFilter) {
+                    statusMatch = true; // No status filter = wildcard
+                }
+                
+                // Select if all filter categories match
+                const shouldSelect = accountMatch && statusMatch;
+                checkbox.checked = shouldSelect;
+                if (shouldSelect) selectedCount++;
+            });
+            
+            updateSelectionCounter();
+            updateBulkButtons();
+            showToastNotification(`Selected ${selectedCount} students based on filters`, 'success');
+        }
+
+        function resetBulkSelectionFilters() {
+            document.getElementById('filterActive').checked = false;
+            document.getElementById('filterInactive').checked = false;
+            document.getElementById('filterGraduated').checked = false;
+            document.getElementById('filterPending').checked = false;
+            document.getElementById('filterApproved').checked = false;
+            document.getElementById('filterRejected').checked = false;
         }
 
         function updateSelectionCounter() {
@@ -1212,6 +1402,7 @@ try {
             const totalCount = document.querySelectorAll('.student-checkbox').length;
             const counter = document.getElementById('selectionCounter');
             const selectionDisplay = document.getElementById('selectionCounterPill');
+            const clearBtn = document.getElementById('clearSelectionBtn');
             
             if (selectedCount === 0) {
                 counter.textContent = '0 selected';
@@ -1221,6 +1412,7 @@ try {
                     selectionDisplay.setAttribute('aria-disabled', 'true');
                     selectionDisplay.title = '';
                 }
+                if (clearBtn) clearBtn.disabled = true;
             } else if (selectedCount === totalCount) {
                 counter.textContent = `All ${totalCount} selected`;
                 // Apply all selected styling
@@ -1230,6 +1422,7 @@ try {
                     selectionDisplay.removeAttribute('aria-disabled');
                     selectionDisplay.title = 'Clear selection';
                 }
+                if (clearBtn) clearBtn.disabled = false;
             } else {
                 counter.textContent = `${selectedCount} selected`;
                 // Apply partial selection styling
@@ -1239,6 +1432,7 @@ try {
                     selectionDisplay.removeAttribute('aria-disabled');
                     selectionDisplay.title = 'Clear selection';
                 }
+                if (clearBtn) clearBtn.disabled = false;
             }
         }
 
