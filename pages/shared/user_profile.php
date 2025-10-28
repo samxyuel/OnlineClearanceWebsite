@@ -305,16 +305,21 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
                             <span class="value"><?php echo htmlspecialchars($userData['designation'] ?? 'N/A'); ?></span>
                         </div>
                     <?php endif; ?>
-                    <?php if (in_array($currentRole, ['faculty', 'staff', 'school_admin', 'program_head'])): ?>
+                    <?php if (in_array($currentRole, ['admin', 'faculty', 'staff', 'school_admin', 'program_head'])): ?>
                         <div class="info-item">
                             <span class="label">Employment Date:</span>
-                            <span class="value"><?php echo isset($userData['employment_date']) ? date('M d, Y', strtotime($userData['employment_date'])) : 'N/A'; ?></span>
+                            <?php if (in_array($currentRole, ['admin', 'staff', 'school_admin', 'program_head'])): ?>
+                                <span class="value editable" data-field="employment_date" contenteditable="false"><?php echo isset($userData['employment_date']) ? date('M d, Y', strtotime($userData['employment_date'])) : 'N/A'; ?></span>
+                            <?php else: ?>
+                                <span class="value"><?php echo isset($userData['employment_date']) ? date('M d, Y', strtotime($userData['employment_date'])) : 'N/A'; ?></span>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>
             </div>
 
             <!-- Academic/Work Information Card -->
+            <?php if (in_array($currentRole, ['student', 'faculty'])): ?>
             <div class="info-card">
                 <div class="card-header">
                     <div class="card-header-left">
@@ -357,6 +362,7 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
                     <?php endif; ?>
                 </div>
             </div>
+            <?php endif; ?>
 
 
         </div>

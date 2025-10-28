@@ -795,6 +795,29 @@
   background: #a8a8a8;
 }
 
+/* Logout Confirmation Modal (scoped to avoid affecting other modals) */
+#logoutConfirmModal .modal-window {
+  max-width: 420px;
+}
+
+#logoutConfirmModal .modal-header {
+  padding: 20px 24px;
+}
+
+#logoutConfirmModal .modal-title {
+  font-size: 1.25rem;
+}
+
+#logoutConfirmModal .modal-content-area {
+  min-height: 0;
+  padding: 16px 24px;
+}
+
+#logoutConfirmModal .modal-actions {
+  padding: 12px 24px;
+  justify-content: flex-end;
+}
+
 /* Export Section Styles */
 .export-section {
   margin-bottom: 32px;

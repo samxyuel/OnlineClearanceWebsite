@@ -88,6 +88,9 @@ if ($userRole === 'Staff' && $userPosition) {
 }
 ?>
 
+<!-- Modal styles for confirmation dialogs (ensure brand-consistent styling across pages) -->
+<link rel="stylesheet" href="../../assets/css/modals.css">
+
 <!-- Header -->
 <header class="navbar">
     <div class="container">
@@ -109,13 +112,33 @@ if ($userRole === 'Staff' && $userPosition) {
                     <div class="dropdown-menu">
                         <a href="../../pages/shared/user_profile.php">Profile</a>
                         <a href="../../pages/shared/settings.php">Settings</a>
-                        <a href="../../pages/auth/logout.php">Logout</a>
+                        <a href="../../pages/auth/logout.php" class="logout-link">Logout</a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </header>
+
+<!-- Logout Confirmation Modal (brand-styled using modals.css) -->
+<div class="modal-overlay" id="logoutConfirmModal" style="display: none;">
+    <div class="modal-window">
+        <div class="modal-header">
+            <h3 class="modal-title"><i class="fas fa-sign-out-alt"></i> Confirm Logout</h3>
+            <button class="modal-close" id="logoutModalClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-content-area">
+            <p>Are you sure you want to log out?</p>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-action-secondary" id="logoutCancelBtn">Cancel</button>
+            <button class="modal-action-primary" id="logoutConfirmBtn">Logout</button>
+        </div>
+    </div>
+    <div class="modal-backdrop"></div>
+    <!-- backdrop element for consistency if used elsewhere -->
+    
+</div>
 
 <script>
 // Responsive User Name Display
@@ -175,4 +198,66 @@ function abbreviateName(fullName, size) {
 // Update on load and resize
 document.addEventListener('DOMContentLoaded', updateUserDisplayName);
 window.addEventListener('resize', updateUserDisplayName);
+</script>
+
+<script>
+// Logout confirmation wiring
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('logoutConfirmModal');
+    const confirmBtn = document.getElementById('logoutConfirmBtn');
+    const cancelBtn = document.getElementById('logoutCancelBtn');
+    const closeBtn = document.getElementById('logoutModalClose');
+    let pendingLogoutHref = null;
+
+    function openLogoutModal(href) {
+        pendingLogoutHref = href;
+        if (modal) {
+            modal.style.display = 'flex';
+            requestAnimationFrame(() => modal.classList.add('active'));
+        }
+    }
+
+    function closeLogoutModal() {
+        if (modal) {
+            modal.classList.remove('active');
+            setTimeout(() => { modal.style.display = 'none'; }, 200);
+        }
+        pendingLogoutHref = null;
+    }
+
+    // Attach handlers to any logout links available on the page
+    function bindLogoutLinks() {
+        const links = document.querySelectorAll('a.logout-link[href]');
+        links.forEach(link => {
+            if (link.__logoutBound) return; // prevent double-binding
+            link.addEventListener('click', function(e) {
+                // Only intercept left-click/enter activations
+                e.preventDefault();
+                openLogoutModal(this.getAttribute('href'));
+            });
+            link.__logoutBound = true;
+        });
+    }
+
+    bindLogoutLinks();
+
+    // Confirm action
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function() {
+            if (pendingLogoutHref) {
+                window.location.href = pendingLogoutHref;
+            }
+        });
+    }
+
+    // Cancel/close actions
+    if (cancelBtn) cancelBtn.addEventListener('click', closeLogoutModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeLogoutModal);
+    // Close on overlay click (outside window)
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) closeLogoutModal();
+        });
+    }
+});
 </script>

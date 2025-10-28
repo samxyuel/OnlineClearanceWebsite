@@ -11,6 +11,8 @@
   --very-light-cool-white: #e7eff4;
   --light-muted-blue: #eef3ff;
   --dark-primary: #1c3faa;
+  /* Collapsed sidebar rail width used across layout to avoid clipping at high zoom */
+  --collapsed-sidebar-width: 100px;
 }
 
 /* Reset and Base Styles */
@@ -20,11 +22,106 @@
   box-sizing: border-box;
 }
 
+/* HIDE PAGE SCROLLBARS - GLOBAL APPROACH */
+/* 
+ * Hide scrollbars for main page content while maintaining scroll functionality
+ * This applies to the main page body and content areas
+ */
+
+/* Hide scrollbars for all browsers - Body and HTML */
+html,
+body {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+  overflow: -moz-scrollbars-none !important; /* Older Firefox */
+}
+
+/* Hide scrollbars for webkit browsers (Chrome, Safari) - Body and HTML */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+  display: none !important;
+}
+
+/* Hide scrollbars for main content areas */
+.main-content,
+.main-content *,
+.content-wrapper,
+.content-wrapper *,
+.container,
+.container * {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+.main-content::-webkit-scrollbar,
+.main-content *::-webkit-scrollbar,
+.content-wrapper::-webkit-scrollbar,
+.content-wrapper *::-webkit-scrollbar,
+.container::-webkit-scrollbar,
+.container *::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+  display: none !important;
+}
+
+/* Hide scrollbars for specific page elements that might scroll */
+.dashboard-container,
+.dashboard-container *,
+.page-content,
+.page-content * {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+.dashboard-container::-webkit-scrollbar,
+.dashboard-container *::-webkit-scrollbar,
+.page-content::-webkit-scrollbar,
+.page-content *::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+  display: none !important;
+}
+
+/* Additional webkit scrollbar component hiding for all page elements */
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.main-content::-webkit-scrollbar-track,
+.container::-webkit-scrollbar-track,
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.main-content::-webkit-scrollbar-thumb,
+.container::-webkit-scrollbar-thumb,
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner,
+.main-content::-webkit-scrollbar-corner,
+.container::-webkit-scrollbar-corner {
+  display: none !important;
+  background: transparent !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* 
+ * NOTE: If scrollbars still appear after these changes:
+ * 1. Hard refresh the browser (Ctrl+F5 or Cmd+Shift+R)
+ * 2. Clear browser cache
+ * 3. Check developer tools for any conflicting CSS rules
+ */
+
+/* Zoom-Resistant Typography Strategy */
+/* Uses clamp(min-px, preferred-rem, max-px) to prevent excessive font growth at high zoom levels */
+
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   background-color: var(--very-light-off-white);
   color: var(--deep-navy-blue);
   line-height: 1.6;
+  font-size: clamp(14px, 1rem, 18px); /* Zoom-resistant body text */
 }
 
 /* Utility Classes */
@@ -44,6 +141,7 @@ body {
   text-decoration: none;
   display: inline-block;
   transition: all 0.3s ease;
+  font-size: clamp(12px, 14px, 16px); /* Zoom-resistant button text */
 }
 
 .btn-primary {
@@ -118,7 +216,7 @@ body {
   padding: 12px;
   border: 1px solid var(--light-blue-gray);
   border-radius: 6px;
-  font-size: 16px;
+  font-size: clamp(14px, 16px, 18px); /* Zoom-resistant form inputs */
   transition: border-color 0.3s ease;
 }
 
@@ -131,7 +229,7 @@ body {
 /* Navigation Styles */
 .navbar {
   background-color: var(--deep-navy-blue);
-  padding: 1rem 0;
+  padding: 16px 0; /* Fixed pixel padding instead of rem to prevent growth on zoom */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -249,7 +347,8 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 70px;
+  height: 70px; /* Fixed height instead of min-height to prevent growth on zoom */
+  max-height: 70px; /* Ensure header never exceeds this height */
 }
 
 .header-left {
@@ -273,7 +372,7 @@ body {
 
 .logo h1 {
   color: white;
-  font-size: 1.8rem;
+  font-size: clamp(24px, 1.8rem, 28px); /* Zoom-resistant: caps at 28px max */
   font-weight: bold;
   margin: 0;
   white-space: nowrap;
@@ -300,7 +399,11 @@ body {
 .user-name {
   color: white;
   font-weight: 500;
-  font-size: 14px;
+  font-size: clamp(
+    12px,
+    14px,
+    16px
+  ); /* Zoom-resistant: stays between 12-16px */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -383,11 +486,9 @@ body {
   flex-direction: column;
   transition: width 0.3s ease;
   position: fixed;
-  top: 13%;
+  top: 114px; /* 102px total header height (70px content + 32px padding) + 12px gap */
   left: 0;
-  height: 70vh;
-  max-height: 600px;
-  min-height: 400px;
+  height: calc(100vh - 126px); /* 100vh - 114px top - 12px bottom gap */
   overflow-y: auto;
   z-index: 1000;
   border-radius: 0 12px 12px 0;
@@ -416,7 +517,7 @@ body {
 }
 
 .sidebar.collapsed {
-  width: 60px;
+  width: var(--collapsed-sidebar-width);
   overflow-y: hidden; /* Hide scrollbar when collapsed */
 }
 
@@ -438,7 +539,11 @@ body {
 .sidebar-header h3 {
   color: white;
   margin: 0;
-  font-size: 1.2rem;
+  font-size: clamp(
+    16px,
+    1.2rem,
+    20px
+  ); /* Zoom-resistant: stays between 16-20px */
   font-weight: 600;
   flex: 1;
 }
@@ -557,7 +662,7 @@ body {
   width: 20px;
   margin-right: 12px;
   text-align: center;
-  font-size: 1rem;
+  font-size: 16px; /* Fixed pixel size for consistency across zoom levels */
 }
 
 .sidebar.collapsed .sidebar-link i {
@@ -568,6 +673,7 @@ body {
   text-align: center;
   flex-shrink: 0;
   display: inline-flex;
+  font-size: 16px !important; /* Fixed pixel size to prevent zoom scaling */
   align-items: center;
   justify-content: center;
   position: relative;
@@ -596,7 +702,7 @@ body {
 }
 
 .sidebar.collapsed .sidebar-link {
-  padding: 12px 0; /* Center the icons when collapsed */
+  padding: 12px 8px; /* Tighter horizontal padding to prevent clipping at high zoom */
   justify-content: center;
   align-items: center;
   border-left: none !important; /* Remove border when collapsed for perfect centering */
@@ -652,7 +758,9 @@ body {
 }
 
 .sidebar.collapsed ~ .main-content {
-  margin-left: 60px;
+  margin-left: var(
+    --collapsed-sidebar-width
+  ); /* Keep content aligned with collapsed rail */
 }
 
 .main-content.full-width {
@@ -666,7 +774,7 @@ body {
 
 .page-header h2 {
   color: var(--deep-navy-blue);
-  font-size: 1.8rem;
+  font-size: clamp(24px, 1.8rem, 32px); /* Zoom-resistant: caps at 32px max */
   margin-bottom: 8px;
   display: flex;
   align-items: center;
@@ -1092,7 +1200,7 @@ body {
 
 .stat-content h3 {
   margin: 0;
-  font-size: 1.8rem;
+  font-size: clamp(20px, 1.8rem, 28px); /* Zoom-resistant stat numbers */
   font-weight: bold;
   color: var(--deep-navy-blue);
 }
@@ -1100,7 +1208,7 @@ body {
 .stat-content p {
   margin: 5px 0 0 0;
   color: var(--medium-muted-blue);
-  font-size: 14px;
+  font-size: clamp(12px, 14px, 16px); /* Zoom-resistant stat labels */
 }
 
 /* Bulk Actions Section */
@@ -1235,11 +1343,11 @@ body {
   background: var(--very-light-off-white);
   font-weight: 600;
   color: var(--deep-navy-blue);
-  font-size: 14px;
+  font-size: clamp(12px, 14px, 16px); /* Zoom-resistant table headers */
 }
 
 .students-table td {
-  font-size: 14px;
+  font-size: clamp(12px, 14px, 16px); /* Zoom-resistant table data */
   color: var(--deep-navy-blue);
 }
 
@@ -1445,7 +1553,7 @@ body {
 
 .notification span {
   flex: 1;
-  font-size: 14px;
+  font-size: clamp(12px, 14px, 16px); /* Zoom-resistant notification text */
   color: var(--deep-navy-blue);
 }
 
@@ -1926,11 +2034,11 @@ body {
   }
 
   .logo h1 {
-    font-size: 1.6rem;
+    font-size: clamp(20px, 1.6rem, 26px); /* Zoom-resistant mobile logo */
   }
 
   .user-name {
-    font-size: 13px;
+    font-size: clamp(11px, 13px, 15px); /* Zoom-resistant mobile user name */
   }
 
   .user-info {
@@ -1945,10 +2053,12 @@ body {
   /* Sidebar Mobile Styles */
   .sidebar {
     position: fixed;
-    top: 85px;
+    top: 114px; /* Match desktop: 102px total header + 12px gap */
     left: -100%;
     width: 280px;
-    height: calc(100vh - 85px);
+    height: calc(
+      100vh - 126px
+    ); /* Match desktop: 114px top + 12px bottom gap */
     z-index: 1000;
     transition: left 0.3s ease;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
@@ -2056,7 +2166,7 @@ body {
   }
 
   .sidebar-link i {
-    font-size: 1.1rem;
+    font-size: 18px; /* Fixed pixel size - slightly larger for mobile but won't scale with zoom */
     width: 24px;
   }
 
@@ -6619,7 +6729,7 @@ body {
 
 .page-header h2 {
   color: var(--deep-navy-blue);
-  font-size: 1.8rem;
+  font-size: clamp(24px, 1.8rem, 32px); /* Zoom-resistant: caps at 32px max */
   font-weight: 600;
   margin-bottom: 0.5rem;
   display: flex;
