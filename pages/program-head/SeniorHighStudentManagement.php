@@ -172,10 +172,10 @@ try {
                                 </select>
                             </div>
                             <!-- Current Period Banner -->
-                            <div id="currentPeriodBanner" class="current-period-banner">
-                                <i class="fas fa-calendar-alt banner-icon" aria-hidden="true"></i>
-                                <span id="currentPeriodText">Loading current period...</span>
-                            </div>
+                            <span class="academic-year-semester">
+                                <i class="fas fa-calendar-check"></i> 
+                                <span id="currentAcademicYear">Loading...</span> - <span id="currentSemester">Loading...</span>
+                            </span>
                         </div>
 
                         <!-- Search and Filters Section -->
@@ -1337,22 +1337,32 @@ try {
                 });
                 const data = await response.json();
                 
-                const bannerEl = document.getElementById('currentPeriodText');
-                if (data.success && data.periods && data.periods.length > 0) {
-                    const period = data.periods[0];
+                const yearEl = document.getElementById('currentAcademicYear');
+                const semesterEl = document.getElementById('currentSemester');
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    const period = data.active_periods[0];
                     const termMap = {
-                        '1st Semester': '1st Sem',
-                        '2nd Semester': '2nd Sem',
+                        '1st': '1st Semester',
+                        '2nd': '2nd Semester',
+                        '3rd': '3rd Semester',
+                        '1st Semester': '1st Semester',
+                        '2nd Semester': '2nd Semester',
+                        '3rd Semester': '3rd Semester',
                         'Summer': 'Summer'
                     };
                     const semLabel = termMap[period.semester_name] || period.semester_name || '';
-                    bannerEl.textContent = `${period.school_year} • ${semLabel}`;
+                    if (yearEl) yearEl.textContent = period.school_year;
+                    if (semesterEl) semesterEl.textContent = semLabel;
                 } else {
-                    bannerEl.textContent = 'No active clearance period';
+                    if (yearEl) yearEl.textContent = 'No active period';
+                    if (semesterEl) semesterEl.textContent = 'No term';
                 }
             } catch (error) {
                 console.error('Error loading current period:', error);
-                document.getElementById('currentPeriodText').textContent = 'Error loading period';
+                const yearEl = document.getElementById('currentAcademicYear');
+                const semesterEl = document.getElementById('currentSemester');
+                if (yearEl) yearEl.textContent = 'Error loading';
+                if (semesterEl) semesterEl.textContent = 'Error';
             }
         }
 
@@ -1405,15 +1415,15 @@ try {
             const row = document.createElement('tr');
             row.setAttribute('data-user-id', student.user_id);
             row.innerHTML = `
-                <td><input type="checkbox" class="student-checkbox" data-id="${student.user_id}"></td>
-                <td>${student.student_id || student.username}</td>
-                <td>${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
-                <td>${student.program || 'N/A'}</td>
-                <td>${student.year_level || 'N/A'}</td>
-                <td>${student.section || 'N/A'}</td>
-                <td><span class="status-badge account-${displayStatus}">${student.status === 'active' ? 'Active' : 'Inactive'}</span></td>
-                <td><span class="status-badge clearance-not-assigned">Not Assigned</span></td>
-                <td>
+                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.user_id}"></td>
+                <td data-label="Student Number:">${student.student_id || student.username}</td>
+                <td data-label="Name:">${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
+                <td data-label="Program:">${student.program || 'N/A'}</td>
+                <td data-label="Year Level:">${student.year_level || 'N/A'}</td>
+                <td data-label="Section:">${student.section || 'N/A'}</td>
+                <td data-label="Account Status:"><span class="status-badge account-${displayStatus}">${student.status === 'active' ? 'Active' : 'Inactive'}</span></td>
+                <td data-label="Clearance Progress:"><span class="status-badge clearance-not-assigned">Not Assigned</span></td>
+                <td class="action-buttons">
                     <div class="action-buttons">
                         ${isAssignedToSeniorHigh ? 
                             `<button class="btn-icon edit-btn" onclick="editStudent('${student.user_id}')" title="Edit Student">
@@ -1853,15 +1863,15 @@ try {
             row.setAttribute('data-rejection-reason-id', student.reason_id || '');
 
             row.innerHTML = `
-                <td><input type="checkbox" class="student-checkbox" data-id="${student.student_id}"></td>
-                <td>${student.student_id}</td>
-                <td>${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
-                <td>${student.program || 'N/A'}</td>
-                <td>${student.year_level || 'N/A'}</td>
-                <td>${student.section || 'N/A'}</td>
-                <td><span class="status-badge ${accountStatusClass}">${accountStatusText}</span></td>
-                <td><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
-                <td>
+                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.student_id}"></td>
+                <td data-label="Student Number:">${student.student_id}</td>
+                <td data-label="Name:">${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
+                <td data-label="Program:">${student.program || 'N/A'}</td>
+                <td data-label="Year Level:">${student.year_level || 'N/A'}</td>
+                <td data-label="Section:">${student.section || 'N/A'}</td>
+                <td data-label="Account Status:"><span class="status-badge ${accountStatusClass}">${accountStatusText}</span></td>
+                <td data-label="Clearance Progress:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
+                <td class="action-buttons">
                     <div class="action-buttons">
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.student_id}')" title="Edit Student">
                             <i class="fas fa-edit"></i>

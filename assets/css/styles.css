@@ -1477,41 +1477,134 @@ body {
 @media (max-width: 768px) {
   .pagination-section {
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     text-align: center;
+    padding: 12px 15px;
+    margin-top: 15px;
+  }
+
+  .pagination-info {
+    order: 1;
+    font-size: 12px;
+    width: 100%;
+    margin-bottom: 4px;
   }
 
   .pagination-controls {
     order: 2;
+    width: 100%;
+    justify-content: center;
+    gap: 6px;
   }
 
   .entries-per-page {
     order: 3;
+    width: 100%;
+    justify-content: center;
+    font-size: 12px;
+    gap: 6px;
+  }
+
+  .entries-per-page label,
+  .entries-per-page span {
+    font-size: 12px;
+  }
+
+  .entries-select {
+    padding: 5px 8px;
+    font-size: 12px;
   }
 
   .page-numbers {
-    gap: 2px;
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 
   .pagination-btn {
+    padding: 6px 9px;
+    font-size: 12px;
+    min-width: 36px;
+    height: 32px;
+  }
+
+  .pagination-btn i {
+    font-size: 11px;
+  }
+
+  /* Hide page number text on nav buttons, show only icons on very small */
+  .pagination-btn:not(.pagination-btn.active):has-text {
     padding: 6px 8px;
-    font-size: 0.8rem;
-    min-width: 35px;
   }
 }
 
 @media (max-width: 480px) {
   .pagination-section {
-    padding: 15px;
+    padding: 10px 12px;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .pagination-info {
+    font-size: 11px;
+    margin-bottom: 3px;
+  }
+
+  .pagination-controls {
+    gap: 4px;
+    flex-wrap: wrap;
   }
 
   .page-numbers {
-    display: none;
+    gap: 2px;
+    display: none; /* Hide page numbers on very small screens */
+  }
+
+  /* Show page numbers if there are 3 or fewer pages */
+  .page-numbers:has(.pagination-btn:nth-child(3):last-child) {
+    display: flex;
   }
 
   .pagination-btn {
-    padding: 8px 12px;
-    font-size: 0.85rem;
+    padding: 5px 8px;
+    font-size: 11px;
+    min-width: 32px;
+    height: 30px;
+  }
+
+  /* Compact previous/next buttons - show icons only, hide text */
+  #prevPage,
+  #nextPage {
+    min-width: 30px;
+    padding: 5px 6px;
+    font-size: 0;
+    line-height: 0;
+  }
+
+  /* Restore icon font size */
+  #prevPage i,
+  #nextPage i {
+    font-size: 12px;
+    margin: 0;
+    display: inline-block;
+    line-height: 1;
+  }
+
+  .entries-per-page {
+    font-size: 11px;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .entries-per-page label,
+  .entries-per-page span {
+    font-size: 11px;
+  }
+
+  .entries-select {
+    padding: 4px 6px;
+    font-size: 11px;
+    min-width: 50px;
   }
 }
 
@@ -1577,19 +1670,85 @@ body {
     padding: 6px 8px;
   }
 
+  /* Ultra-small screen adjustments for table header */
+  .table-header-section {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .table-header-section .bulk-buttons .btn {
+    font-size: 10px;
+    padding: 4px 10px;
+  }
+
+  .table-header-section .bulk-buttons {
+    gap: 4px;
+  }
+
+  /* Hide button text on very small screens, show only icons */
+  .bulk-buttons .btn i {
+    margin-right: 0 !important;
+  }
+
+  /* Make primary buttons stack and smaller */
+  .bulk-selection-filters-btn,
+  .openBatchUpdateModal-btn {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  /* Reduce selection counter padding */
+  .selection-counter-display {
+    padding: 6px 16px;
+    font-size: 12px;
+  }
+
   .table-header-section .bulk-controls {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
   }
 
   .table-header-section .bulk-buttons {
     justify-content: center;
     flex-wrap: wrap;
+    gap: 6px;
   }
 
   .table-header-section .bulk-buttons .btn {
     font-size: 11px;
     padding: 6px 12px;
+    flex: 0 1 auto;
+    min-width: fit-content;
+  }
+
+  /* Make selection counter full width on mobile */
+  .selection-counter-display {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Stack primary action buttons vertically on mobile */
+  .bulk-selection-filters-btn,
+  .openBatchUpdateModal-btn {
+    width: 100%;
+  }
+
+  /* Ensure all primary action buttons stack on mobile */
+  .bulk-controls > .btn:not(.bulk-buttons .btn) {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  /* Make sure button groups inside bulk-controls are full width */
+  .bulk-controls > div {
+    width: 100%;
+  }
+
+  /* Center bulk-buttons on mobile */
+  .bulk-controls .bulk-buttons {
+    justify-content: center;
+    width: 100%;
   }
 
   .action-buttons .btn-icon {
@@ -1986,27 +2145,196 @@ body {
   }
 }
 
+/* Mobile Card-Based Table Layout for Student Management */
 @media (max-width: 768px) {
   .students-table-wrapper {
-    height: 350px; /* Smaller height for mobile landscape */
+    height: auto;
+    max-height: 500px;
+    overflow-y: auto;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    padding: 0 4px;
   }
 
-  .students-table thead th,
+  /* Hide table header on mobile */
+  .students-table thead {
+    display: none;
+  }
+
+  /* Transform table rows into cards */
+  .students-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .students-table tbody tr {
+    display: flex;
+    flex-direction: column;
+    background: white;
+    border: 1px solid var(--light-blue-gray);
+    border-radius: 4px;
+    padding: 8px 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.2s ease;
+    margin: 0.1rem;
+  }
+
+  .students-table tbody tr:hover {
+    background: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Card content layout */
   .students-table tbody td {
-    padding: 8px 6px;
-    font-size: 0.9rem;
+    /* display: flex; */
+    padding: 4px 6px;
+    border: none;
+    font-size: 13px;
+    align-items: flex-start;
+    line-height: 1.4;
+    margin: 0.1rem;
+  }
+
+  /* Checkbox column */
+  .students-table tbody td.checkbox-column {
+    order: -1;
+    padding: 6px 8px 4px 8px;
+    border-bottom: 1px solid var(--very-light-off-white);
+    margin-bottom: 4px;
+    justify-content: flex-end;
+  }
+
+  .students-table tbody td.checkbox-column input[type="checkbox"],
+  .students-table tbody td.checkbox-column input.faculty-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+  }
+
+  /* Label-value pairs */
+  .students-table tbody td:not(.checkbox-column):not(.action-buttons)::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--darker-saturated-blue);
+    min-width: 85px;
+    max-width: 85px;
+    margin-right: 6px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  /* Value content should wrap if needed */
+  .students-table tbody td:not(.checkbox-column):not(.action-buttons) {
+    word-break: break-word;
+    flex: 1;
+  }
+
+  /* Action buttons container */
+  .students-table tbody td.action-buttons {
+    padding: 6px 0 0 0;
+    border-top: 1px solid var(--very-light-off-white);
+    margin-top: 4px;
+    justify-content: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .students-table tbody td.action-buttons .action-buttons {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .students-table tbody td.action-buttons .btn-icon {
+    padding: 5px 7px;
+    font-size: 13px;
+    min-width: 32px;
+    height: 32px;
+  }
+
+  /* Status badges styling - optimized for mobile */
+  .students-table tbody td .status-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    line-height: 1.3;
+    border-radius: 10px;
+    font-weight: 600;
+    display: inline-block;
   }
 }
 
 @media (max-width: 480px) {
   .students-table-wrapper {
-    height: 300px; /* Compact height for mobile portrait */
+    max-height: 400px;
+    gap: 5px;
+    padding: 0 2px;
   }
 
-  .students-table thead th,
+  .students-table tbody {
+    gap: 5px;
+  }
+
+  .students-table tbody tr {
+    padding: 6px 8px;
+    gap: 0;
+    border-radius: 3px;
+  }
+
   .students-table tbody td {
-    padding: 6px 4px;
-    font-size: 0.85rem;
+    padding: 3px 5px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .students-table tbody td:not(.checkbox-column):not(.action-buttons)::before {
+    min-width: 70px;
+    max-width: 70px;
+    font-size: 11px;
+    margin-right: 5px;
+    line-height: 1.35;
+  }
+
+  .students-table tbody td.checkbox-column {
+    padding: 5px 6px 3px 6px;
+    margin-bottom: 3px;
+  }
+
+  .students-table tbody td.checkbox-column input[type="checkbox"],
+  .students-table tbody td.checkbox-column input.faculty-checkbox {
+    width: 16px;
+    height: 16px;
+  }
+
+  .students-table tbody td.action-buttons {
+    padding: 5px 0 0 0;
+    margin-top: 3px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .students-table tbody td.action-buttons .action-buttons {
+    gap: 3px;
+  }
+
+  .students-table tbody td.action-buttons .btn-icon {
+    padding: 4px 6px;
+    font-size: 12px;
+    min-width: 30px;
+    height: 30px;
+  }
+
+  .students-table tbody td .status-badge {
+    font-size: 9px;
+    padding: 2px 5px;
+    line-height: 1.2;
+    border-radius: 8px;
   }
 }
 
@@ -2062,17 +2390,51 @@ body {
 @media (max-width: 768px) {
   .table-header-section {
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     align-items: stretch;
+    padding: 12px 15px;
+  }
+
+  .table-header-section .bulk-controls {
+    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .table-header-section .bulk-buttons {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  /* Make all primary action buttons full width on mobile */
+  .bulk-controls > .btn:not(.bulk-buttons .btn) {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  /* Make sure button groups inside bulk-controls are full width */
+  .bulk-controls > div {
+    width: 100%;
+  }
+
+  .selection-counter-display {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .table-controls {
     justify-content: center;
+    width: 100%;
   }
 
   .scroll-to-top-btn {
     padding: 8px 16px;
     font-size: 0.9rem;
+    width: 100%;
   }
 }
 
@@ -3384,6 +3746,7 @@ body {
   flex-direction: column;
   gap: 15px;
   margin-top: 20px;
+  padding: 1rem;
 }
 
 .activity-item {
@@ -4190,7 +4553,7 @@ body {
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.3s ease;
-  min-height: 44px;
+  /* min-height: 44px; */
 }
 
 .export-btn:hover {
@@ -7511,7 +7874,7 @@ body {
 }
 
 .activity-item::before {
-  content: "";
+  /* content: ""; */
   position: absolute;
   left: 15px;
   top: 40px;
@@ -8499,7 +8862,7 @@ body {
 }
 
 .action-buttons .btn {
-  padding: 6px 12px;
+  /* padding: 6px 12px; */
   font-size: 0.85rem;
   min-width: auto;
 }
@@ -8585,16 +8948,21 @@ body {
 }
 .tab-select {
   padding: 6px 12px;
-  border: 1px solid var(--medium-muted-blue, #a0b4ff);
-  border-radius: 4px;
+  /* border: 1px solid var(--medium-muted-blue, #a0b4ff); */
+  border: none;
+  border-radius: 1rem;
   font-weight: 600;
   color: var(--dark-primary, #1c3faa);
   background: #fff;
+  width: 16rem;
 }
 @media (max-width: 768px) {
+  /* Hide pill-shaped tab navigation on mobile */
+  .tab-nav,
   #facultyTabNav {
     display: none;
   }
+  /* Show dropdown tab navigation on mobile */
   .tab-nav-mobile {
     display: block;
   }
@@ -8618,7 +8986,7 @@ body {
   .tab-banner-wrapper {
     gap: 8px;
     flex-direction: column;
-    align-items: flex-start;
+    /* align-items: flex-start; */
   }
   #currentPeriodBanner {
     align-self: flex-start;
@@ -8696,7 +9064,7 @@ body {
 .selection-counter-display {
   display: flex;
   align-items: center;
-  margin-left: 15px;
+  /* margin-left: 15px; */
   margin-right: 20px;
   padding: 8px 20px;
   background-color: var(--very-light-cool-white, #e7eff4);
@@ -8936,7 +9304,7 @@ body {
 }
 
 .academic-year-semester {
-  font-size: 1rem;
+  font-size: 1.5rem;
   font-weight: 600;
   color: var(--dark-primary);
 }

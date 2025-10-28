@@ -161,10 +161,10 @@ ob_start();
                                 </select>
                             </div>
                             <!-- Current Period Banner -->
-                            <div id="currentPeriodBanner" class="current-period-banner">
-                                <i class="fas fa-calendar-alt banner-icon" aria-hidden="true"></i>
-                                <span id="currentPeriodText">Loading current period...</span>
-                            </div>
+                            <span class="academic-year-semester">
+                                <i class="fas fa-calendar-check"></i> 
+                                <span id="currentAcademicYear">Loading...</span> - <span id="currentSemester">Loading...</span>
+                            </span>
                         </div>
 
                         <!-- Faculty Table with Integrated Bulk Actions -->
@@ -1304,13 +1304,13 @@ ob_start();
 
                     const accountStatus = f.account_status ? f.account_status.toLowerCase() : 'active';
                     const clearanceStatus=clearanceKey;
-                    tr.innerHTML=`<td><input type=\"checkbox\" class=\"faculty-checkbox\" data-id=\"${f.employee_number}\"></td>
-                                <td>${f.employee_number}</td>
-                                <td>${f.first_name} ${f.last_name}</td>
-                                <td><span class="status-badge employment-${f.employment_status.toLowerCase().replace(/ /g,'-')}">${f.employment_status}</span></td>
-                                <td><span class="status-badge account-${accountStatus}">${accountStatus.charAt(0).toUpperCase()+accountStatus.slice(1)}</span></td>
-                                <td><span class="status-badge clearance-${clearanceStatus}">${statusRaw}</span></td>
-                                <td><div class="action-buttons">
+                    tr.innerHTML=`<td class="checkbox-column"><input type=\"checkbox\" class=\"faculty-checkbox\" data-id=\"${f.employee_number}\"></td>
+                                <td data-label="Employee Number:">${f.employee_number}</td>
+                                <td data-label="Name:">${f.first_name} ${f.last_name}</td>
+                                <td data-label="Employment Status:"><span class="status-badge employment-${f.employment_status.toLowerCase().replace(/ /g,'-')}">${f.employment_status}</span></td>
+                                <td data-label="Account Status:"><span class="status-badge account-${accountStatus}">${accountStatus.charAt(0).toUpperCase()+accountStatus.slice(1)}</span></td>
+                                <td data-label="Clearance Progress:"><span class="status-badge clearance-${clearanceStatus}">${statusRaw}</span></td>
+                                <td class="action-buttons"><div class="action-buttons">
                                         <button class=\"btn-icon view-progress-btn\" onclick=\"viewClearanceProgress('${f.employee_number}')\" title=\"View Clearance Progress\"><i class=\"fas fa-tasks\"></i></button>
                                         <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
                                         <button class="btn-icon status-toggle-btn ${accountStatus==='active'?'active':'inactive'}" onclick="toggleFacultyStatus(this)" title="Toggle Status"><i class="fas ${accountStatus==='active'?'fa-toggle-on':'fa-toggle-off'}"></i></button>
@@ -1836,24 +1836,37 @@ ob_start();
                 });
             });
 
-            // load current clearance period for banner (map 1st/2nd -> Term 1/Term 2)
+            // load current clearance period for banner
             fetch('../../api/clearance/periods.php', { credentials: 'include' })
                 .then(r => r.json())
                 .then(per => {
-                    const bannerEl = document.getElementById('currentPeriodText');
-                    if (!bannerEl) return;
-                    if (per.success && per.active_period) {
-                        const p = per.active_period;
-                        const termMap = { '1st': 'Term 1', '2nd': 'Term 2', '3rd': 'Term 3' };
+                    const yearEl = document.getElementById('currentAcademicYear');
+                    const semesterEl = document.getElementById('currentSemester');
+                    if (!yearEl || !semesterEl) return;
+                    if (per.success && per.active_periods && per.active_periods.length > 0) {
+                        const p = per.active_periods[0];
+                        // Map semester name to full format
+                        const termMap = { 
+                            '1st': '1st Semester', 
+                            '2nd': '2nd Semester', 
+                            '3rd': '3rd Semester',
+                            '1st Semester': '1st Semester',
+                            '2nd Semester': '2nd Semester',
+                            '3rd Semester': '3rd Semester'
+                        };
                         const semLabel = termMap[p.semester_name] || p.semester_name || '';
-                        bannerEl.textContent = `${p.school_year} • ${semLabel}`;
+                        yearEl.textContent = p.school_year;
+                        semesterEl.textContent = semLabel;
                     } else {
-                        bannerEl.textContent = 'No active clearance period';
+                        yearEl.textContent = 'No active period';
+                        semesterEl.textContent = 'No term';
                     }
                 })
                 .catch(() => {
-                    const bannerEl = document.getElementById('currentPeriodText');
-                    if (bannerEl) bannerEl.textContent = 'Unable to load period';
+                    const yearEl = document.getElementById('currentAcademicYear');
+                    const semesterEl = document.getElementById('currentSemester');
+                    if (yearEl) yearEl.textContent = 'Unable to load';
+                    if (semesterEl) semesterEl.textContent = 'Error';
                 });
               
             // Add click outside modal functionality for bulk selection modal
