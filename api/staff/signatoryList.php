@@ -61,6 +61,7 @@ try {
     $search = $_GET['search'] ?? '';
     $clearanceStatus = $_GET['clearance_status'] ?? '';
     $accountStatus = $_GET['account_status'] ?? '';
+    $requestSector = $_GET['sector'] ?? ''; // 'College' or 'Senior High School'
     // Other filters like program, year level can be added here.
 
     // 4. Build the query based on type
@@ -134,12 +135,12 @@ try {
     }
 
     if (!empty($clearanceStatus) && $clearanceStatus !== 'all') {
-        // A specific status is requested.
-        $where .= " AND COALESCE(cs.action, 'unapplied') = :clearanceStatus";
+        $where .= " AND COALESCE(cs.action, 'Unapplied') = :clearanceStatus";
         $params[':clearanceStatus'] = $clearanceStatus;
     } else {
-        // By default, show actionable items (not 'unapplied')
-        $where .= " AND COALESCE(cs.action, 'unapplied') != 'unapplied'";
+        // By default, show actionable items (not 'Unapplied')
+        // This logic can be adjusted based on requirements. For now, showing all.
+        // $where .= " AND COALESCE(cs.action, 'Unapplied') != 'Unapplied'";
     }
 
     if (!empty($accountStatus)) {
@@ -163,6 +164,20 @@ try {
     // Get total count for pagination
     $total = $pdo->query("SELECT FOUND_ROWS()")->fetchColumn();
 
+    // 5. Get statistics
+    $statsQuery = "SELECT u.account_status, COUNT(*) as count FROM users u JOIN students s ON u.user_id = s.user_id WHERE s.sector = :requestSector GROUP BY u.account_status";
+    $statsStmt = $pdo->prepare($statsQuery);
+    $statsStmt->execute([':requestSector' => $requestSector]);
+    $statsResults = $statsStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    $stats = [
+        'total' => array_sum($statsResults),
+        'active' => $statsResults['active'] ?? 0,
+        'inactive' => $statsResults['inactive'] ?? 0,
+        'graduated' => $statsResults['graduated'] ?? 0, // Assuming 'graduated' is a possible status
+    ];
+
+
     // 5. Format and return the response
     $responseKey = ($type === 'faculty') ? 'faculty' : 'students';
     $response = [
@@ -170,6 +185,7 @@ try {
         'total' => (int)$total,
         'page' => $page,
         'limit' => $limit,
+        'stats' => $stats,
         $responseKey => array_map(function ($item) {
             return [
                 'id' => $item['id'],
@@ -179,7 +195,7 @@ try {
                 'year_level' => $item['year_level'], // For faculty, this is employment_status
                 'section' => $item['section'],
                 'account_status' => $item['account_status'],
-                'clearance_status' => $item['clearance_status'] ?? 'unapplied',
+                'clearance_status' => $item['clearance_status'] ?? 'Unapplied',
                 'clearance_form_id' => $item['clearance_form_id'],
                 'signatory_id' => $item['signatory_id']
             ];

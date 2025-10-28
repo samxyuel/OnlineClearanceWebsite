@@ -153,8 +153,8 @@ try {
                             <h2><i class="fas fa-user-graduate"></i> College Student Management</h2>
                             <p>Review and sign student clearance requests for the College sector.</p>
                             <div class="department-scope-info">
-                                <i class="fas fa-user-shield"></i>
-                                <span id="positionInfo">Position: Staff - Clearance Signatory</span>
+                                <i class="fas fa-user-shield"></i>                                
+                                <span id="positionInfo">Loading position...</span>
                             </div>
 
                             <!-- Permission Status Alerts -->
@@ -463,6 +463,20 @@ try {
             updateBulkButtons();
         }
 
+        function updateSelectionCounter() {
+            const selectedCount = getSelectedCount();
+            const totalCount = document.querySelectorAll('.student-checkbox').length;
+            const counter = document.getElementById('selectionCounter');
+            
+            if (selectedCount === 0) {
+                counter.textContent = '0 selected';
+            } else if (selectedCount > 0 && selectedCount === totalCount) {
+                counter.textContent = `All ${totalCount} selected`;
+            } else {
+                counter.textContent = `${selectedCount} selected`;
+            }
+        }
+
         function updateBulkButtons() {
             const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
             const bulkButtons = document.querySelectorAll('.bulk-buttons button');
@@ -617,12 +631,14 @@ try {
 
             const clearanceStatus = document.getElementById('clearanceStatusFilter').value;
             const accountStatus = document.getElementById('accountStatusFilter').value;
+            const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value;
 
             let url = `../../api/staff/signatoryList.php?sector=College&page=${currentPage}&limit=${entriesPerPage}`;
             if (search) url += `&search=${encodeURIComponent(search)}`;
             if (clearanceStatus) url += `&clearance_status=${encodeURIComponent(clearanceStatus)}`;
             if (accountStatus) url += `&account_status=${encodeURIComponent(accountStatus)}`;
+            if (schoolTerm) url += `&school_term=${encodeURIComponent(schoolTerm)}`;
 
             try {
                 const response = await fetch(url, { credentials: 'include' });
@@ -832,6 +848,46 @@ try {
             }
         }
 
+        // Load staff position information
+        async function loadStaffPosition() {
+            try {
+                const response = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
+                const data = await response.json();
+                const positionElement = document.getElementById('positionInfo');
+                
+                if (positionElement) {
+                    if (data.success && data.designation_name) {
+                        positionElement.textContent = `Position: ${data.designation_name} - Clearance Signatory`;
+                    } else {
+                        positionElement.textContent = 'Position: Staff - Clearance Signatory';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading staff position:', error);
+                document.getElementById('positionInfo').textContent = 'Position: Staff - Clearance Signatory';
+            }
+        }
+
+        // Load staff position information
+        async function loadStaffPosition() {
+            try {
+                const response = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
+                const data = await response.json();
+                const positionElement = document.getElementById('positionInfo');
+                
+                if (positionElement) {
+                    if (data.success && data.designation_name) {
+                        positionElement.textContent = `Position: ${data.designation_name} - Clearance Signatory`;
+                    } else {
+                        positionElement.textContent = 'Position: Staff - Clearance Signatory';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading staff position:', error);
+                document.getElementById('positionInfo').textContent = 'Position: Staff - Clearance Signatory';
+            }
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             // Load current clearance period for banner
@@ -845,30 +901,19 @@ try {
                     updateSelectionCounter();
                 }
             });
-            
-            initializePagination();
-            
-            // Make selection counter pill act as Clear Selection when active
-            const pill = document.getElementById('selectionCounterPill');
-            if (pill) {
-                pill.addEventListener('click', function() {
-                    if (!pill.classList.contains('has-selections') && !pill.classList.contains('all-selected')) return;
-                    clearAllSelections();
-                });
-                pill.addEventListener('keydown', function(e){
-                    if ((e.key === 'Enter' || e.key === ' ') && (pill.classList.contains('has-selections') || pill.classList.contains('all-selected'))){
-                        e.preventDefault();
-                        clearAllSelections();
-                    }
-                });
-            }
-            
+
             // Initialize signatory access control
             initializeSignatoryAccessControl();
             
             // Initialize Activity Tracker
             window.sidebarHandledByPage = true;
             window.activityTrackerInstance = new ActivityTracker();
+
+            // Initial data fetch
+            fetchStudents();
+            loadRejectionReasons();
+            loadSchoolTerms();
+            loadStaffPosition();
         });
 
         function escapeHtml(unsafe) {
@@ -1051,6 +1096,32 @@ try {
             }catch(e){ return null; }
         }
         async function sendSignatoryAction(applicantUserId, designationName, action, remarks, reasonId = null){
+            // Fetch the current staff's actual designation from the API to ensure accuracy.
+            let currentDesignation = designationName; // Fallback
+            try {
+                const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
+                const desigData = await desigResponse.json();
+                if (desigData.success && desigData.designation_name) { 
+                    currentDesignation = desigData.designation_name; 
+                }
+            } catch (e) { /* Ignore error, use fallback */ }
+
+            const payload = { 
+                applicant_user_id: applicantUserId, 
+                designation_name: currentDesignation, 
+                action: action 
+            };
+            if (remarks && remarks.length) payload.remarks = remarks;
+            if (reasonId) payload.reason_id = reasonId;
+
+            const response = await fetch('../../api/clearance/signatory_action.php', {
+                method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
+            });
+            return await response.json();
+        }
+
+        // This function seems to be a duplicate and can be removed. The one above is more robust.
+        /* async function sendSignatoryAction(applicantUserId, designationName, action, remarks, reasonId = null){
             const payload = { 
                 applicant_user_id: applicantUserId, 
                 designation_name: designationName, 
@@ -1063,7 +1134,7 @@ try {
                 method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
             });
             return await response.json();
-        }
+        } */
 
         // Load current clearance period for banner
         async function loadCurrentPeriod() {
@@ -1072,14 +1143,17 @@ try {
                     credentials: 'include'
                 });
                 const data = await response.json();
+                const yearEl = document.getElementById('currentAcademicYear');
+                const semesterEl = document.getElementById('currentSemester');
                 
                 if (data.success && data.active_periods && data.active_periods.length > 0) {
-                    const currentPeriod = data.active_periods[0]; // API now returns active periods for the sector
+                    const currentPeriod = data.active_periods.find(p => p.sector === 'College');
                     if (currentPeriod) {
-                        document.getElementById('currentPeriodText').textContent = 
-                            `Current Period: ${currentPeriod.school_year} ${currentPeriod.semester_name} (${currentPeriod.status})`;
+                        if (yearEl) yearEl.textContent = currentPeriod.school_year;
+                        if (semesterEl) semesterEl.textContent = currentPeriod.semester_name;
                     } else {
-                        document.getElementById('currentPeriodText').textContent = 'No active clearance period';
+                        if (yearEl) yearEl.textContent = 'No active period';
+                        if (semesterEl) semesterEl.textContent = 'for College';
                     }
                 } else {
                     if (yearEl) yearEl.textContent = 'No active period';
@@ -1092,6 +1166,26 @@ try {
                 if (yearEl) yearEl.textContent = 'Error loading';
                 if (semesterEl) semesterEl.textContent = 'Error';
             }
+        }
+
+        async function loadSchoolTerms() {
+            const termSelect = document.getElementById('schoolTermFilter');
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+
+                termSelect.innerHTML = '<option value="">All School Terms</option>';
+                if (data.success && data.periods) {
+                    const uniqueTerms = [...new Map(data.periods.map(item => [`${item.academic_year}-${item.semester_name}`, item])).values()];
+                    
+                    uniqueTerms.forEach(period => {
+                        const option = document.createElement('option');
+                        option.value = `${period.academic_year}|${period.semester_id}`; // Use a format the backend can parse
+                        option.textContent = `${period.academic_year} - ${period.semester_name}`;
+                        termSelect.appendChild(option);
+                    });
+                }
+            } catch (error) { console.error('Error loading school terms:', error); }
         }
 
         async function loadRejectionReasons() {
