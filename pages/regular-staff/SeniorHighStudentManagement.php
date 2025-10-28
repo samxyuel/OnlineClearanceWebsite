@@ -1,10 +1,10 @@
 <?php
 // Online Clearance Website - Regular Staff Senior High School Student Management
 
-// Permission-based access control: Regular Staff can always view student data
+// Include necessary files for authentication and database connection
 require_once __DIR__ . '/../../includes/config/database.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
-
+// The controller function acts as a "gatekeeper". If it doesn't exit, the user is authorized.
 $auth = new Auth();
 if (!$auth->isLoggedIn()) {
     header('Location: ../../pages/auth/login.php');
@@ -14,42 +14,22 @@ $userId = (int)$auth->getUserId();
 
 try {
     $pdo = Database::getInstance()->getConnection();
-    
-    // Check if user is a staff member (more robust check)
-    $staffCheck = $pdo->prepare("
-        SELECT COUNT(*) 
-        FROM staff s 
-        WHERE s.user_id = ? AND s.is_active = 1
-    ");
-    $staffCheck->execute([$userId]);
-    $isStaff = (int)$staffCheck->fetchColumn() > 0;
-    
-    // If not staff, check if user has any role that should have access
-    if (!$isStaff) {
-        $roleCheck = $pdo->prepare("
-            SELECT r.role_name 
-            FROM users u 
-            JOIN user_roles ur ON u.user_id = ur.user_id 
-            JOIN roles r ON ur.role_id = r.role_id 
-            WHERE u.user_id = ? AND r.role_name IN ('Admin', 'Program Head', 'School Administrator')
-        ");
-        $roleCheck->execute([$userId]);
-        $hasAdminRole = $roleCheck->fetchColumn();
-        
-        // TEMPORARILY DISABLED FOR TESTING - ALLOW ANY LOGGED IN USER
-        // if (!$hasAdminRole) {
-        //     header('HTTP/1.1 403 Forbidden'); 
-        //     echo 'Access denied. Regular staff access required.'; 
-        //     exit; 
-        // }
-    }
-    
+
+    // 1. Get the staff member's designation ID
+    $staffDesignationStmt = $pdo->prepare("SELECT designation_id FROM staff WHERE user_id = ? AND is_active = 1");
+    $staffDesignationStmt->execute([$userId]);
+    $designationId = $staffDesignationStmt->fetchColumn();
+
     // Check permission flags (for conditional UI behavior)
-    $hasActivePeriod = (int)$pdo->query("SELECT COUNT(*) FROM clearance_periods WHERE is_active=1")->fetchColumn() > 0;
-    
-    $studentSignatoryCheck = $pdo->prepare("SELECT COUNT(*) FROM signatory_assignments sa JOIN designations d ON sa.designation_id=d.designation_id WHERE sa.user_id=? AND sa.clearance_type='student' AND sa.is_active=1");
-    $studentSignatoryCheck->execute([$userId]);
-    $hasStudentSignatoryAccess = (int)$studentSignatoryCheck->fetchColumn() > 0;
+    $hasActivePeriod = (int)$pdo->query("SELECT COUNT(*) FROM clearance_periods WHERE status = 'Ongoing' AND sector = 'Senior High School'")->fetchColumn() > 0;
+
+    $hasStudentSignatoryAccess = false;
+    if ($designationId) {
+        // 2. Check if this designation is assigned to sign for 'Senior High School' students
+        $studentSignatoryCheck = $pdo->prepare("SELECT COUNT(*) FROM sector_signatory_assignments WHERE designation_id=? AND clearance_type='Senior High School' AND is_active=1");
+        $studentSignatoryCheck->execute([$designationId]);
+        $hasStudentSignatoryAccess = (int)$studentSignatoryCheck->fetchColumn() > 0;
+    }
     
     $canPerformSignatoryActions = $hasActivePeriod && $hasStudentSignatoryAccess;
     
@@ -68,7 +48,7 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">    
     <title>Senior High School Student Management - Staff Dashboard</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
@@ -171,11 +151,33 @@ try {
                         <!-- Page Header -->
                         <div class="page-header">
                             <h2><i class="fas fa-graduation-cap"></i> Senior High School Student Management</h2>
-                            <p>Review and sign senior high school student clearance requests as a staff signatory</p>
+                            <p>Review and sign student clearance requests for the Senior High School sector.</p>
                             <div class="department-scope-info">
                                 <i class="fas fa-user-shield"></i>
-                                <span>Scope: Senior High School Students Only</span>
+                                <span id="positionInfo">Position: Staff - Clearance Signatory</span>
                             </div>
+
+                            <!-- Permission Status Alerts -->
+                            <?php if (!$GLOBALS['hasActivePeriod']): ?>
+                            <div class="alert alert-warning" style="margin-top: 10px;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>No Active Clearance Period for Senior High School:</strong> You can view student data but cannot perform signatory actions until a clearance period is activated for the Senior High School sector.
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if (!$GLOBALS['hasStudentSignatoryAccess']): ?>
+                            <div class="alert alert-info" style="margin-top: 10px;">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>View-Only Access:</strong> You can view student data but are not currently assigned as a signatory for the Senior High School sector.
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if ($GLOBALS['canPerformSignatoryActions']): ?>
+                            <div class="alert alert-success" style="margin-top: 10px;">
+                                <i class="fas fa-check-circle"></i>
+                                <strong>Signatory Actions Available:</strong> You can approve and reject student clearance requests for the Senior High School sector.
+                            </div>
+                            <?php endif; ?>
                         </div>
 
                         <!-- Statistics Dashboard -->
@@ -185,7 +187,7 @@ try {
                                     <i class="fas fa-users"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="totalStudents">1,234</h3>
+                                    <h3 id="totalStudents">0</h3>
                                     <p>Total Students</p>
                                 </div>
                             </div>
@@ -194,7 +196,7 @@ try {
                                     <i class="fas fa-user-check"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="activeStudents">1,156</h3>
+                                    <h3 id="activeStudents">0</h3>
                                     <p>Active</p>
                                 </div>
                             </div>
@@ -203,7 +205,7 @@ try {
                                     <i class="fas fa-user-times"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="inactiveStudents">78</h3>
+                                    <h3 id="inactiveStudents">0</h3>
                                     <p>Inactive</p>
                                 </div>
                             </div>
@@ -212,7 +214,7 @@ try {
                                     <i class="fas fa-graduation-cap"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="graduatedStudents">156</h3>
+                                    <h3 id="graduatedStudents">0</h3>
                                     <p>Graduated</p>
                                 </div>
                             </div>
@@ -221,25 +223,24 @@ try {
                         <!-- Quick Actions Section -->
                         <div class="quick-actions-section">
                             <div class="action-buttons">
+                                <!-- Current Period Banner -->
+                                <div class="current-period-banner-wrapper">
+                                    <div id="currentPeriodBanner" class="current-period-banner">
+                                        <i class="fas fa-calendar-alt banner-icon" aria-hidden="true"></i>
+                                        <span id="currentPeriodText">Loading current period...</span>
+                                    </div>
+                                </div>
                                 <button class="btn btn-secondary export-btn" onclick="triggerExportModal()">
                                     <i class="fas fa-file-export"></i> Export Report
                                 </button>
                             </div>
                         </div>
-
-                        <!-- Current Period Banner -->
-                        <div class="current-period-banner-wrapper">
-                            <div id="currentPeriodBanner" class="current-period-banner">
-                                <i class="fas fa-calendar-alt banner-icon" aria-hidden="true"></i>
-                                <span id="currentPeriodText">Loading current period...</span>
-                            </div>
-                        </div>
-
+                        
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
                                 <i class="fas fa-search"></i>
-                                <input type="text" id="searchInput" placeholder="Search students by name, ID, or department...">
+                                <input type="text" id="searchInput" placeholder="Search students by name, ID, or program...">
                             </div>
                             
                             <div class="filter-dropdowns">
@@ -289,12 +290,11 @@ try {
                             <!-- Table Header with Bulk Actions -->
                             <div class="table-header-section">
                                 <div class="bulk-controls">
-                                    <button class="btn btn-primary select-all-btn" onclick="toggleSelectAll()">
-                                        <i class="fas fa-check-square"></i> Select All
-                                    </button>
-                                    <button class="selection-counter-display" id="selectionCounterPill" type="button" title="" aria-disabled="true">
+                                    <label class="select-all-checkbox">
+                                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                        <span class="checkmark"></span>
                                         <span id="selectionCounter">0 selected</span>
-                                    </button>
+                                    </label>
                                     <div class="bulk-buttons">
                                         <button class="btn btn-success" onclick="approveSelected()" disabled>
                                             <i class="fas fa-check"></i> Approve
@@ -316,9 +316,7 @@ try {
                                     <table id="studentTable" class="students-table">
                                         <thead>
                                             <tr>
-                                                <th class="checkbox-column">
-                                                    <span id="selectionCounter">0 selected</span>
-                                                </th>
+                                                <th class="checkbox-column"></th>
                                                 <th>Student Number</th>
                                                 <th>Name</th>
                                                 <th>Program</th>
@@ -329,89 +327,7 @@ try {
                                                 <th>Actions</th>
                                             </tr>
                                         </thead>
-                                        <tbody id="studentTableBody">
-                                            <!-- Sample data -->
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288322"></td>
-                                                <td>02000288322</td>
-                                                <td>Zinzu Chan Lee</td>
-                                                <td>BSIT</td>
-                                                <td>4th Year</td>
-                                                <td>4/1-1</td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-pending">Pending</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon approve-btn" onclick="approveSignatory('02000288322', 'CF-2025-00001', 1)" title="Approve Signatory">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectSignatory('02000288322', 'CF-2025-00001', 1)" title="Reject Signatory">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288323"></td>
-                                                <td>02000288323</td>
-                                                <td>John Doe</td>
-                                                <td>BSBA</td>
-                                                <td>3rd Year</td>
-                                                <td>3/1-2</td>
-                                                <td><span class="status-badge account-inactive">Inactive</span></td>
-                                                <td><span class="status-badge clearance-unapplied">Unapplied</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288323')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288323')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288324"></td>
-                                                <td>02000288324</td>
-                                                <td>Maria Garcia</td>
-                                                <td>BSE</td>
-                                                <td>2nd Year</td>
-                                                <td>2/1-1</td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-completed">Completed</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288324')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288324')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-2nd">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288330"></td>
-                                                <td>02000288330</td>
-                                                <td>Carlos Rodriguez</td>
-                                                <td>BSCE</td>
-                                                <td>1st Year</td>
-                                                <td>1/1-3</td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-in-progress">In Progress</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288330')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288330')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </tbody>
+                                        <tbody id="studentTableBody"></tbody>
                                     </table>
                                 </div>
                             </div>
@@ -419,7 +335,7 @@ try {
 
                         <!-- Pagination Section -->
                         <div class="pagination-section">
-                            <div class="pagination-info">
+                            <div class="pagination-info">                                
                                 <span id="paginationInfo">Showing 1 to 4 of 4 entries</span>
                             </div>
                             <div class="pagination-controls">
@@ -460,8 +376,6 @@ try {
     <?php include '../../includes/components/alerts.php'; ?>
     
     <!-- Include Modals -->
-    <?php include '../../Modals/SHSStudentRegistryModal.php'; ?>
-    <?php include '../../Modals/SHSEditStudentModal.php'; ?>
     <?php include '../../Modals/ClearanceExportModal.php'; ?>
 
     <!-- Rejection Remarks Modal -->
@@ -482,15 +396,7 @@ try {
                 <div class="remarks-section">
                     <div class="form-group">
                         <label for="rejectionReason">Reason for Rejection:</label>
-                        <select id="rejectionReason" class="form-control" onchange="handleReasonChange()">
-                            <option value="">Select a reason...</option>
-                            <option value="incomplete_documents">Incomplete Documents</option>
-                            <option value="unpaid_fees">Unpaid Fees</option>
-                            <option value="academic_requirements">Academic Requirements Not Met</option>
-                            <option value="disciplinary_issues">Disciplinary Issues</option>
-                            <option value="missing_clearance">Missing Clearance Items</option>
-                            <option value="other">Other (Please specify below)</option>
-                        </select>
+                        <select id="rejectionReason" class="form-control" onchange="handleReasonChange()"><option value="">Loading reasons...</option></select>
                     </div>
                     
                     <div class="form-group">
