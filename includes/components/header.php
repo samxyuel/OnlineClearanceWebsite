@@ -97,7 +97,9 @@ if ($userRole === 'Staff' && $userPosition) {
                     <i class="fas fa-bars"></i>
                 </button>
                 <div class="logo">
-                    <h1>goSTI</h1>
+                    <!-- <h1>goSTI</h1>
+                    -->
+                    <img src="../../assets/images/STI_Lucena_Logo.png" alt="STI College Lucena Logo">
                 </div>
             </div>
             <div class="user-info">

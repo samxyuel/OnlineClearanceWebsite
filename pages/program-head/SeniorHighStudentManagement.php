@@ -361,7 +361,7 @@ try {
     <?php include '../../Modals/SeniorHighSchoolBatchUpdateModal.php'; ?>
     
     <!-- Bulk Selection Filters Modal -->
-    <div id="bulkSelectionFiltersModal" class="modal-overlay" style="display: none;">
+    <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
         <div class="modal-window bulk-selection-modal">
             <div class="modal-header">
                 <h3 class="modal-title"><i class="fas fa-filter"></i> Bulk Selection Filters</h3>
@@ -370,56 +370,57 @@ try {
                 </button>
             </div>
             <div class="modal-content-area">
-                <div class="filter-section">
-                    <h4>Select students by status:</h4>
-                    <div class="filter-options">
-                        <label class="filter-option">
-                            <input type="checkbox" id="filterActive" value="active">
-                            <span class="checkmark"></span>
-                            Active Students
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" id="filterInactive" value="inactive">
-                            <span class="checkmark"></span>
-                            Inactive Students
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" id="filterGraduated" value="graduated">
-                            <span class="checkmark"></span>
-                            Graduated Students
-                        </label>
+                <div class="filter-sections">
+                    <!-- Account Status Section -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Account Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterActive" value="active">
+                                <span class="checkmark"></span>
+                                with "active"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterInactive" value="inactive">
+                                <span class="checkmark"></span>
+                                with "inactive"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterGraduated" value="graduated">
+                                <span class="checkmark"></span>
+                                with "graduated"
+                            </label>
+                        </div>
                     </div>
-                </div>
-                <div class="filter-section">
-                    <h4>Select students by clearance progress:</h4>
-                    <div class="filter-options">
-                        <label class="filter-option">
-                            <input type="checkbox" id="filterUnapplied" value="unapplied">
-                            <span class="checkmark"></span>
-                            Unapplied
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" id="filterApplied" value="applied">
-                            <span class="checkmark"></span>
-                            Applied
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" id="filterInProgress" value="in-progress">
-                            <span class="checkmark"></span>
-                            In Progress
-                        </label>
-                        <label class="filter-option">
-                            <input type="checkbox" id="filterComplete" value="complete">
-                            <span class="checkmark"></span>
-                            Complete
-                        </label>
+                    
+                    <!-- Clearance Status Section (Signatory Perspective) -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Clearance Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterPending" value="pending">
+                                <span class="checkmark"></span>
+                                with "pending" (for my approval)
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterApproved" value="approved">
+                                <span class="checkmark"></span>
+                                with "approved" (by me)
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterRejected" value="rejected">
+                                <span class="checkmark"></span>
+                                with "rejected" (by me)
+                            </label>
+                        </div>
                     </div>
                 </div>
             </div>
             <div class="modal-actions">
-                <button class="modal-action-secondary" onclick="resetBulkSelectionFilters()">Reset</button>
                 <button class="modal-action-secondary" onclick="closeBulkSelectionModal()">Cancel</button>
-                <button class="modal-action-primary" onclick="applyBulkSelection()">Apply Selection</button>
+                <button class="modal-action-primary" onclick="applyBulkSelection()">
+                    <i class="fas fa-check"></i> Select All
+                </button>
             </div>
         </div>
     </div>
@@ -1220,13 +1221,13 @@ try {
 
         // Bulk selection functions
         function openBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionFiltersModal');
+            const modal = document.getElementById('bulkSelectionModal');
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
         }
 
         function closeBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionFiltersModal');
+            const modal = document.getElementById('bulkSelectionModal');
             modal.style.display = 'none';
             document.body.style.overflow = 'auto';
         }
@@ -1236,14 +1237,45 @@ try {
                 active: document.getElementById('filterActive').checked,
                 inactive: document.getElementById('filterInactive').checked,
                 graduated: document.getElementById('filterGraduated').checked,
-                unapplied: document.getElementById('filterUnapplied').checked,
-                applied: document.getElementById('filterApplied').checked,
-                inProgress: document.getElementById('filterInProgress').checked,
-                complete: document.getElementById('filterComplete').checked
+                pending: document.getElementById('filterPending').checked,
+                approved: document.getElementById('filterApproved').checked,
+                rejected: document.getElementById('filterRejected').checked
             };
             
-            selectStudentsByFilters(filters);
+            // Check if any filter is selected
+            const anyFilterChecked = Object.values(filters).some(val => val === true);
+            
+            if (!anyFilterChecked) {
+                // No filters checked - select all visible rows
+                selectAllVisibleRows();
+            } else {
+                // Filters are checked - select only matching rows
+                selectStudentsByFilters(filters);
+            }
+            
             closeBulkSelectionModal();
+        }
+
+        function selectAllVisibleRows() {
+            const checkboxes = document.querySelectorAll('.student-checkbox');
+            let selectedCount = 0;
+            
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                
+                // Skip hidden rows (respects table filters)
+                if (row.style.display === 'none') {
+                    checkbox.checked = false;
+                    return;
+                }
+                
+                checkbox.checked = true;
+                selectedCount++;
+            });
+            
+            updateSelectionCounter();
+            updateBulkButtons();
+            showToastNotification(`Selected all ${selectedCount} visible students`, 'success');
         }
 
         function selectStudentsByFilters(filters) {
@@ -1252,26 +1284,41 @@ try {
             
             checkboxes.forEach(checkbox => {
                 const row = checkbox.closest('tr');
-                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-graduated');
-                const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-applied, .status-badge.clearance-in-progress, .status-badge.clearance-complete');
                 
-                let shouldSelect = false;
+                // Skip hidden rows (respects table filters)
+                if (row.style.display === 'none') {
+                    checkbox.checked = false;
+                    return;
+                }
+                
+                const accountBadge = row.querySelector('.status-badge[class*="account-"]');
+                const clearanceBadge = row.querySelector('.status-badge[class*="clearance-"]');
+                
+                let accountMatch = false;
+                let statusMatch = false;
                 
                 // Check account status filters
-                if (accountBadge) {
-                    if (accountBadge.classList.contains('account-active') && filters.active) shouldSelect = true;
-                    if (accountBadge.classList.contains('account-inactive') && filters.inactive) shouldSelect = true;
-                    if (accountBadge.classList.contains('account-graduated') && filters.graduated) shouldSelect = true;
+                const hasAccountFilter = filters.active || filters.inactive || filters.graduated;
+                if (hasAccountFilter && accountBadge) {
+                    if (filters.active && accountBadge.classList.contains('account-active')) accountMatch = true;
+                    if (filters.inactive && accountBadge.classList.contains('account-inactive')) accountMatch = true;
+                    if (filters.graduated && accountBadge.classList.contains('account-graduated')) accountMatch = true;
+                } else if (!hasAccountFilter) {
+                    accountMatch = true; // No account filter = wildcard
                 }
                 
-                // Check clearance status filters
-                if (clearanceBadge) {
-                    if (clearanceBadge.classList.contains('clearance-unapplied') && filters.unapplied) shouldSelect = true;
-                    if (clearanceBadge.classList.contains('clearance-applied') && filters.applied) shouldSelect = true;
-                    if (clearanceBadge.classList.contains('clearance-in-progress') && filters.inProgress) shouldSelect = true;
-                    if (clearanceBadge.classList.contains('clearance-complete') && filters.complete) shouldSelect = true;
+                // Check clearance status filters (signatory perspective)
+                const hasStatusFilter = filters.pending || filters.approved || filters.rejected;
+                if (hasStatusFilter && clearanceBadge) {
+                    if (filters.pending && clearanceBadge.classList.contains('clearance-pending')) statusMatch = true;
+                    if (filters.approved && clearanceBadge.classList.contains('clearance-approved')) statusMatch = true;
+                    if (filters.rejected && clearanceBadge.classList.contains('clearance-rejected')) statusMatch = true;
+                } else if (!hasStatusFilter) {
+                    statusMatch = true; // No status filter = wildcard
                 }
                 
+                // Select if all filter categories match
+                const shouldSelect = accountMatch && statusMatch;
                 checkbox.checked = shouldSelect;
                 if (shouldSelect) selectedCount++;
             });
@@ -1282,10 +1329,12 @@ try {
         }
 
         function resetBulkSelectionFilters() {
-            const checkboxes = ['filterActive', 'filterInactive', 'filterGraduated', 'filterUnapplied', 'filterApplied', 'filterInProgress', 'filterComplete'];
-            checkboxes.forEach(id => {
-                document.getElementById(id).checked = false;
-            });
+            document.getElementById('filterActive').checked = false;
+            document.getElementById('filterInactive').checked = false;
+            document.getElementById('filterGraduated').checked = false;
+            document.getElementById('filterPending').checked = false;
+            document.getElementById('filterApproved').checked = false;
+            document.getElementById('filterRejected').checked = false;
         }
 
         function clearAllSelectionsAndFilters() {

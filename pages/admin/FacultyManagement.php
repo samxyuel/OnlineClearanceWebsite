@@ -95,6 +95,31 @@ ob_start();
                             </div>
                         </div>
 
+                        <!-- Tabs + Current Period Wrapper -->
+                        <div class="tab-banner-wrapper">
+                            <!-- Tab Navigation for quick status views -->
+                            <div class="tab-nav" id="facultyTabNav">
+                                <button class="tab-pill active" data-status="" onclick="switchFacultyTab(this)">Overall</button>
+                                <button class="tab-pill" data-status="active" onclick="switchFacultyTab(this)">Active</button>
+                                <button class="tab-pill" data-status="inactive" onclick="switchFacultyTab(this)">Inactive</button>
+                                <button class="tab-pill" data-status="resigned" onclick="switchFacultyTab(this)">Resigned</button>
+                            </div>
+                            <!-- Mobile dropdown alternative -->
+                            <div class="tab-nav-mobile" id="facultyTabSelectWrapper">
+                                <select id="facultyTabSelect" class="tab-select" onchange="handleTabSelectChange(this)">
+                                    <option value="" selected>Overall</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="resigned">Resigned</option>
+                                </select>
+                            </div>
+                            <!-- Current Period Banner -->
+                            <span class="academic-year-semester">
+                                <i class="fas fa-calendar-check"></i> 
+                                <span id="currentAcademicYear">Loading...</span> - <span id="currentSemester">Loading...</span>
+                            </span>
+                        </div>
+
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
@@ -140,31 +165,6 @@ ob_start();
                                     <i class="fas fa-times"></i> Clear All
                                 </button>
                             </div>
-                        </div>
-
-                        <!-- Tabs + Current Period Wrapper -->
-                        <div class="tab-banner-wrapper">
-                            <!-- Tab Navigation for quick status views -->
-                            <div class="tab-nav" id="facultyTabNav">
-                                <button class="tab-pill active" data-status="" onclick="switchFacultyTab(this)">Overall</button>
-                                <button class="tab-pill" data-status="active" onclick="switchFacultyTab(this)">Active</button>
-                                <button class="tab-pill" data-status="inactive" onclick="switchFacultyTab(this)">Inactive</button>
-                                <button class="tab-pill" data-status="resigned" onclick="switchFacultyTab(this)">Resigned</button>
-                            </div>
-                            <!-- Mobile dropdown alternative -->
-                            <div class="tab-nav-mobile" id="facultyTabSelectWrapper">
-                                <select id="facultyTabSelect" class="tab-select" onchange="handleTabSelectChange(this)">
-                                    <option value="" selected>Overall</option>
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                    <option value="resigned">Resigned</option>
-                                </select>
-                            </div>
-                            <!-- Current Period Banner -->
-                            <span class="academic-year-semester">
-                                <i class="fas fa-calendar-check"></i> 
-                                <span id="currentAcademicYear">Loading...</span> - <span id="currentSemester">Loading...</span>
-                            </span>
                         </div>
 
                         <!-- Faculty Table with Integrated Bulk Actions -->
@@ -440,6 +440,28 @@ ob_start();
             </div>
             <div class="modal-content-area">
                 <div class="filter-sections">
+                    <!-- Employment Status Section -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Employment Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterFullTime" value="full-time">
+                                <span class="checkmark"></span>
+                                with "Full Time"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterPartTime" value="part-time">
+                                <span class="checkmark"></span>
+                                with "Part Time"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterPartTimeFullLoad" value="part-time-full-load">
+                                <span class="checkmark"></span>
+                                with "Part Time - Full Load"
+                            </label>
+                        </div>
+                    </div>
+                    
                     <!-- Account Status Section -->
                     <div class="form-group">
                         <label class="filter-section-label">Account Status:</label>
@@ -453,6 +475,11 @@ ob_start();
                                 <input type="checkbox" id="filterInactive" value="inactive">
                                 <span class="checkmark"></span>
                                 with "inactive"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterResigned" value="resigned">
+                                <span class="checkmark"></span>
+                                with "resigned"
                             </label>
                         </div>
                     </div>
@@ -2030,8 +2057,12 @@ ob_start();
 
         function resetBulkSelectionFilters() {
             // Reset all filter checkboxes
+            document.getElementById('filterFullTime').checked = false;
+            document.getElementById('filterPartTime').checked = false;
+            document.getElementById('filterPartTimeFullLoad').checked = false;
             document.getElementById('filterActive').checked = false;
             document.getElementById('filterInactive').checked = false;
+            document.getElementById('filterResigned').checked = false;
             document.getElementById('filterUnapplied').checked = false;
             document.getElementById('filterInProgress').checked = false;
             document.getElementById('filterComplete').checked = false;
@@ -2101,8 +2132,12 @@ ob_start();
 
         function getSelectedFilters() {
             return {
+                fullTime: document.getElementById('filterFullTime').checked,
+                partTime: document.getElementById('filterPartTime').checked,
+                partTimeFullLoad: document.getElementById('filterPartTimeFullLoad').checked,
                 active: document.getElementById('filterActive').checked,
                 inactive: document.getElementById('filterInactive').checked,
+                resigned: document.getElementById('filterResigned').checked,
                 unapplied: document.getElementById('filterUnapplied').checked,
                 inProgress: document.getElementById('filterInProgress').checked,
                 complete: document.getElementById('filterComplete').checked
@@ -2132,18 +2167,39 @@ ob_start();
 
         function shouldRowBeSelected(row, filters) {
             // Get row data
+            const employmentBadge = row.querySelector('.status-badge[class*="employment-"]');
             const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
             const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-applied, .status-badge.clearance-in-progress, .status-badge.clearance-complete');
             
+            let employmentMatch = false;
             let accountMatch = false;
             let clearanceMatch = false;
             
+            // Check employment status filters
+            if (filters.fullTime || filters.partTime || filters.partTimeFullLoad) {
+                if (filters.fullTime && employmentBadge && employmentBadge.classList.contains('employment-full-time')) {
+                    employmentMatch = true;
+                }
+                if (filters.partTime && employmentBadge && employmentBadge.classList.contains('employment-part-time')) {
+                    employmentMatch = true;
+                }
+                if (filters.partTimeFullLoad && employmentBadge && employmentBadge.classList.contains('employment-part-time-full-load')) {
+                    employmentMatch = true;
+                }
+            } else {
+                // If no employment filters selected, consider it a match (wildcard)
+                employmentMatch = true;
+            }
+            
             // Check account status filters
-            if (filters.active || filters.inactive) {
+            if (filters.active || filters.inactive || filters.resigned) {
                 if (filters.active && accountBadge && accountBadge.classList.contains('account-active')) {
                     accountMatch = true;
                 }
                 if (filters.inactive && accountBadge && accountBadge.classList.contains('account-inactive')) {
+                    accountMatch = true;
+                }
+                if (filters.resigned && accountBadge && accountBadge.classList.contains('account-resigned')) {
                     accountMatch = true;
                 }
             } else {
@@ -2152,8 +2208,8 @@ ob_start();
             }
             
             // Check clearance progress filters
-            if (filters.applied || filters.inProgress || filters.complete) {
-                if (filters.applied && clearanceBadge && clearanceBadge.classList.contains('clearance-applied')) {
+            if (filters.unapplied || filters.inProgress || filters.complete) {
+                if (filters.unapplied && clearanceBadge && clearanceBadge.classList.contains('clearance-unapplied')) {
                     clearanceMatch = true;
                 }
                 if (filters.inProgress && clearanceBadge && clearanceBadge.classList.contains('clearance-in-progress')) {
@@ -2167,8 +2223,8 @@ ob_start();
                 clearanceMatch = true;
             }
             
-            // Row should be selected if it matches both account and clearance filters
-            return accountMatch && clearanceMatch;
+            // Row should be selected if it matches all three filter categories
+            return employmentMatch && accountMatch && clearanceMatch;
         }
         
         // Helper function to check if there are any active filters

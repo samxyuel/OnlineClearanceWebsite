@@ -62,7 +62,7 @@
         <div class="login-card">
             <div class="login-header">
                 <div class="login-logo">
-                    <img src="../../assets/images/STI_Lucena_Logo.jpg" alt="STI College Lucena Logo">
+                    <img src="../../assets/images/STI_Lucena_Logo.png" alt="STI College Lucena Logo">
                 </div>
                 <h3>Online Clearance Website</h3>
             </div>
