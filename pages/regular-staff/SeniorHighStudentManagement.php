@@ -814,7 +814,7 @@ try {
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value;
 
-            let url = new URL('../../api/staff/signatoryList.php', window.location.href);
+            let url = new URL('../../api/clearance/signatoryList.php', window.location.href);
             url.searchParams.append('sector', 'Senior High School');
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
@@ -1466,6 +1466,9 @@ try {
         async function loadSchoolTerms() {
             const url = `../../api/clearance/get_filter_options.php?type=school_terms`;
             await populateFilter('schoolTermFilter', url, 'All School Terms');
+        
+        }
+
         // Clear all selections functionality
         function clearAllSelections() {
             const checkboxes = document.querySelectorAll('.student-checkbox');

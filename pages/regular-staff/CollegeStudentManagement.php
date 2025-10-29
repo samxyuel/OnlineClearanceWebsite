@@ -816,14 +816,18 @@ try {
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value;
 
-            let url = new URL('../../api/staff/signatoryList.php', window.location.href);
+            const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
+
+            // Base parameters
             url.searchParams.append('sector', 'College');
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
-            if (search) url += `&search=${encodeURIComponent(search)}`;
-            if (clearanceStatus) url += `&clearance_status=${encodeURIComponent(clearanceStatus)}`;
-            if (accountStatus) url += `&account_status=${encodeURIComponent(accountStatus)}`;
-            if (schoolTerm) url += `&school_term=${encodeURIComponent(schoolTerm)}`;
+
+            // Optional filters
+            if (search) url.searchParams.append('search', search);
+            if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
+            if (accountStatus) url.searchParams.append('account_status', accountStatus);
+            if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
 
             try {
                 const response = await fetch(url.toString(), { credentials: 'include' });

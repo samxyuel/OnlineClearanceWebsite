@@ -18,6 +18,7 @@
 
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../includes/config/database.php';
+require_once __DIR__ . '/../../includes/classes/Auth.php';
 
 if (!isset($_GET['type'])) {
     http_response_code(400);
@@ -27,6 +28,7 @@ if (!isset($_GET['type'])) {
 
 $type = $_GET['type'];
 $pdo = Database::getInstance()->getConnection();
+$auth = new Auth();
 
 try {
     switch ($type) {
@@ -42,7 +44,9 @@ try {
             handleGetEnumValues($pdo, 'faculty', 'employment_status');
             break;
 
-        // Add cases for 'departments', 'programs', etc. in the future as needed.
+        case 'programs':
+            handleGetPrograms($pdo, $auth);
+            break;
 
         default:
             http_response_code(400);
@@ -112,6 +116,46 @@ function handleGetSchoolTerms($pdo) {
             'text' => $term['academic_year'] . ' - ' . $term['semester_name']
         ];
     }, $terms);
+
+    echo json_encode(['success' => true, 'options' => $options]);
+}
+
+/**
+ * Fetches and returns programs, optionally filtered by the logged-in Program Head's department.
+ */
+function handleGetPrograms($pdo, $auth) {
+    if (!$auth->isLoggedIn()) {
+        throw new Exception('Authentication required.');
+    }
+
+    $userId = $auth->getUserId();
+
+    // Find the departments assigned to the logged-in Program Head
+    $deptStmt = $pdo->prepare("
+        SELECT d.department_id
+        FROM staff s
+        JOIN departments d ON s.department_id = d.department_id
+        WHERE s.user_id = ? AND s.staff_category = 'Program Head' AND s.is_active = 1
+    ");
+    $deptStmt->execute([$userId]);
+    $departmentIds = $deptStmt->fetchAll(PDO::FETCH_COLUMN);
+
+    if (empty($departmentIds)) {
+        // Not a program head or not assigned to any department, return empty list
+        echo json_encode(['success' => true, 'options' => []]);
+        return;
+    }
+
+    $inPlaceholders = implode(',', array_fill(0, count($departmentIds), '?'));
+
+    $sql = "SELECT program_id, program_name FROM programs WHERE department_id IN ($inPlaceholders) AND is_active = 1 ORDER BY program_name ASC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($departmentIds);
+    $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $options = array_map(function($program) {
+        return ['value' => $program['program_id'], 'text' => $program['program_name']];
+    }, $programs);
 
     echo json_encode(['success' => true, 'options' => $options]);
 }

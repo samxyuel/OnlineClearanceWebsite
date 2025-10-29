@@ -343,7 +343,7 @@ handleFacultyManagementPageRequest();
                                             </tr>
                                         </thead>
                                         <tbody id="facultyTableBody">
-                                            <!-- Faculty data will be loaded here dynamically -->
+                                            <!-- Faculty data will be loaded dynamically -->
                                         </tbody>
                                     </table>
                                 </div>
@@ -352,7 +352,7 @@ handleFacultyManagementPageRequest();
 
                         <!-- Pagination Section -->
                         <div class="pagination-section">
-                            <div class="pagination-info">
+                            <div class="pagination-info" id="paginationInfoContainer">
                                 <span id="paginationInfo">Showing 1 to 20 of 0 entries</span>
                             </div>
                             <div class="pagination-controls">
@@ -566,15 +566,19 @@ handleFacultyManagementPageRequest();
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value;
 
-            let url = new URL('../../api/staff/signatoryList.php', window.location.href);
+            const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
+
+            // Base parameters
             url.searchParams.append('type', 'faculty');
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
-            if (search) url += `&search=${encodeURIComponent(search)}`;
-            if (clearanceStatus) url += `&clearance_status=${encodeURIComponent(clearanceStatus)}`;
-            if (accountStatus) url += `&account_status=${encodeURIComponent(accountStatus)}`;
-            if (schoolTerm) url += `&school_term=${encodeURIComponent(schoolTerm)}`;
-            if (employmentStatus) url += `&employment_status=${encodeURIComponent(employmentStatus)}`;
+
+            // Optional filters
+            if (search) url.searchParams.append('search', search);
+            if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
+            if (accountStatus) url.searchParams.append('account_status', accountStatus);
+            if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+            if (employmentStatus) url.searchParams.append('employment_status', employmentStatus);
             
             try {
                 const response = await fetch(url.toString(), { credentials: 'include' });
@@ -1351,6 +1355,26 @@ handleFacultyManagementPageRequest();
             }
         }
 
+        async function loadClearanceStatuses() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=clearance_signatories&column=action`;
+            await populateFilter('clearanceStatusFilter', url, 'All Clearance Statuses');
+        }
+
+        async function loadAccountStatuses() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=users&column=account_status&exclude=resigned`;
+            await populateFilter('accountStatusFilter', url, 'All Account Statuses');
+        }
+
+        async function loadSchoolTerms() {
+            const url = `../../api/clearance/get_filter_options.php?type=school_terms`;
+            await populateFilter('schoolTermFilter', url, 'All School Terms');
+        }
+
+        async function loadEmploymentStatuses() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=faculty&column=employment_status`;
+            await populateFilter('employmentStatusFilter', url, 'All Employment Statuses');
+        }
+
         // Rejection Remarks Modal Functions
         let currentRejectionData = {
             userId: null,
@@ -1409,7 +1433,7 @@ handleFacultyManagementPageRequest();
             document.body.style.overflow = 'auto';
             
             // Reset current rejection data
-            currentRejectionData = {
+            currentRejectionData = { // Reset to initial state
                 userId: null,
                 targetName: null,
                 targetType: 'faculty',
@@ -1569,7 +1593,7 @@ handleFacultyManagementPageRequest();
             if (!reasonSelect) return;
 
             try {
-                const response = await fetch('../../api/clearance/rejection_reasons.php?category=faculty', { credentials: 'include' }); // Corrected API call
+                const response = await fetch('../../api/clearance/rejection_reasons.php?category=faculty', { credentials: 'include' });
                 const data = await response.json();
 
                 reasonSelect.innerHTML = '<option value="">Select a reason...</option>';

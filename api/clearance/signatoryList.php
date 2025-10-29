@@ -24,14 +24,33 @@ try {
     $pdo = Database::getInstance()->getConnection();
 
     // 1. Get the staff member's designation ID
-    $staffStmt = $pdo->prepare("SELECT designation_id FROM staff WHERE user_id = ? AND is_active = 1");
+    $staffStmt = $pdo->prepare("
+        SELECT s.designation_id, d.designation_name 
+        FROM staff s
+        JOIN designations d ON s.designation_id = d.designation_id
+        WHERE s.user_id = ? AND s.is_active = 1
+    ");
     $staffStmt->execute([$userId]);
-    $designationId = $staffStmt->fetchColumn();
+    $staffInfo = $staffStmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$designationId) {
+    if (!$staffInfo) {
         http_response_code(403);
         echo json_encode(['success' => false, 'message' => 'Access Denied: You are not an active staff member with a designation.']);
         exit;
+    }
+    $designationId = $staffInfo['designation_id'];
+    $designationName = $staffInfo['designation_name'];
+
+    // Check if the user is a Program Head to apply special scoping
+    $isProgramHead = (strcasecmp($designationName, 'Program Head') === 0);
+    $programHeadDepartments = [];
+    $isShsProgramHead = false;
+
+    if ($isProgramHead) {
+        // Get departments assigned to this Program Head
+        $phDeptsStmt = $pdo->prepare("SELECT sa.department_id, s.sector_name FROM sector_signatory_assignments sa JOIN departments d ON sa.department_id = d.department_id JOIN sectors s ON d.sector_id = s.sector_id WHERE sa.user_id = ? AND sa.designation_id = ? AND sa.is_active = 1");
+        $phDeptsStmt->execute([$userId, $designationId]);
+        $programHeadDepartments = $phDeptsStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     // 2. Get the active clearance period for the relevant sector
@@ -124,6 +143,30 @@ try {
 
     $where = "WHERE 1=1"; // The JOINs already filter by designation, but we can add sector check for robustness if needed.
     $params = [':designationId' => $designationId];
+
+    // Apply department scoping for Program Heads
+    if ($isProgramHead && !empty($programHeadDepartments)) {
+        $deptIds = array_column($programHeadDepartments, 'department_id');
+        $isShsProgramHead = in_array('Senior High School', array_column($programHeadDepartments, 'sector_name'));
+
+        // Special case for SHS Program Head: if they manage an SHS dept, they see all SHS students.
+        if ($type === 'student' && $requestSector === 'Senior High School' && $isShsProgramHead) {
+            // The `s.sector = :requestSector` filter below will handle this. No extra department scoping needed.
+        } else {
+            if (!empty($deptIds)) {
+                $deptPlaceholders = [];
+                foreach ($deptIds as $i => $id) {
+                    $key = ":dept_id_$i";
+                    $deptPlaceholders[] = $key;
+                    $params[$key] = $id;
+                }
+                $inClause = implode(',', $deptPlaceholders);
+
+                $deptColumn = ($type === 'faculty') ? 'f.department_id' : 'p.department_id';
+                $where .= " AND $deptColumn IN ($inClause)";
+            }
+        }
+    }
 
     // Apply filters
     if (!empty($search)) {

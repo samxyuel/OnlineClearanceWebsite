@@ -191,6 +191,12 @@ try {
                                     <option value="">All Programs</option>
                                 </select>
                                 
+                                <!-- Year Level Filter -->
+                                <select id="yearLevelFilter" class="filter-select">
+                                    <option value="">All Year Levels</option>
+                                    <!-- Options will be loaded dynamically -->
+                                </select>
+
                                 <!-- Clearance Status Filter -->
                                 <select id="clearanceStatusFilter" class="filter-select">
                                     <option value="">All Clearance Status</option>
@@ -203,13 +209,7 @@ try {
                                 
                                 <!-- School Term Filter -->
                                 <select id="schoolTermFilter" class="filter-select" onchange="updateStatisticsByTerm()">
-                                    <option value="">All School Terms</option>
-                                    <option value="2024-2025-1st">2024-2025 1st Semester</option>
-                                    <option value="2024-2025-2nd">2024-2025 2nd Semester</option>
-                                    <option value="2024-2025-summer">2024-2025 Summer</option>
-                                    <option value="2023-2024-1st">2023-2024 1st Semester</option>
-                                    <option value="2023-2024-2nd">2023-2024 2nd Semester</option>
-                                    <option value="2023-2024-summer">2023-2024 Summer</option>
+                                    <option value="">Loading Terms...</option>
                                 </select>
                                 
                                 <!-- Account Status Filter -->
@@ -297,7 +297,7 @@ try {
                                             </tr>
                                         </thead>
                                         <tbody id="studentsTableBody">
-                                            <!-- Student data will be loaded here dynamically from database -->
+                                            <!-- Student data will be loaded here dynamically -->
                                         </tbody>
                                     </table>
                                 </div>
@@ -306,7 +306,7 @@ try {
 
                         <!-- Pagination -->
                         <div class="pagination-section">
-                            <div class="pagination-info">
+                            <div class="pagination-info" id="paginationInfoContainer">
                                 <span id="paginationInfo">Showing 1 to 4 of 4 entries</span>
                             </div>
                             <div class="pagination-controls">
@@ -1845,37 +1845,6 @@ try {
             }
         }
 
-        // Load SHS students data from API
-        async function loadStudentsData() {
-            try {
-                console.log('Loading SHS students data...');
-                const tableBody = document.getElementById('studentsTableBody');
-                tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;">Loading students...</td></tr>`;
-
-                const response = await fetch('../../api/program-head/shs_students.php', {
-                    credentials: 'include'
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                console.log('SHS students API response:', data);
-                
-                if (data.success) {
-                    populateStudentsTable(data.data.students);
-                    updateStatistics(data.data.stats);
-                } else {
-                    showToastNotification('Failed to load students data: ' + data.message, 'error');
-                    tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
-                }
-            } catch (error) {
-                console.error('Error loading SHS students:', error);
-                showToastNotification('Error loading students data: ' + error.message, 'error');
-            }
-        }
-
         // Populate students table
         function populateStudentsTable(students) {
             const tbody = document.getElementById('studentsTableBody');
@@ -1892,7 +1861,58 @@ try {
             }
         }
 
-        // Create student row
+        // Update statistics
+        function updateStatistics(stats) {
+            document.getElementById('totalStudents').textContent = stats.total;
+            document.getElementById('activeStudents').textContent = stats.active;
+            document.getElementById('inactiveStudents').textContent = stats.inactive;
+            document.getElementById('graduatedStudents').textContent = stats.graduated;
+        }
+
+
+        async function loadStudentsData() {
+            const tableBody = document.getElementById('studentsTableBody');
+            tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">Loading students...</td></tr>`;
+
+            const search = document.getElementById('searchInput').value;
+            const clearanceStatus = document.getElementById('clearanceStatusFilter').value;
+            const accountStatus = document.getElementById('accountStatusFilter').value;
+            const programId = document.getElementById('programFilter').value;
+            const yearLevel = document.getElementById('yearLevelFilter').value;
+            const schoolTerm = document.getElementById('schoolTermFilter').value;
+
+            const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
+            url.searchParams.append('type', 'student');
+            url.searchParams.append('sector', 'Senior High School');
+            url.searchParams.append('page', currentPage);
+            url.searchParams.append('limit', entriesPerPage);
+
+            if (search) url.searchParams.append('search', search);
+            if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
+            if (programId) url.searchParams.append('program_id', programId);
+            if (accountStatus) url.searchParams.append('account_status', accountStatus);
+            if (yearLevel) url.searchParams.append('year_level', yearLevel);
+            if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+
+            try {
+                const response = await fetch(url.toString(), { credentials: 'include' });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const data = await response.json();
+                if (data.success) {
+                    populateStudentsTable(data.students);
+                    updateStatistics(data.stats);
+                    updatePaginationUI(data.total, data.page, data.limit);
+                } else {
+                    showToastNotification('Failed to load students: ' + data.message, 'error');
+                    tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
+                }
+            } catch (error) {
+                console.error('Error loading students:', error);
+                showToastNotification('Error loading students: ' + error.message, 'error');
+            }
+        }
+
         function createStudentRow(student) {
             const accountStatusClass = `account-${student.account_status || 'inactive'}`;
             const accountStatusText = student.account_status ? student.account_status.charAt(0).toUpperCase() + student.account_status.slice(1) : 'Inactive';
@@ -1905,16 +1925,16 @@ try {
 
             const row = document.createElement('tr');
             row.setAttribute('data-user-id', student.user_id);
-            row.setAttribute('data-student-id', student.student_id);
+            row.setAttribute('data-student-id', student.id);
             row.setAttribute('data-form-id', student.clearance_form_id);
-            row.setAttribute('data-signatory-id', student.clearance_signatory_id);
+            row.setAttribute('data-signatory-id', student.signatory_id);
             row.setAttribute('data-remarks', student.remarks || '');
             row.setAttribute('data-rejection-reason-id', student.reason_id || '');
 
             row.innerHTML = `
-                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.student_id}"></td>
-                <td data-label="Student Number:">${student.student_id}</td>
-                <td data-label="Name:">${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
+                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.id}"></td>
+                <td data-label="Student Number:">${student.id}</td>
+                <td data-label="Name:">${student.name}</td>
                 <td data-label="Program:">${student.program || 'N/A'}</td>
                 <td data-label="Year Level:">${student.year_level || 'N/A'}</td>
                 <td data-label="Section:">${student.section || 'N/A'}</td>
@@ -1922,16 +1942,16 @@ try {
                 <td data-label="Clearance Progress:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon edit-btn" onclick="editStudent('${student.student_id}')" title="Edit Student">
+                        <button class="btn-icon edit-btn" onclick="editStudent('${student.id}')" title="Edit Student">
                             <i class="fas fa-edit"></i>
                         </button>
                         <button class="btn-icon approve-btn" onclick="approveSignatory('${student.user_id}')" title="Approve Signatory" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-check"></i>
                         </button>
-                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}', '${student.clearance_form_id}', '${student.clearance_signatory_id}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
+                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-times"></i>
                         </button>
-                        <button class="btn-icon delete-btn" onclick="deleteStudent('${student.student_id}')" title="Delete Student">
+                        <button class="btn-icon delete-btn" onclick="deleteStudent('${student.id}')" title="Delete Student">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -1940,12 +1960,9 @@ try {
             return row;
         }
 
-        // Update statistics
-        function updateStatistics(stats) {
-            document.getElementById('totalStudents').textContent = stats.total;
-            document.getElementById('activeStudents').textContent = stats.active;
-            document.getElementById('inactiveStudents').textContent = stats.inactive;
-            document.getElementById('graduatedStudents').textContent = stats.graduated;
+        function applyFilters() {
+            currentPage = 1;
+            loadStudentsData();
         }
 
         // Signatory Action Functions
@@ -2045,37 +2062,6 @@ try {
             document.body.style.overflow = 'auto';
         }
 
-        async function submitRejection() {
-            const reasonId = document.getElementById('rejectionReason').value;
-            const remarks = document.getElementById('additionalRemarks').value.trim();
-
-            if (!reasonId) {
-                showToastNotification('Please select a reason for rejection.', 'warning');
-                return;
-            }
-
-            if (currentRejectionData.isBulk) {
-                // Bulk rejection logic here
-                showToastNotification('Bulk rejection not yet fully implemented.', 'info');
-            } else {
-                // Individual rejection
-                try {
-                    const result = await sendSignatoryAction(currentRejectionData.userId, 'Rejected', remarks, reasonId);
-                    if (result.success) {
-                        showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.studentName}`, 'success');
-                        // Reload student data to get fresh state
-                        loadStudentsData();
-                    } else {
-                        showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
-                    }
-                } catch (e) {
-                    showToastNotification('An error occurred during rejection.', 'error');
-                }
-            }
-            
-            closeRejectionRemarksModal();
-        }
-
         async function loadRejectionReasons() {
             const reasonSelect = document.getElementById('rejectionReason');
             if (!reasonSelect) return;
@@ -2100,13 +2086,62 @@ try {
             }
         }
 
+        // --- DYNAMIC FILTER POPULATION ---
+        async function populateFilter(selectId, url, placeholder, valueField = 'value', textField = 'text') {
+            const select = document.getElementById(selectId);
+            try {
+                const response = await fetch(url, { credentials: 'include' });
+                const data = await response.json();
+
+                select.innerHTML = `<option value="">${placeholder}</option>`;
+                if (data.success && data.options) {
+                    data.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = typeof option === 'object' ? option[valueField] : option;
+                        optionElement.textContent = typeof option === 'object' ? option[textField] : option;
+                        select.appendChild(optionElement);
+                    });
+                }
+            } catch (error) {
+                console.error(`Error loading options for ${selectId}:`, error);
+                select.innerHTML = `<option value="">Error loading options</option>`;
+            }
+        }
+
+        async function loadClearanceStatuses() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=clearance_signatories&column=action`;
+            await populateFilter('clearanceStatusFilter', url, 'All Clearance Statuses');
+        }
+
+        async function loadAccountStatuses() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=users&column=account_status&exclude=resigned`;
+            await populateFilter('accountStatusFilter', url, 'All Account Statuses');
+        }
+
+        async function loadSchoolTerms() {
+            const url = `../../api/clearance/get_filter_options.php?type=school_terms`;
+            await populateFilter('schoolTermFilter', url, 'All School Terms');
+        }
+
+        async function loadPrograms() {
+            const url = `../../api/clearance/get_filter_options.php?type=programs&sector=Senior High School`;
+            await populateFilter('programFilter', url, 'All Programs', 'program_id', 'program_name');
+        }
+
+        async function loadYearLevels() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=students&column=year_level&filter_by_sector=Senior High School`;
+            await populateFilter('yearLevelFilter', url, 'All Year Levels');
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             loadProgramHeadProfile();
-            loadStudentsData().then(() => {
-                initializePagination();
-                updateSelectionCounter();
-            });
+            loadStudentsData();
             loadRejectionReasons();
+            loadSchoolTerms();
+            loadClearanceStatuses();
+            loadAccountStatuses();
+            loadPrograms();
+            loadYearLevels();
         });
     </script>
     
