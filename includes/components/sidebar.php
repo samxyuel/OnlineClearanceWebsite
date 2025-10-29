@@ -277,7 +277,8 @@ if ($isUserLoggedIn) {
             <h4>Account</h4>
             <nav class="sidebar-nav">
                 <?php foreach ($currentSidebarLinks['bottom'] as $link): ?>
-                <a href="<?php echo $link['link']; ?>" class="sidebar-link">
+                <?php $isLogout = (isset($link['text']) && strtolower(trim($link['text'])) === 'logout'); ?>
+                <a href="<?php echo $link['link']; ?>" class="sidebar-link<?php echo $isLogout ? ' logout-link' : ''; ?>">
                     <i class="<?php echo $link['icon']; ?>"></i>
                     <span><?php echo $link['text']; ?></span>
                 </a>

@@ -116,8 +116,8 @@ $unique_users = [
 <div class="activity-tracker" id="activityTracker">
     <!-- Header -->
     <div class="activity-tracker-header">
-        <h3>
-            <i class="fas fa-chart-line"></i>
+        <h3 style="font-size: clamp(16px, 18px, 22px);">
+            <i class="fas fa-chart-line" style="font-size: clamp(14px, 16px, 20px);"></i>
             Activity Tracker
         </h3>
     </div>
@@ -190,15 +190,15 @@ $unique_users = [
     <!-- Footer with Quick Actions -->
     <div class="activity-tracker-footer">
         <div class="quick-actions">
-            <button class="quick-action-btn" title="Refresh Activities">
+            <button class="quick-action-btn" title="Refresh Activities" style="font-size: clamp(11px, 12px, 15px);">
                 <i class="fas fa-sync-alt"></i> Refresh
             </button>
-            <button class="quick-action-btn" title="Export Activities">
+            <button class="quick-action-btn" title="Export Activities" style="font-size: clamp(11px, 12px, 15px);">
                 <i class="fas fa-download"></i> Export
             </button>
         </div>
         <div class="activity-status">
-            <small class="text-muted">Last updated: <?php echo date('M j, g:i A'); ?></small>
+            <small class="text-muted" style="font-size: clamp(10px, 11px, 14px);">Last updated: <?php echo date('M j, g:i A'); ?></small>
         </div>
     </div>
 </div>
