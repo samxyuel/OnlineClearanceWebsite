@@ -910,11 +910,7 @@ try {
             for (let i = 1; i <= totalPages; i++) {
                 const button = document.createElement('button');
                 button.className = `pagination-btn ${i === page ? 'active' : ''}`;
-                button.textContent = i;
-                button.onclick = () => {
-                    currentPage = i;
-                    fetchStudents();
-                };
+                button.textContent = i;                button.onclick = () => goToPage(i);
                 pageNumbersContainer.appendChild(button);
             }
 
@@ -943,6 +939,12 @@ try {
             document.getElementById('schoolTermFilter').value = '';
             fetchStudents();
             showToastNotification('All filters cleared', 'info');
+        }
+
+        // Go to a specific page
+        function goToPage(pageNum) {
+            currentPage = pageNum;
+            fetchStudents();
         }
 
         function changePage(direction) {

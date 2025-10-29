@@ -942,11 +942,8 @@ try {
             });
             
             updateFilteredEntries();
-            showToastNotification('All filters cleared', 'info');
-        }
-
-        function updateStatisticsByTerm() {
             applyFilters();
+            showToastNotification('All filters cleared', 'info');
         }
 
         function initializePagination() {
@@ -968,7 +965,6 @@ try {
             document.getElementById('prevPage').disabled = currentPage === 1;
             document.getElementById('nextPage').disabled = currentPage === totalPages;
             
-            showCurrentPageEntries();
         }
 
         function updatePageNumbers(totalPages) {
@@ -1025,39 +1021,24 @@ try {
 
         function goToPage(pageNum) {
             currentPage = pageNum;
-            updatePagination();
+            fetchStudents();
         }
 
         function changePage(direction) {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            
             if (direction === 'prev' && currentPage > 1) {
                 currentPage--;
-            } else if (direction === 'next' && currentPage < totalPages) {
+           } else if (direction === 'next') {
                 currentPage++;
             }
             
-            updatePagination();
+            fetchStudents();
         }
 
         function changeEntriesPerPage() {
             const newEntriesPerPage = parseInt(document.getElementById('entriesPerPage').value);
             entriesPerPage = newEntriesPerPage;
             currentPage = 1;
-            updatePagination();
-        }
-
-        function showCurrentPageEntries() {
-            const startIndex = (currentPage - 1) * entriesPerPage;
-            const endIndex = startIndex + entriesPerPage;
-            
-            filteredEntries.forEach(row => {
-                row.style.display = 'none';
-            });
-            
-            for (let i = startIndex; i < endIndex && i < filteredEntries.length; i++) {
-                filteredEntries[i].style.display = '';
-            }
+            fetchStudents();
         }
 
         function updateFilteredEntries() {

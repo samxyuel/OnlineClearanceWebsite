@@ -47,6 +47,10 @@ try {
         case 'programs':
             handleGetPrograms($pdo, $auth);
             break;
+            
+        case 'departments':
+            handleGetDepartments($pdo);
+            break;
 
         default:
             http_response_code(400);
@@ -69,6 +73,16 @@ function handleGetEnumValues($pdo, $tableName = null, $columnName = null) {
         throw new Exception('Table and column parameters are required for type "enum".');
     }
     
+    // Special handling for Senior High School year levels
+    $sector = $_GET['sector'] ?? null;
+    if ($tableName === 'students' && $columnName === 'year_level' && $sector === 'Senior High School') {
+        // For SHS, year levels are Grade 11 and Grade 12, which we can map to 1st/2nd year conceptually
+        // or just return the specific labels. Let's return the correct labels.
+        $shsYearLevels = ['1st Year', '2nd Year'];
+        echo json_encode(['success' => true, 'options' => $shsYearLevels]);
+        return;
+    }
+
     $exclude = isset($_GET['exclude']) ? explode(',', $_GET['exclude']) : [];
 
     if (!preg_match('/^[a-zA-Z0-9_]+$/', $tableName) || !preg_match('/^[a-zA-Z0-9_]+$/', $columnName)) {
@@ -129,33 +143,106 @@ function handleGetPrograms($pdo, $auth) {
     }
 
     $userId = $auth->getUserId();
+    error_log("DEBUG: get_filter_options.php -> handleGetPrograms for user ID: $userId");
+    
+    // Fetch user role from the database
+    // Let's be more lenient: check for Admin or School Administrator role, even if not primary.
+    $roleStmt = $pdo->prepare("SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id = r.role_id WHERE ur.user_id = ? AND r.role_name IN ('Admin', 'School Administrator') LIMIT 1");
+    $roleStmt->execute([$userId]);
+    $userRole = $roleStmt->fetchColumn();
+    error_log("DEBUG: Detected user role: " . ($userRole ?: 'Not Admin/SA'));
 
-    // Find the departments assigned to the logged-in Program Head
-    $deptStmt = $pdo->prepare("
-        SELECT d.department_id
-        FROM staff s
-        JOIN departments d ON s.department_id = d.department_id
-        WHERE s.user_id = ? AND s.staff_category = 'Program Head' AND s.is_active = 1
-    ");
-    $deptStmt->execute([$userId]);
-    $departmentIds = $deptStmt->fetchAll(PDO::FETCH_COLUMN);
+    // School Administrators and Admins should see all programs.
+    // Program Heads should only see programs in their assigned departments.
+    if ($userRole === 'Admin' || $userRole === 'School Administrator') {
+        error_log("DEBUG: Executing Admin/SA logic.");
+        $sector = $_GET['sector'] ?? null;
+        $departmentId = $_GET['department_id'] ?? null;
+        $params = [];
+
+        // Always join departments to safely filter by department_type
+        $sql = "SELECT p.program_id, p.program_name 
+                FROM programs p
+                JOIN departments d ON p.department_id = d.department_id";
+        $whereClauses = ["p.is_active = 1"];
+        
+        if ($sector) {
+            $whereClauses[] = "d.department_type = ?";
+            $params[] = $sector;
+        }
+
+        if ($departmentId) {
+            $whereClauses[] = "p.department_id = ?";
+            $params[] = $departmentId;
+        }
+
+        $sql .= " WHERE " . implode(" AND ", $whereClauses) . " ORDER BY p.program_name ASC";
+        error_log("DEBUG: Admin/SA SQL: $sql");
+        error_log("DEBUG: Admin/SA Params: " . json_encode($params));
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+    } else { // Assumes Program Head or other restricted role
+        error_log("DEBUG: Executing Program Head logic.");
+        // Find the departments assigned to the logged-in Program Head
+        $deptStmt = $pdo->prepare("
+            SELECT d.department_id
+            FROM staff s
+            JOIN departments d ON s.department_id = d.department_id
+            WHERE s.user_id = ? AND s.staff_category = 'Program Head' AND s.is_active = 1
+        ");
+        $deptStmt->execute([$userId]);
+        $departmentIds = $deptStmt->fetchAll(PDO::FETCH_COLUMN);
 
     if (empty($departmentIds)) {
-        // Not a program head or not assigned to any department, return empty list
-        echo json_encode(['success' => true, 'options' => []]);
-        return;
+            // Not a program head or not assigned to any department, return empty list
+            echo json_encode(['success' => true, 'options' => []]);
+            return;
+        }
+
+        $inPlaceholders = implode(',', array_fill(0, count($departmentIds), '?'));
+        $sql = "SELECT program_id, program_name FROM programs WHERE department_id IN ($inPlaceholders) AND is_active = 1 ORDER BY program_name ASC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($departmentIds);
     }
 
-    $inPlaceholders = implode(',', array_fill(0, count($departmentIds), '?'));
-
-    $sql = "SELECT program_id, program_name FROM programs WHERE department_id IN ($inPlaceholders) AND is_active = 1 ORDER BY program_name ASC";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($departmentIds);
     $programs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $options = array_map(function($program) {
         return ['value' => $program['program_id'], 'text' => $program['program_name']];
     }, $programs);
+
+    echo json_encode(['success' => true, 'options' => $options]);
+}
+
+/**
+ * Fetches and returns active departments, optionally filtered by sector.
+ */
+function handleGetDepartments($pdo) {
+    $sector = $_GET['sector'] ?? null;
+
+    $sql = "SELECT d.department_id, d.department_name 
+            FROM departments d";
+    $params = [];
+
+    if ($sector) {
+        // Filter by department_type, which serves as the sector identifier
+        $sql .= " WHERE d.department_type = ?";
+        $params[] = $sector;
+    }
+
+    $sql .= (strpos($sql, 'WHERE') === false ? ' WHERE' : ' AND') . " d.is_active = 1 ORDER BY d.department_name ASC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $options = array_map(function($department) {
+        return [
+            'value' => $department['department_id'], 
+            'text' => $department['department_name']
+        ];
+    }, $departments);
 
     echo json_encode(['success' => true, 'options' => $options]);
 }

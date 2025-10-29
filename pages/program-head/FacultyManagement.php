@@ -189,22 +189,20 @@ handleFacultyManagementPageRequest();
                                 <!-- Employment Status Filter -->
                                 <select id="employmentStatusFilter" class="filter-select">
                                     <option value="">All Employment Status</option>
-                                    <option value="full-time">Full Time</option>
-                                    <option value="part-time">Part Time</option>
-                                    <option value="part-time-full-load">Part Time - Full Load</option>
+                                    <!-- Options will be loaded dynamically -->
                                 </select>
                                 
                                 <!-- School Term Filter -->
-                                <select id="schoolTermFilter" class="filter-select" onchange="updateStatisticsByTerm()">
-                                    <option value="">Loading Terms...</option>
+                                <select id="schoolTermFilter" class="filter-select" >
+                                    <option value="">All School Terms</option>
+                                    <!-- Options will be loaded dynamically -->
+                                    
                                 </select>
                                 
                                 <!-- Account Status Filter -->
                                 <select id="accountStatusFilter" class="filter-select">
                                     <option value="">All Account Status</option>
-                                    <option value="active">Active Only</option>
-                                    <option value="inactive">Inactive Only</option>
-                                    <option value="resigned">Resigned Only</option>
+                                    <!-- Options will be loaded dynamically -->
                                 </select>
                             </div>
                             
@@ -367,6 +365,9 @@ handleFacultyManagementPageRequest();
         let entriesPerPage = 20;
         let currentSearch = '';
         let currentFilters = {};
+        let totalEntries = 0;
+        let filteredEntries = [];
+
         let CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'Program Head'; ?>';
         let canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
 
@@ -422,6 +423,27 @@ handleFacultyManagementPageRequest();
             } else {
                 counter.textContent = `${selectedCount} selected`;
             }
+        }
+
+        function updateBulkStatistics(action, count) {
+            const activeCountEl = document.getElementById('activeFaculty');
+            const inactiveCountEl = document.getElementById('inactiveFaculty');
+            const resignedCountEl = document.getElementById('resignedFaculty');
+            
+            let currentActive = parseInt(activeCountEl.textContent.replace(/,/g, '')) || 0;
+            let currentInactive = parseInt(inactiveCountEl.textContent.replace(/,/g, '')) || 0;
+            let currentResigned = parseInt(resignedCountEl.textContent.replace(/,/g, '')) || 0;
+
+            if (action === 'resigned') {
+                currentResigned += count;
+                // Assuming resigned faculty were previously active or inactive
+                // For simplicity, we can decrement from active, but a full refresh is better.
+                currentActive = Math.max(0, currentActive - count); 
+            }
+            
+            activeCountEl.textContent = currentActive.toLocaleString();
+            inactiveCountEl.textContent = currentInactive.toLocaleString();
+            resignedCountEl.textContent = currentResigned.toLocaleString();
         }
 
         function updateBulkButtons() {
@@ -553,37 +575,8 @@ handleFacultyManagementPageRequest();
 
         // Filter functions
         function applyFilters() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const accountStatus = document.getElementById('accountStatusFilter').value;
-            const schoolTerm = document.getElementById('schoolTermFilter').value;
-
-            currentPage = 1; // Reset to first page on new filter/search
-            currentSearch = searchTerm;
+            currentPage = 1;
             fetchFaculty();
-
-            const tableRows = document.querySelectorAll('#facultyTableBody tr'); // This part is now for UI feedback only
-            tableRows.forEach(row => { // The actual filtering is server-side
-                const employmentBadge = row.querySelector('.status-badge.employment-full-time, .status-badge.employment-part-time, .status-badge.employment-contract');
-                const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-completed, .status-badge.clearance-rejected, .status-badge.clearance-in-progress');
-                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
-                
-                let shouldShow = true;
-                
-                // Account status filter
-                if (accountStatus && accountBadge && !accountBadge.classList.contains(`account-${accountStatus}`)) {
-                    shouldShow = false;
-                }
-                
-                // School term filter
-                if (schoolTerm && row.getAttribute('data-term') !== schoolTerm) {
-                    shouldShow = false;
-                }
-                
-                // Show/hide row
-                row.style.display = shouldShow ? '' : 'none';
-            });
-
-            showToastNotification(`Filters applied. Fetching updated data...`, 'info');
         }
 
         // Clear all filters
@@ -597,34 +590,23 @@ handleFacultyManagementPageRequest();
             applyFilters();
         }
 
-
-        function updateStatisticsByTerm() {
-            applyFilters();
-        }
-
-        function initializePagination() { // This function is now a placeholder, server-side pagination is used.
+        function initializePagination() {
             updatePagination();
         }
 
-        // Update pagination display
         function updatePagination() {
             const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
             const startEntry = (currentPage - 1) * entriesPerPage + 1;
-            const endEntry = Math.min(currentPage * entriesPerPage, totalEntries);
+            const endEntry = Math.min(currentPage * entriesPerPage, filteredEntries.length);
             
-            // Update pagination info
             document.getElementById('paginationInfo').textContent = 
-                `Showing ${startEntry} to ${endEntry} of ${totalEntries} entries`;
+                `Showing ${startEntry} to ${endEntry} of ${filteredEntries.length} entries`;
             
-            // Update page numbers
             updatePageNumbers(totalPages);
             
-            // Update navigation buttons
             document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage >= totalPages;
-            
-            // Show current page entries
-            showCurrentPageEntries();
+            document.getElementById('nextPage').disabled = currentPage === totalPages;
+
         }
 
         // Update page number buttons
@@ -690,7 +672,7 @@ handleFacultyManagementPageRequest();
         // Go to specific page
         function goToPage(pageNum) {
             currentPage = pageNum;
-            updatePagination();
+            fetchFaculty();
         }
 
         // Change page (previous/next)
@@ -741,13 +723,17 @@ handleFacultyManagementPageRequest();
 
             const accountStatus = document.getElementById('accountStatusFilter').value;
             const employmentStatus = document.getElementById('employmentStatusFilter').value;
+            const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = currentSearch;
 
-            // Force clearance_status to 'pending' to only show actionable items.
-            let url = `../../api/staff/signatoryList.php?type=faculty&page=${currentPage}&limit=${entriesPerPage}&clearance_status=pending&clearance_status=rejected`;
-            if (search) url += `&search=${encodeURIComponent(search)}`;
-            if (accountStatus) url += `&account_status=${encodeURIComponent(accountStatus)}`;
-            if (employmentStatus) url += `&employment_status=${encodeURIComponent(employmentStatus)}`;
+            const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
+            url.searchParams.append('type', 'Faculty'); 
+            url.searchParams.append('page', currentPage);
+            url.searchParams.append('limit', entriesPerPage);
+
+            if (search) url.searchParams.append('search', search);
+            if (employmentStatus) url.searchParams.append('clearance_status', clearanceStatus);
+            if (accountStatus) url.searchParams.append('account_status', accountStatus);
 
             try {
                 const response = await fetch(url, { credentials: 'include' });
@@ -760,7 +746,7 @@ handleFacultyManagementPageRequest();
 
                 populateFacultyTable(data.faculty);
                 updatePaginationUI(data.total, data.page, data.limit);
-                updateStatistics(data.faculty);
+                updateStatistics(data.stats);
 
             } catch (error) {
                 showEmptyState('A network error occurred.');
@@ -830,6 +816,7 @@ handleFacultyManagementPageRequest();
         function createFacultyRow(faculty) {
             const tr = document.createElement('tr');
             tr.setAttribute('data-faculty-id', faculty.user_id);
+            tr.setAttribute('data-signatory-id', faculty.signatory_id);
             
             const statusRaw = faculty.clearance_status;
             const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
@@ -898,21 +885,11 @@ handleFacultyManagementPageRequest();
             updateStatistics([]);
         }
 
-        function updateStatistics(facultyList) {
-            let total = facultyList.length;
-            let active = 0, inactive = 0, resigned = 0;
-            
-            facultyList.forEach(faculty => {
-                const status = (faculty.account_status || 'inactive').toLowerCase();
-                if (status === 'active') active++;
-                else if (status === 'inactive') inactive++;
-                else if (status === 'resigned') resigned++;
-            });
-            
-            document.getElementById('totalFaculty').textContent = total;
-            document.getElementById('activeFaculty').textContent = active;
-            document.getElementById('inactiveFaculty').textContent = inactive;
-            document.getElementById('resignedFaculty').textContent = resigned;
+        function updateStatistics(stats) {
+            document.getElementById('totalFaculty').textContent = stats.total || 0;
+            document.getElementById('activeFaculty').textContent = stats.active || 0;
+            document.getElementById('inactiveFaculty').textContent = stats.inactive || 0;
+            document.getElementById('resignedFaculty').textContent = stats.resigned || 0;
         }
 
         // Tab navigation functions
@@ -1233,9 +1210,52 @@ handleFacultyManagementPageRequest();
             }
         }
 
+        async function populateFilter(selectId, url, placeholder, valueField = 'value', textField = 'text') {
+            const select = document.getElementById(selectId);
+            try {
+                const response = await fetch(url, { credentials: 'include' });
+                const data = await response.json();
+
+                select.innerHTML = `<option value="">${placeholder}</option>`;
+                if (data.success && data.options) {
+                    data.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = typeof option === 'object' ? option[valueField] : option;
+                        optionElement.textContent = typeof option === 'object' ? option[textField] : option;
+                        select.appendChild(optionElement);
+                    });
+                }
+            } catch (error) {
+                console.error(`Error loading options for ${selectId}:`, error);
+                select.innerHTML = `<option value="">Error loading options</option>`;
+            }
+        }
+
+        async function loadEmploymentStatuses() {
+            const employementStatus = document.getElementById('employmentStatusFilter');
+            employementStatus.innerHTML = '<option value="">Loading Employement Statuses...</option>';
+            const url = new URL('../../api/clearance/get_filter_options.php', window.location.href);
+            url.searchParams.append('type', 'employment_statuses');
+            await populateFilter('employmentStatusFilter', url.toString(), 'All Employment Statuses');
+        }
+
+        async function loadAccountStatuses() {
+            const accountStatus = document.getElementById('accountStatusFilter');
+            accountStatus.innerHTML = '<option value="">Loading Account Statuses...</option>';
+            const url = new URL('../../api/clearance/get_filter_options.php', window.location.href);
+            url.searchParams.append('type', 'enum');
+            url.searchParams.append('table', 'users');
+            url.searchParams.append('column', 'account_status');
+            url.searchParams.append('exclude', 'graduated');
+            await populateFilter('accountStatusFilter', url.toString(), 'All Account Statuses');
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             fetchFaculty();
+
+            loadEmploymentStatuses();
+            loadAccountStatuses();
             loadRejectionReasons();
             loadSchoolTerms();
             loadCurrentStaffDesignation();
@@ -1246,7 +1266,15 @@ handleFacultyManagementPageRequest();
                     updateBulkButtons();
                 }
             });
-            document.getElementById('searchInput').addEventListener('input', debouncedSearch);
+
+
+
+            // Add event listener for search input (Enter key)
+            document.getElementById('searchInput').addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    applyFilters();
+                }
+            });
         });
 
         // Rejection Remarks Modal Functions

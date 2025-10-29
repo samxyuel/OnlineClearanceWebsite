@@ -82,10 +82,13 @@ try {
     $accountStatus = $_GET['account_status'] ?? '';
     $requestSector = $_GET['sector'] ?? ''; // 'College' or 'Senior High School'
     $schoolTerm = $_GET['school_term'] ?? ''; // e.g., "2024-2025|2"
-    // Other filters like program, year level can be added here.
+    $programId = $_GET['program_id'] ?? '';
+    $yearLevel = $_GET['year_level'] ?? '';
+    $departmentId = $_GET['departments'] ?? ''; // Added to handle department filter
+
 
     // 4. Build the query based on type
-    if ($type === 'faculty') {
+    if (strtolower($type) === 'faculty') {
         $select = "
             SELECT SQL_CALC_FOUND_ROWS
                 f.employee_number as id,
@@ -215,6 +218,21 @@ try {
             $params[':yearName'] = $yearName;
             $params[':semesterId'] = $semesterId;
         }
+    }
+
+    if (!empty($programId)) {
+        $where .= " AND p.program_id = :programId";
+        $params[':programId'] = $programId;
+    }
+
+    if (!empty($yearLevel)) {
+        $where .= " AND s.year_level = :yearLevel";
+        $params[':yearLevel'] = $yearLevel;
+    }
+
+    if (!empty($departmentId)) {
+        $where .= " AND s.department_id = :departmentId";
+        $params[':departmentId'] = $departmentId;
     }
 
     // Add sector filtering for students

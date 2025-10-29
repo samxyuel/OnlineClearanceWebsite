@@ -187,13 +187,15 @@ try {
                             
                             <div class="filter-dropdowns">
                                 <!-- Program Filter (Only for assigned departments) -->
-                                <select id="programFilter" class="filter-select" onchange="updateFilterYearLevels()">
-                                    <option value="">All Programs</option> <!-- Options will be loaded dynamically -->
+                                <select id="programFilter" class="filter-select">
+                                    <option value="">All Programs</option> 
+                                    <!-- Options will be loaded dynamically -->
                                 </select>
                                 
                                 <!-- Year Level Filter (Cascading) -->
                                 <select id="yearLevelFilter" class="filter-select">
                                     <option value="">All Year Levels</option>
+                                    <!-- Options will be loaded dynamically -->
                                 </select>
                                 
                                 <!-- Clearance Status Filter -->
@@ -203,7 +205,7 @@ try {
                                 </select>
                                 
                                 <!-- School Term Filter -->
-                                <select id="schoolTermFilter" class="filter-select" onchange="updateStatisticsByTerm()">
+                                <select id="schoolTermFilter" class="filter-select">
                                     <option value="">All School Terms</option>
                                     <!-- Options will be loaded dynamically -->
                                 </select>
@@ -853,36 +855,8 @@ try {
             }
         }
 
-
-
-        // Update year level dropdown based on program selection
-        function updateFilterYearLevels() {
-            const programSelect = document.getElementById('programFilter');
-            const yearSelect = document.getElementById('yearFilter');
-            
-            const selectedProgram = programSelect.value;
-            
-            yearSelect.innerHTML = '<option value="">All Year Levels</option>';
-            
-            if (selectedProgram && selectedProgram !== '') {
-                yearSelect.disabled = false;
-                
-                departmentYearLevels['Information, Communication, and Technology'].forEach(year => {
-                    const option = document.createElement('option');
-                    option.value = year;
-                    option.textContent = year;
-                    yearSelect.appendChild(option);
-                });
-            } else {
-                yearSelect.disabled = true;
-            }
-        }
-
         // Apply filters to the table
         function applyFilters() {
-            // Since filtering is now server-side, we just need to reset to page 1
-            // and reload the data. The loadStudentsData function will automatically
-            // pick up the current filter values from the dropdowns.
             currentPage = 1;
             loadStudentsData();
         }
@@ -891,57 +865,14 @@ try {
         function clearFilters() {
             document.getElementById('searchInput').value = '';
             document.getElementById('programFilter').value = '';
-            document.getElementById('yearFilter').value = '';
+            document.getElementById('yearLevelFilter').value = '';
             document.getElementById('clearanceStatusFilter').value = '';
             document.getElementById('accountStatusFilter').value = '';
             document.getElementById('schoolTermFilter').value = '';
             
-            updateFilterYearLevels();
-            
-            const tableRows = document.querySelectorAll('#studentsTableBody tr');
-            tableRows.forEach(row => {
-                row.style.display = '';
-            });
-            
-            updateFilteredEntries();
-            showToastNotification('All filters cleared', 'info');
-        }
-
-        // Update statistics based on school term selection
-        function updateStatisticsByTerm() {
-            const selectedTerm = document.getElementById('schoolTermFilter').value;
-            const allRows = document.querySelectorAll('#studentsTableBody tr');
-            
-            let activeCount = 0;
-            let inactiveCount = 0;
-            let graduatedCount = 0;
-            let totalCount = 0;
-            
-            allRows.forEach(row => {
-                const rowTerm = row.getAttribute('data-term');
-                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-graduated');
-                
-                if (!selectedTerm || rowTerm === selectedTerm) {
-                    totalCount++;
-                    
-                    if (accountBadge) {
-                        if (accountBadge.classList.contains('account-active')) {
-                            activeCount++;
-                        } else if (accountBadge.classList.contains('account-inactive')) {
-                            inactiveCount++;
-                        } else if (accountBadge.classList.contains('account-graduated')) {
-                            graduatedCount++;
-                        }
-                    }
-                }
-            });
-            
-            document.getElementById('totalStudents').textContent = totalCount;
-            document.getElementById('activeStudents').textContent = activeCount;
-            document.getElementById('inactiveStudents').textContent = inactiveCount;
-            document.getElementById('graduatedStudents').textContent = graduatedCount;
-            
+            // Reload data from server with cleared filters
             applyFilters();
+            showToastNotification('All filters cleared', 'info');
         }
 
         // Pagination variables
@@ -950,15 +881,6 @@ try {
         let totalEntries = 0;
         let filteredEntries = [];
 
-        // Initialize pagination
-        function initializePagination() {
-            const allRows = document.querySelectorAll('#studentsTableBody tr');
-            totalEntries = allRows.length;
-            filteredEntries = Array.from(allRows);
-            updatePagination();
-        }
-
-        // Update pagination display
         function updatePagination() {
             const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
             const startEntry = (currentPage - 1) * entriesPerPage + 1;
@@ -971,11 +893,9 @@ try {
             
             document.getElementById('prevPage').disabled = currentPage === 1;
             document.getElementById('nextPage').disabled = currentPage === totalPages;
-            
-            showCurrentPageEntries();
+
         }
 
-        // Update page number buttons
         function updatePageNumbers(totalPages) {
             const pageNumbersContainer = document.getElementById('pageNumbers');
             pageNumbersContainer.innerHTML = '';
@@ -1009,13 +929,59 @@ try {
             }
         }
 
-        // Add page button
+        // Initialize pagination
+        function initializePagination() {
+            const allRows = document.querySelectorAll('#studentsTableBody tr');
+            totalEntries = allRows.length;
+            filteredEntries = Array.from(allRows);
+            updatePagination();
+        }
+
+        function updatePaginationUI(total, page, limit) {
+            totalEntries = total;
+            currentPage = page;
+            entriesPerPage = limit;
+            const totalPages = Math.ceil(total / limit);
+            const startEntry = total === 0 ? 0 : (page - 1) * limit + 1;
+            const endEntry = Math.min(page * limit, total);
+
+            document.getElementById('paginationInfo').textContent = `Showing ${startEntry} to ${endEntry} of ${total} entries`;
+
+            const pageNumbersContainer = document.getElementById('pageNumbers');
+            pageNumbersContainer.innerHTML = '';
+
+            if (totalPages <= 7) {
+                for (let i = 1; i <= totalPages; i++) addPageButton(i, i === page);
+            } else {
+                if (page <= 4) {
+                    for (let i = 1; i <= 5; i++) addPageButton(i, i === page);
+                    addEllipsis();
+                    addPageButton(totalPages, false);
+                } else if (page >= totalPages - 3) {
+                    addPageButton(1, false);
+                    addEllipsis();
+                    for (let i = totalPages - 4; i <= totalPages; i++) addPageButton(i, i === page);
+                } else {
+                    addPageButton(1, false);
+                    addEllipsis();
+                    for (let i = page - 1; i <= page + 1; i++) addPageButton(i, i === page);
+                    addEllipsis();
+                    addPageButton(totalPages, false);
+                }
+            }
+
+            document.getElementById('prevPage').disabled = page === 1;
+            document.getElementById('nextPage').disabled = page >= totalPages;
+        }
+
         function addPageButton(pageNum, isActive) {
             const pageNumbersContainer = document.getElementById('pageNumbers');
             const button = document.createElement('button');
             button.className = `pagination-btn ${isActive ? 'active' : ''}`;
             button.textContent = pageNum;
-            button.onclick = () => goToPage(pageNum);
+            button.onclick = () => {
+                goToPage(pageNum);
+            };
             pageNumbersContainer.appendChild(button);
         }
 
@@ -1033,20 +999,17 @@ try {
         // Go to specific page
         function goToPage(pageNum) {
             currentPage = pageNum;
-            updatePagination();
+            loadStudentsData();
         }
 
         // Change page (previous/next)
         function changePage(direction) {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            
             if (direction === 'prev' && currentPage > 1) {
                 currentPage--;
-            } else if (direction === 'next' && currentPage < totalPages) {
+            } else if (direction === 'next') {
                 currentPage++;
             }
-            
-            updatePagination();
+            loadStudentsData();
         }
 
         // Change entries per page
@@ -1054,28 +1017,9 @@ try {
             const newEntriesPerPage = parseInt(document.getElementById('entriesPerPage').value);
             entriesPerPage = newEntriesPerPage;
             currentPage = 1;
-            updatePagination();
+            loadStudentsData();
         }
-
-        // Show current page entries
-        function showCurrentPageEntries() {
-            const startIndex = (currentPage - 1) * entriesPerPage;
-            const endIndex = startIndex + entriesPerPage;
-            
-            filteredEntries.forEach(row => {
-                row.style.display = 'none';
-            });
-            
-            for (let i = startIndex; i < endIndex && i < filteredEntries.length; i++) {
-                filteredEntries[i].style.display = '';
-            }
-            
-            const tableWrapper = document.querySelector('.students-table-wrapper');
-            if (tableWrapper) {
-                tableWrapper.scrollTop = 0;
-            }
-        }
-
+        
         // Update filtered entries when filters are applied
         function updateFilteredEntries() {
             const visibleRows = document.querySelectorAll('#studentsTableBody tr:not([style*="display: none"])');
@@ -1398,11 +1342,11 @@ try {
             const programId = document.getElementById('programFilter').value;
             const yearLevel = document.getElementById('yearLevelFilter').value;
             const schoolTerm = document.getElementById('schoolTermFilter').value;
+
             // Program Head for College is a specific case of a signatory list.
-            // We use the central signatoryList API.
             const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
-            url.searchParams.append('type', 'student'); // We are fetching students
-            url.searchParams.append('sector', 'College'); // Specifically for the College sector
+            url.searchParams.append('type', 'student'); 
+            url.searchParams.append('sector', 'College');
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
 
