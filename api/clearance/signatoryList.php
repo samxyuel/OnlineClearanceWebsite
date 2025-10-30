@@ -24,14 +24,33 @@ try {
     $pdo = Database::getInstance()->getConnection();
 
     // 1. Get the staff member's designation ID
-    $staffStmt = $pdo->prepare("SELECT designation_id FROM staff WHERE user_id = ? AND is_active = 1");
+    $staffStmt = $pdo->prepare("
+        SELECT s.designation_id, d.designation_name 
+        FROM staff s
+        JOIN designations d ON s.designation_id = d.designation_id
+        WHERE s.user_id = ? AND s.is_active = 1
+    ");
     $staffStmt->execute([$userId]);
-    $designationId = $staffStmt->fetchColumn();
+    $staffInfo = $staffStmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$designationId) {
+    if (!$staffInfo) {
         http_response_code(403);
         echo json_encode(['success' => false, 'message' => 'Access Denied: You are not an active staff member with a designation.']);
         exit;
+    }
+    $designationId = $staffInfo['designation_id'];
+    $designationName = $staffInfo['designation_name'];
+
+    // Check if the user is a Program Head to apply special scoping
+    $isProgramHead = (strcasecmp($designationName, 'Program Head') === 0);
+    $programHeadDepartments = [];
+    $isShsProgramHead = false;
+
+    if ($isProgramHead) {
+        // Get departments assigned to this Program Head
+        $phDeptsStmt = $pdo->prepare("SELECT sa.department_id, s.sector_name FROM sector_signatory_assignments sa JOIN departments d ON sa.department_id = d.department_id JOIN sectors s ON d.sector_id = s.sector_id WHERE sa.user_id = ? AND sa.designation_id = ? AND sa.is_active = 1");
+        $phDeptsStmt->execute([$userId, $designationId]);
+        $programHeadDepartments = $phDeptsStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     // 2. Get the active clearance period for the relevant sector
@@ -58,13 +77,18 @@ try {
     $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
     $limit = isset($_GET['limit']) ? max(1, (int)$_GET['limit']) : 20;
     $offset = ($page - 1) * $limit;
-    $search = $_GET['search'] ?? '';
+    $search = trim($_GET['search'] ?? '');
     $clearanceStatus = $_GET['clearance_status'] ?? '';
     $accountStatus = $_GET['account_status'] ?? '';
-    // Other filters like program, year level can be added here.
+    $requestSector = $_GET['sector'] ?? ''; // 'College' or 'Senior High School'
+    $schoolTerm = $_GET['school_term'] ?? ''; // e.g., "2024-2025|2"
+    $programId = $_GET['program_id'] ?? '';
+    $yearLevel = $_GET['year_level'] ?? '';
+    $departmentId = $_GET['departments'] ?? ''; // Added to handle department filter
+
 
     // 4. Build the query based on type
-    if ($type === 'faculty') {
+    if (strtolower($type) === 'faculty') {
         $select = "
             SELECT SQL_CALC_FOUND_ROWS
                 f.employee_number as id,
@@ -123,28 +147,99 @@ try {
     $where = "WHERE 1=1"; // The JOINs already filter by designation, but we can add sector check for robustness if needed.
     $params = [':designationId' => $designationId];
 
+    // Apply department scoping for Program Heads
+    if ($isProgramHead && !empty($programHeadDepartments)) {
+        $deptIds = array_column($programHeadDepartments, 'department_id');
+        $isShsProgramHead = in_array('Senior High School', array_column($programHeadDepartments, 'sector_name'));
+
+        // Special case for SHS Program Head: if they manage an SHS dept, they see all SHS students.
+        if ($type === 'student' && $requestSector === 'Senior High School' && $isShsProgramHead) {
+            // The `s.sector = :requestSector` filter below will handle this. No extra department scoping needed.
+        } else {
+            if (!empty($deptIds)) {
+                $deptPlaceholders = [];
+                foreach ($deptIds as $i => $id) {
+                    $key = ":dept_id_$i";
+                    $deptPlaceholders[] = $key;
+                    $params[$key] = $id;
+                }
+                $inClause = implode(',', $deptPlaceholders);
+
+                $deptColumn = ($type === 'faculty') ? 'f.department_id' : 'p.department_id';
+                $where .= " AND $deptColumn IN ($inClause)";
+            }
+        }
+    }
+
     // Apply filters
     if (!empty($search)) {
+        $searchTerms = explode(' ', $search);
         $searchClauses = [];
+        $termIndex = 0;
+
+        // Special handling for full name search
+        $searchClauses[] = "CONCAT(u.first_name, ' ', u.last_name) LIKE :searchFullName";
+        $params[':searchFullName'] = "%$search%";
+
+        // Add individual field searches
         foreach ($searchFields as $field) {
-            $searchClauses[] = "$field LIKE :search";
+            // Avoid duplicating name search
+            if ($field !== 'u.first_name' && $field !== 'u.last_name') {
+                $searchClauses[] = "$field LIKE :search" . $termIndex;
+                $params[":search" . $termIndex] = "%$search%";
+                $termIndex++;
+            }
         }
         $where .= " AND (" . implode(' OR ', $searchClauses) . ")";
-        $params[':search'] = "%$search%";
     }
 
     if (!empty($clearanceStatus) && $clearanceStatus !== 'all') {
-        // A specific status is requested.
-        $where .= " AND COALESCE(cs.action, 'unapplied') = :clearanceStatus";
+        $where .= " AND COALESCE(cs.action, 'Unapplied') = :clearanceStatus";
         $params[':clearanceStatus'] = $clearanceStatus;
     } else {
-        // By default, show actionable items (not 'unapplied')
-        $where .= " AND COALESCE(cs.action, 'unapplied') != 'unapplied'";
+        // By default, show actionable items (not 'Unapplied')
+        // This logic can be adjusted based on requirements. For now, showing all.
+        // $where .= " AND COALESCE(cs.action, 'Unapplied') != 'Unapplied'";
     }
 
     if (!empty($accountStatus)) {
-        $where .= " AND u.status = :accountStatus";
+        $where .= " AND u.account_status = :accountStatus";
         $params[':accountStatus'] = $accountStatus;
+    }
+
+    if (!empty($schoolTerm)) {
+        $termParts = explode('|', $schoolTerm);
+        if (count($termParts) === 2) {
+            $yearName = $termParts[0];
+            $semesterId = $termParts[1];
+            
+            $where .= " AND cp.academic_year_id = (SELECT academic_year_id FROM academic_years WHERE year = :yearName LIMIT 1)";
+            $where .= " AND cp.semester_id = :semesterId";
+            $params[':yearName'] = $yearName;
+            $params[':semesterId'] = $semesterId;
+        }
+    }
+
+    if (!empty($programId)) {
+        $where .= " AND p.program_id = :programId";
+        $params[':programId'] = $programId;
+    }
+
+    if (!empty($yearLevel)) {
+        $where .= " AND s.year_level = :yearLevel";
+        $params[':yearLevel'] = $yearLevel;
+    }
+
+    if (!empty($departmentId)) {
+        $where .= " AND s.department_id = :departmentId";
+        $params[':departmentId'] = $departmentId;
+    }
+
+    // Add sector filtering for students
+    if ($type === 'student' && !empty($requestSector)) {
+        // Assuming 'students' table has a 'sector' column ('College' or 'Senior High School')
+        $where .= " AND s.sector = :requestSector";
+        $params[':requestSector'] = $requestSector;
     }
 
     $orderBy = " ORDER BY u.last_name, u.first_name";
@@ -163,6 +258,20 @@ try {
     // Get total count for pagination
     $total = $pdo->query("SELECT FOUND_ROWS()")->fetchColumn();
 
+    // 5. Get statistics
+    $statsQuery = "SELECT u.account_status, COUNT(*) as count FROM users u JOIN students s ON u.user_id = s.user_id WHERE s.sector = :requestSector GROUP BY u.account_status";
+    $statsStmt = $pdo->prepare($statsQuery);
+    $statsStmt->execute([':requestSector' => $requestSector]);
+    $statsResults = $statsStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    $stats = [
+        'total' => array_sum($statsResults),
+        'active' => $statsResults['active'] ?? 0,
+        'inactive' => $statsResults['inactive'] ?? 0,
+        'graduated' => $statsResults['graduated'] ?? 0, // Assuming 'graduated' is a possible status
+    ];
+
+
     // 5. Format and return the response
     $responseKey = ($type === 'faculty') ? 'faculty' : 'students';
     $response = [
@@ -170,6 +279,7 @@ try {
         'total' => (int)$total,
         'page' => $page,
         'limit' => $limit,
+        'stats' => $stats,
         $responseKey => array_map(function ($item) {
             return [
                 'id' => $item['id'],
@@ -179,7 +289,7 @@ try {
                 'year_level' => $item['year_level'], // For faculty, this is employment_status
                 'section' => $item['section'],
                 'account_status' => $item['account_status'],
-                'clearance_status' => $item['clearance_status'] ?? 'unapplied',
+                'clearance_status' => $item['clearance_status'] ?? 'Unapplied',
                 'clearance_form_id' => $item['clearance_form_id'],
                 'signatory_id' => $item['signatory_id']
             ];

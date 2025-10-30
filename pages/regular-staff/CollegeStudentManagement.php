@@ -1,7 +1,7 @@
 <?php
 // Online Clearance Website - Regular Staff College Student Management
 
-// Permission-based access control: Regular Staff can always view student data
+// Include necessary files for authentication and database connection
 require_once __DIR__ . '/../../includes/config/database.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
 
@@ -14,45 +14,25 @@ $userId = (int)$auth->getUserId();
 
 try {
     $pdo = Database::getInstance()->getConnection();
-    
-    // Check if user is a staff member (more robust check)
-    $staffCheck = $pdo->prepare("
-        SELECT COUNT(*) 
-        FROM staff s 
-        WHERE s.user_id = ? AND s.is_active = 1
-    ");
-    $staffCheck->execute([$userId]);
-    $isStaff = (int)$staffCheck->fetchColumn() > 0;
-    
-    // If not staff, check if user has any role that should have access
-    if (!$isStaff) {
-        $roleCheck = $pdo->prepare("
-            SELECT r.role_name 
-            FROM users u 
-            JOIN user_roles ur ON u.user_id = ur.user_id 
-            JOIN roles r ON ur.role_id = r.role_id 
-            WHERE u.user_id = ? AND r.role_name IN ('Admin', 'Program Head', 'School Administrator')
-        ");
-        $roleCheck->execute([$userId]);
-        $hasAdminRole = $roleCheck->fetchColumn();
-        
-        // TEMPORARILY DISABLED FOR TESTING - ALLOW ANY LOGGED IN USER
-        // if (!$hasAdminRole) {
-        //     header('HTTP/1.1 403 Forbidden'); 
-        //     echo 'Access denied. Regular staff access required.'; 
-        //     exit; 
-        // }
+
+    // 1. Get the staff member's designation ID
+    $staffDesignationStmt = $pdo->prepare("SELECT designation_id FROM staff WHERE user_id = ? AND is_active = 1");
+    $staffDesignationStmt->execute([$userId]);
+    $designationId = $staffDesignationStmt->fetchColumn();
+
+    // Check permission flags (for conditional UI behavior)
+    $hasActivePeriod = (int)$pdo->query("SELECT COUNT(*) FROM clearance_periods WHERE status = 'Ongoing' AND sector = 'College'")->fetchColumn() > 0;
+
+    $hasStudentSignatoryAccess = false;
+    if ($designationId) {
+        // 2. Check if this designation is assigned to sign for 'College' students
+        $studentSignatoryCheck = $pdo->prepare("SELECT COUNT(*) FROM sector_signatory_assignments WHERE designation_id = ? AND clearance_type = 'College' AND is_active = 1");
+        $studentSignatoryCheck->execute([$designationId]);
+        $hasStudentSignatoryAccess = (int)$studentSignatoryCheck->fetchColumn() > 0;
     }
     
-    // Check permission flags (for conditional UI behavior)
-    $hasActivePeriod = (int)$pdo->query("SELECT COUNT(*) FROM clearance_periods WHERE is_active=1")->fetchColumn() > 0;
-    
-    $studentSignatoryCheck = $pdo->prepare("SELECT COUNT(*) FROM signatory_assignments sa JOIN designations d ON sa.designation_id=d.designation_id WHERE sa.user_id=? AND sa.clearance_type='student' AND sa.is_active=1");
-    $studentSignatoryCheck->execute([$userId]);
-    $hasStudentSignatoryAccess = (int)$studentSignatoryCheck->fetchColumn() > 0;
-    
     $canPerformSignatoryActions = $hasActivePeriod && $hasStudentSignatoryAccess;
-    
+
     // Store permission flags for use in the page
     $GLOBALS['hasActivePeriod'] = $hasActivePeriod;
     $GLOBALS['hasStudentSignatoryAccess'] = $hasStudentSignatoryAccess;
@@ -68,7 +48,7 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">    
     <title>College Student Management - Staff Dashboard</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
@@ -170,12 +150,34 @@ try {
                     <div class="content-wrapper">
                         <!-- Page Header -->
                         <div class="page-header">
-                            <h2><i class="fas fa-university"></i> College Student Management</h2>
-                            <p>Review and sign college student clearance requests as a staff signatory</p>
+                            <h2><i class="fas fa-user-graduate"></i> College Student Management</h2>
+                            <p>Review and sign student clearance requests for the College sector.</p>
                             <div class="department-scope-info">
-                                <i class="fas fa-user-shield"></i>
-                                <span>Scope: College Students Only</span>
+                                <i class="fas fa-user-shield"></i>                                
+                                <span id="positionInfo">Loading position...</span>
                             </div>
+
+                            <!-- Permission Status Alerts -->
+                            <?php if (!$GLOBALS['hasActivePeriod']): ?>
+                            <div class="alert alert-warning" style="margin-top: 10px;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>No Active Clearance Period for College:</strong> You can view student data but cannot perform signatory actions until a clearance period is activated for the College sector.
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if (!$GLOBALS['hasStudentSignatoryAccess']): ?>
+                            <div class="alert alert-info" style="margin-top: 10px;">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>View-Only Access:</strong> You can view student data but are not currently assigned as a signatory for the College sector.
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if ($GLOBALS['canPerformSignatoryActions']): ?>
+                            <div class="alert alert-success" style="margin-top: 10px;">
+                                <i class="fas fa-check-circle"></i>
+                                <strong>Signatory Actions Available:</strong> You can approve and reject student clearance requests for the College sector.
+                            </div>
+                            <?php endif; ?>
                         </div>
 
                         <!-- Statistics Dashboard -->
@@ -185,7 +187,7 @@ try {
                                     <i class="fas fa-users"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="totalStudents">1,234</h3>
+                                    <h3 id="totalStudents">0</h3>
                                     <p>Total Students</p>
                                 </div>
                             </div>
@@ -194,7 +196,7 @@ try {
                                     <i class="fas fa-user-check"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="activeStudents">1,156</h3>
+                                    <h3 id="activeStudents">0</h3>
                                     <p>Active</p>
                                 </div>
                             </div>
@@ -203,7 +205,7 @@ try {
                                     <i class="fas fa-user-times"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="inactiveStudents">78</h3>
+                                    <h3 id="inactiveStudents">0</h3>
                                     <p>Inactive</p>
                                 </div>
                             </div>
@@ -212,7 +214,7 @@ try {
                                     <i class="fas fa-graduation-cap"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="graduatedStudents">156</h3>
+                                    <h3 id="graduatedStudents">0</h3>
                                     <p>Graduated</p>
                                 </div>
                             </div>
@@ -255,38 +257,28 @@ try {
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
-                                <i class="fas fa-search"></i>
-                                <input type="text" id="searchInput" placeholder="Search students by name, ID, or department...">
+                                <i class="fas fa-search" style="pointer-events: none;"></i>
+                                <input type="text" id="searchInput" placeholder="Search students by name, ID, or program..." onchange="">
                             </div>
                             
                             <div class="filter-dropdowns">
                                 <!-- Clearance Status Filter -->
-                                <select id="clearanceStatusFilter" class="filter-select">
+                                <!-- Add this inside onchange="applyFilters()" for selection based changes-->
+                                <select id="clearanceStatusFilter" class="filter-select" >
                                     <option value="">All Clearance Status</option>
-                                    <option value="unapplied">Unapplied</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="in-progress">In Progress</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="rejected">Rejected</option>
+                                    <option value="">Loading...</option>
                                 </select>
                                 
                                 <!-- School Term Filter -->
-                                <select id="schoolTermFilter" class="filter-select" onchange="updateStatisticsByTerm()">
+                                <select id="schoolTermFilter" class="filter-select">
                                     <option value="">All School Terms</option>
-                                    <option value="2024-2025-1st">2024-2025 1st Semester</option>
-                                    <option value="2024-2025-2nd">2024-2025 2nd Semester</option>
-                                    <option value="2024-2025-summer">2024-2025 Summer</option>
-                                    <option value="2023-2024-1st">2023-2024 1st Semester</option>
-                                    <option value="2023-2024-2nd">2023-2024 2nd Semester</option>
-                                    <option value="2023-2024-summer">2023-2024 Summer</option>
+                                    <option value="">Loading...</option>
                                 </select>
                                 
                                 <!-- Account Status Filter -->
                                 <select id="accountStatusFilter" class="filter-select">
                                     <option value="">All Account Status</option>
-                                    <option value="active">Active Only</option>
-                                    <option value="inactive">Inactive Only</option>
-                                    <option value="graduated">Graduated Only</option>
+                                    <option value="">Loading...</option>
                                 </select>
                             </div>
                             
@@ -348,89 +340,7 @@ try {
                                                 <th>Actions</th>
                                             </tr>
                                         </thead>
-                                        <tbody id="studentTableBody">
-                                            <!-- Sample data -->
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288322"></td>
-                                                <td>02000288322</td>
-                                                <td>Zinzu Chan Lee</td>
-                                                <td>BSIT</td>
-                                                <td>4th Year</td>
-                                                <td>4/1-1</td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-pending">Pending</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288322')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288322')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288323"></td>
-                                                <td>02000288323</td>
-                                                <td>John Doe</td>
-                                                <td>BSBA</td>
-                                                <td>3rd Year</td>
-                                                <td>3/1-2</td>
-                                                <td><span class="status-badge account-inactive">Inactive</span></td>
-                                                <td><span class="status-badge clearance-unapplied">Unapplied</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288323')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288323')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-1st">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288324"></td>
-                                                <td>02000288324</td>
-                                                <td>Maria Garcia</td>
-                                                <td>BSE</td>
-                                                <td>2nd Year</td>
-                                                <td>2/1-1</td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-completed">Completed</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288324')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288324')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            <tr data-term="2024-2025-2nd">
-                                                <td><input type="checkbox" class="student-checkbox" data-id="02000288330"></td>
-                                                <td>02000288330</td>
-                                                <td>Carlos Rodriguez</td>
-                                                <td>BSCE</td>
-                                                <td>1st Year</td>
-                                                <td>1/1-3</td>
-                                                <td><span class="status-badge account-active">Active</span></td>
-                                                <td><span class="status-badge clearance-in-progress">In Progress</span></td>
-                                                <td>
-                                                    <div class="action-buttons">
-                                                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('02000288330')" title="Approve Clearance">
-                                                            <i class="fas fa-check"></i>
-                                                        </button>
-                                                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('02000288330')" title="Reject Clearance">
-                                                            <i class="fas fa-times"></i>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        </tbody>
+                                        <tbody id="studentTableBody"></tbody>
                                     </table>
                                 </div>
                             </div>
@@ -438,7 +348,7 @@ try {
 
                         <!-- Pagination Section -->
                         <div class="pagination-section">
-                            <div class="pagination-info">
+                            <div class="pagination-info">                                
                                 <span id="paginationInfo">Showing 1 to 4 of 4 entries</span>
                             </div>
                             <div class="pagination-controls">
@@ -566,15 +476,7 @@ try {
                 <div class="remarks-section">
                     <div class="form-group">
                         <label for="rejectionReason">Reason for Rejection:</label>
-                        <select id="rejectionReason" class="form-control" onchange="handleReasonChange()">
-                            <option value="">Select a reason...</option>
-                            <option value="incomplete_documents">Incomplete Documents</option>
-                            <option value="unpaid_fees">Unpaid Fees</option>
-                            <option value="academic_requirements">Academic Requirements Not Met</option>
-                            <option value="disciplinary_issues">Disciplinary Issues</option>
-                            <option value="missing_clearance">Missing Clearance Items</option>
-                            <option value="other">Other (Please specify below)</option>
-                        </select>
+                        <select id="rejectionReason" class="form-control" onchange="handleReasonChange()"><option value="">Loading reasons...</option></select>
                     </div>
                     
                     <div class="form-group">
@@ -594,7 +496,13 @@ try {
     <script src="../../assets/js/activity-tracker.js"></script>
     <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
+        // --- State Management ---
+        let currentPage = 1;
+        let entriesPerPage = 20;
+        let currentSearch = '';
+        let currentFilters = {};
         const CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'Staff'; ?>';
+
         // Toggle sidebar
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
@@ -745,7 +653,7 @@ try {
             
             if (selectedCount === 0) {
                 counter.textContent = '0 selected';
-            } else if (selectedCount === totalCount) {
+            } else if (selectedCount > 0 && selectedCount === totalCount) {
                 counter.textContent = `All ${totalCount} selected`;
             } else {
                 counter.textContent = `${selectedCount} selected`;
@@ -756,8 +664,21 @@ try {
             const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
             const bulkButtons = document.querySelectorAll('.bulk-buttons button');
             
+            // Check if signatory actions are allowed from PHP
+            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
+
             bulkButtons.forEach(button => {
-                button.disabled = checkedBoxes.length === 0;
+                // Disable if no selections OR if signatory actions are not allowed
+                button.disabled = checkedBoxes.length === 0 || !canPerformActions;
+
+                // Add tooltip for disabled state due to permissions
+                if (!canPerformActions && checkedBoxes.length > 0) {
+                    button.title = 'Cannot perform action: ' + ('<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a student signatory."; ?>');
+                } else if (checkedBoxes.length === 0) {
+                    button.title = 'Select students to perform actions';
+                } else {
+                    button.title = '';
+                }
             });
             
             updateSelectionCounter();
@@ -785,11 +706,11 @@ try {
                         if (clearanceBadge) {
                             clearanceBadge.textContent = 'Completed';
                             clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
-                            clearanceBadge.classList.add('clearance-completed');
+                            clearanceBadge.classList.add('clearance-approved');
                         }
                         // server-side record
                         try {
-                            const sid = checkbox.getAttribute('data-id');
+                            const sid = checkbox.getAttribute('data-id'); // This is student number
                             const uid = await resolveUserIdFromStudentNumber(sid);
                             if (uid) { await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Approved'); }
                         } catch (e) {}
@@ -824,8 +745,15 @@ try {
         async function approveStudentClearance(studentId) {
             const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
             const studentName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
+            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
             
+            // Check if signatory actions are allowed
+            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
+            if (!canPerformActions) {
+                showToastNotification('You do not have permission to perform this action.', 'warning');
+                return;
+            }
+
             if (!clearanceBadge) {
                 showToastNotification('No clearance to approve', 'warning');
                 return;
@@ -837,13 +765,21 @@ try {
                 'Approve',
                 'Cancel',
                 async () => {
-                    clearanceBadge.textContent = 'Completed';
-                    clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
-                    clearanceBadge.classList.add('clearance-completed');
                     try {
                         const uid = await resolveUserIdFromStudentNumber(studentId);
-                        if (uid) { await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Approved'); }
-                    } catch (e) {}
+                        if (uid) {
+                            const result = await sendSignatoryAction(uid, 'Approved', 'Approved by Staff');
+                            if (result.success) {
+                                showToastNotification('Student clearance approved successfully', 'success');
+                                fetchStudents(); // Refresh the table to update button states
+                            } else {
+                                showToastNotification('Failed to approve: ' + (result.message || 'Unknown error'), 'error');
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Error during individual approval:", e);
+                        showToastNotification('An error occurred during approval.', 'error');
+                    }
                     showToastNotification('Student clearance approved successfully', 'success');
                 },
                 'success'
@@ -851,12 +787,19 @@ try {
         }
 
         function rejectStudentClearance(studentId) {
+            // Check if signatory actions are allowed
+            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
+            if (!canPerformActions) {
+                showToastNotification('You do not have permission to perform this action.', 'warning');
+                return;
+            }
+            
             const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
             const studentName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-completed');
+            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
             
             if (!clearanceBadge) {
-                showToastNotification('No clearance to reject', 'warning');
+                showToastNotification('Invalid clearance status to reject', 'warning');
                 return;
             }
             
@@ -864,50 +807,130 @@ try {
             openRejectionRemarksModal(studentId, studentName, 'student', false);
         }
 
-        // Filter functions
-        function applyFilters() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        // --- Data Fetching and Rendering ---
+        async function fetchStudents() {
+            const tableBody = document.getElementById('studentTableBody');
+            tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">Loading students...</td></tr>`;
+
             const clearanceStatus = document.getElementById('clearanceStatusFilter').value;
             const accountStatus = document.getElementById('accountStatusFilter').value;
             const schoolTerm = document.getElementById('schoolTermFilter').value;
+            const search = document.getElementById('searchInput').value;
+
+            const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
+
+            // Base parameters
+            url.searchParams.append('sector', 'College');
+            url.searchParams.append('page', currentPage);
+            url.searchParams.append('limit', entriesPerPage);
+
+            // Optional filters
+            if (search) url.searchParams.append('search', search);
+            if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
+            if (accountStatus) url.searchParams.append('account_status', accountStatus);
+            if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+
+            try {
+                const response = await fetch(url.toString(), { credentials: 'include' });
+                const data = await response.json();
+
+                if (!data.success) {
+                    tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
+                    return;
+                }
+
+                renderStudentTable(data.students);
+                renderPagination(data.total, data.page, data.limit);
+                updateStatistics(data.stats);
+
+            } catch (error) {
+                tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:red;">A network error occurred.</td></tr>`;
+                console.error("Fetch error:", error);
+            }
+        }
+
+        function renderStudentTable(students) {
+            const tableBody = document.getElementById('studentTableBody');
+            if (students.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">No students found matching your criteria.</td></tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = students.map(student => {
+                const clearanceStatusClass = `clearance-${student.clearance_status.toLowerCase().replace(' ', '-')}`;
+                const accountStatusClass = `account-${(student.account_status || '').toLowerCase()}`;
+
+                const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
+                // Enable approve button for 'Pending' and 'Rejected' statuses.
+                let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(student.clearance_status);
+                // Enable reject button for 'Pending' and 'Rejected' statuses to allow for edits.
+                let rejectBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(student.clearance_status);
+                let approveTitle = 'Approve Clearance';
+                // Change button title if the student is already rejected.
+                let rejectTitle = student.clearance_status === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Clearance';
+                if (!canPerformActions) {
+                    approveTitle = rejectTitle = '<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a student signatory."; ?>';
+                }
+
+                return `
+                    <tr data-signatory-id="${student.signatory_id}">
+                        <td><input type="checkbox" class="student-checkbox" data-id="${student.id}"></td>
+                        <td>${student.id}</td>
+                        <td>${escapeHtml(student.name)}</td>
+                        <td>${escapeHtml(student.program)}</td>
+                        <td>${escapeHtml(student.year_level)}</td>
+                        <td>${escapeHtml(student.section)}</td>
+                        <td><span class="status-badge ${accountStatusClass}">${escapeHtml(student.account_status || 'N/A')}</span></td>
+                        <td><span class="status-badge ${clearanceStatusClass}">${escapeHtml(student.clearance_status || 'N/A')}</span></td>
+                        <td>
+                            <div class="action-buttons">
+                                <button class="btn-icon approve-btn" onclick="approveStudentClearance('${student.id}')" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="btn-icon reject-btn" onclick="rejectStudentClearance('${student.id}')" title="${rejectTitle}" ${rejectBtnDisabled ? 'disabled' : ''}>
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderPagination(total, page, limit) {
+            const totalPages = Math.ceil(total / limit);
+            const startEntry = (page - 1) * limit + 1;
+            const endEntry = Math.min(page * limit, total);
+
+            document.getElementById('paginationInfo').textContent = `Showing ${total > 0 ? startEntry : 0} to ${endEntry} of ${total} entries`;
             
-            const tableRows = document.querySelectorAll('#studentTableBody tr');
-            let visibleCount = 0;
-            
-            tableRows.forEach(row => {
-                const studentName = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
-                const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-completed, .status-badge.clearance-rejected, .status-badge.clearance-in-progress');
-                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-graduated');
-                
-                let shouldShow = true;
-                
-                // Search filter
-                if (searchTerm && !studentName.includes(searchTerm)) {
-                    shouldShow = false;
-                }
-                
-                // Clearance status filter
-                if (clearanceStatus && clearanceBadge && !clearanceBadge.classList.contains(`clearance-${clearanceStatus}`)) {
-                    shouldShow = false;
-                }
-                
-                // Account status filter
-                if (accountStatus && accountBadge && !accountBadge.classList.contains(`account-${accountStatus}`)) {
-                    shouldShow = false;
-                }
-                
-                // School term filter
-                if (schoolTerm && row.getAttribute('data-term') !== schoolTerm) {
-                    shouldShow = false;
-                }
-                
-                // Show/hide row
-                row.style.display = shouldShow ? '' : 'none';
-                if (shouldShow) visibleCount++;
-            });
-            
-            updateFilteredEntries();
-            showToastNotification(`Showing ${visibleCount} of ${tableRows.length} students`, 'info');
+            const pageNumbersContainer = document.getElementById('pageNumbers');
+            pageNumbersContainer.innerHTML = ''; // Clear old page numbers
+
+            // Simplified pagination buttons for this example
+            for (let i = 1; i <= totalPages; i++) {
+                const button = document.createElement('button');
+                button.className = `pagination-btn ${i === page ? 'active' : ''}`;
+                button.textContent = i;                button.onclick = () => goToPage(i);
+                pageNumbersContainer.appendChild(button);
+            }
+
+            document.getElementById('prevPage').disabled = page === 1;
+            document.getElementById('nextPage').disabled = page === totalPages;
+        }
+
+        function updateStatistics(stats) {
+            if (!stats) return;
+            document.getElementById('totalStudents').textContent = stats.total || 0;
+            document.getElementById('activeStudents').textContent = stats.active || 0;
+            document.getElementById('inactiveStudents').textContent = stats.inactive || 0;
+            document.getElementById('graduatedStudents').textContent = stats.graduated || 0;
+        }
+
+        // Filter functions
+        function applyFilters() {
+            currentPage = 1; // Reset to first page on new filter/search
+            fetchStudents();
         }
 
         function clearFilters() {
@@ -915,141 +938,30 @@ try {
             document.getElementById('clearanceStatusFilter').value = '';
             document.getElementById('accountStatusFilter').value = '';
             document.getElementById('schoolTermFilter').value = '';
-            
-            const tableRows = document.querySelectorAll('#studentTableBody tr');
-            tableRows.forEach(row => {
-                row.style.display = '';
-            });
-            
-            updateFilteredEntries();
+            fetchStudents();
             showToastNotification('All filters cleared', 'info');
         }
 
-        function updateStatisticsByTerm() {
-            applyFilters();
-        }
-
-        // Pagination functions
-        let currentPage = 1;
-        let entriesPerPage = 20;
-        let filteredEntries = [];
-
-        function initializePagination() {
-            const allRows = document.querySelectorAll('#studentTableBody tr');
-            filteredEntries = Array.from(allRows);
-            updatePagination();
-        }
-
-        function updatePagination() {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            const startEntry = (currentPage - 1) * entriesPerPage + 1;
-            const endEntry = Math.min(currentPage * entriesPerPage, filteredEntries.length);
-            
-            document.getElementById('paginationInfo').textContent = 
-                `Showing ${startEntry} to ${endEntry} of ${filteredEntries.length} entries`;
-            
-            updatePageNumbers(totalPages);
-            
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage === totalPages;
-            
-            showCurrentPageEntries();
-        }
-
-        function updatePageNumbers(totalPages) {
-            const pageNumbersContainer = document.getElementById('pageNumbers');
-            pageNumbersContainer.innerHTML = '';
-            
-            if (totalPages <= 7) {
-                for (let i = 1; i <= totalPages; i++) {
-                    addPageButton(i, i === currentPage);
-                }
-            } else {
-                if (currentPage <= 4) {
-                    for (let i = 1; i <= 5; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
-                    addEllipsis();
-                    addPageButton(totalPages, false);
-                } else if (currentPage >= totalPages - 3) {
-                    addPageButton(1, false);
-                    addEllipsis();
-                    for (let i = totalPages - 4; i <= totalPages; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
-                } else {
-                    addPageButton(1, false);
-                    addEllipsis();
-                    for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
-                    addEllipsis();
-                    addPageButton(totalPages, false);
-                }
-            }
-        }
-
-        function addPageButton(pageNum, isActive) {
-            const pageNumbersContainer = document.getElementById('pageNumbers');
-            const button = document.createElement('button');
-            button.className = `pagination-btn ${isActive ? 'active' : ''}`;
-            button.textContent = pageNum;
-            button.onclick = () => goToPage(pageNum);
-            pageNumbersContainer.appendChild(button);
-        }
-
-        function addEllipsis() {
-            const pageNumbersContainer = document.getElementById('pageNumbers');
-            const span = document.createElement('span');
-            span.className = 'pagination-dots';
-            span.textContent = '...';
-            span.style.padding = '8px 12px';
-            span.style.color = 'var(--medium-muted-blue)';
-            pageNumbersContainer.appendChild(span);
-        }
-
+        // Go to a specific page
         function goToPage(pageNum) {
             currentPage = pageNum;
-            updatePagination();
+            fetchStudents();
         }
 
         function changePage(direction) {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            
             if (direction === 'prev' && currentPage > 1) {
                 currentPage--;
-            } else if (direction === 'next' && currentPage < totalPages) {
+            } else if (direction === 'next') {
                 currentPage++;
             }
-            
-            updatePagination();
+            fetchStudents();
         }
 
         function changeEntriesPerPage() {
             const newEntriesPerPage = parseInt(document.getElementById('entriesPerPage').value);
             entriesPerPage = newEntriesPerPage;
             currentPage = 1;
-            updatePagination();
-        }
-
-        function showCurrentPageEntries() {
-            const startIndex = (currentPage - 1) * entriesPerPage;
-            const endIndex = startIndex + entriesPerPage;
-            
-            filteredEntries.forEach(row => {
-                row.style.display = 'none';
-            });
-            
-            for (let i = startIndex; i < endIndex && i < filteredEntries.length; i++) {
-                filteredEntries[i].style.display = '';
-            }
-        }
-
-        function updateFilteredEntries() {
-            const visibleRows = document.querySelectorAll('#studentTableBody tr:not([style*="display: none"])');
-            filteredEntries = Array.from(visibleRows);
-            currentPage = 1;
-            updatePagination();
+            fetchStudents();
         }
 
         function scrollToTop() {
@@ -1087,46 +999,80 @@ try {
             );
         }
 
-        // Check if Regular Staff is assigned as signatory for College sector
-        async function checkCollegeSignatoryAssignment() {
+        // Load staff position information
+        async function loadStaffPosition() {
             try {
-                const response = await fetch('../../api/clearance/check_signatory_status.php?sector=College', {
-                    credentials: 'include'
-                });
+                const response = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
                 const data = await response.json();
-                return data.success && data.is_signatory;
+                const positionElement = document.getElementById('positionInfo');
+                
+                if (positionElement) {
+                    if (data.success && data.designation_name) {
+                        positionElement.textContent = `Position: ${data.designation_name} - Clearance Signatory`;
+                    } else {
+                        positionElement.textContent = 'Position: Staff - Clearance Signatory';
+                    }
+                }
             } catch (error) {
-                console.error('Error checking college signatory assignment:', error);
-                return false;
+                console.error('Error loading staff position:', error);
+                document.getElementById('positionInfo').textContent = 'Position: Staff - Clearance Signatory';
             }
         }
 
-        // Initialize signatory access control
-        async function initializeSignatoryAccessControl() {
-            const isAssignedToCollege = await checkCollegeSignatoryAssignment();
-            
-            if (!isAssignedToCollege) {
-                // Hide signatory action buttons if not assigned to College sector
-                document.querySelectorAll('.approve-btn, .reject-btn').forEach(btn => {
-                    btn.style.display = 'none';
-                });
+        // Load staff position information
+        async function loadStaffPosition() {
+            try {
+                const response = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
+                const data = await response.json();
+                const positionElement = document.getElementById('positionInfo');
                 
-                // Update the Clearance Status column to show "Not Assigned" instead of hiding it
-                document.querySelectorAll('#studentTableBody tr').forEach(row => {
-                    const cells = row.children;
-                    // Update the Clearance Status column (7th column, index 6) to show "Not Assigned"
-                    if (cells[6]) {
-                        const statusBadge = cells[6].querySelector('.status-badge');
-                        if (statusBadge) {
-                            statusBadge.textContent = 'Not Assigned';
-                            statusBadge.className = 'status-badge clearance-not-assigned';
-                        }
+                if (positionElement) {
+                    if (data.success && data.designation_name) {
+                        positionElement.textContent = `Position: ${data.designation_name} - Clearance Signatory`;
+                    } else {
+                        positionElement.textContent = 'Position: Staff - Clearance Signatory';
                     }
-                });
-                
-                // Show restriction message
-                showToastNotification('You are not assigned as a signatory for College sector. You can view data but cannot perform signatory actions.', 'info');
+                }
+            } catch (error) {
+                console.error('Error loading staff position:', error);
+                document.getElementById('positionInfo').textContent = 'Position: Staff - Clearance Signatory';
             }
+        }
+
+        async function populateFilter(selectId, url, placeholder, valueField = 'value', textField = 'text') {
+            const select = document.getElementById(selectId);
+            try {
+                const response = await fetch(url, { credentials: 'include' });
+                const data = await response.json();
+
+                select.innerHTML = `<option value="">${placeholder}</option>`;
+                if (data.success && data.options) {
+                    data.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = typeof option === 'object' ? option[valueField] : option;
+                        optionElement.textContent = typeof option === 'object' ? option[textField] : option;
+                        select.appendChild(optionElement);
+                    });
+                }
+            } catch (error) {
+                console.error(`Error loading options for ${selectId}:`, error);
+                select.innerHTML = `<option value="">Error loading options</option>`;
+            }
+        }
+
+        async function loadClearanceStatuses() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=clearance_signatories&column=action`;
+            await populateFilter('clearanceStatusFilter', url, 'All Clearance Statuses');
+        }
+
+        async function loadAccountStatuses() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=users&column=account_status&exclude=resigned`;
+            await populateFilter('accountStatusFilter', url, 'All Account Statuses');
+        }
+
+        async function loadSchoolTerms() {
+            const url = `../../api/clearance/get_filter_options.php?type=school_terms`;
+            await populateFilter('schoolTermFilter', url, 'All School Terms');
         }
 
         // Initialize page
@@ -1142,31 +1088,30 @@ try {
                     updateSelectionCounter();
                 }
             });
-            
-            initializePagination();
-            
-            // Make selection counter pill act as Clear Selection when active
-            const pill = document.getElementById('selectionCounterPill');
-            if (pill) {
-                pill.addEventListener('click', function() {
-                    if (!pill.classList.contains('has-selections') && !pill.classList.contains('all-selected')) return;
-                    clearAllSelections();
-                });
-                pill.addEventListener('keydown', function(e){
-                    if ((e.key === 'Enter' || e.key === ' ') && (pill.classList.contains('has-selections') || pill.classList.contains('all-selected'))){
-                        e.preventDefault();
-                        clearAllSelections();
-                    }
-                });
-            }
-            
-            // Initialize signatory access control
-            initializeSignatoryAccessControl();
-            
+
             // Initialize Activity Tracker
             window.sidebarHandledByPage = true;
             window.activityTrackerInstance = new ActivityTracker();
+
+            // Initial data fetch
+            fetchStudents();
+            loadRejectionReasons();
+            loadSchoolTerms();
+            loadClearanceStatuses();
+            loadAccountStatuses();
+            loadStaffPosition();
+
+            document.getElementById('searchInput').addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault(); // Prevent form submission if it's in a form
+                    applyFilters();
+                }
+            });
         });
+
+        function escapeHtml(unsafe) {
+            return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
 
         // Rejection Remarks Modal Functions
         let currentRejectionData = {
@@ -1176,14 +1121,16 @@ try {
             isBulk: false,
             targetIds: []
         };
-
-        function openRejectionRemarksModal(targetId, targetName, targetType = 'student', isBulk = false, targetIds = []) {
+        
+        function openRejectionRemarksModal(targetId, targetName, targetType = 'student', isBulk = false, targetIds = [], existingRemarks = '', existingReasonId = '') {
             currentRejectionData = {
                 targetId: targetId,
                 targetName: targetName,
                 targetType: targetType,
                 isBulk: isBulk,
-                targetIds: targetIds
+                targetIds: targetIds,
+                existingRemarks: existingRemarks,
+                existingReasonId: existingReasonId
             };
 
             // Update modal content based on target type
@@ -1193,9 +1140,9 @@ try {
             const reasonSelect = document.getElementById('rejectionReason');
             const remarksTextarea = document.getElementById('additionalRemarks');
 
-            // Reset form
-            reasonSelect.value = '';
-            remarksTextarea.value = '';
+            // Reset form or pre-fill
+            reasonSelect.value = existingReasonId || '';
+            remarksTextarea.value = existingRemarks || '';
 
             // Update display
             if (isBulk) {
@@ -1271,10 +1218,10 @@ try {
                     if (row) {
                         const tableRow = row.closest('tr');
                         if (tableRow) {
-                            const clearanceBadge = tableRow.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-completed');
+                            const clearanceBadge = tableRow.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-completed, .status-badge.clearance-approved');
                             if (clearanceBadge) {
                                 clearanceBadge.textContent = 'Rejected';
-                                clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-completed');
+                                clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-completed', 'clearance-approved');
                                 clearanceBadge.classList.add('clearance-rejected');
                             }
                         }
@@ -1291,7 +1238,7 @@ try {
                 // server-side records
                 try {
                     for (const id of currentRejectionData.targetIds) {
-                        const uid = await resolveUserIdFromStudentNumber(id);
+                        const uid = await resolveUserIdFromStudentNumber(id); // id is student number
                         if (uid) { await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Rejected', additionalRemarks); }
                     }
                 } catch (e) {}
@@ -1303,17 +1250,17 @@ try {
                 if (row) {
                     const tableRow = row.closest('tr');
                     if (tableRow) {
-                        const clearanceBadge = tableRow.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-completed');
+                        const clearanceBadge = tableRow.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-completed, .status-badge.clearance-approved');
                         if (clearanceBadge) {
                             clearanceBadge.textContent = 'Rejected';
-                            clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-completed');
+                            clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-completed', 'clearance-approved');
                             clearanceBadge.classList.add('clearance-rejected');
                         }
                     }
                 }
                 // server-side record
                 try {
-                    const uid = await resolveUserIdFromStudentNumber(currentRejectionData.targetId);
+                    const uid = await resolveUserIdFromStudentNumber(currentRejectionData.targetId); // targetId is student number
                     if (uid) { await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Rejected', additionalRemarks); }
                 } catch (e) {}
                 
@@ -1341,11 +1288,46 @@ try {
                 return match ? match.user_id : null;
             }catch(e){ return null; }
         }
-        async function sendSignatoryAction(applicantUserId, designationName, action, remarks){
-            const payload = { applicant_user_id: applicantUserId, designation_name: designationName, action: action };
+        async function sendSignatoryAction(applicantUserId, designationName, action, remarks, reasonId = null){
+            // Fetch the current staff's actual designation from the API to ensure accuracy.
+            let currentDesignation = designationName; // Fallback
+            try {
+                const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
+                const desigData = await desigResponse.json();
+                if (desigData.success && desigData.designation_name) { 
+                    currentDesignation = desigData.designation_name; 
+                }
+            } catch (e) { /* Ignore error, use fallback */ }
+
+            const payload = { 
+                applicant_user_id: applicantUserId, 
+                designation_name: currentDesignation, 
+                action: action 
+            };
             if (remarks && remarks.length) payload.remarks = remarks;
-            await fetch('../../api/clearance/signatory_action.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)}).then(r=>r.json()).catch(()=>null);
+            if (reasonId) payload.reason_id = reasonId;
+
+            const response = await fetch('../../api/clearance/signatory_action.php', {
+                method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
+            });
+            return await response.json();
         }
+
+        // This function seems to be a duplicate and can be removed. The one above is more robust.
+        /* async function sendSignatoryAction(applicantUserId, designationName, action, remarks, reasonId = null){
+            const payload = { 
+                applicant_user_id: applicantUserId, 
+                designation_name: designationName, 
+                action: action 
+            };
+            if (remarks && remarks.length) payload.remarks = remarks;
+            if (reasonId) payload.reason_id = reasonId;
+
+            const response = await fetch('../../api/clearance/signatory_action.php', {
+                method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
+            });
+            return await response.json();
+        } */
 
         // Load current clearance period for banner
         async function loadCurrentPeriod() {
@@ -1354,24 +1336,18 @@ try {
                     credentials: 'include'
                 });
                 const data = await response.json();
-                
                 const yearEl = document.getElementById('currentAcademicYear');
                 const semesterEl = document.getElementById('currentSemester');
                 
                 if (data.success && data.active_periods && data.active_periods.length > 0) {
-                    const currentPeriod = data.active_periods[0];
-                    const termMap = {
-                        '1st': '1st Semester',
-                        '2nd': '2nd Semester',
-                        '3rd': '3rd Semester',
-                        '1st Semester': '1st Semester',
-                        '2nd Semester': '2nd Semester',
-                        '3rd Semester': '3rd Semester',
-                        'Summer': 'Summer'
-                    };
-                    const semLabel = termMap[currentPeriod.semester_name] || currentPeriod.semester_name || '';
-                    if (yearEl) yearEl.textContent = currentPeriod.school_year;
-                    if (semesterEl) semesterEl.textContent = semLabel;
+                    const currentPeriod = data.active_periods.find(p => p.sector === 'College');
+                    if (currentPeriod) {
+                        if (yearEl) yearEl.textContent = currentPeriod.school_year;
+                        if (semesterEl) semesterEl.textContent = currentPeriod.semester_name;
+                    } else {
+                        if (yearEl) yearEl.textContent = 'No active period';
+                        if (semesterEl) semesterEl.textContent = 'for College';
+                    }
                 } else {
                     if (yearEl) yearEl.textContent = 'No active period';
                     if (semesterEl) semesterEl.textContent = 'No term';
@@ -1385,6 +1361,50 @@ try {
             }
         }
 
+        async function loadSchoolTerms() {
+            const termSelect = document.getElementById('schoolTermFilter');
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+
+                termSelect.innerHTML = '<option value="">All School Terms</option>';
+                if (data.success && data.periods) {
+                    const uniqueTerms = [...new Map(data.periods.map(item => [`${item.academic_year}-${item.semester_name}`, item])).values()];
+                    
+                    uniqueTerms.forEach(period => {
+                        const option = document.createElement('option');
+                        option.value = `${period.academic_year}|${period.semester_id}`; // Use a format the backend can parse
+                        option.textContent = `${period.academic_year} - ${period.semester_name}`;
+                        termSelect.appendChild(option);
+                    });
+                }
+            } catch (error) { console.error('Error loading school terms:', error); }
+        }
+
+        async function loadRejectionReasons() {
+            const reasonSelect = document.getElementById('rejectionReason');
+            if (!reasonSelect) return;
+
+            try {
+                // Fetch reasons relevant for students
+                const response = await fetch('../../api/clearance/rejection_reasons.php?category=student', { credentials: 'include' });
+                const data = await response.json();
+
+                reasonSelect.innerHTML = '<option value="">Select a reason...</option>';
+                if (data.success && data.rejection_reasons) {
+                    data.rejection_reasons.forEach(reason => {
+                        const option = document.createElement('option');
+                        option.value = reason.reason_id;
+                        option.textContent = reason.reason_name;
+                        reasonSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading rejection reasons:', error);
+                reasonSelect.innerHTML = '<option value="">Error loading reasons</option>';
+            }
+        }
+        
         // Clear all selections functionality
         function clearAllSelections() {
             const checkboxes = document.querySelectorAll('.student-checkbox');

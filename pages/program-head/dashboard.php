@@ -292,7 +292,7 @@
                 
                 // Update sector status display
                 if (sectorResult.success) {
-                    updateSectorStatusDisplay(sectorResult.data);
+                    updateSectorStatusDisplay(sectorResult.periods_by_sector || {});
                 }
 
                 // Update dashboard statistics and department info

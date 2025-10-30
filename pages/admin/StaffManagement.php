@@ -119,8 +119,8 @@ $adminName = 'Admin User'; // Temporary admin name for testing
             <!-- Search and Filters Section -->
             <div class="search-filters-section">
                 <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Search by name or employee ID...">
+                    <i class="fas fa-search" style="pointer-events: none;"></i>
+                    <input type="text" id="searchInput" placeholder="Search by name or employee ID..." onkeydown="if(event.key==='Enter') applyFilters();">
                 </div>
                 
                 <div class="filter-dropdowns">

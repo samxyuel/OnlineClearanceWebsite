@@ -187,10 +187,16 @@ try {
                             
                             <div class="filter-dropdowns">
                                 <!-- Program Filter (Only for assigned departments) -->
-                                <select id="programFilter" class="filter-select" onchange="updateFilterYearLevels()">
+                                <select id="programFilter" class="filter-select">
                                     <option value="">All Programs</option>
                                 </select>
                                 
+                                <!-- Year Level Filter -->
+                                <select id="yearLevelFilter" class="filter-select">
+                                    <option value="">All Year Levels</option>
+                                    <!-- Options will be loaded dynamically -->
+                                </select>
+
                                 <!-- Clearance Status Filter -->
                                 <select id="clearanceStatusFilter" class="filter-select">
                                     <option value="">All Clearance Status</option>
@@ -202,14 +208,8 @@ try {
                                 </select>
                                 
                                 <!-- School Term Filter -->
-                                <select id="schoolTermFilter" class="filter-select" onchange="updateStatisticsByTerm()">
-                                    <option value="">All School Terms</option>
-                                    <option value="2024-2025-1st">2024-2025 1st Semester</option>
-                                    <option value="2024-2025-2nd">2024-2025 2nd Semester</option>
-                                    <option value="2024-2025-summer">2024-2025 Summer</option>
-                                    <option value="2023-2024-1st">2023-2024 1st Semester</option>
-                                    <option value="2023-2024-2nd">2023-2024 2nd Semester</option>
-                                    <option value="2023-2024-summer">2023-2024 Summer</option>
+                                <select id="schoolTermFilter" class="filter-select">
+                                    <option value="">Loading Terms...</option>
                                 </select>
                                 
                                 <!-- Account Status Filter -->
@@ -293,7 +293,7 @@ try {
                                             </tr>
                                         </thead>
                                         <tbody id="studentsTableBody">
-                                            <!-- Student data will be loaded here dynamically from database -->
+                                            <!-- Student data will be loaded here dynamically -->
                                         </tbody>
                                     </table>
                                 </div>
@@ -306,7 +306,7 @@ try {
                                 <span id="paginationInfo">Showing 1 to 4 of 4 entries</span>
                             </div>
                             <div class="pagination-controls">
-                                <button class="pagination-btn" id="prevPage" onclick="changePage('prev')" disabled>
+                                <button class="pagination-btn" id="prevPage" onclick="changePage(-1)" disabled>
                                     <i class="fas fa-chevron-left"></i> Previous
                                 </button>
                                 <div class="page-numbers" id="pageNumbers">
@@ -854,95 +854,20 @@ try {
             }
         }
 
-
-
-        // Update year level dropdown based on program selection
-        function updateFilterYearLevels() {
-            const programSelect = document.getElementById('programFilter');
-            const yearSelect = document.getElementById('yearFilter');
-            
-            const selectedProgram = programSelect.value;
-            
-            yearSelect.innerHTML = '<option value="">All Year Levels</option>';
-            
-            if (selectedProgram && selectedProgram !== '') {
-                yearSelect.disabled = false;
-                // For SHS, year levels are static
-                const shsYearLevels = ['Grade 11', 'Grade 12'];
-                shsYearLevels.forEach(year => {
-                    const option = document.createElement('option');
-                    option.value = year;
-                    option.textContent = year;
-                    yearSelect.appendChild(option);
-                });
-            } else {
-                yearSelect.disabled = true;
-            }
-        }
-
         // Apply filters to the table
         function applyFilters() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const program = document.getElementById('programFilter').value;
-            const yearLevel = document.getElementById('yearFilter').value;
-            const clearanceStatus = document.getElementById('clearanceStatusFilter').value;
-            const accountStatus = document.getElementById('accountStatusFilter').value;
-            const schoolTerm = document.getElementById('schoolTermFilter').value;
-            
-            const tableRows = document.querySelectorAll('#studentsTableBody tr');
-            let visibleCount = 0;
-            
-            tableRows.forEach(row => {
-                const studentName = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
-                const studentProgram = row.querySelector('td:nth-child(4)').textContent;
-                const studentYear = row.querySelector('td:nth-child(5)').textContent;
-                const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-completed, .status-badge.clearance-rejected, .status-badge.clearance-in-progress');
-                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-graduated');
-                
-                let shouldShow = true;
-                
-                if (searchTerm && !studentName.includes(searchTerm)) {
-                    shouldShow = false;
-                }
-                
-                if (program && studentProgram !== program) {
-                    shouldShow = false;
-                }
-                
-                if (yearLevel && studentYear !== yearLevel) {
-                    shouldShow = false;
-                }
-                
-                if (clearanceStatus && clearanceBadge && !clearanceBadge.classList.contains(`clearance-${clearanceStatus}`)) {
-                    shouldShow = false;
-                }
-                
-                if (accountStatus && accountBadge && !accountBadge.classList.contains(`account-${accountStatus}`)) {
-                    shouldShow = false;
-                }
-                
-                if (schoolTerm && row.getAttribute('data-term') !== schoolTerm) {
-                    shouldShow = false;
-                }
-                
-                row.style.display = shouldShow ? '' : 'none';
-                if (shouldShow) visibleCount++;
-            });
-            
-            updateFilteredEntries();
-            showToastNotification(`Showing ${visibleCount} of ${tableRows.length} students`, 'info');
+            currentPage = 1;
+            loadStudentsData();
         }
 
         // Clear all filters
         function clearFilters() {
             document.getElementById('searchInput').value = '';
             document.getElementById('programFilter').value = '';
-            document.getElementById('yearFilter').value = '';
+            document.getElementById('yearLevelFilter').value = '';
             document.getElementById('clearanceStatusFilter').value = '';
             document.getElementById('accountStatusFilter').value = '';
             document.getElementById('schoolTermFilter').value = '';
-            
-            updateFilterYearLevels();
             
             const tableRows = document.querySelectorAll('#studentsTableBody tr');
             tableRows.forEach(row => {
@@ -953,106 +878,47 @@ try {
             showToastNotification('All filters cleared', 'info');
         }
 
-        // Update statistics based on school term selection
-        function updateStatisticsByTerm() {
-            const selectedTerm = document.getElementById('schoolTermFilter').value;
-            const allRows = document.querySelectorAll('#studentsTableBody tr');
-            
-            let activeCount = 0;
-            let inactiveCount = 0;
-            let graduatedCount = 0;
-            let totalCount = 0;
-            
-            allRows.forEach(row => {
-                const rowTerm = row.getAttribute('data-term');
-                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-graduated');
-                
-                if (!selectedTerm || rowTerm === selectedTerm) {
-                    totalCount++;
-                    
-                    if (accountBadge) {
-                        if (accountBadge.classList.contains('account-active')) {
-                            activeCount++;
-                        } else if (accountBadge.classList.contains('account-inactive')) {
-                            inactiveCount++;
-                        } else if (accountBadge.classList.contains('account-graduated')) {
-                            graduatedCount++;
-                        }
-                    }
-                }
-            });
-            
-            document.getElementById('totalStudents').textContent = totalCount;
-            document.getElementById('activeStudents').textContent = activeCount;
-            document.getElementById('inactiveStudents').textContent = inactiveCount;
-            document.getElementById('graduatedStudents').textContent = graduatedCount;
-            
-            applyFilters();
-        }
-
         // Pagination variables
         let currentPage = 1;
         let entriesPerPage = 20;
         let totalEntries = 0;
         let filteredEntries = [];
+        
+        function updatePaginationUI(total, page, limit) {
+            totalEntries = total;
+            currentPage = page;
+            entriesPerPage = limit;
+            const totalPages = Math.ceil(total / limit);
+            const startEntry = total === 0 ? 0 : (page - 1) * limit + 1;
+            const endEntry = Math.min(page * limit, total);
 
-        // Initialize pagination
-        function initializePagination() {
-            const allRows = document.querySelectorAll('#studentsTableBody tr');
-            totalEntries = allRows.length;
-            filteredEntries = Array.from(allRows);
-            updatePagination();
-        }
+            document.getElementById('paginationInfo').textContent = `Showing ${startEntry} to ${endEntry} of ${total} entries`;
 
-        // Update pagination display
-        function updatePagination() {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            const startEntry = (currentPage - 1) * entriesPerPage + 1;
-            const endEntry = Math.min(currentPage * entriesPerPage, filteredEntries.length);
-            
-            document.getElementById('paginationInfo').textContent = 
-                `Showing ${startEntry} to ${endEntry} of ${filteredEntries.length} entries`;
-            
-            updatePageNumbers(totalPages);
-            
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage === totalPages;
-            
-            showCurrentPageEntries();
-        }
-
-        // Update page number buttons
-        function updatePageNumbers(totalPages) {
             const pageNumbersContainer = document.getElementById('pageNumbers');
             pageNumbersContainer.innerHTML = '';
-            
+
             if (totalPages <= 7) {
-                for (let i = 1; i <= totalPages; i++) {
-                    addPageButton(i, i === currentPage);
-                }
+                for (let i = 1; i <= totalPages; i++) addPageButton(i, i === page);
             } else {
-                if (currentPage <= 4) {
-                    for (let i = 1; i <= 5; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
+                if (page <= 4) {
+                    for (let i = 1; i <= 5; i++) addPageButton(i, i === page);
                     addEllipsis();
                     addPageButton(totalPages, false);
-                } else if (currentPage >= totalPages - 3) {
+                } else if (page >= totalPages - 3) {
                     addPageButton(1, false);
                     addEllipsis();
-                    for (let i = totalPages - 4; i <= totalPages; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
+                    for (let i = totalPages - 4; i <= totalPages; i++) addPageButton(i, i === page);
                 } else {
                     addPageButton(1, false);
                     addEllipsis();
-                    for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
+                    for (let i = page - 1; i <= page + 1; i++) addPageButton(i, i === page);
                     addEllipsis();
                     addPageButton(totalPages, false);
                 }
             }
+
+            document.getElementById('prevPage').disabled = page === 1;
+            document.getElementById('nextPage').disabled = page >= totalPages;
         }
 
         // Add page button
@@ -1061,7 +927,9 @@ try {
             const button = document.createElement('button');
             button.className = `pagination-btn ${isActive ? 'active' : ''}`;
             button.textContent = pageNum;
-            button.onclick = () => goToPage(pageNum);
+            button.onclick = () => {
+                goToPage(pageNum);
+            };
             pageNumbersContainer.appendChild(button);
         }
 
@@ -1079,20 +947,17 @@ try {
         // Go to specific page
         function goToPage(pageNum) {
             currentPage = pageNum;
-            updatePagination();
+            loadStudentsData();
         }
 
         // Change page (previous/next)
         function changePage(direction) {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            
             if (direction === 'prev' && currentPage > 1) {
                 currentPage--;
-            } else if (direction === 'next' && currentPage < totalPages) {
+            } else if (direction === 'next') {
                 currentPage++;
             }
-            
-            updatePagination();
+            loadStudentsData();
         }
 
         // Change entries per page
@@ -1100,28 +965,9 @@ try {
             const newEntriesPerPage = parseInt(document.getElementById('entriesPerPage').value);
             entriesPerPage = newEntriesPerPage;
             currentPage = 1;
-            updatePagination();
+            loadStudentsData();
         }
-
-        // Show current page entries
-        function showCurrentPageEntries() {
-            const startIndex = (currentPage - 1) * entriesPerPage;
-            const endIndex = startIndex + entriesPerPage;
-            
-            filteredEntries.forEach(row => {
-                row.style.display = 'none';
-            });
-            
-            for (let i = startIndex; i < endIndex && i < filteredEntries.length; i++) {
-                filteredEntries[i].style.display = '';
-            }
-            
-            const tableWrapper = document.querySelector('.students-table-wrapper');
-            if (tableWrapper) {
-                tableWrapper.scrollTop = 0;
-            }
-        }
-
+        
         // Update filtered entries when filters are applied
         function updateFilteredEntries() {
             const visibleRows = document.querySelectorAll('#studentsTableBody tr:not([style*="display: none"])');
@@ -1129,7 +975,6 @@ try {
             currentPage = 1;
             updatePagination();
         }
-
         // Scroll to top function
         function scrollToTop() {
             const tableWrapper = document.getElementById('studentsTableWrapper');
@@ -1413,9 +1258,32 @@ try {
 
         // Load senior high students data from API
         async function loadStudentsData() {
+            const tableBody = document.getElementById('studentsTableBody');
+            tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">Loading students...</td></tr>`;
+
+            const search = document.getElementById('searchInput').value;
+            const clearanceStatus = document.getElementById('clearanceStatusFilter').value;
+            const accountStatus = document.getElementById('accountStatusFilter').value;
+            const programId = document.getElementById('programFilter').value;
+            const yearLevel = document.getElementById('yearLevelFilter').value;
+            const schoolTerm = document.getElementById('schoolTermFilter').value;
+
+            const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
+            url.searchParams.append('type', 'student');
+            url.searchParams.append('sector', 'Senior High School');
+            url.searchParams.append('page', currentPage);
+            url.searchParams.append('limit', entriesPerPage);
+
+            if (search) url.searchParams.append('search', search);
+            if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
+            if (accountStatus) url.searchParams.append('account_status', accountStatus);
+            if (programId) url.searchParams.append('program_id', programId);
+            if (yearLevel) url.searchParams.append('year_level', yearLevel);
+            if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+
             try {
                 console.log('Loading senior high students data...');
-                const response = await fetch('../../api/users/students.php?type=senior_high&limit=500', {
+                const response = await fetch(url.toString(), {
                     credentials: 'include'
                 });
                 
@@ -1428,13 +1296,16 @@ try {
                 
                 if (data.success) {
                     populateStudentsTable(data.students);
-                    updateStatistics(data.students);
+                    updateStatisticsUI(data.stats);
+                    updatePaginationUI(data.total, data.page, data.limit);
                 } else {
                     showToastNotification('Failed to load students data: ' + data.message, 'error');
+                    tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
                 }
             } catch (error) {
                 console.error('Error loading senior high students:', error);
                 showToastNotification('Error loading students data: ' + error.message, 'error');
+
             }
         }
 
@@ -1443,6 +1314,11 @@ try {
             const tbody = document.getElementById('studentsTableBody');
             tbody.innerHTML = '';
             
+            if (!students || students.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">No SHS students with pending actions found in your assigned departments.</td></tr>`;
+                return;
+            }
+
             for (const student of students) {
                 const row = await createStudentRow(student);
                 tbody.appendChild(row);
@@ -1467,7 +1343,7 @@ try {
                 <td data-label="Year Level:">${student.year_level || 'N/A'}</td>
                 <td data-label="Section:">${student.section || 'N/A'}</td>
                 <td data-label="Account Status:"><span class="status-badge account-${displayStatus}">${student.status === 'active' ? 'Active' : 'Inactive'}</span></td>
-                <td data-label="Clearance Progress:"><span class="status-badge clearance-not-assigned">Not Assigned</span></td>
+                <td data-label="Clearance Progress:"><span class="status-badge clearance-${(student.clearance_status || 'unapplied').toLowerCase().replace(' ', '-')}">${student.clearance_status || 'Unapplied'}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
                         ${isAssignedToSeniorHigh ? 
@@ -1492,18 +1368,11 @@ try {
         }
 
         // Update statistics
-        function updateStatistics(students) {
-            const stats = {
-                total: students.length,
-                active: students.filter(s => s.status === 'active').length,
-                inactive: students.filter(s => s.status === 'inactive').length,
-                graduated: 0 // No graduated status in account_status
-            };
-            
-            document.getElementById('totalStudents').textContent = stats.total;
-            document.getElementById('activeStudents').textContent = stats.active;
-            document.getElementById('inactiveStudents').textContent = stats.inactive;
-            document.getElementById('graduatedStudents').textContent = stats.graduated;
+        function updateStatisticsUI(stats) {
+            document.getElementById('totalStudents').textContent = stats.total || 0;
+            document.getElementById('activeStudents').textContent = stats.active || 0;
+            document.getElementById('inactiveStudents').textContent = stats.inactive || 0;
+            document.getElementById('graduatedStudents').textContent = stats.graduated || 0;
         }
 
         // Edit student function
@@ -1589,29 +1458,44 @@ try {
 
         // Initialize pagination when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            // Load students data first
-            loadStudentsData().then(() => {
-                initializePagination();
-                updateSelectionCounter();
-            
             const tableWrapper = document.getElementById('studentsTableWrapper');
+            window.isAssignedToSeniorHigh = false;
             if (tableWrapper) {
                 tableWrapper.addEventListener('scroll', handleTableScroll);
             }
-            
+
             // Initialize Activity Tracker
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-                window.activityTrackerInstance = new ActivityTracker();
-                console.log('Activity Tracker initialized for Program Head Student Management');
+                window.activityTrackerInstance = new ActivityTracker({
+                    userRole: 'Program Head'
+                });
             }
-            
+
             // Load current clearance period
             loadCurrentPeriod();
             
             // Initialize tab status
             window.currentTabStatus = '';
             
+            // Load Program Head profile and then other data
+            checkSeniorHighSectorAssignment().then(isAssigned => {
+                window.isAssignedToSeniorHigh = isAssigned;
+                if (!isAssigned) {
+                    showToastNotification('You are not assigned to the Senior High School sector. You have view-only access.', 'warning');
+                }
+                loadProgramHeadProfile().then(() => {
+                    loadStudentsData();
+                    loadRejectionReasons();
+                    loadSchoolTerms();
+                    loadClearanceStatuses();
+                    loadAccountStatuses();
+                    loadPrograms();
+                    loadYearLevels();
+                });
             });
+
+            // Initialize UI components
+            updateSelectionCounter();
         });
 
         // Add event listeners for student checkboxes
@@ -1841,44 +1725,13 @@ try {
             }
         }
 
-        // Load SHS students data from API
-        async function loadStudentsData() {
-            try {
-                console.log('Loading SHS students data...');
-                const tableBody = document.getElementById('studentsTableBody');
-                tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;">Loading students...</td></tr>`;
-
-                const response = await fetch('../../api/program-head/shs_students.php', {
-                    credentials: 'include'
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status} ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                console.log('SHS students API response:', data);
-                
-                if (data.success) {
-                    populateStudentsTable(data.data.students);
-                    updateStatistics(data.data.stats);
-                } else {
-                    showToastNotification('Failed to load students data: ' + data.message, 'error');
-                    tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
-                }
-            } catch (error) {
-                console.error('Error loading SHS students:', error);
-                showToastNotification('Error loading students data: ' + error.message, 'error');
-            }
-        }
-
         // Populate students table
         function populateStudentsTable(students) {
             const tbody = document.getElementById('studentsTableBody');
             tbody.innerHTML = '';
             
             if (!students || students.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;">No SHS students with pending actions found in your assigned departments.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">No SHS students with pending actions found in your assigned departments.</td></tr>`;
                 return;
             }
 
@@ -1888,7 +1741,51 @@ try {
             }
         }
 
-        // Create student row
+        // Update statistics
+        function updateStatistics(stats) {
+            document.getElementById('totalStudents').textContent = stats.total;
+            document.getElementById('activeStudents').textContent = stats.active;
+            document.getElementById('inactiveStudents').textContent = stats.inactive;
+            document.getElementById('graduatedStudents').textContent = stats.graduated;
+        }
+
+        function updatePaginationUI(total, page, limit) {
+            totalEntries = total;
+            currentPage = page;
+            entriesPerPage = limit;
+            const totalPages = Math.ceil(total / limit);
+            const startEntry = total === 0 ? 0 : (page - 1) * limit + 1;
+            const endEntry = Math.min(page * limit, total);
+
+            document.getElementById('paginationInfo').textContent = `Showing ${startEntry} to ${endEntry} of ${total} entries`;
+
+            const pageNumbersContainer = document.getElementById('pageNumbers');
+            pageNumbersContainer.innerHTML = '';
+
+            if (totalPages <= 7) {
+                for (let i = 1; i <= totalPages; i++) addPageButton(i, i === page);
+            } else {
+                if (page <= 4) {
+                    for (let i = 1; i <= 5; i++) addPageButton(i, i === page);
+                    addEllipsis();
+                    addPageButton(totalPages, false);
+                } else if (page >= totalPages - 3) {
+                    addPageButton(1, false);
+                    addEllipsis();
+                    for (let i = totalPages - 4; i <= totalPages; i++) addPageButton(i, i === page);
+                } else {
+                    addPageButton(1, false);
+                    addEllipsis();
+                    for (let i = page - 1; i <= page + 1; i++) addPageButton(i, i === page);
+                    addEllipsis();
+                    addPageButton(totalPages, false);
+                }
+            }
+
+            document.getElementById('prevPage').disabled = page === 1;
+            document.getElementById('nextPage').disabled = page >= totalPages;
+        }
+
         function createStudentRow(student) {
             const accountStatusClass = `account-${student.account_status || 'inactive'}`;
             const accountStatusText = student.account_status ? student.account_status.charAt(0).toUpperCase() + student.account_status.slice(1) : 'Inactive';
@@ -1901,16 +1798,16 @@ try {
 
             const row = document.createElement('tr');
             row.setAttribute('data-user-id', student.user_id);
-            row.setAttribute('data-student-id', student.student_id);
+            row.setAttribute('data-student-id', student.id);
             row.setAttribute('data-form-id', student.clearance_form_id);
-            row.setAttribute('data-signatory-id', student.clearance_signatory_id);
+            row.setAttribute('data-signatory-id', student.signatory_id);
             row.setAttribute('data-remarks', student.remarks || '');
             row.setAttribute('data-rejection-reason-id', student.reason_id || '');
 
             row.innerHTML = `
-                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.student_id}"></td>
-                <td data-label="Student Number:">${student.student_id}</td>
-                <td data-label="Name:">${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
+                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.id}"></td>
+                <td data-label="Student Number:">${student.id}</td>
+                <td data-label="Name:">${student.name}</td>
                 <td data-label="Program:">${student.program || 'N/A'}</td>
                 <td data-label="Year Level:">${student.year_level || 'N/A'}</td>
                 <td data-label="Section:">${student.section || 'N/A'}</td>
@@ -1918,30 +1815,22 @@ try {
                 <td data-label="Clearance Progress:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon edit-btn" onclick="editStudent('${student.student_id}')" title="Edit Student">
+                        <button class="btn-icon edit-btn" onclick="editStudent('${student.id}')" title="Edit Student">
                             <i class="fas fa-edit"></i>
                         </button>
                         <button class="btn-icon approve-btn" onclick="approveSignatory('${student.user_id}')" title="Approve Signatory" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-check"></i>
                         </button>
-                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}', '${student.clearance_form_id}', '${student.clearance_signatory_id}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
+                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}', '${student.clearance_form_id}', '${student.signatory_id}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-times"></i>
                         </button>
-                        <button class="btn-icon delete-btn" onclick="deleteStudent('${student.student_id}')" title="Delete Student">
+                        <button class="btn-icon delete-btn" onclick="deleteStudent('${student.id}')" title="Delete Student">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </td>
             `;
             return row;
-        }
-
-        // Update statistics
-        function updateStatistics(stats) {
-            document.getElementById('totalStudents').textContent = stats.total;
-            document.getElementById('activeStudents').textContent = stats.active;
-            document.getElementById('inactiveStudents').textContent = stats.inactive;
-            document.getElementById('graduatedStudents').textContent = stats.graduated;
         }
 
         // Signatory Action Functions
@@ -1973,7 +1862,7 @@ try {
             );
         }
 
-        async function rejectSignatory(targetUserId, clearanceFormId, signatoryId) {
+        async function rejectSignatory(targetUserId) {
             try {
                 const row = document.querySelector(`tr[data-user-id='${targetUserId}']`); // Correctly find the row
                 const studentName = row ? row.cells[2].textContent : 'Student';
@@ -2041,37 +1930,6 @@ try {
             document.body.style.overflow = 'auto';
         }
 
-        async function submitRejection() {
-            const reasonId = document.getElementById('rejectionReason').value;
-            const remarks = document.getElementById('additionalRemarks').value.trim();
-
-            if (!reasonId) {
-                showToastNotification('Please select a reason for rejection.', 'warning');
-                return;
-            }
-
-            if (currentRejectionData.isBulk) {
-                // Bulk rejection logic here
-                showToastNotification('Bulk rejection not yet fully implemented.', 'info');
-            } else {
-                // Individual rejection
-                try {
-                    const result = await sendSignatoryAction(currentRejectionData.userId, 'Rejected', remarks, reasonId);
-                    if (result.success) {
-                        showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.studentName}`, 'success');
-                        // Reload student data to get fresh state
-                        loadStudentsData();
-                    } else {
-                        showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
-                    }
-                } catch (e) {
-                    showToastNotification('An error occurred during rejection.', 'error');
-                }
-            }
-            
-            closeRejectionRemarksModal();
-        }
-
         async function loadRejectionReasons() {
             const reasonSelect = document.getElementById('rejectionReason');
             if (!reasonSelect) return;
@@ -2096,13 +1954,62 @@ try {
             }
         }
 
+        // --- DYNAMIC FILTER POPULATION ---
+        async function populateFilter(selectId, url, placeholder, valueField = 'value', textField = 'text') {
+            const select = document.getElementById(selectId);
+            try {
+                const response = await fetch(url, { credentials: 'include' });
+                const data = await response.json();
+
+                select.innerHTML = `<option value="">${placeholder}</option>`;
+                if (data.success && data.options) {
+                    data.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = typeof option === 'object' ? option[valueField] : option;
+                        optionElement.textContent = typeof option === 'object' ? option[textField] : option;
+                        select.appendChild(optionElement);
+                    });
+                }
+            } catch (error) {
+                console.error(`Error loading options for ${selectId}:`, error);
+                select.innerHTML = `<option value="">Error loading options</option>`;
+            }
+        }
+
+        async function loadClearanceStatuses() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=clearance_signatories&column=action`;
+            await populateFilter('clearanceStatusFilter', url, 'All Clearance Statuses');
+        }
+
+        async function loadAccountStatuses() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=users&column=account_status&exclude=resigned`;
+            await populateFilter('accountStatusFilter', url, 'All Account Statuses');
+        }
+
+        async function loadSchoolTerms() {
+            const url = `../../api/clearance/get_filter_options.php?type=school_terms`;
+            await populateFilter('schoolTermFilter', url, 'All School Terms');
+        }
+
+        async function loadPrograms() {
+            const url = `../../api/clearance/get_filter_options.php?type=programs&sector=Senior High School`;
+            await populateFilter('programFilter', url, 'All Programs', 'program_id', 'program_name');
+        }
+
+        async function loadYearLevels() {
+            const url = `../../api/clearance/get_filter_options.php?type=enum&table=students&column=year_level&filter_by_sector=Senior High School`;
+            await populateFilter('yearLevelFilter', url, 'All Year Levels');
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             loadProgramHeadProfile();
-            loadStudentsData().then(() => {
-                initializePagination();
-                updateSelectionCounter();
-            });
+            loadStudentsData();
             loadRejectionReasons();
+            loadSchoolTerms();
+            loadClearanceStatuses();
+            loadAccountStatuses();
+            loadPrograms();
+            loadYearLevels();
         });
     </script>
     
