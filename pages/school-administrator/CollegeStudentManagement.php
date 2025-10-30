@@ -206,18 +206,13 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <i class="fas fa-times"></i> Clear All Selection
                                     </button>
                                     <div class="bulk-buttons">
-                                        <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
-                                            <i class="fas fa-undo"></i> Undo
-                                        </button>
                                         <button class="btn btn-success" onclick="bulkApproveSignatories()" disabled>
                                             <i class="fas fa-check"></i> Approve
                                         </button>
                                         <button class="btn btn-danger" onclick="bulkRejectSignatories()" disabled>
                                             <i class="fas fa-times"></i> Reject
                                         </button>
-                                        <button class="btn btn-info" onclick="markGraduated()" disabled>
-                                            <i class="fas fa-graduation-cap"></i> Graduated
-                                        </button>
+                                        
                                         <button class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
                                             <i class="fas fa-redo"></i> Reset Clearance
                                         </button>
@@ -236,7 +231,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
-                                                    <span id="selectionCounter">0 selected</span>
                                                 </th>
                                                 <th>Student Number</th>
                                                 <th>Name</th>

@@ -309,7 +309,7 @@ try {
                                     <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
-                                    <button class="selection-counter-display" id="selectionCounterPill" onclick="openBulkSelectionModal()">
+                                    <button class="selection-counter-display" id="selectionCounterPill" onclick="clearAllSelections()">
                                         <i class="fas fa-check-square"></i> <span id="selectionCounter">0 selected</span>
                                     </button>
                                     <button class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn" onclick="clearAllSelections()" disabled>
@@ -337,7 +337,6 @@ try {
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
-                                                    <span id="selectionCounter">0 selected</span>
                                                 </th>
                                                 <th>Student Number</th>
                                                 <th>Name</th>

@@ -241,22 +241,21 @@ handleFacultyManagementPageRequest();
                                     <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
-                                    <button class="selection-counter-display" id="selectionCounterPill" type="button" title="">
+                                    <div class="selection-counter-pill" onclick="clearAllSelectionsAndFilters()" id="selectionCounterPill">
                                         <span id="selectionCounter">0 selected</span>
+                                        <i class="fas fa-times" id="clearSelectionIcon"></i>
+                                    </div>
+                                    <button class="btn btn-outline-secondary clear-selection-btn" onclick="clearAllSelections()" id="clearSelectionBtn" disabled>
+                                        <i class="fas fa-times"></i> Clear All Selection
                                     </button>
                                     <div class="bulk-buttons">
-                                        <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
-                                            <i class="fas fa-undo"></i> Undo
-                                        </button>
                                         <button class="btn btn-success" onclick="approveSelected()" disabled>
                                             <i class="fas fa-check"></i> Approve
                                         </button>
                                         <button class="btn btn-danger" onclick="rejectSelected()" disabled>
                                             <i class="fas fa-times"></i> Reject
                                         </button>
-                                        <button class="btn btn-info" onclick="markResigned()" disabled>
-                                            <i class="fas fa-user-slash"></i> Resigned
-                                        </button>
+                                        
                                         <button class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
                                             <i class="fas fa-redo"></i> Reset Clearance
                                         </button>
@@ -275,7 +274,6 @@ handleFacultyManagementPageRequest();
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
-                                                    <span id="selectionCounter">0 selected</span>
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>

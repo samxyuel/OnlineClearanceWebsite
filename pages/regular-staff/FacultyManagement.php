@@ -316,16 +316,18 @@ handleFacultyManagementPageRequest();
                                     <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
-                                    <button class="selection-counter-display" id="selectionCounterPill" onclick="openBulkSelectionModal()">
+                                    <button class="selection-counter-display" id="selectionCounterPill" onclick="clearAllSelections()">
                                         <i class="fas fa-check-square"></i> <span id="selectionCounter">0 selected</span>
                                     </button>
                                     <button class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn" onclick="clearAllSelections()" disabled>
                                         <i class="fas fa-times"></i> Clear
                                     </button>
                                     <div class="bulk-buttons">
+                                        <!--
                                         <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
                                             <i class="fas fa-undo"></i> Undo
                                         </button>
+                                        -->
                                         <button class="btn btn-success" onclick="approveSelected()" disabled>
                                             <i class="fas fa-check"></i> Approve
                                         </button>
@@ -347,7 +349,6 @@ handleFacultyManagementPageRequest();
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
-                                                    <span id="selectionCounter">0 selected</span>
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
