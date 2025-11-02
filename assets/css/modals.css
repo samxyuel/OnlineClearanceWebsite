@@ -818,6 +818,10 @@
   justify-content: flex-end;
 }
 
+#logoutConfirmModal .modal-backdrop {
+  display: none;
+}
+
 /* Export Section Styles */
 .export-section {
   margin-bottom: 32px;

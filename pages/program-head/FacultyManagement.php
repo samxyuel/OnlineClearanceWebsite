@@ -222,27 +222,34 @@ handleFacultyManagementPageRequest();
                             <!-- Table Header with Bulk Actions -->
                             <div class="table-header-section">
                                 <div class="bulk-controls">
+                                    <button class="btn btn-outline-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
+                                        <i class="fas fa-filter"></i> Bulk Selection Filters
+                                    </button>
                                     <button class="btn btn-success" onclick="openFacultyBatchUpdateModal()">
                                         <i class="fas fa-users-cog"></i> Batch Update
                                     </button>
-                                    <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
-                                        <i class="fas fa-filter"></i> Bulk Selection Filters
-                                    </button>
-                                    <button class="selection-counter-display" id="selectionCounterPill" onclick="openBulkSelectionModal()">
-                                        <i class="fas fa-check-square"></i> <span id="selectionCounter">0 selected</span>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn" onclick="clearAllSelections()" disabled>
-                                        <i class="fas fa-times"></i> Clear
+                                    <div class="selection-counter-pill" onclick="clearAllSelectionsAndFilters()" id="selectionCounterPill">
+                                        <span id="selectionCounter">0 selected</span>
+                                        <i class="fas fa-times" id="clearSelectionIcon"></i>
+                                    </div>
+                                    <button class="btn btn-outline-secondary clear-selection-btn" onclick="clearAllSelections()" id="clearSelectionBtn" disabled>
+                                        <i class="fas fa-times"></i> Clear All Selection
                                     </button>
                                     <div class="bulk-buttons">
-                                        <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
-                                            <i class="fas fa-undo"></i> Undo
-                                        </button>
                                         <button class="btn btn-success" onclick="approveSelected()" disabled>
                                             <i class="fas fa-check"></i> Approve
                                         </button>
                                         <button class="btn btn-danger" onclick="rejectSelected()" disabled>
                                             <i class="fas fa-times"></i> Reject
+                                        </button>
+                                        <button class="btn btn-info" onclick="markResigned()" disabled>
+                                            <i class="fas fa-user-slash"></i> Resigned
+                                        </button>
+                                        <button class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
+                                            <i class="fas fa-redo"></i> Reset Clearance
+                                        </button>
+                                        <button class="btn btn-danger" onclick="deleteSelected()" disabled>
+                                            <i class="fas fa-trash"></i> Delete
                                         </button>
                                     </div>
                                 </div>
@@ -259,7 +266,6 @@ handleFacultyManagementPageRequest();
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
-                                                    <span id="selectionCounter">0 selected</span>
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
@@ -448,7 +454,7 @@ handleFacultyManagementPageRequest();
 
         function updateBulkButtons() {
             const checkedBoxes = document.querySelectorAll('.faculty-checkbox:checked');
-            const bulkButtons = document.querySelectorAll('.bulk-buttons button:not([onclick*="undo"])');
+            const bulkButtons = document.querySelectorAll('.bulk-buttons button');
             
             bulkButtons.forEach(button => {
                 button.disabled = checkedBoxes.length === 0;
@@ -950,6 +956,16 @@ handleFacultyManagementPageRequest();
         }
 
         // Bulk selection functions
+        // Modal functions
+        function triggerExportModal() {
+            if (typeof window.openExportModal === 'function') {
+                window.openExportModal();
+            } else {
+                console.error('Export modal function not found');
+                showToastNotification('Export modal not available', 'error');
+            }
+        }
+
         function openBulkSelectionModal() {
             const modal = document.getElementById('bulkSelectionModal');
             modal.style.display = 'flex';
@@ -1083,6 +1099,39 @@ handleFacultyManagementPageRequest();
             document.getElementById('filterPending').checked = false;
             document.getElementById('filterApproved').checked = false;
             document.getElementById('filterRejected').checked = false;
+        }
+
+        function clearAllSelectionsAndFilters() {
+            clearAllSelections();
+            resetBulkSelectionFilters();
+        }
+
+        function markResigned() {
+            const selectedCount = getSelectedCount();
+            if (selectedCount === 0) {
+                showToastNotification('Please select faculty to mark as resigned', 'warning');
+                return;
+            }
+            showConfirmationModal(
+                'Mark Faculty as Resigned',
+                `Are you sure you want to mark ${selectedCount} selected faculty as Resigned?`,
+                'Mark as Resigned',
+                'Cancel',
+                () => {
+                    const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
+                    selectedCheckboxes.forEach(checkbox => {
+                        const row = checkbox.closest('tr');
+                        const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
+                        if (statusBadge) {
+                            statusBadge.textContent = 'Resigned';
+                            statusBadge.classList.remove('account-active', 'account-inactive');
+                            statusBadge.classList.add('account-resigned');
+                        }
+                    });
+                    showToastNotification(`✓ Successfully marked ${selectedCount} faculty as Resigned`, 'success');
+                },
+                'info'
+            );
         }
 
         function updateSelectionCounter() {
@@ -1615,5 +1664,8 @@ handleFacultyManagementPageRequest();
     
     <!-- Include Faculty Batch Update Modal -->
     <?php include '../../Modals/FacultyBatchUpdateModal.php'; ?>
+    
+    <!-- Include Export Modal -->
+    <?php include '../../Modals/ExportModal.php'; ?>
 </body>
 </html>

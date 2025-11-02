@@ -268,23 +268,21 @@ handleFacultyManagementPageRequest();
                                     <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
-                                    <div class="selection-counter-pill" onclick="clearAllSelections()" id="selectionCounterPill">
+                                    <div class="selection-counter-pill" onclick="clearAllSelectionsAndFilters()" id="selectionCounterPill">
                                         <span id="selectionCounter">0 selected</span>
                                         <i class="fas fa-times" id="clearSelectionIcon"></i>
                                     </div>
+                                    <button class="btn btn-outline-secondary clear-selection-btn" onclick="clearAllSelections()" id="clearSelectionBtn" disabled>
+                                        <i class="fas fa-times"></i> Clear All Selection
+                                    </button>
                                     <div class="bulk-buttons">
-                                        <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
-                                            <i class="fas fa-undo"></i> Undo
-                                        </button>
                                         <button class="btn btn-success" onclick="approveSelected()" disabled>
                                             <i class="fas fa-check"></i> Approve
                                         </button>
                                         <button class="btn btn-danger" onclick="rejectSelected()" disabled>
                                             <i class="fas fa-times"></i> Reject
                                         </button>
-                                        <button class="btn btn-info" onclick="markResigned()" disabled>
-                                            <i class="fas fa-user-slash"></i> Resigned
-                                        </button>
+                                        
                                         <button class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
                                             <i class="fas fa-redo"></i> Reset Clearance
                                         </button>
@@ -303,7 +301,6 @@ handleFacultyManagementPageRequest();
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
-                                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)">
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
@@ -1077,7 +1074,12 @@ handleFacultyManagementPageRequest();
 
         // Modal functions
         function triggerExportModal() {
-            showToastNotification('Export functionality will be implemented soon.', 'info');
+            if (typeof window.openExportModal === 'function') {
+                window.openExportModal();
+            } else {
+                console.error('Export modal function not found');
+                showToastNotification('Export modal not available', 'error');
+            }
         }
 
         function escapeHtml(unsafe) {
@@ -2021,6 +2023,10 @@ handleFacultyManagementPageRequest();
             }
         }
     </script>
+    
+    <!-- Include Export Modal -->
+    <?php include '../../Modals/ExportModal.php'; ?>
+    
     <script src="../../assets/js/alerts.js"></script>
 </body>
 </html>

@@ -301,7 +301,7 @@ try {
                                     <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
-                                    <button class="selection-counter-display" id="selectionCounterPill" onclick="openBulkSelectionModal()">
+                                    <button class="selection-counter-display" id="selectionCounterPill" onclick="clearAllSelections()">
                                         <i class="fas fa-check-square"></i> <span id="selectionCounter">0 selected</span>
                                     </button>
                                     <button class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn" onclick="clearAllSelections()" disabled>
@@ -328,7 +328,8 @@ try {
                                     <table id="studentTable" class="students-table">
                                         <thead>
                                             <tr>
-                                                <th class="checkbox-column"></th>
+                                                <th class="checkbox-column">
+                                                </th>
                                                 <th>Student Number</th>
                                                 <th>Name</th>
                                                 <th>Program</th>
@@ -456,6 +457,7 @@ try {
         </div>
     </div>
     <?php include '../../Modals/ClearanceExportModal.php'; ?>
+    <?php include '../../Modals/ExportModal.php'; ?>
 
     <!-- Rejection Remarks Modal -->
     <div id="rejectionRemarksModal" class="modal-overlay" style="display: none;">
@@ -983,19 +985,16 @@ try {
 
         // Export functionality
         function triggerExportModal() {
-            showConfirmationModal(
-                'Export Student Clearance Report',
-                'Generate a PDF report of your student clearance signing activities?',
-                'Export',
-                'Cancel',
-                () => {
-                    showToastNotification('Report generation started...', 'info');
-                    setTimeout(() => {
-                        showToastNotification('Student clearance report exported successfully!', 'success');
-                    }, 2000);
-                },
-                'info'
-            );
+            // For Regular Staff, we should use the ClearanceExportModal which is already included
+            // But check if ExportModal is available for general reports
+            if (typeof window.openExportModal === 'function') {
+                window.openExportModal();
+            } else if (typeof window.openClearanceExportModal === 'function') {
+                window.openClearanceExportModal();
+            } else {
+                console.error('Export modal function not found');
+                showToastNotification('Export modal not available', 'error');
+            }
         }
 
         // Load staff position information

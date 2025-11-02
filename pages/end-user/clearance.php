@@ -81,52 +81,65 @@
                     <p class="page-description">View and manage your <?php echo $user_type === 'faculty' ? 'faculty' : 'student'; ?> clearance applications.</p>
                 </div>
 
-                <!-- Period Status Banner -->
-                <div id="period-status-banner" class="period-status-banner" style="display: none;">
-                    <div class="banner-content">
-                        <div class="banner-icon">
-                            <i class="fas fa-info-circle"></i>
-                        </div>
-                        <div class="banner-text">
-                            <h3 id="period-status-title">Period Status</h3>
-                            <p id="period-status-message">Loading...</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Period Selector -->
-                <div class="period-selector-section">
-                    <div class="period-selector">
-                        <label for="schoolYearTerm">
-                            <i class="fas fa-calendar-alt"></i> School Year & Term
-                        </label>
-                        <select id="schoolYearTerm" onchange="loadPeriodStatusAndData()">
-                            <option value="">Loading periods...</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Clearance Form ID Banner -->
-                <div class="clearance-form-banner" id="clearanceFormBanner" style="display: none;">
-                    <div class="banner-content">
-                        <div class="banner-icon">
+                <!-- Clearance Snapshot Summary -->
+                <div class="clearance-status-summary">
+                    <div class="summary-header">
+                        <div class="summary-title">
                             <i class="fas fa-file-alt"></i>
+                            <span>Clearance Form</span>
                         </div>
-                        <div class="banner-text">
-                            <h3>Clearance Form ID</h3>
-                            <p id="clearanceFormId">Loading...</p>
+                        <button class="btn btn-primary" onclick="exportClearance()">
+                            <i class="fas fa-download"></i> Export Clearance Form
+                        </button>
+                    </div>
+
+                    <div class="summary-top-row">
+                        <div class="summary-selector">
+                            <label for="schoolYearTerm">
+                                <i class="fas fa-calendar-alt"></i> School Year & Term
+                            </label>
+                            <select id="schoolYearTerm" onchange="loadPeriodStatusAndData()">
+                                <option value="">Loading periods...</option>
+                            </select>
                         </div>
-                        <div class="banner-period">
-                            <span id="bannerPeriod">Loading...</span>
+
+                        <div class="summary-card status-summary-card">
+                            <div id="period-status-banner" class="period-status-banner" style="display: none;">
+                                <div class="status-icon">
+                                    <i class="fas fa-info-circle"></i>
+                                </div>
+                                <div class="status-content">
+                                    <h4 id="period-status-title">Period Status</h4>
+                                    <p id="period-status-message">Loading...</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Overall Clearance Progress Status Badge -->
-                <div class="overall-status-section">
-                    <div class="overall-status-badge">
-                        <i class="fas fa-info-circle"></i>
-                        Clearance Progress Status: Pending
+                    <div class="summary-grid">
+                        <div class="summary-card form-summary-card">
+                            <div class="summary-card-heading">
+                                <h4>Form Details</h4>
+                            </div>
+                            <div id="clearanceFormBanner" class="form-summary" style="display: none;">
+                                <div class="form-detail">
+                                    <span class="detail-label">Form ID</span>
+                                    <span class="detail-value" id="clearanceFormId">Loading...</span>
+                                </div>
+                                <div class="form-detail">
+                                    <span class="detail-label">Period</span>
+                                    <span class="detail-value" id="bannerPeriod">Loading...</span>
+                                </div>
+                                <div class="form-detail">
+                                    <span class="detail-label">Clearance Progress</span>
+                                    <span class="detail-value" id="overallStatusText">Loading...</span>
+                                </div>
+                            </div>
+                            <div class="form-extra-meta">
+                                <span class="meta-item"><strong>Sector:</strong> <?php echo $user_sector; ?></span>
+                                <span class="meta-item"><strong>Account:</strong> <?php echo $first_name . ' ' . $last_name; ?></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -218,12 +231,7 @@
                     </div>
                 </div>
 
-                <!-- Export Section -->
-                <div class="export-section">
-                    <button class="btn btn-primary" onclick="exportClearance()">
-                        <i class="fas fa-download"></i> Export Clearance Report
-                    </button>
-                </div>
+                
             </div>
         </div>
     </main>
@@ -452,7 +460,7 @@
         }
 
         // Show banner
-        banner.style.display = 'block';
+        banner.style.display = 'flex';
     }
 
     // Update clearance data based on selected period
@@ -489,6 +497,9 @@
         
         // Store clearance data globally for button logic
         window.currentClearanceData = data;
+        currentPeriodData = data;
+
+        // statusPanelMeta removed (previous header timestamp)
         
         // Update the period status banner using the data from this response
         updatePeriodStatusUI(data);
@@ -497,9 +508,9 @@
         updateClearanceFormBanner(data);
         
         // Update overall status
-        const overallStatus = document.querySelector('.overall-status-badge');
+        const overallStatus = document.getElementById('overallStatusText');
         if (overallStatus) {
-            overallStatus.innerHTML = `<i class="fas fa-info-circle"></i> Clearance Progress Status: ${data.overall_status}`;
+            overallStatus.textContent = data.overall_status ? data.overall_status : 'Pending';
         }
         
         // Update signatory cards and table rows based on data.signatories
@@ -546,7 +557,7 @@
             if (data.clearance_form_id) {
                 formIdElement.textContent = data.clearance_form_id;
                 periodElement.textContent = `${data.academic_year} - ${data.semester_name}`;
-                banner.style.display = 'block';
+                banner.style.display = 'flex';
             } else {
                 banner.style.display = 'none';
             }

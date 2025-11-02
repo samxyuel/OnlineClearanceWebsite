@@ -256,7 +256,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Close on overlay click (outside window)
     if (modal) {
         modal.addEventListener('click', function(e) {
-            if (e.target === modal) closeLogoutModal();
+            if (e.target === modal || (e.target && e.target.classList && e.target.classList.contains('modal-backdrop'))) {
+                closeLogoutModal();
+            }
+        });
+        // Close on Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && modal.style.display === 'flex') {
+                closeLogoutModal();
+            }
         });
     }
 });

@@ -303,16 +303,18 @@ handleFacultyManagementPageRequest();
                                     <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
-                                    <button class="selection-counter-display" id="selectionCounterPill" onclick="openBulkSelectionModal()">
+                                    <button class="selection-counter-display" id="selectionCounterPill" onclick="clearAllSelections()">
                                         <i class="fas fa-check-square"></i> <span id="selectionCounter">0 selected</span>
                                     </button>
                                     <button class="btn btn-sm btn-outline-secondary" id="clearSelectionBtn" onclick="clearAllSelections()" disabled>
                                         <i class="fas fa-times"></i> Clear
                                     </button>
                                     <div class="bulk-buttons">
+                                        <!--
                                         <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
                                             <i class="fas fa-undo"></i> Undo
                                         </button>
+                                        -->
                                         <button class="btn btn-success" onclick="approveSelected()" disabled>
                                             <i class="fas fa-check"></i> Approve
                                         </button>
@@ -333,7 +335,8 @@ handleFacultyManagementPageRequest();
                                     <table id="facultyTable" class="students-table">
                                         <thead>
                                             <tr>
-                                                <th class="checkbox-column"></th>
+                                                <th class="checkbox-column">
+                                                </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
                                                 <th>Employment Status</th>
@@ -777,7 +780,12 @@ handleFacultyManagementPageRequest();
         }
         
         function triggerExportModal() {
-            showToastNotification('Export functionality not implemented yet', 'info');
+            if (typeof window.openExportModal === 'function') {
+                window.openExportModal();
+            } else {
+                console.error('Export modal function not found');
+                showToastNotification('Export modal not available', 'error');
+            }
         }
         
         // Global variable for current staff position (set by PHP above)
@@ -1241,22 +1249,7 @@ handleFacultyManagementPageRequest();
             }
         });
 
-        // Export functionality
-        function triggerExportModal() {
-            showConfirmationModal(
-                'Export Faculty Clearance Report',
-                'Generate a PDF report of your faculty clearance signing activities?',
-                'Export',
-                'Cancel',
-                () => {
-                    showToastNotification('Report generation started...', 'info');
-                    setTimeout(() => {
-                        showToastNotification('Faculty clearance report exported successfully!', 'success');
-                    }, 2000);
-                },
-                'info'
-            );
-        }
+        // Export functionality - Remove duplicate, use the one above
 
         // Load current clearance period for banner
         async function loadCurrentPeriod() {
@@ -1698,5 +1691,8 @@ handleFacultyManagementPageRequest();
             </div>
         </div>
     </div>
+    
+    <!-- Include Export Modal -->
+    <?php include '../../Modals/ExportModal.php'; ?>
 </body>
 </html>

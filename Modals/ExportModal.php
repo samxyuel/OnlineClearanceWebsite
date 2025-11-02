@@ -1,6 +1,10 @@
 <?php
-// Export Modal - Export Student Data
-// This modal is included in StudentManagement.php
+// Dynamic Export Modal - Adaptive by User Role
+require_once __DIR__ . '/../includes/classes/Auth.php';
+$auth = class_exists('Auth') ? new Auth() : null;
+$currentUser = $auth && $auth->isLoggedIn() ? $auth->getCurrentUser() : null;
+$currentRoleName = $currentUser['role_name'] ?? 'Guest';
+$currentUserId = $currentUser['user_id'] ?? null;
 ?>
 <!-- Include Modal Styles -->
 <link rel="stylesheet" href="../../assets/css/modals.css">
@@ -12,183 +16,99 @@
     
     <!-- Modal Header -->
     <div class="modal-header">
-      <h2 class="modal-title">📊 Export Student Data</h2>
-      <div class="modal-supporting-text">Select export format, scope, and data to include in your export.</div>
+      <h2 class="modal-title">📊 Export Reports</h2>
+      <div class="modal-supporting-text">Select format, period, report, and scope based on your role.</div>
     </div>
     
     <!-- Content Area -->
     <div class="modal-content-area">
-      <form id="exportForm" class="modal-form" data-endpoint="../../controllers/exportData.php">
-        <input type="hidden" name="type" value="student_export">
+      <form id="exportForm" class="modal-form" data-endpoint="../../api/reports/export.php">
+        <input type="hidden" id="currentRole" value="<?php echo htmlspecialchars($currentRoleName); ?>">
+        <input type="hidden" id="currentUserId" value="<?php echo htmlspecialchars((string)$currentUserId); ?>">
         
         <!-- File Format Section -->
-        <div class="export-section">
+        <div class="export-section" id="sectionFormat">
           <h3 class="section-title">📄 File Format</h3>
           <div class="radio-group">
-            <label class="radio-option">
+            <label class="radio-option" title="Generate an Excel workbook (.xlsx)">
               <input type="radio" name="fileFormat" value="xlsx" checked>
               <span class="radio-custom"></span>
               <span class="radio-label">Excel (.xlsx)</span>
             </label>
-            <label class="radio-option">
-              <input type="radio" name="fileFormat" value="csv">
+            <label class="radio-option" title="Generate a legacy Excel file (.xls)">
+              <input type="radio" name="fileFormat" value="xls">
               <span class="radio-custom"></span>
-              <span class="radio-label">CSV (.csv)</span>
+              <span class="radio-label">Excel (.xls)</span>
             </label>
-            <label class="radio-option">
+            <label class="radio-option" title="Generate a PDF document (.pdf)">
               <input type="radio" name="fileFormat" value="pdf">
               <span class="radio-custom"></span>
-              <span class="radio-label">PDF Report (.pdf)</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="fileFormat" value="json">
-              <span class="radio-custom"></span>
-              <span class="radio-label">JSON (.json)</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="fileFormat" value="xml">
-              <span class="radio-custom"></span>
-              <span class="radio-label">XML (.xml)</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="fileFormat" value="txt">
-              <span class="radio-custom"></span>
-              <span class="radio-label">Text (.txt)</span>
+              <span class="radio-label">PDF (.pdf)</span>
             </label>
           </div>
         </div>
         
-        <!-- Export Scope Section -->
-        <div class="export-section">
-          <h3 class="section-title">🏫 Export Scope</h3>
-          <div class="radio-group">
-            <label class="radio-option">
-              <input type="radio" name="exportScope" value="all" checked>
-              <span class="radio-custom"></span>
-              <span class="radio-label">All Students</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="exportScope" value="department">
-              <span class="radio-custom"></span>
-              <span class="radio-label">Department Only</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="exportScope" value="course">
-              <span class="radio-custom"></span>
-              <span class="radio-label">Specific Course</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="exportScope" value="yearLevel">
-              <span class="radio-custom"></span>
-              <span class="radio-label">Specific Year Level</span>
-            </label>
-          </div>
-        </div>
-        
-        <!-- Department/Course/Year Selection -->
-        <div class="export-section" id="filterSection" style="display: none;">
-          <h3 class="section-title">🎓 Filter Selection</h3>
-          
-          <!-- Department Selection -->
+        <!-- Clearance Period -->
+        <div class="export-section" id="sectionPeriod">
+          <h3 class="section-title">🗓️ Clearance Period</h3>
           <div class="form-group">
-            <label for="exportDepartment">Department</label>
-            <select id="exportDepartment" name="department" onchange="updateExportCourseAndYear()">
-              <option value="">Select Department</option>
-              <option value="Tourism and Hospitality Management">Tourism and Hospitality Management</option>
-              <option value="Information, Communication, and Technology">Information, Communication, and Technology</option>
-              <option value="Business, Arts, and Science">Business, Arts, and Science</option>
-              <option value="Senior High School">Senior High School</option>
+            <label for="periodSelect">School Year and Term</label>
+            <select id="periodSelect" name="period_id">
+              <option value="">Loading periods...</option>
             </select>
           </div>
-          
-          <!-- Course Selection -->
-          <div class="form-group" id="courseGroup" style="display: none;">
-            <label for="exportCourse">Course</label>
-            <select id="exportCourse" name="course" onchange="updateExportYearLevel()">
-              <option value="">All Courses</option>
+        </div>
+
+        <!-- Report Type -->
+        <div class="export-section" id="sectionReport">
+          <h3 class="section-title">📑 Report Type</h3>
+          <div class="form-group">
+            <label for="reportType">Select Report</label>
+            <select id="reportType" name="report_type" disabled>
+              <option value="">Select a report</option>
             </select>
           </div>
+          </div>
           
-          <!-- Year Level Selection -->
-          <div class="form-group" id="yearGroup" style="display: none;">
-            <label for="exportYearLevel">Year Level</label>
-            <select id="exportYearLevel" name="yearLevel">
-              <option value="">All Year Levels</option>
+        <!-- Sector Scope -->
+        <div class="export-section" id="sectionSector">
+          <h3 class="section-title">🏷️ Sector Scope</h3>
+          <div class="form-group">
+            <label for="sectorSelect">Sector</label>
+            <select id="sectorSelect" name="sector" disabled>
+              <option value="">Select a sector</option>
+            </select>
+          </div>
+          </div>
+          
+        <!-- Department Scope -->
+        <div class="export-section" id="sectionDepartment" style="display: none;">
+          <h3 class="section-title">🏛️ Department Scope</h3>
+          <div class="form-group">
+            <label for="departmentSelect">Department</label>
+            <select id="departmentSelect" name="department_id" disabled>
+              <option value="">Select a department</option>
             </select>
           </div>
         </div>
         
-        <!-- Column Selection Section -->
-        <div class="export-section">
-          <h3 class="section-title">📋 Include Columns</h3>
-          <div class="checkbox-group">
-            <label class="checkbox-option">
-              <input type="checkbox" name="columns[]" value="studentNumber" checked>
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Student Number</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="columns[]" value="name" checked>
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Name</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="columns[]" value="program" checked>
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Program</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="columns[]" value="yearLevel" checked>
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Year Level</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="columns[]" value="section" checked>
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Section</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="columns[]" value="accountStatus" checked>
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Account Status</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="columns[]" value="clearanceStatus" checked>
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Clearance Status</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="columns[]" value="email">
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Email</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="columns[]" value="contactNumber">
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Contact Number</span>
-            </label>
+        <!-- Program Scope (only for College/SHS) -->
+        <div class="export-section" id="sectionProgram" style="display: none;">
+          <h3 class="section-title">🎓 Program Scope</h3>
+          <div class="form-group">
+            <label for="programSelect">Program</label>
+            <select id="programSelect" name="program_id" disabled>
+              <option value="">All Programs</option>
+            </select>
           </div>
         </div>
         
         <!-- Export Options -->
-        <div class="export-section">
+        <div class="export-section" id="sectionOptions">
           <h3 class="section-title">⚙️ Export Options</h3>
           <div class="form-group">
             <label for="exportFileName">File Name</label>
-            <input type="text" id="exportFileName" name="fileName" 
-                   placeholder="student_data_export" value="student_data_export">
-          </div>
-          <div class="checkbox-group">
-            <label class="checkbox-option">
-              <input type="checkbox" name="includeHeaders" checked>
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Include Column Headers</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="includeTimestamp">
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Include Export Timestamp</span>
-            </label>
+            <input type="text" id="exportFileName" name="fileName" placeholder="report_export" value="" disabled>
           </div>
         </div>
       </form>
@@ -197,7 +117,7 @@
     <!-- Actions -->
     <div class="modal-actions">
       <button class="modal-action-secondary" onclick="closeExportModal()">Cancel</button>
-      <button class="modal-action-primary" onclick="submitExportForm()" id="exportSubmitBtn">Export Data</button>
+      <button class="modal-action-primary" onclick="submitExportForm()" id="exportSubmitBtn">Export</button>
     </div>
   </div>
 </div>
@@ -224,6 +144,10 @@
   align-items: center;
   gap: 8px;
 }
+
+/* Disabled section styling and smooth transitions */
+.export-section { transition: opacity 0.2s ease; }
+.section-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(15%); }
 
 .radio-group, .checkbox-group {
   display: grid;
@@ -314,261 +238,752 @@
 </style>
 
 <script>
-// Department → Course mapping (same as other modals)
-const exportDepartmentCourses = {
-  'Tourism and Hospitality Management': [
-    'BS in Tourism Management (BSTM)',
-    'BS in Culinary Management (BSCM)'
+// Role-based report options
+const REPORT_OPTIONS = {
+  'Admin': [
+    { value: 'student_progress', label: 'Student Clearance Form Progress Report' },
+    { value: 'faculty_progress', label: 'Faculty Clearance Form Progress Report' }
   ],
-  'Information, Communication, and Technology': [
-    'BS in Information Technology (BSIT)',
-    'BS in Computer Science (BSCS)',
-    'BS in Computer Engineering (BSCpE)',
-    'BS in Information Systems (BSIS)'
+  'School Administrator': [
+    { value: 'student_progress', label: 'Student Clearance Form Progress Report' },
+    { value: 'faculty_progress', label: 'Faculty Clearance Form Progress Report' },
+    { value: 'student_applicant_status', label: 'Student Clearance Applicant Status Report' },
+    { value: 'faculty_applicant_status', label: 'Faculty Clearance Applicant Status Report' }
   ],
-  'Business, Arts, and Science': [
-    'BS in Business Administration (BSBA)',
-    'BS in Accounting Information System (BSAIS)',
-    'BS in Accountancy (BSA)',
-    'BA in Communication (BAComm)',
-    'Bachelor of Multimedia Arts (BMMA)'
+  'Program Head': [
+    { value: 'student_applicant_status', label: 'Student Clearance Applicant Status Report' },
+    { value: 'faculty_applicant_status', label: 'Faculty Clearance Applicant Status Report' }
   ],
-  'Senior High School': [
-    'Accountancy, Business, and Management (ABM)',
-    'Science, Technology, Engineering and Mathematics (STEM)',
-    'Humanities and Social Sciences (HUMSS)',
-    'General Academic (GA)',
-    'IT in Mobile App and Web Development (MAWD)',
-    'Digital Arts (DA)',
-    'Tourism Operations (TOp)',
-    'Restaurant and Cafe Operations (RCO)',
-    'Culinary Arts (CA)'
+  'Regular Staff': [
+    { value: 'student_applicant_status', label: 'Student Clearance Applicant Status Report' },
+    { value: 'faculty_applicant_status', label: 'Faculty Clearance Applicant Status Report' }
   ]
 };
 
-// Department → Year Level mapping
-const exportDepartmentYearLevels = {
-  'Tourism and Hospitality Management': [
-    '1st Year',
-    '2nd Year', 
-    '3rd Year',
-    '4th Year'
-  ],
-  'Information, Communication, and Technology': [
-    '1st Year',
-    '2nd Year',
-    '3rd Year', 
-    '4th Year'
-  ],
-  'Business, Arts, and Science': [
-    '1st Year',
-    '2nd Year',
-    '3rd Year',
-    '4th Year'
-  ],
-  'Senior High School': [
-    'Grade 11',
-    'Grade 12'
-  ]
-};
+let USER_ASSIGNMENTS = null; // populated from API for scope filtering
 
-// Update export scope visibility
-function updateExportScope() {
-  const scope = document.querySelector('input[name="exportScope"]:checked').value;
-  const filterSection = document.getElementById('filterSection');
-  const departmentSelect = document.getElementById('exportDepartment');
-  const courseGroup = document.getElementById('courseGroup');
-  const yearGroup = document.getElementById('yearGroup');
-  
-  if (scope === 'all') {
-    filterSection.style.display = 'none';
-  } else {
-    filterSection.style.display = 'block';
-    
-    if (scope === 'department') {
-      courseGroup.style.display = 'none';
-      yearGroup.style.display = 'none';
-    } else if (scope === 'course') {
-      courseGroup.style.display = 'block';
-      yearGroup.style.display = 'none';
-    } else if (scope === 'yearLevel') {
-      courseGroup.style.display = 'block';
-      yearGroup.style.display = 'block';
-    }
-  }
-}
-
-// Update course and year level dropdowns
-function updateExportCourseAndYear() {
-  const department = document.getElementById('exportDepartment').value;
-  const courseSelect = document.getElementById('exportCourse');
-  const yearSelect = document.getElementById('exportYearLevel');
-  
-  // Clear current options
-  courseSelect.innerHTML = '<option value="">All Courses</option>';
-  yearSelect.innerHTML = '<option value="">All Year Levels</option>';
-  
-  if (department) {
-    // Update courses
-    if (exportDepartmentCourses[department]) {
-      exportDepartmentCourses[department].forEach(course => {
-        const option = document.createElement('option');
-        option.value = course;
-        option.textContent = course;
-        courseSelect.appendChild(option);
-      });
-    }
-    
-    // Update year levels
-    if (exportDepartmentYearLevels[department]) {
-      exportDepartmentYearLevels[department].forEach(yearLevel => {
-        const option = document.createElement('option');
-        option.value = yearLevel;
-        option.textContent = yearLevel;
-        yearSelect.appendChild(option);
-      });
-    }
-  }
-}
-
-function updateExportYearLevel() {
-  const department = document.getElementById('exportDepartment').value;
-  const yearSelect = document.getElementById('exportYearLevel');
-  
-  // Clear current options
-  yearSelect.innerHTML = '<option value="">All Year Levels</option>';
-  
-  if (department && exportDepartmentYearLevels[department]) {
-    exportDepartmentYearLevels[department].forEach(yearLevel => {
-      const option = document.createElement('option');
-      option.value = yearLevel;
-      option.textContent = yearLevel;
-      yearSelect.appendChild(option);
+async function fetchJSON(url) {
+  console.log('[ExportModal] fetchJSON() calling:', url);
+  try {
+    const resp = await fetch(url, { credentials: 'include' });
+    console.log('[ExportModal] fetchJSON() response status:', resp.status, resp.statusText);
+    console.log('[ExportModal] fetchJSON() response headers:', {
+      'content-type': resp.headers.get('content-type'),
+      'content-length': resp.headers.get('content-length')
     });
+    
+    if (!resp.ok) {
+      const errorText = await resp.text();
+      console.error('[ExportModal] fetchJSON() error response:', errorText);
+      throw new Error(`HTTP ${resp.status}: ${resp.statusText} - ${errorText.substring(0, 200)}`);
+    }
+    
+    const contentType = resp.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await resp.text();
+      console.error('[ExportModal] fetchJSON() non-JSON response:', text.substring(0, 500));
+      throw new Error('Response is not JSON. Content-Type: ' + contentType);
+    }
+    
+    const json = await resp.json();
+    console.log('[ExportModal] fetchJSON() parsed JSON:', json);
+    return json;
+  } catch (e) {
+    console.error('[ExportModal] fetchJSON() exception:', e);
+    throw e;
   }
 }
 
-// Form validation
+function setLoading(selectEl, text = 'Loading...') {
+  selectEl.innerHTML = '';
+  const opt = document.createElement('option');
+  opt.value = '';
+  opt.textContent = text;
+  selectEl.appendChild(opt);
+}
+
+function populateSelect(selectEl, items, valueKey, labelKey, placeholder = 'Select...') {
+  selectEl.innerHTML = '';
+  const ph = document.createElement('option');
+  ph.value = '';
+  ph.textContent = placeholder;
+  selectEl.appendChild(ph);
+  items.forEach(it => {
+    const opt = document.createElement('option');
+    opt.value = it[valueKey];
+    opt.textContent = it[labelKey];
+    selectEl.appendChild(opt);
+  });
+}
+
+function normalizeRole(role) {
+  if (!role) return 'Guest';
+  const r = role.trim().toLowerCase();
+  if (r === 'admin') return 'Admin';
+  if (r === 'school administrator') return 'School Administrator';
+  if (r === 'program head') return 'Program Head';
+  if (r === 'regular staff') return 'Regular Staff';
+  if (r === 'student') return 'Student';
+  if (r === 'faculty') return 'Faculty';
+  return role;
+}
+
+function shouldShowProgramSection(selectedSectorName) {
+  return selectedSectorName === 'College' || selectedSectorName === 'Senior High School';
+}
+
+// Hierarchical helpers and export button gating
+const SECTION_ORDER = ['sectionFormat','sectionPeriod','sectionReport','sectionSector','sectionDepartment','sectionProgram','sectionOptions'];
+
+function setSectionEnabled(sectionId, enabled) {
+  const el = document.getElementById(sectionId);
+  if (!el) {
+    console.warn('[ExportModal] setSectionEnabled: Element not found:', sectionId);
+    return;
+  }
+  
+  console.log('[ExportModal] setSectionEnabled:', sectionId, '->', enabled);
+  
+  el.classList.toggle('section-disabled', !enabled);
+  el.querySelectorAll('select, input, button').forEach(ctrl => {
+    if (sectionId === 'sectionFormat') { 
+      ctrl.disabled = false; 
+      return; 
+    }
+    const wasDisabled = ctrl.disabled;
+    ctrl.disabled = !enabled;
+    console.log('[ExportModal] Control', ctrl.id || ctrl.name, 'disabled:', !enabled, '(was:', wasDisabled, ')');
+  });
+}
+
+function updateExportButtonState() {
+  const btn = document.getElementById('exportSubmitBtn');
+  const period = document.getElementById('periodSelect').value;
+  const report = document.getElementById('reportType').value;
+  const sector = document.getElementById('sectorSelect').value;
+  const dept = document.getElementById('departmentSelect').value;
+  const fname = document.getElementById('exportFileName').value.trim();
+  btn.disabled = !(period && report && sector && dept && fname);
+}
+
+function computeDefaultFilename() {
+  const reportSel = document.getElementById('reportType');
+  const selected = reportSel.options[reportSel.selectedIndex];
+  const label = (selected && selected.textContent) ? selected.textContent : 'Report';
+  const base = label.replace(/\s+/g,'_').replace(/[^A-Za-z0-9_\-]/g,'_');
+  const dateStr = new Date().toISOString().slice(0,10);
+  return `${base}_${dateStr}`;
+}
+
+async function loadExportPeriods() {
+  console.log('[ExportModal] loadExportPeriods() ENTRY POINT - function started');
+  
+  try {
+    const sel = document.getElementById('periodSelect');
+    console.log('[ExportModal] loadExportPeriods() - Select element found:', sel);
+    
+    if (!sel) {
+      throw new Error('periodSelect element not found in DOM');
+    }
+    
+    console.log('[ExportModal] loadExportPeriods() - Setting loading state');
+    setLoading(sel);
+    
+    const apiUrl = '../../api/clearance/periods_for_export.php';
+    console.log('[ExportModal] loadExportPeriods() - Fetching periods from:', apiUrl);
+    
+    const startTime = performance.now();
+    const data = await fetchJSON(apiUrl);
+    const duration = Math.round(performance.now() - startTime);
+    
+    console.log('[ExportModal] API Response received in', duration + 'ms');
+    console.log('[ExportModal] Response data:', data);
+    console.log('[ExportModal] Response type:', typeof data);
+    console.log('[ExportModal] Has success:', 'success' in (data || {}));
+    console.log('[ExportModal] Has periods:', 'periods' in (data || {}));
+    console.log('[ExportModal] Periods is array:', Array.isArray(data?.periods));
+    
+    if (!data) {
+      throw new Error('No data returned from API');
+    }
+    
+    if (!data.success) {
+      console.error('[ExportModal] API returned success=false:', data.message);
+      throw new Error(data.message || 'API returned unsuccessful response');
+    }
+    
+    if (!Array.isArray(data.periods)) {
+      console.error('[ExportModal] Periods is not an array:', typeof data.periods, data.periods);
+      throw new Error('Invalid response format: periods is not an array');
+    }
+    
+    console.log('[ExportModal] Periods count:', data.periods.length);
+    
+    if (data.periods.length === 0) {
+      console.warn('[ExportModal] No periods found');
+      populateSelect(sel, [], 'value', 'label', 'No clearance periods available');
+    } else {
+      console.log('[ExportModal] Processing', data.periods.length, 'periods');
+      const items = data.periods.map(p => {
+        const item = {
+          value: p.value || '',
+          label: p.label || ''
+        };
+        console.log('[ExportModal] Period item:', item);
+        return item;
+      });
+      
+      console.log('[ExportModal] Populating select with', items.length, 'items');
+      populateSelect(sel, items, 'value', 'label', 'Select School Year and Term');
+      console.log('[ExportModal] Select populated successfully');
+    }
+    console.log('[ExportModal] loadExportPeriods() - Function completed successfully');
+  } catch (e) {
+    console.error('[ExportModal] loadExportPeriods() - ERROR CAUGHT:', e);
+    console.error('[ExportModal] Error name:', e.name);
+    console.error('[ExportModal] Error message:', e.message);
+    console.error('[ExportModal] Error stack:', e.stack);
+    
+    const sel = document.getElementById('periodSelect');
+    if (sel) {
+      populateSelect(sel, [], 'value', 'label', 'Unable to load periods: ' + (e.message || 'Unknown error'));
+    } else {
+      console.error('[ExportModal] Could not find periodSelect element for error display');
+    }
+    
+    // Re-throw so outer catch can handle it
+    throw e;
+  }
+}
+
+async function loadSectors(filteredNames = null) {
+  const sel = document.getElementById('sectorSelect');
+  console.log('[ExportModal] loadSectors() called, filteredNames:', filteredNames);
+  setLoading(sel);
+  try {
+    const data = await fetchJSON('../../api/sectors/list.php');
+    let sectors = data.sectors || [];
+    if (filteredNames && Array.isArray(filteredNames)) {
+      sectors = sectors.filter(s => filteredNames.includes(s.sector_name));
+      console.log('[ExportModal] Filtered sectors:', sectors.map(s => s.sector_name));
+    }
+    populateSelect(sel, sectors.map(s => ({ value: s.sector_name, label: s.sector_name })), 'value', 'label', 'Select a sector');
+    console.log('[ExportModal] Sectors populated:', sectors.length, 'items');
+  } catch (e) {
+    console.error('[ExportModal] Error loading sectors:', e);
+    populateSelect(sel, [], 'value', 'label', 'Unable to load sectors');
+  }
+}
+
+// Export modal specific function - use unique name to avoid conflicts
+async function loadExportDepartments(sectorName, allowedDepartmentIds = null) {
+  console.log('[ExportModal] loadExportDepartments() ENTRY - sector:', sectorName, 'allowedIds:', allowedDepartmentIds);
+  
+  const sel = document.getElementById('departmentSelect');
+  if (!sel) {
+    console.error('[ExportModal] Department select element not found!');
+    return;
+  }
+  
+  console.log('[ExportModal] Setting loading state for department select');
+  setLoading(sel);
+  
+  document.getElementById('sectionDepartment').style.display = sectorName ? 'block' : 'none';
+  if (!sectorName) {
+    console.log('[ExportModal] No sector name, skipping department load');
+    return;
+  }
+  
+  const apiUrl = `../../api/departments/list.php?sector=${encodeURIComponent(sectorName)}`;
+  console.log('[ExportModal] Calling API:', apiUrl);
+  
+  try {
+    const data = await fetchJSON(apiUrl);
+    console.log('[ExportModal] API response received:', data);
+    console.log('[ExportModal] Data success:', data.success);
+    console.log('[ExportModal] Departments in response:', Array.isArray(data.departments) ? data.departments.length : 'not an array');
+    
+    let departments = data.departments || [];
+    console.log('[ExportModal] Departments before filtering:', departments.length);
+    
+    if (Array.isArray(allowedDepartmentIds) && allowedDepartmentIds.length > 0) {
+      const set = new Set(allowedDepartmentIds.map(Number));
+      const beforeFilter = departments.length;
+      departments = departments.filter(d => set.has(Number(d.department_id)));
+      console.log('[ExportModal] Filtered departments:', departments.length, 'after filtering (was:', beforeFilter, ')');
+    } else {
+      console.log('[ExportModal] No department ID filter applied');
+    }
+    
+    console.log('[ExportModal] Populating select with', departments.length, 'departments');
+    const items = departments.map(d => ({ value: d.department_id, label: d.department_name }));
+    console.log('[ExportModal] Items to populate:', items);
+    
+    populateSelect(sel, items, 'value', 'label', 'Select a department');
+    console.log('[ExportModal] Departments populated successfully');
+  } catch (e) {
+    console.error('[ExportModal] Error loading departments:', e);
+    console.error('[ExportModal] Error stack:', e.stack);
+    populateSelect(sel, [], 'value', 'label', 'Unable to load departments: ' + (e.message || 'Unknown error'));
+  }
+}
+
+async function loadPrograms(departmentId) {
+  const programSection = document.getElementById('sectionProgram');
+  const sel = document.getElementById('programSelect');
+  if (!departmentId) {
+    programSection.style.display = 'none';
+    return;
+  }
+  setLoading(sel);
+  try {
+    const data = await fetchJSON(`../../api/programs/list.php?department_id=${encodeURIComponent(departmentId)}`);
+    const programs = data.programs || [];
+    populateSelect(sel, programs.map(p => ({ value: p.program_id, label: p.program_name })), 'value', 'label', 'All Programs');
+    programSection.style.display = 'block';
+  } catch (e) {
+    programSection.style.display = 'none';
+  }
+}
+
+async function loadUserAssignments() {
+  try {
+    const data = await fetchJSON('../../api/signatories/check_user_status.php');
+    USER_ASSIGNMENTS = data.signatory_status || null;
+  } catch (e) {
+    USER_ASSIGNMENTS = null;
+  }
+}
+
+function buildReportTypeOptions(roleNorm) {
+  const sel = document.getElementById('reportType');
+  const options = REPORT_OPTIONS[roleNorm] || [];
+  populateSelect(sel, options, 'value', 'label', 'Select a report');
+}
+
+function deriveAllowedScope(roleNorm) {
+  const result = { sectors: null, departmentIds: null };
+  if (!USER_ASSIGNMENTS || !USER_ASSIGNMENTS.assignments) return result;
+  const assignments = USER_ASSIGNMENTS.assignments;
+
+  if (roleNorm === 'School Administrator' || roleNorm === 'Regular Staff') {
+    const sectors = new Set();
+    const deptIds = new Set();
+    Object.keys(assignments).forEach(ct => {
+      assignments[ct].forEach(a => {
+        if (a.sector_name) sectors.add(a.sector_name);
+        if (a.department_id) deptIds.add(Number(a.department_id));
+      });
+    });
+    result.sectors = Array.from(sectors);
+    result.departmentIds = Array.from(deptIds);
+  }
+
+  if (roleNorm === 'Program Head') {
+    const deptIds = new Set();
+    const sectors = new Set();
+    Object.keys(assignments).forEach(ct => {
+      assignments[ct].forEach(a => {
+        if (a.department_id) deptIds.add(Number(a.department_id));
+        if (a.sector_name && (a.sector_name === 'College' || a.sector_name === 'Senior High School')) {
+          sectors.add(a.sector_name);
+        }
+      });
+    });
+    result.sectors = Array.from(sectors).filter(s => s === 'College' || s === 'Senior High School');
+    result.departmentIds = Array.from(deptIds);
+  }
+
+  return result;
+}
+
 function validateExportForm() {
-  const scope = document.querySelector('input[name="exportScope"]:checked').value;
-  const department = document.getElementById('exportDepartment').value;
-  const course = document.getElementById('exportCourse').value;
-  const yearLevel = document.getElementById('exportYearLevel').value;
-  
-  if (scope !== 'all') {
-    if (!department) {
-      showNotification('Please select a department', 'error');
-      return false;
+  // Helper function for notifications
+  const notify = (message, type = 'info') => {
+    if (typeof showNotification === 'function') {
+      showNotification(message, type);
+    } else if (typeof showToastNotification === 'function') {
+      showToastNotification(message, type);
+    } else if (typeof showToast === 'function') {
+      showToast(message, type);
+    } else {
+      alert(message);
     }
-    
-    if (scope === 'course' && !course) {
-      showNotification('Please select a course', 'error');
-      return false;
-    }
-    
-    if (scope === 'yearLevel' && !yearLevel) {
-      showNotification('Please select a year level', 'error');
-      return false;
-    }
-  }
+  };
   
-  // Check if at least one column is selected
-  const selectedColumns = document.querySelectorAll('input[name="columns[]"]:checked');
-  if (selectedColumns.length === 0) {
-    showNotification('Please select at least one column to export', 'error');
-    return false;
-  }
-  
+  const fileFormat = document.querySelector('input[name="fileFormat"]:checked')?.value;
+  const periodId = document.getElementById('periodSelect').value;
+  const reportType = document.getElementById('reportType').value;
+  const sector = document.getElementById('sectorSelect').value;
+  const deptId = document.getElementById('departmentSelect').value;
+  const fileName = document.getElementById('exportFileName').value.trim();
+
+  if (!fileFormat) { notify('Please select a file format', 'error'); return false; }
+  if (!periodId) { notify('Please select a clearance period', 'error'); return false; }
+  if (!reportType) { notify('Please select a report type', 'error'); return false; }
+  if (!sector) { notify('Please select a sector', 'error'); return false; }
+  if (!deptId) { notify('Please select a department', 'error'); return false; }
+  if (!fileName) { notify('Please enter a file name', 'error'); return false; }
   return true;
 }
 
-// Modal functions
-window.openExportModal = function() {
+window.openExportModal = async function() {
+  console.log('[ExportModal] openExportModal() called');
   document.getElementById('exportModal').style.display = 'flex';
   document.body.classList.add('modal-open');
   
-  // Set default file name with timestamp
   const now = new Date();
-  const timestamp = now.toISOString().slice(0, 10); // YYYY-MM-DD
-  document.getElementById('exportFileName').value = `student_data_${timestamp}`;
-}
+  const timestamp = now.toISOString().slice(0, 10);
+  document.getElementById('exportFileName').value = '';
+
+  const roleRaw = document.getElementById('currentRole')?.value || 'Guest';
+  const roleNorm = normalizeRole(roleRaw);
+  console.log('[ExportModal] Current role:', roleRaw, '-> normalized:', roleNorm);
+  
+  buildReportTypeOptions(roleNorm);
+  console.log('[ExportModal] Report type options built');
+
+  console.log('[ExportModal] Loading user assignments...');
+  await loadUserAssignments();
+  console.log('[ExportModal] User assignments loaded');
+  
+  console.log('[ExportModal] Loading periods...');
+  try {
+    await loadExportPeriods();
+    console.log('[ExportModal] Periods loaded successfully');
+  } catch (e) {
+    console.error('[ExportModal] loadExportPeriods() threw an exception:', e);
+    console.error('[ExportModal] Exception details:', e.message, e.stack);
+  }
+  console.log('[ExportModal] Periods loading attempt completed');
+
+  // Load sectors after periods are loaded (initial load - will be filtered when report type is selected)
+  // Don't load sectors here - wait for report type selection to filter appropriately
+  console.log('[ExportModal] Sectors will be loaded when report type is selected');
+
+  // Initialize hierarchical states
+  setSectionEnabled('sectionFormat', true);
+  setSectionEnabled('sectionPeriod', true);
+  setSectionEnabled('sectionReport', false);
+  setSectionEnabled('sectionSector', false);
+  document.getElementById('sectionDepartment').style.display = 'none';
+  setSectionEnabled('sectionDepartment', false);
+  document.getElementById('sectionProgram').style.display = 'none';
+  setSectionEnabled('sectionProgram', false);
+  setSectionEnabled('sectionOptions', false);
+  const submitBtn = document.getElementById('exportSubmitBtn');
+  submitBtn.disabled = true;
+
+  // Period change → enable Report
+  const periodSelect = document.getElementById('periodSelect');
+  periodSelect.onchange = () => {
+    console.log('[ExportModal] Period changed:', periodSelect.value);
+    if (periodSelect.value) {
+      setSectionEnabled('sectionReport', true);
+      console.log('[ExportModal] Report section enabled');
+    } else {
+      setSectionEnabled('sectionReport', false);
+      setSectionEnabled('sectionSector', false);
+      document.getElementById('sectionDepartment').style.display = 'none';
+      setSectionEnabled('sectionDepartment', false);
+      document.getElementById('sectionProgram').style.display = 'none';
+      setSectionEnabled('sectionProgram', false);
+      setSectionEnabled('sectionOptions', false);
+      console.log('[ExportModal] Report section disabled');
+    }
+    updateExportButtonState();
+  };
+  
+  // Trigger period change if already selected
+  if (periodSelect.value) {
+    console.log('[ExportModal] Period already selected on init, triggering change');
+    periodSelect.dispatchEvent(new Event('change'));
+  }
+
+  // Report change → enable Sector and filter sectors based on report type
+  const reportSelect = document.getElementById('reportType');
+  reportSelect.onchange = async () => {
+    console.log('[ExportModal] Report changed:', reportSelect.value);
+    if (reportSelect.value) {
+      // Determine which sectors to show based on report type
+      let sectorsToShow = null;
+      if (reportSelect.value === 'student_progress' || reportSelect.value === 'student_applicant_status') {
+        // Student reports: Show College and Senior High School only
+        sectorsToShow = ['College', 'Senior High School'];
+        console.log('[ExportModal] Student report selected, filtering sectors to:', sectorsToShow);
+      } else if (reportSelect.value === 'faculty_progress' || reportSelect.value === 'faculty_applicant_status') {
+        // Faculty reports: Show Faculty only
+        sectorsToShow = ['Faculty'];
+        console.log('[ExportModal] Faculty report selected, filtering sectors to:', sectorsToShow);
+      }
+      
+      // Reload sectors with the appropriate filter
+      await loadSectors(sectorsToShow);
+      
+      // Clear department/program/options since sector changed
+      document.getElementById('departmentSelect').value = '';
+      document.getElementById('programSelect').value = '';
+      document.getElementById('sectionDepartment').style.display = 'none';
+      setSectionEnabled('sectionDepartment', false);
+      document.getElementById('sectionProgram').style.display = 'none';
+      setSectionEnabled('sectionProgram', false);
+      setSectionEnabled('sectionOptions', false);
+      
+      // Enable sector section
+      setSectionEnabled('sectionSector', true);
+      console.log('[ExportModal] Sector section enabled');
+      
+      const fname = document.getElementById('exportFileName');
+      if (fname && !fname.value) fname.value = computeDefaultFilename();
+    } else {
+      setSectionEnabled('sectionSector', false);
+      document.getElementById('sectionDepartment').style.display = 'none';
+      setSectionEnabled('sectionDepartment', false);
+      document.getElementById('sectionProgram').style.display = 'none';
+      setSectionEnabled('sectionProgram', false);
+      setSectionEnabled('sectionOptions', false);
+      console.log('[ExportModal] Sector section disabled');
+    }
+    updateExportButtonState();
+  };
+  
+  // Trigger report change if already selected
+  if (reportSelect.value) {
+    console.log('[ExportModal] Report already selected on init, triggering change');
+    reportSelect.dispatchEvent(new Event('change'));
+  }
+
+  // Sector change → enable Department and load
+  const sectorSelect = document.getElementById('sectorSelect');
+  sectorSelect.onchange = async () => {
+    console.log('[ExportModal] Sector changed:', sectorSelect.value);
+    const selectedSector = sectorSelect.value;
+    
+    if (!selectedSector) {
+      console.log('[ExportModal] No sector selected, disabling department section');
+      setSectionEnabled('sectionDepartment', false);
+      document.getElementById('sectionDepartment').style.display = 'none';
+      document.getElementById('sectionProgram').style.display = 'none';
+      setSectionEnabled('sectionProgram', false);
+      setSectionEnabled('sectionOptions', false);
+      updateExportButtonState();
+      return;
+    }
+    
+    console.log('[ExportModal] Calling loadDepartments for sector:', selectedSector);
+    const roleN = normalizeRole(document.getElementById('currentRole')?.value);
+    const scopeN = deriveAllowedScope(roleN);
+    console.log('[ExportModal] Scope derived - departmentIds:', scopeN.departmentIds);
+    
+    try {
+      await loadExportDepartments(selectedSector, scopeN.departmentIds);
+      console.log('[ExportModal] loadExportDepartments completed');
+    } catch (e) {
+      console.error('[ExportModal] Error in loadExportDepartments call:', e);
+      console.error('[ExportModal] Error details:', e.message, e.stack);
+    }
+    
+    setSectionEnabled('sectionDepartment', true);
+    document.getElementById('sectionDepartment').style.display = 'block';
+    console.log('[ExportModal] Department section enabled');
+    
+    document.getElementById('sectionProgram').style.display = 'none';
+    setSectionEnabled('sectionProgram', false);
+    setSectionEnabled('sectionOptions', false);
+    updateExportButtonState();
+  };
+  
+  // Trigger sector change if already selected
+  if (sectorSelect.value) {
+    console.log('[ExportModal] Sector already selected on init, triggering change');
+    sectorSelect.dispatchEvent(new Event('change'));
+  }
+
+  // Department change → optional Program, then enable Options
+  const departmentSelect = document.getElementById('departmentSelect');
+  departmentSelect.onchange = async () => {
+    console.log('[ExportModal] Department changed:', departmentSelect.value);
+    const selectedSector = sectorSelect.value;
+    const deptId = departmentSelect.value;
+    if (shouldShowProgramSection(selectedSector)) {
+      await loadPrograms(deptId);
+      document.getElementById('sectionProgram').style.display = 'block';
+      setSectionEnabled('sectionProgram', true);
+    } else {
+      document.getElementById('sectionProgram').style.display = 'none';
+      setSectionEnabled('sectionProgram', false);
+    }
+    if (deptId) {
+      setSectionEnabled('sectionOptions', true);
+      console.log('[ExportModal] Options section enabled');
+      const fname = document.getElementById('exportFileName');
+      if (fname && !fname.value) fname.value = computeDefaultFilename();
+    } else {
+      setSectionEnabled('sectionOptions', false);
+    }
+    updateExportButtonState();
+  };
+  
+  // Trigger department change if already selected
+  if (departmentSelect.value) {
+    console.log('[ExportModal] Department already selected on init, triggering change');
+    departmentSelect.dispatchEvent(new Event('change'));
+  }
+
+  // Program change → keep options enabled if department chosen
+  const programSelect = document.getElementById('programSelect');
+  programSelect.onchange = () => {
+    const deptId = document.getElementById('departmentSelect').value;
+    if (deptId) setSectionEnabled('sectionOptions', true);
+    updateExportButtonState();
+  };
+  
+  // Final check: Evaluate current state and enable sections accordingly
+  console.log('[ExportModal] Final state check');
+  console.log('[ExportModal] Period value:', periodSelect.value);
+  console.log('[ExportModal] Report value:', reportSelect.value);
+  console.log('[ExportModal] Sector value:', sectorSelect.value);
+  console.log('[ExportModal] Department value:', departmentSelect.value);
+  
+  // Re-evaluate all sections based on current values
+  if (periodSelect.value) {
+    console.log('[ExportModal] Period has value, enabling Report section');
+    setSectionEnabled('sectionReport', true);
+    if (reportSelect.value) {
+      console.log('[ExportModal] Report has value, triggering report change to load filtered sectors');
+      // Trigger report change to load appropriate sectors
+      reportSelect.dispatchEvent(new Event('change'));
+    }
+  }
+  
+  updateExportButtonState();
+};
 
 window.closeExportModal = function() {
   document.getElementById('exportModal').style.display = 'none';
   document.body.classList.remove('modal-open');
-  
-  // Reset form
   document.getElementById('exportForm').reset();
-  
-  // Reset to defaults
-  document.querySelector('input[name="fileFormat"][value="xlsx"]').checked = true;
-  document.querySelector('input[name="exportScope"][value="all"]').checked = true;
-  updateExportScope();
-}
+  document.getElementById('sectionDepartment').style.display = 'none';
+  document.getElementById('sectionProgram').style.display = 'none';
+};
 
-window.submitExportForm = function() {
-  if (!validateExportForm()) {
-    return;
-  }
+window.submitExportForm = async function() {
+  // Helper function for notifications
+  const notify = (message, type = 'info') => {
+    if (typeof showNotification === 'function') {
+      showNotification(message, type);
+    } else if (typeof showToastNotification === 'function') {
+      showToastNotification(message, type);
+    } else if (typeof showToast === 'function') {
+      showToast(message, type);
+    } else {
+      // Fallback to alert if no notification system is available
+      alert(message);
+    }
+  };
   
+  if (!validateExportForm()) return;
   const submitBtn = document.getElementById('exportSubmitBtn');
   const form = document.getElementById('exportForm');
-  
-  // Show loading state
   submitBtn.disabled = true;
+  const originalText = submitBtn.textContent;
   submitBtn.textContent = 'Exporting...';
   form.classList.add('modal-loading');
   
-  const formData = new FormData(form);
-  const jsonData = {};
-  formData.forEach((value, key) => { 
-    if (key === 'columns[]') {
-      if (!jsonData[key]) jsonData[key] = [];
-      jsonData[key].push(value);
-    } else {
-      jsonData[key] = value; 
+  try {
+    const fd = new FormData(form);
+    fd.append('role', normalizeRole(document.getElementById('currentRole')?.value));
+    // Encode selected clearance period (school_year | semester_name)
+    const selectedPeriod = document.getElementById('periodSelect').value;
+    if (selectedPeriod && selectedPeriod.includes('|')) {
+      const [schoolYear, semesterName] = selectedPeriod.split('|');
+      fd.append('school_year', schoolYear);
+      fd.append('semester_name', semesterName);
     }
-  });
-  
-  // Simulate export process
-  setTimeout(() => {
-    const fileFormat = jsonData.fileFormat;
-    const fileName = jsonData.fileName || 'student_data_export';
-    
-    showNotification(`Export completed! Downloading ${fileName}.${fileFormat}`, 'success');
-    window.closeExportModal();
-    
-    // Reset button state
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Export Data';
-    form.classList.remove('modal-loading');
-  }, 2000);
-}
 
-// Add event listeners when modal is loaded
-document.addEventListener('DOMContentLoaded', function() {
-  // Export scope change event
-  const scopeRadios = document.querySelectorAll('input[name="exportScope"]');
-  scopeRadios.forEach(radio => {
-    radio.addEventListener('change', updateExportScope);
-  });
-  
-  // Form submission on Enter key
-  const form = document.getElementById('exportForm');
-  if (form) {
-    form.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        submitExportForm();
+    console.log('[ExportModal] Submitting export form...');
+    const resp = await fetch(form.getAttribute('data-endpoint'), { method: 'POST', body: fd, credentials: 'include' });
+    
+    // Check response status and content type
+    const contentType = resp.headers.get('Content-Type') || '';
+    console.log('[ExportModal] Response Content-Type:', contentType);
+    console.log('[ExportModal] Response status:', resp.status, resp.statusText);
+    
+    if (!resp.ok) {
+      // HTTP error - try to get error message
+      let errorText = '';
+      try {
+        const errorJson = await resp.json();
+        errorText = errorJson.message || JSON.stringify(errorJson);
+        console.error('[ExportModal] JSON error response:', errorJson);
+        
+        // If there's a trace, log it for debugging
+        if (errorJson.trace) {
+          console.error('[ExportModal] Error trace:', errorJson.trace);
+        }
+      } catch (e) {
+        errorText = await resp.text();
+        console.error('[ExportModal] Error response (text):', errorText);
       }
-    });
-  }
-  
-  // Close modal on escape key
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      closeExportModal();
+      throw new Error('Export failed: ' + (errorText || resp.statusText));
     }
-  });
+    
+    // Check if response is JSON (error) instead of PDF/Excel
+    if (contentType.includes('application/json')) {
+      const errorJson = await resp.json();
+      const errorMsg = errorJson.message || JSON.stringify(errorJson);
+      console.error('[ExportModal] Server returned JSON error:', errorJson);
+      if (errorJson.trace) {
+        console.error('[ExportModal] Error trace:', errorJson.trace);
+      }
+      throw new Error('Export failed: ' + errorMsg);
+    }
+    
+    const disp = resp.headers.get('Content-Disposition') || '';
+    const blob = await resp.blob();
+    
+    console.log('[ExportModal] Export successful, blob size:', blob.size, 'bytes');
+    
+    if (blob.size === 0) {
+      throw new Error('Exported file is empty. Please check the server logs for details.');
+    }
+    
+    if (blob.size < 500) {
+      // Very small file - might be an error message (like the 114 bytes we're seeing)
+      // Check if it's JSON or HTML error
+      const textPreview = await blob.slice(0, 200).text();
+      if (textPreview.trim().startsWith('{') || textPreview.trim().startsWith('<')) {
+        console.error('[ExportModal] Small file appears to be error response:', textPreview);
+        // Re-read full blob as text to show the error
+        const fullText = await blob.text();
+        console.error('[ExportModal] Full error response:', fullText);
+        throw new Error('Export failed: Server returned an error response instead of a file. Check browser console for details.');
+      }
+    }
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const match = /filename\s*=\s*([^;]+)/i.exec(disp);
+    const suggested = match ? match[1].replace(/\"/g,'').trim() : `${document.getElementById('exportFileName').value || computeDefaultFilename()}.${document.querySelector('input[name="fileFormat"]:checked')?.value || 'pdf'}`;
+    a.href = url; 
+    a.download = suggested; 
+    document.body.appendChild(a); 
+    a.click(); 
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    closeExportModal();
+    notify('Export generated successfully', 'success');
+  } catch (e) {
+    console.error('[ExportModal] Export error:', e);
+    notify(e.message || 'Export failed', 'error');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+    form.classList.remove('modal-loading');
+  }
+};
+
+  document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeExportModal();
 });
 </script> 

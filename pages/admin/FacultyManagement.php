@@ -420,6 +420,7 @@ ob_start();
     <?php include '../../Modals/FacultyRegistryModal.php'; ?>
     <?php include '../../Modals/EditFacultyModal.php'; ?>
     <?php include '../../Modals/FacultyExportModal.php'; ?>
+    <?php include '../../Modals/ExportModal.php'; ?>
     <?php include '../../Modals/FacultyImportModal.php'; ?>
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     
@@ -1451,11 +1452,19 @@ ob_start();
         }
 
         function triggerExportModal() {
-            // Call the function from FacultyExportModal.php
-            if (typeof openFacultyExportModal === 'function') {
+            // For Admin, we have two export modals:
+            // 1. ExportModal.php - for clearance reports (progress, applicant status)
+            // 2. FacultyExportModal.php - for faculty data exports
+            
+            // Check if ExportModal (clearance reports) is available first
+            if (typeof window.openExportModal === 'function') {
+                window.openExportModal();
+            } else if (typeof openFacultyExportModal === 'function') {
+                // Fallback to FacultyExportModal for faculty data exports
                 openFacultyExportModal();
             } else {
-                console.error('Faculty export modal function not found');
+                console.error('Export modal function not found');
+                showToastNotification('Export modal not available', 'error');
             }
         }
 

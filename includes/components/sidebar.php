@@ -249,7 +249,7 @@ if ($isUserLoggedIn) {
         <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle Sidebar">
             <i class="fas fa-bars"></i>
         </button>
-        <!-- h3 class="sidebar-title">goSTI</h3 -->
+        <h3 class="sidebar-title">Online Clearance System</h3>
     </div>
     
     <div class="sidebar-content">
@@ -286,6 +286,7 @@ if ($isUserLoggedIn) {
             </nav>
         </div>
     </div>
+    <div class="sidebar-credit">Online Clearance Website - A goSTI project</div>
 </aside>
 
 <!-- Sidebar Backdrop for Mobile -->

@@ -194,18 +194,13 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <i class="fas fa-times"></i> Clear All Selection
                                     </button>
                                     <div class="bulk-buttons">
-                                        <button class="btn btn-secondary" onclick="undoLastAction()" disabled>
-                                            <i class="fas fa-undo"></i> Undo
-                                        </button>
                                         <button class="btn btn-success" onclick="bulkApproveSignatories()" disabled>
                                             <i class="fas fa-check"></i> Approve
                                         </button>
                                         <button class="btn btn-danger" onclick="bulkRejectSignatories()" disabled>
                                             <i class="fas fa-times"></i> Reject
                                         </button>
-                                        <button class="btn btn-info" onclick="markGraduated()" disabled>
-                                            <i class="fas fa-graduation-cap"></i> Graduated
-                                        </button>
+                                        
                                         <button class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
                                             <i class="fas fa-redo"></i> Reset Clearance
                                         </button>
@@ -224,7 +219,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
-                                                    <span id="selectionCounter">0 selected</span>
                                                 </th>
                                                 <th>Student Number</th>
                                                 <th>Name</th>
@@ -1031,14 +1025,15 @@ if (session_status() == PHP_SESSION_NONE) {
 
         // Modal functions
         function triggerExportModal() {
-            // Simple export functionality for now
-            showToastNotification('Export functionality will be implemented soon', 'info');
-            
-            // For now, we can implement a basic CSV export
-            exportStudentsToCSV();
+            if (typeof window.openExportModal === 'function') {
+                window.openExportModal();
+            } else {
+                console.error('Export modal function not found');
+                showToastNotification('Export modal not available', 'error');
+            }
         }
 
-        // Basic CSV export function
+        // Basic CSV export function (kept for backwards compatibility if needed)
         function exportStudentsToCSV() {
             const table = document.getElementById('studentsTable');
             const rows = table.querySelectorAll('tbody tr');
@@ -1478,13 +1473,7 @@ if (session_status() == PHP_SESSION_NONE) {
             openClearanceProgressModal(studentId, 'student', studentName);
         }
 
-        function triggerExportModal() {
-            if (typeof window.openExportModal === 'function') {
-                window.openExportModal();
-            } else {
-                console.error('Export modal function not found');
-            }
-        }
+        // Duplicate removed - using the one above
 
         // Rejection Remarks Modal Functions
         let currentRejectionData = {
@@ -2435,5 +2424,8 @@ if (session_status() == PHP_SESSION_NONE) {
             window.currentTabStatus = '';
         });
     </script>
+    
+    <!-- Include Export Modal -->
+    <?php include '../../Modals/ExportModal.php'; ?>
 </body>
 </html>
