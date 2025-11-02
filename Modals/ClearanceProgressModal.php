@@ -10,6 +10,7 @@
         <!-- Close Button -->
         <button class="modal-close" onclick="closeClearanceProgressModal()">&times;</button>
         
+        
         <!-- Modal Header -->
         <div class="modal-header">
             <h2 class="modal-title">
@@ -308,28 +309,27 @@ function closeClearanceProgressModal() {
 }
 
 function loadClearanceProgressData(personId, personType) {
-    // Use different API endpoints based on person type
-    let apiUrl;
-    if (personType === 'faculty') {
-        apiUrl = `../../api/clearance/status_user.php?employee_number=${encodeURIComponent(personId)}&type=faculty`;
-    } else {
-        apiUrl = `../../api/clearance/status_user.php?employee_number=${encodeURIComponent(personId)}`;
-    }
+    // The user_status.php API can handle both students and faculty by user_id.
+    // The personId from the management pages is the user_id.
+    const apiUrl = `../../api/clearance/user_status.php?user_id=${encodeURIComponent(personId)}`;
     
     fetch(apiUrl, {credentials:'include'})
-        .then(r=>r.json())
+        .then(r => {
+            if (!r.ok) throw new Error(`Network response was not ok, status: ${r.status}`);
+            return r.json();
+        })
         .then(res=>{
             if(!res.success){throw new Error(res.message||'Failed to load progress');}
 
-            const approved = res.approved || 0;
-            const total    = res.total   || 0;
-            const completionPercentage = total>0 ? Math.round((approved/total)*100) : 0;
+            const approved = res.approved_count || 0;
+            const total    = res.total_signatories   || 0;
+            const completionPercentage = total > 0 ? Math.round((approved / total) * 100) : 0;
 
-            const signatories = (res.signatories||[]).map(s=>({
+            const signatories = (res.signatories || []).map(s => ({
                 position: s.designation_name,
                 name: s.signatory_name||'-',
-                status: (s.action||'unapplied').toLowerCase().replace(' ','-'),
-                statusText: s.action||'Unapplied'
+                status: (s.action || 'Unapplied').toLowerCase().replace(' ', '-'),
+                statusText: s.action || 'Unapplied'
             }));
 
             const payload={
@@ -342,108 +342,21 @@ function loadClearanceProgressData(personId, personType) {
             updateProgressDisplay(payload);
         })
         .catch(err=>{
-            console.error(err);
-            // If API fails, show mock data for demonstration
-            console.log('API failed, showing mock data for:', personId, personType);
-            const mockData = generateMockClearanceData(personId, personType);
-            updateProgressDisplay(mockData);
+            console.error('Failed to load clearance progress:', err);
+            const signatoriesList = document.getElementById('signatoriesList');
+            signatoriesList.innerHTML = `<div class="error-state" style="padding: 2rem; text-align: center; color: var(--danger-red);">
+                                            <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                                            <p>Could not load clearance progress.</p>
+                                            <small>${err.message}</small>
+                                         </div>`;
+            // Also reset the progress overview
+            updateProgressDisplay({
+                completionPercentage: 0,
+                completedCount: 0,
+                totalCount: 0,
+                overallStatus: 'error'
+            });
         });
-}
-
-function generateMockClearanceData(personId, personType) {
-    // Mock data structure - in a real application, this would come from the server
-    let signatories;
-    
-    if (personType === 'faculty') {
-        signatories = [
-            {
-                position: 'Department Head',
-                name: 'Dr. Maria Santos',
-                status: 'approved',
-                statusText: 'Approved'
-            },
-            {
-                position: 'Program Head',
-                name: 'Prof. Juan Dela Cruz',
-                status: 'pending',
-                statusText: 'Pending'
-            },
-            {
-                position: 'Library',
-                name: 'Ms. Ana Rodriguez',
-                status: 'approved',
-                statusText: 'Approved'
-            },
-            {
-                position: 'Accounting',
-                name: 'Mr. Carlos Lopez',
-                status: 'in-progress',
-                statusText: 'In Progress'
-            },
-            {
-                position: 'Registrar',
-                name: 'Ms. Sofia Martinez',
-                status: 'unapplied',
-                statusText: 'Unapplied'
-            }
-        ];
-    } else {
-        // Student signatories
-        signatories = [
-            {
-                position: 'Department Head',
-                name: 'Dr. Maria Santos',
-                status: 'approved',
-                statusText: 'Approved'
-            },
-            {
-                position: 'Program Head',
-                name: 'Prof. Juan Dela Cruz',
-                status: 'pending',
-                statusText: 'Pending'
-            },
-            {
-                position: 'Library',
-                name: 'Ms. Ana Rodriguez',
-                status: 'approved',
-                statusText: 'Approved'
-            },
-            {
-                position: 'Accounting',
-                name: 'Mr. Carlos Lopez',
-                status: 'in-progress',
-                statusText: 'In Progress'
-            },
-            {
-                position: 'Registrar',
-                name: 'Ms. Sofia Martinez',
-                status: 'unapplied',
-                statusText: 'Unapplied'
-            }
-        ];
-    }
-    
-    const completedCount = signatories.filter(s => s.status === 'approved').length;
-    const totalCount = signatories.length;
-    const completionPercentage = Math.round((completedCount / totalCount) * 100);
-    
-    // Determine overall status
-    let overallStatus = 'unapplied';
-    if (completedCount === totalCount) {
-        overallStatus = 'complete';
-    } else if (completedCount > 0) {
-        overallStatus = 'in-progress';
-    } else if (signatories.some(s => s.status === 'pending' || s.status === 'in-progress')) {
-        overallStatus = 'applied';
-    }
-    
-    return {
-        signatories,
-        completionPercentage,
-        completedCount,
-        totalCount,
-        overallStatus
-    };
 }
 
 function updateProgressDisplay(data) {

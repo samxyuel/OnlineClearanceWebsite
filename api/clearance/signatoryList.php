@@ -21,30 +21,36 @@ try {
     }
 
     $userId = $auth->getUserId();
+    $userRole = $auth->getRoleName();
+    $isAdmin = in_array($userRole, ['Admin', 'School Administrator']);
     $pdo = Database::getInstance()->getConnection();
 
-    // 1. Get the staff member's designation ID
-    $staffStmt = $pdo->prepare("
-        SELECT s.designation_id, d.designation_name 
-        FROM staff s
-        JOIN designations d ON s.designation_id = d.designation_id
-        WHERE s.user_id = ? AND s.is_active = 1
-    ");
-    $staffStmt->execute([$userId]);
-    $staffInfo = $staffStmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$staffInfo) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Access Denied: You are not an active staff member with a designation.']);
-        exit;
-    }
-    $designationId = $staffInfo['designation_id'];
-    $designationName = $staffInfo['designation_name'];
-
-    // Check if the user is a Program Head to apply special scoping
-    $isProgramHead = (strcasecmp($designationName, 'Program Head') === 0);
+    $designationId = null;
+    $designationName = '';
+    $isProgramHead = false;
     $programHeadDepartments = [];
     $isShsProgramHead = false;
+
+    if (!$isAdmin) {
+        // 1. Get the staff member's designation ID if not an Admin
+        $staffStmt = $pdo->prepare("
+            SELECT s.designation_id, d.designation_name 
+            FROM staff s
+            JOIN designations d ON s.designation_id = d.designation_id
+            WHERE s.user_id = ? AND s.is_active = 1
+        ");
+        $staffStmt->execute([$userId]);
+        $staffInfo = $staffStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$staffInfo) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Access Denied: You are not an active staff member with a designation.']);
+            exit;
+        }
+        $designationId = $staffInfo['designation_id'];
+        $designationName = $staffInfo['designation_name'];
+        $isProgramHead = (strcasecmp($designationName, 'Program Head') === 0);
+    }
 
     if ($isProgramHead) {
         // Get departments assigned to this Program Head
@@ -56,22 +62,6 @@ try {
     // 2. Get the active clearance period for the relevant sector
     $type = $_GET['type'] ?? 'student'; // 'student' or 'faculty'
     $sector = ($type === 'faculty') ? 'Faculty' : 'Student'; // Simplified sector for query
-
-    $periodQuery = "SELECT period_id FROM clearance_periods WHERE status = 'Ongoing'";
-    if ($sector === 'Student') {
-        $periodQuery .= " AND sector IN ('College', 'Senior High School')";
-    } else {
-        $periodQuery .= " AND sector = 'Faculty'";
-    }
-    $activePeriodsStmt = $pdo->query($periodQuery);
-    $activePeriodId = $activePeriodsStmt->fetchColumn();
-
-    if (!$activePeriodId) {
-        // Return an empty list if no period is active, which is not an error.
-        $responseKey = ($type === 'faculty') ? 'faculty' : 'students';
-        echo json_encode(['success' => true, 'total' => 0, $responseKey => [], 'page' => 1, 'limit' => 10]);
-        exit;
-    }
 
     // 3. Get filter and pagination parameters
     $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
@@ -86,6 +76,30 @@ try {
     $yearLevel = $_GET['year_level'] ?? '';
     $departmentId = $_GET['departments'] ?? ''; // Added to handle department filter
 
+    // If a school term is selected, look for periods within that term (Ongoing or Closed)
+    // Otherwise, default to the current 'Ongoing' period.
+    if (!empty($schoolTerm)) {
+        $termParts = explode('|', $schoolTerm);
+        $yearName = $termParts[0] ?? '';
+        $semesterId = $termParts[1] ?? 0;
+
+        $periodQuery = "SELECT cp.period_id FROM clearance_periods cp JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id WHERE ay.year = :yearName AND cp.semester_id = :semesterId AND cp.status IN ('Ongoing', 'Closed')";
+        $periodParams = [':yearName' => $yearName, ':semesterId' => $semesterId];
+    } else {
+        $periodQuery = "SELECT period_id FROM clearance_periods WHERE status = 'Ongoing'";
+        $periodParams = [];
+    }
+
+    $activePeriodsStmt = $pdo->prepare($periodQuery);
+    $activePeriodsStmt->execute($periodParams);
+    $activePeriodId = $activePeriodsStmt->fetchColumn();
+
+    if (!$activePeriodId && empty($schoolTerm)) {
+        // Return an empty list if no period is active, which is not an error.
+        $responseKey = ($type === 'faculty') ? 'faculty' : 'students';
+        echo json_encode(['success' => true, 'total' => 0, $responseKey => [], 'page' => 1, 'limit' => 10, 'stats' => ['total' => 0, 'active' => 0, 'inactive' => 0, 'graduated' => 0]]);
+        exit;
+    }
 
     // 4. Build the query based on type
     if (strtolower($type) === 'faculty') {
@@ -97,19 +111,18 @@ try {
                 u.last_name,
                 d.department_name as program,
                 f.employment_status as year_level,
-                '' as section,
+                '' as section, -- Faculty don't have sections
                 u.account_status as account_status,
-                cs.action as clearance_status,
-                cs.signatory_id,
+                cf.clearance_form_progress as clearance_status,
+                NULL as signatory_id, -- Not relevant for admin view
                 cf.clearance_form_id
         ";
         $from = "
             FROM faculty f
             JOIN users u ON f.user_id = u.user_id
             LEFT JOIN departments d ON f.department_id = d.department_id
-            JOIN clearance_periods cp ON cp.sector = 'Faculty' AND cp.status = 'Ongoing'
+            JOIN clearance_periods cp ON cp.sector = 'Faculty' AND cp.status IN ('Ongoing', 'Closed')
             LEFT JOIN clearance_forms cf ON f.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id
-            LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id = :designationId
         ";
         $searchFields = ['u.first_name', 'u.last_name', 'f.employee_number', 'd.department_name'];
     } else { // Default to student
@@ -123,32 +136,33 @@ try {
                 s.year_level,
                 s.section,
                 u.account_status as account_status,
-                cs.action as clearance_status,
-                cs.signatory_id,
+                cf.clearance_form_progress as clearance_status,
+                NULL as signatory_id, -- Not relevant for admin view
                 cf.clearance_form_id
         ";
         $from = "
             FROM students s
             JOIN users u ON s.user_id = u.user_id
             JOIN programs p ON s.program_id = p.program_id
-            JOIN clearance_periods cp ON cp.sector IN ('College', 'Senior High School') AND cp.status = 'Ongoing'
+            JOIN clearance_periods cp ON cp.sector IN ('College', 'Senior High School') AND cp.status IN ('Ongoing', 'Closed')
             LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id
-            LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id = :designationId
         ";
         $searchFields = ['u.first_name', 'u.last_name', 's.student_id', 'p.program_code'];
     }
 
-    // The main WHERE clause is now simplified as the JOINs handle the period and signatory context.
-    // We must ensure that the user being listed is part of a sector that the current signatory is assigned to.
-    $userSectorCondition = ($type === 'faculty')
-        ? "d.sector_id IN (SELECT sec.sector_id FROM sectors sec JOIN departments d ON sec.sector_id = d.sector_id JOIN staff s ON d.department_id = s.department_id WHERE s.user_id = :actingUserId)"
-        : "p.department_id IN (SELECT d.department_id FROM departments d JOIN staff s ON d.department_id = s.department_id WHERE s.user_id = :actingUserId)";
+    // If not an admin, add the signatory-specific join
+    if (!$isAdmin) {
+        $from .= " LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id = :designationId";
+        $select = str_replace('cf.clearance_form_progress as clearance_status', 'cs.action as clearance_status', $select);
+        $select = str_replace('NULL as signatory_id', 'cs.signatory_id', $select);
+    }
 
     $where = "WHERE 1=1"; // The JOINs already filter by designation, but we can add sector check for robustness if needed.
-    $params = [':designationId' => $designationId];
+    $params = [];
+    if (!$isAdmin) $params[':designationId'] = $designationId;
 
     // Apply department scoping for Program Heads
-    if ($isProgramHead && !empty($programHeadDepartments)) {
+    if (!$isAdmin && $isProgramHead && !empty($programHeadDepartments)) {
         $deptIds = array_column($programHeadDepartments, 'department_id');
         $isShsProgramHead = in_array('Senior High School', array_column($programHeadDepartments, 'sector_name'));
 
@@ -194,7 +208,7 @@ try {
     }
 
     if (!empty($clearanceStatus) && $clearanceStatus !== 'all') {
-        $where .= " AND COALESCE(cs.action, 'Unapplied') = :clearanceStatus";
+        $where .= " AND COALESCE(" . ($isAdmin ? "cf.clearance_form_progress" : "cs.action") . ", 'Unapplied') = :clearanceStatus";
         $params[':clearanceStatus'] = $clearanceStatus;
     } else {
         // By default, show actionable items (not 'Unapplied')

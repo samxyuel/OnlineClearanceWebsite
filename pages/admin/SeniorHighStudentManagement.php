@@ -127,52 +127,39 @@ if (session_status() == PHP_SESSION_NONE) {
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
-                                <i class="fas fa-search"></i>
+                                <i class="fas fa-search" style="pointer-events: none;"></i>
                                 <input type="text" id="searchInput" placeholder="Search students by name, ID, or program...">
                             </div>
                             
                             <div class="filter-dropdowns">
                                 <!-- Program Filter (SHS only) -->
-                                <select id="programFilter" class="filter-select" onchange="updateFilterYearLevels()">
+                                <select id="programFilter" class="filter-select"">
                                     <option value="">All Programs</option>
-                                    <option value="Accountancy, Business, and Management (ABM)">Accountancy, Business, and Management (ABM)</option>
-                                    <option value="Science, Technology, Engineering and Mathematics (STEM)">Science, Technology, Engineering and Mathematics (STEM)</option>
-                                    <option value="Humanities and Social Sciences (HUMSS)">Humanities and Social Sciences (HUMSS)</option>
-                                    <option value="General Academic (GA)">General Academic (GA)</option>
-                                    <option value="IT in Mobile App and Web Development (MAWD)">IT in Mobile App and Web Development (MAWD)</option>
-                                    <option value="Digital Arts (DA)">Digital Arts (DA)</option>
+                                    <!-- Options will be populated dynamically -->
                                 </select>
                                 
                                 <!-- Year Level Filter (Cascading) -->
-                                <select id="yearFilter" class="filter-select" disabled>
-                                    <option value="">Select Program First</option>
+                                <select id="yearLevelFilter" class="filter-select">
+                                    <option value="">All Year levels</option>
+                                    <!-- Options will be populated dynamically -->
                                 </select>
                                 
                                 <!-- Clearance Status Filter -->
                                 <select id="clearanceStatusFilter" class="filter-select">
                                     <option value="">All Clearance Status</option>
-                                    <option value="unapplied">Unapplied</option>
-                                    <option value="in-progress">In Progress</option>
-                                    <option value="complete">Complete</option>
+                                    <!-- Options will be populated dynamically -->
                                 </select>
                                 
                                 <!-- School Term Filter -->
-                                <select id="schoolTermFilter" class="filter-select" onchange="updateStatisticsByTerm(); updateCurrentPeriodBanner();">
+                                <select id="schoolTermFilter" class="filter-select">
                                     <option value="">All School Terms</option>
-                                    <option value="2024-2025-1st">2024-2025 1st Semester</option>
-                                    <option value="2024-2025-2nd">2024-2025 2nd Semester</option>
-                                    <option value="2024-2025-summer">2024-2025 Summer</option>
-                                    <option value="2023-2024-1st">2023-2024 1st Semester</option>
-                                    <option value="2023-2024-2nd">2023-2024 2nd Semester</option>
-                                    <option value="2023-2024-summer">2023-2024 Summer</option>
+                                    <!-- Options will be populated dynamically -->
                                 </select>
                                 
                                 <!-- Account Status Filter -->
                                 <select id="accountStatusFilter" class="filter-select">
                                     <option value="">All Account Status</option>
-                                    <option value="active">Active Only</option>
-                                    <option value="inactive">Inactive Only</option>
-                                    <option value="graduated">Graduated Only</option>
+                                    <!-- Options will be populated dynamically -->
                                 </select>
                             </div>
                             
@@ -373,9 +360,6 @@ if (session_status() == PHP_SESSION_NONE) {
     <!-- Include Alert System -->
     <?php include '../../includes/components/alerts.php'; ?>
     
-    <!-- Include SHS Student Registry Modal -->
-    <?php include '../../Modals/SHSStudentRegistryModal.php'; ?>
-    
     <!-- Include SHS Edit Student Modal -->
     <?php include '../../Modals/SHSEditStudentModal.php'; ?>
     
@@ -390,6 +374,9 @@ if (session_status() == PHP_SESSION_NONE) {
     
     <!-- Include Senior High School Batch Update Modal -->
     <?php include '../../Modals/SeniorHighSchoolBatchUpdateModal.php'; ?>
+
+    <!-- Include SHS Student Registry Modal -->
+    <?php include '../../Modals/SHSStudentRegistryModal.php'; ?>
 
     <!-- Include Generated Credentials Modal -->
     <?php include '../../Modals/GeneratedCredentialsModal.php'; ?>
@@ -499,35 +486,53 @@ if (session_status() == PHP_SESSION_NONE) {
 
         // Load SHS students data from API
         async function loadStudentsData() {
+            const tableBody = document.getElementById('studentsTableBody');
+            tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">Loading students...</td></tr>`;
+
+            // Get filter values
+            const search = document.getElementById('searchInput').value;
+            const clearanceStatus = document.getElementById('clearanceStatusFilter').value;
+            const accountStatus = document.getElementById('accountStatusFilter').value;
+            const programId = document.getElementById('programFilter').value;
+            const yearLevel = document.getElementById('yearLevelFilter').value;
+            const schoolTerm = document.getElementById('schoolTermFilter').value;
+
+            // Use the general-purpose user list API for admin views.
+            const url = new URL('../../api/users/studentList.php', window.location.href);
+            url.searchParams.append('type', 'student'); 
+            url.searchParams.append('sector', 'Senior High School'); 
+            url.searchParams.append('page', currentPage);
+            url.searchParams.append('limit', entriesPerPage);
+
+            if (search) url.searchParams.append('search', search);
+            if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
+            if (programId) url.searchParams.append('program_id', programId);
+            if (yearLevel) url.searchParams.append('year_level', yearLevel);
+            if (accountStatus) url.searchParams.append('account_status', accountStatus);
+            if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+
             try {
-                const response = await fetch('../../api/users/students.php?type=senior_high', {
+                const response = await fetch(url.toString(), {
                     credentials: 'include'
                 });
                 
-                // Check if response is ok and content type is JSON
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    const text = await response.text();
-                    console.error('Non-JSON response:', text);
-                    throw new Error('Server returned non-JSON response');
-                }
-                
+
                 const data = await response.json();
+                console.log('Senior High students API response:', data); // For debugging
                 
                 if (data.success) {
                     populateStudentsTable(data.students);
-                    updateStatistics(data.students);
-                    // Initialize pagination after data is loaded
-                    setTimeout(() => initializePagination(), 100);
+                    updateStatisticsUI(data.stats);
+                    updatePaginationUI(data.total, data.page, data.limit);
                 } else {
-                    showToastNotification('Failed to load students data', 'error');
+                    showToastNotification('Failed to load students data: ' + data.message, 'error');
+                    tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
                 }
             } catch (error) {
-                console.error('Error loading students:', error);
+                console.error('Error loading SHS students:', error);
                 showToastNotification('Error loading students data: ' + error.message, 'error');
             }
         }
@@ -545,27 +550,26 @@ if (session_status() == PHP_SESSION_NONE) {
 
         // Create student row
         function createStudentRow(student) {
-            // Map enrollment status to display status
-            // Handle both enrollment statuses and account statuses
-            const statusLower = student.status ? student.status.toLowerCase() : '';
-            const displayStatus = student.status === 'Enrolled' ? 'active' : 
-                                 student.status === 'Graduated' ? 'graduated' : 
-                                 student.status === 'Transferred' ? 'transferred' : 
-                                 student.status === 'Dropped' ? 'dropped' : 
-                                 statusLower === 'active' ? 'active' : 
-                                 statusLower === 'inactive' ? 'inactive' : 
-                                 'inactive';
+            const accountStatusClass = `account-${student.account_status || 'inactive'}`;
+            const accountStatusText = student.account_status ? student.account_status.charAt(0).toUpperCase() + student.account_status.slice(1) : 'Inactive';
+
+            let clearanceStatus = student.clearance_status || 'Unapplied';
+            const clearanceStatusClass = `clearance-${clearanceStatus.toLowerCase().replace(/ /g, '-')}`;
             
             const row = document.createElement('tr');
+            row.setAttribute('data-user-id', student.user_id);
+            row.setAttribute('data-student-id', student.id);
+            row.setAttribute('data-form-id', student.clearance_form_id);
+
             row.innerHTML = `
-                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.user_id}"></td>
-                <td data-label="Student Number:">${student.student_id || student.username}</td>
-                <td data-label="Name:">${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
-                <td data-label="Program:">${student.program || student.strand || 'N/A'}</td>
-                <td data-label="Year Level:">${student.year_level || student.grade_level || 'N/A'}</td>
+                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.id}"></td>
+                <td data-label="Student Number:">${student.id}</td>
+                <td data-label="Name:">${student.name}</td>
+                <td data-label="Program:">${student.program || 'N/A'}</td>
+                <td data-label="Year Level:">${student.year_level || 'N/A'}</td>
                 <td data-label="Section:">${student.section || 'N/A'}</td>
-                <td data-label="Account Status:"><span class="status-badge account-${displayStatus}">${student.status}</span></td>
-                <td data-label="Clearance Progress:"><span class="status-badge clearance-${student.clearance_status.toLowerCase().replace(' ', '-')}">${student.clearance_status}</span></td>
+                <td data-label="Account Status:"><span class="status-badge ${accountStatusClass}">${accountStatusText}</span></td>
+                <td data-label="Clearance Progress:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
                         <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
@@ -584,18 +588,11 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         // Update statistics
-        function updateStatistics(students) {
-            const stats = {
-                total: students.length,
-                active: students.filter(s => s.status === 'Enrolled').length,
-                inactive: students.filter(s => ['Transferred', 'Dropped'].includes(s.status)).length,
-                graduated: students.filter(s => s.status === 'Graduated').length
-            };
-            
-            document.getElementById('totalStudents').textContent = stats.total;
-            document.getElementById('activeStudents').textContent = stats.active;
-            document.getElementById('inactiveStudents').textContent = stats.inactive;
-            document.getElementById('graduatedStudents').textContent = stats.graduated;
+        function updateStatisticsUI(stats) {
+            document.getElementById('totalStudents').textContent = stats.total || 0;
+            document.getElementById('activeStudents').textContent = stats.active || 0;
+            document.getElementById('inactiveStudents').textContent = stats.inactive || 0;
+            document.getElementById('graduatedStudents').textContent = stats.graduated || 0;
         }
 
         // Load current clearance period
@@ -765,7 +762,7 @@ if (session_status() == PHP_SESSION_NONE) {
         function hasActiveFilters() {
             const searchInput = document.getElementById('searchInput');
             const programFilter = document.getElementById('programFilter');
-            const yearFilter = document.getElementById('yearFilter');
+            const yearFilter = document.getElementById('yearLevelFilter');
             const clearanceFilter = document.getElementById('clearanceStatusFilter');
             const schoolTermFilter = document.getElementById('schoolTermFilter');
             const accountStatusFilter = document.getElementById('accountStatusFilter');
@@ -961,89 +958,26 @@ if (session_status() == PHP_SESSION_NONE) {
             openClearanceProgressModal(studentId, 'student', 'Student Name');
         }
 
-        // Filter functions
-        function updateFilterYearLevels() {
-            const programSelect = document.getElementById('programFilter');
-            const yearSelect = document.getElementById('yearFilter');
-            
-            const selectedProgram = programSelect.value;
-            
-            yearSelect.innerHTML = '<option value="">All Year Levels</option>';
-            
-            if (selectedProgram && selectedProgram !== '' && window.shsDepartmentYearLevels && window.shsDepartmentYearLevels['Senior High School']) {
-                yearSelect.disabled = false;
-                
-                window.shsDepartmentYearLevels['Senior High School'].forEach(year => {
-                    const option = document.createElement('option');
-                    option.value = year;
-                    option.textContent = year;
-                    yearSelect.appendChild(option);
-                });
-            } else {
-                yearSelect.disabled = true;
-            }
-        }
-
         function applyFilters() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const program = document.getElementById('programFilter').value;
-            const yearLevel = document.getElementById('yearFilter').value;
-            const clearanceStatus = document.getElementById('clearanceStatusFilter').value;
-            const accountStatus = document.getElementById('accountStatusFilter').value;
-            
-            const tableRows = document.querySelectorAll('#studentsTableBody tr');
-            let visibleCount = 0;
-            
-            tableRows.forEach(row => {
-                const studentName = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
-                const studentProgram = row.querySelector('td:nth-child(4)').textContent;
-                const studentYear = row.querySelector('td:nth-child(5)').textContent;
-                const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-applied, .status-badge.clearance-complete, .status-badge.clearance-in-progress');
-                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-graduated');
-                
-                let shouldShow = true;
-                
-                if (searchTerm && !studentName.includes(searchTerm)) {
-                    shouldShow = false;
-                }
-                
-                if (program && studentProgram !== program) {
-                    shouldShow = false;
-                }
-                
-                if (yearLevel && studentYear !== yearLevel) {
-                    shouldShow = false;
-                }
-                
-                if (clearanceStatus && clearanceBadge && !clearanceBadge.classList.contains(`clearance-${clearanceStatus}`)) {
-                    shouldShow = false;
-                }
-                
-                if (accountStatus && accountBadge && !accountBadge.classList.contains(`account-${accountStatus}`)) {
-                    shouldShow = false;
-                }
-                
-                row.style.display = shouldShow ? '' : 'none';
-                if (shouldShow) visibleCount++;
-            });
-            
-            showToastNotification(`Showing ${visibleCount} of ${tableRows.length} students`, 'info');
+            currentPage = 1;
+            loadStudentsData();
         }
 
         function clearFilters() {
             document.getElementById('searchInput').value = '';
             document.getElementById('programFilter').value = '';
-            document.getElementById('yearFilter').value = '';
+            document.getElementById('yearLevelFilter').value = '';
             document.getElementById('clearanceStatusFilter').value = '';
             document.getElementById('accountStatusFilter').value = '';
-            
-            updateFilterYearLevels();
+            document.getElementById('schoolTermFilter').value = '';
             
             const tableRows = document.querySelectorAll('#studentsTableBody tr');
             tableRows.forEach(row => {
                 row.style.display = '';
             });
-            
+
+            loadStudentsData();
             showToastNotification('All filters cleared', 'info');
         }
 
@@ -1076,22 +1010,22 @@ if (session_status() == PHP_SESSION_NONE) {
         let filteredEntries = [];
 
         // Initialize pagination
-        function initializePagination() {
-            const allRows = document.querySelectorAll('#studentsTableBody tr');
-            totalEntries = allRows.length;
-            filteredEntries = Array.from(allRows);
-            updatePagination();
+        function updatePaginationUI(total, page, limit) {
+            totalEntries = total;
+            currentPage = page;
+            entriesPerPage = limit;
+            updatePagination(); // This will now use the global variables
         }
 
         // Update pagination display
         function updatePagination() {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            const startEntry = (currentPage - 1) * entriesPerPage + 1;
-            const endEntry = Math.min(currentPage * entriesPerPage, filteredEntries.length);
+            const totalPages = Math.ceil(totalEntries / entriesPerPage);
+            const startEntry = totalEntries === 0 ? 0 : (currentPage - 1) * entriesPerPage + 1;
+            const endEntry = Math.min(currentPage * entriesPerPage, totalEntries);
             
             // Update pagination info
             document.getElementById('paginationInfo').textContent = 
-                `Showing ${startEntry} to ${endEntry} of ${filteredEntries.length} entries`;
+                `Showing ${startEntry} to ${endEntry} of ${totalEntries} entries`;
             
             // Update page numbers
             updatePageNumbers(totalPages);
@@ -1099,9 +1033,6 @@ if (session_status() == PHP_SESSION_NONE) {
             // Update navigation buttons
             document.getElementById('prevPage').disabled = currentPage === 1;
             document.getElementById('nextPage').disabled = currentPage === totalPages;
-            
-            // Show current page entries
-            showCurrentPageEntries();
         }
 
         // Update page number buttons
@@ -1167,50 +1098,24 @@ if (session_status() == PHP_SESSION_NONE) {
         // Go to specific page
         function goToPage(pageNum) {
             currentPage = pageNum;
-            updatePagination();
+            loadStudentsData();
         }
 
         // Change page (previous/next)
         function changePage(direction) {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            
             if (direction === 'prev' && currentPage > 1) {
-                currentPage--;
-            } else if (direction === 'next' && currentPage < totalPages) {
-                currentPage++;
+                loadStudentsData(currentPage - 1);
+            } else if (direction === 'next') {
+                const totalPages = Math.ceil(totalEntries / entriesPerPage);
+                if (currentPage < totalPages) {
+                    loadStudentsData(currentPage + 1);
+                }
             }
-            
-            updatePagination();
         }
 
         // Change entries per page
         function changeEntriesPerPage() {
-            const newEntriesPerPage = parseInt(document.getElementById('entriesPerPage').value);
-            entriesPerPage = newEntriesPerPage;
-            currentPage = 1; // Reset to first page
-            updatePagination();
-        }
-
-        // Show current page entries
-        function showCurrentPageEntries() {
-            const startIndex = (currentPage - 1) * entriesPerPage;
-            const endIndex = startIndex + entriesPerPage;
-            
-            // Hide all rows first
-            filteredEntries.forEach(row => {
-                row.style.display = 'none';
-            });
-            
-            // Show only current page rows
-            for (let i = startIndex; i < endIndex && i < filteredEntries.length; i++) {
-                filteredEntries[i].style.display = '';
-            }
-
-            // Scroll to top of table
-            const tableWrapper = document.getElementById('studentsTableWrapper');
-            if (tableWrapper) {
-                tableWrapper.scrollTop = 0;
-            }
+            loadStudentsData(1); // Go back to page 1
         }
 
         // Update filtered entries for pagination
@@ -1231,11 +1136,77 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
 
+        // --- Dynamic Filter Population ---
+        async function populateFilter(selectId, url, placeholder, valueField = 'value', textField = 'text') {
+            const select = document.getElementById(selectId);
+            try {
+                const response = await fetch(url, { credentials: 'include' });
+                const data = await response.json();
+
+                select.innerHTML = `<option value="">${placeholder}</option>`;
+                if (data.success && data.options) {
+                    data.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = typeof option === 'object' ? option[valueField] : option;
+                        optionElement.textContent = typeof option === 'object' ? option[textField] : option;
+                        select.appendChild(optionElement);
+                    });
+                }
+            } catch (error) {
+                console.error(`Error loading options for ${selectId}:`, error);
+                select.innerHTML = `<option value="">Error loading options</option>`;
+            }
+        }
+
+        async function loadYearLevels() {
+            const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+            url.searchParams.append('type', 'enum');
+            url.searchParams.append('table', 'students');
+            url.searchParams.append('column', 'year_level');
+            url.searchParams.append('sector', 'Senior High School');
+            await populateFilter('yearLevelFilter', url, 'All Year Levels');
+        }
+
+        async function loadPrograms() {
+            const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+            url.searchParams.append('type', 'programs');
+            url.searchParams.append('sector', 'Senior High School');
+            await populateFilter('programFilter', url, 'All Programs');
+        }
+
+        async function loadSchoolTerms() {
+            const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+            url.searchParams.append('type', 'school_terms');
+            await populateFilter('schoolTermFilter', url, 'All School Terms');
+        }
+
+        async function loadClearanceStatuses() {
+            const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+            url.searchParams.append('type', 'enum');
+            url.searchParams.append('table', 'clearance_forms');
+            url.searchParams.append('column', 'clearance_form_progress');
+            await populateFilter('clearanceStatusFilter', url, 'All Clearance Statuses');
+        }
+
+        async function loadAccountStatuses() {
+            const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+            url.searchParams.append('type', 'enum');
+            url.searchParams.append('table', 'users');
+            url.searchParams.append('column', 'account_status');
+            url.searchParams.append('exclude', 'resigned');
+            await populateFilter('accountStatusFilter', url, 'All Account Statuses');
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             loadStudentsData();
             loadCurrentPeriod();
+            loadYearLevels();
             loadPeriods();
+            loadPrograms();
+            loadSchoolTerms();
+            loadClearanceStatuses();
+            loadAccountStatuses();  
             
             // Add event listeners for checkboxes
             document.addEventListener('change', function(e) {

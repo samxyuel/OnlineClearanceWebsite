@@ -123,7 +123,7 @@ ob_start();
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
-                                <i class="fas fa-search"></i>
+                                <i class="fas fa-search" style="pointer-events: none;"></i>
                                 <input type="text" id="searchInput" placeholder="Search faculty by name, ID, or department...">
                             </div>
                             
@@ -131,28 +131,25 @@ ob_start();
                                 <!-- Employment Status Filter -->
                                 <select id="employmentStatusFilter" class="filter-select">
                                     <option value="">All Employment Status</option>
-                                    <option value="full-time">Full Time</option>
-                                    <option value="part-time">Part Time</option>
-                                    <option value="part-time-full-load">Part Time - Full Load</option>
+                                    <!-- Options will be populated dynamically -->
+                                </select>
+
+                                <!-- Account Status Filter -->
+                                <select id="accountStatusFilter" class="filter-select">
+                                    <option value="">All Account Status</option>
+                                    <!-- Options will be populated dynamically -->
                                 </select>
                                 
                                 <!-- Clearance Status Filter -->
                                 <select id="clearanceStatusFilter" class="filter-select">
                                     <option value="">All Clearance Status</option>
-                                    <option value="unapplied">Unapplied</option>
-                                    <option value="in-progress">In Progress</option>
-                                    <option value="complete">Complete</option>
+                                    <!-- Options will be populated dynamically -->
                                 </select>
                                 
                                 <!-- School Term Filter -->
-                                <select id="schoolTermFilter" class="filter-select" onchange="updateStatisticsByTerm()">
-                                    <option value="">All School Terms</option>
-                                    <option value="2024-2025-1st">2024-2025 1st Semester</option>
-                                    <option value="2024-2025-2nd">2024-2025 2nd Semester</option>
-                                    <option value="2024-2025-summer">2024-2025 Summer</option>
-                                    <option value="2023-2024-1st">2023-2024 1st Semester</option>
-                                    <option value="2023-2024-2nd">2023-2024 2nd Semester</option>
-                                    <option value="2023-2024-summer">2023-2024 Summer</option>
+                                <select id="schoolTermFilter" class="filter-select">
+                                    <option value="">All School Terms</option> 
+                                    <!-- Options will be populated dynamically -->                                   
                                 </select>
                             </div>
                             
@@ -1021,7 +1018,7 @@ ob_start();
         // Individual faculty actions
         async function populateEditFormLive(empId){
             try{
-                const res = await fetch(`../../api/users/get_faculty.php?employee_number=${encodeURIComponent(empId)}`,{credentials:'include'});
+                const res = await fetch(`../../api/users/facultyList.php?employee_number=${encodeURIComponent(empId)}`,{credentials:'include'});
                 const data = await res.json();
                 if(!data.success){showToastNotification(data.message||'Failed to load faculty','error');return;}
                 const f = data.faculty;
@@ -1067,7 +1064,7 @@ ob_start();
                 if(res.success){showToastNotification('Faculty updated','success');closeEditFacultyModal();refreshFacultyTable().then(()=>initializePagination());}
                 else showToastNotification(res.message,'error');
             })
-            .catch(err=>{console.error(err);showToastNotification('Network error','error');})
+            .catch(err=>{console.error(err);showToastNotification('Network error', 'error');})
             .finally(()=>{btn.disabled=false;btn.textContent='Update Faculty';});
         }
 
@@ -1142,7 +1139,7 @@ ob_start();
                     .then(res=>{
                         if(!res.success){throw new Error(res.message||'Delete failed');}
                         // remove row and refresh stats
-                        row.remove();
+                        row.remove(); // This is a UI-only change. A table refresh is better.
                         showToastNotification('Faculty deleted successfully','success');
                         refreshFacultyTable().then(()=>initializePagination());
                     })
@@ -1155,84 +1152,20 @@ ob_start();
         // Filter functions
         function updateFilterPrograms() {
             // This function is not needed for faculty management
-            // Keeping it for compatibility
+            // Keeping it for compatibility if the file is copied.
         }
 
         function applyFilters() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const employmentStatus = document.getElementById('employmentStatusFilter').value;
-            const clearanceStatus = document.getElementById('clearanceStatusFilter').value;
-            const accountStatus = window.currentTabStatus || '';
-            const schoolTerm = document.getElementById('schoolTermFilter').value;
-            
-            const tableRows = document.querySelectorAll('#facultyTableBody tr');
-            let visibleCount = 0;
-            
-            tableRows.forEach(row => {
-                const facultyName = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
-                const employmentBadge = row.querySelector('.status-badge.employment-full-time, .status-badge.employment-part-time, .status-badge.employment-contract');
-                const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-applied, .status-badge.clearance-complete, .status-badge.clearance-in-progress');
-                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
-                
-                let shouldShow = true;
-                
-                // Search filter
-                if (searchTerm && !facultyName.includes(searchTerm)) {
-                    shouldShow = false;
-                }
-                
-
-                
-                // Employment status filter
-                if (employmentStatus && employmentBadge) {
-                    if (employmentStatus === 'part-time-full-load') {
-                        if (!employmentBadge.classList.contains('employment-part-time-full-load')) {
-                            shouldShow = false;
-                        }
-                    } else if (!employmentBadge.classList.contains(`employment-${employmentStatus}`)) {
-                        shouldShow = false;
-                    }
-                }
-                
-                // Clearance status filter
-                if (clearanceStatus && clearanceBadge && !clearanceBadge.classList.contains(`clearance-${clearanceStatus}`)) {
-                    shouldShow = false;
-                }
-                
-                // Account status filter
-                if (accountStatus && accountBadge && !accountBadge.classList.contains(`account-${accountStatus}`)) {
-                    shouldShow = false;
-                }
-                
-                // School term filter
-                if (schoolTerm && row.getAttribute('data-term') !== schoolTerm) {
-                    shouldShow = false;
-                }
-                
-                // Show/hide row
-                row.style.display = shouldShow ? '' : 'none';
-                if (shouldShow) visibleCount++;
-            });
-            
-            // Update pagination with filtered results
-            updateFilteredEntries();
-            
-            // Show results count
-            showInfoToast(`Showing ${visibleCount} of ${tableRows.length} faculty`);
-            
-            // Update statistics if needed
-            updateFilteredStatistics();
+            currentPage = 1;
+            refreshFacultyTable();
         }
 
         // Clear all filters
         function clearFilters() {
             // Use the comprehensive clearing function
             clearAllSelectionsAndFilters();
-            
-            // Update pagination with all entries
-            updateFilteredEntries();
-            
-            showInfoToast('All filters cleared');
+            refreshFacultyTable();
+            showToastNotification('All filters cleared', 'info');
         }
 
         // Update statistics based on school term selection
@@ -1275,6 +1208,181 @@ ob_start();
             applyFilters();
         }
 
+        // Fetch faculty list from backend and build table body
+        async function refreshFacultyTable(){
+            try{
+                const tbody=document.getElementById('facultyTableBody');
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;">Loading faculty...</td></tr>`;
+
+                const url = new URL('../../api/users/facultyList.php', window.location.href);
+                url.searchParams.append('limit', entriesPerPage);
+                url.searchParams.append('page', currentPage);
+                if (document.getElementById('searchInput').value) url.searchParams.append('search', document.getElementById('searchInput').value);
+                if (document.getElementById('employmentStatusFilter').value) url.searchParams.append('employment_status', document.getElementById('employmentStatusFilter').value);
+                if (document.getElementById('accountStatusFilter').value) url.searchParams.append('account_status', document.getElementById('accountStatusFilter').value);
+                if (document.getElementById('clearanceStatusFilter').value) url.searchParams.append('clearance_status', document.getElementById('clearanceStatusFilter').value);
+                if (document.getElementById('schoolTermFilter').value) url.searchParams.append('school_term', document.getElementById('schoolTermFilter').value);
+
+                const res = await fetch(url.toString(),{credentials:'include'});
+                const data = await res.json();
+                if(!data.success){
+                    console.error(data);
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
+                    return;
+                }
+
+                if (!data.faculty || data.faculty.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;">No faculty members found.</td></tr>`;
+                    updateStatistics(data.stats || { total: 0, active: 0, inactive: 0, resigned: 0 });
+                    updatePaginationUI(0, 1, entriesPerPage);
+                    return;
+                }
+
+                tbody.innerHTML='';
+                data.faculty.forEach(f=>{
+                    const tr=document.createElement('tr');
+                    tr.setAttribute('data-term',''); // term unknown for now
+                    tr.setAttribute('data-faculty-id', f.user_id); // Add faculty ID for button manager
+                    const statusRaw = f.clearance_status;
+                    const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
+                    const accountStatus = (f.account_status || 'inactive').toLowerCase();
+
+                    tr.innerHTML=`<td class="checkbox-column"><input type=\"checkbox\" class=\"faculty-checkbox\" data-id=\"${f.employee_number}\"></td>
+                                <td data-label="Employee Number:">${f.employee_number}</td>
+                                <td data-label="Name:">${f.first_name} ${f.last_name}</td>
+                                <td data-label="Employment Status:"><span class="status-badge employment-${(f.employment_status || '').toLowerCase().replace(/ /g,'-')}">${f.employment_status}</span></td>
+                                <td data-label="Account Status:"><span class="status-badge account-${accountStatus}">${f.account_status || 'N/A'}</span></td>
+                                <td data-label="Clearance Progress:"><span class="status-badge clearance-${clearanceKey}">${statusRaw}</span></td>
+                                <td class="action-buttons"><div class="action-buttons">
+                                        <button class=\"btn-icon view-progress-btn\" onclick=\"viewClearanceProgress('${f.employee_number}')\" title=\"View Clearance Progress\"><i class=\"fas fa-tasks\"></i></button>
+                                        <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
+                                        <button class="btn-icon status-toggle-btn ${accountStatus==='active'?'active':'inactive'}" onclick="toggleFacultyStatus(this)" title="Toggle Status"><i class="fas ${accountStatus==='active'?'fa-toggle-on':'fa-toggle-off'}"></i></button>
+                                        <button class=\"btn-icon delete-btn\" onclick=\"deleteFaculty('${f.employee_number}')\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>
+                                   </div></td>`;
+
+                    if(accountStatus!=='active'){
+                        tr.classList.add('row-disabled');
+                    }
+                    tbody.appendChild(tr);
+                });
+                updateStatistics(data.stats);
+                updatePaginationUI(data.total, data.page, data.limit);
+            }catch(err){
+                console.error(err);
+                document.getElementById('facultyTableBody').innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:red;">Error loading data.</td></tr>`;
+            }
+        }
+
+        // Update statistics helper function
+        function updateStatistics(statsOrction) {
+            const totalCount = document.getElementById('totalFaculty');
+            const activeCount = document.getElementById('activeFaculty');
+            const inactiveCount = document.getElementById('inactiveFaculty');
+            const resignedCount = document.getElementById('resignedFaculty');
+            
+            if (typeof statsOrAction === 'object' && statsOrAction !== null) {
+                // If an object is passed, set the stats directly
+                totalCount.textContent = (statsOrAction.total || 0).toLocaleString();
+                activeCount.textContent = (statsOrAction.active || 0).toLocaleString();
+                inactiveCount.textContent = (statsOrAction.inactive || 0).toLocaleString();
+                resignedCount.textContent = (statsOrAction.resigned || 0).toLocaleString();
+            } else if (typeof statsOrAction === 'string') {
+                // Fallback for simple string actions (incremental updates)
+                let currentActive = parseInt(activeCount.textContent.replace(/,/g, ''));
+                let currentInactive = parseInt(inactiveCount.textContent.replace(/,/g, ''));
+                if (statsOrAction === 'activate') {
+                    currentActive++;
+                    currentInactive--;
+                } else if (statsOrAction === 'deactivate') {
+                    currentActive--;
+                    currentInactive++;
+                }
+                activeCount.textContent = currentActive.toLocaleString();
+                inactiveCount.textContent = currentInactive.toLocaleString();
+            }
+        }
+
+
+        function updatePaginationUI(total, page, limit) {
+            totalEntries = total;
+            currentPage = page;
+            entriesPerPage = limit;
+            const totalPages = Math.ceil(total / limit);
+            const startEntry = total === 0 ? 0 : (page - 1) * limit + 1;
+            const endEntry = Math.min(page * limit, total);
+
+            document.getElementById('paginationInfo').textContent = `Showing ${startEntry} to ${endEntry} of ${total} entries`;
+
+            const pageNumbersContainer = document.getElementById('pageNumbers');
+            pageNumbersContainer.innerHTML = '';
+
+            if (totalPages <= 7) {
+                for (let i = 1; i <= totalPages; i++) addPageButton(i, i === page);
+            } else {
+                if (page <= 4) {
+                    for (let i = 1; i <= 5; i++) addPageButton(i, i === page);
+                    addEllipsis();
+                    addPageButton(totalPages, false);
+                } else if (page >= totalPages - 3) {
+                    addPageButton(1, false);
+                    addEllipsis();
+                    for (let i = totalPages - 4; i <= totalPages; i++) addPageButton(i, i === page);
+                } else {
+                    addPageButton(1, false);
+                    addEllipsis();
+                    for (let i = page - 1; i <= page + 1; i++) addPageButton(i, i === page);
+                    addEllipsis();
+                    addPageButton(totalPages, false);
+                }
+            }
+
+            document.getElementById('prevPage').disabled = page === 1;
+            document.getElementById('nextPage').disabled = page >= totalPages;
+        }
+
+        function addPageButton(pageNum, isActive) {
+            const pageNumbersContainer = document.getElementById('pageNumbers');
+            const button = document.createElement('button');
+            button.className = `pagination-btn ${isActive ? 'active' : ''}`;
+            button.textContent = pageNum;
+            button.onclick = () => goToPage(pageNum);
+            pageNumbersContainer.appendChild(button);
+        }
+
+        function addEllipsis() {
+            const pageNumbersContainer = document.getElementById('pageNumbers');
+            const span = document.createElement('span');
+            span.className = 'pagination-dots';
+            span.textContent = '...';
+            span.style.padding = '8px 12px';
+            span.style.color = 'var(--medium-muted-blue)';
+            pageNumbersContainer.appendChild(span);
+        }
+
+        function goToPage(pageNum) {
+            currentPage = pageNum;
+            refreshFacultyTable();
+        }
+
+        function changePage(direction) {
+            if (direction === 'prev' && currentPage > 1) {
+                currentPage--;
+            } else if (direction === 'next') {
+                const totalPages = Math.ceil(totalEntries / entriesPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                }
+            }
+            refreshFacultyTable();
+        }
+
+        function changeEntriesPerPage() {
+            const newEntriesPerPage = parseInt(document.getElementById('entriesPerPage').value);
+            entriesPerPage = newEntriesPerPage;
+            currentPage = 1;
+            refreshFacultyTable();
+        }
+
         // Update statistics based on filtered results
         function updateFilteredStatistics() {
             const visibleRows = document.querySelectorAll('#facultyTableBody tr:not([style*="display: none"])');
@@ -1307,201 +1415,7 @@ ob_start();
         let currentPage = 1;
         let entriesPerPage = 20;
         let totalEntries = 0;
-        let filteredEntries = [];
-
-        // Fetch faculty list from backend and build table body
-        async function refreshFacultyTable(){
-            try{
-                const res = await fetch('../../api/users/staff_faculty_list.php?limit=500',{credentials:'include'});
-                const data = await res.json();
-                if(!data.success){console.error(data);return;}
-                const tbody=document.getElementById('facultyTableBody');
-                tbody.innerHTML='';
-                let total=0,active=0,inactive=0,resigned=0;
-                data.faculty.forEach(f=>{
-                    const tr=document.createElement('tr');
-                    tr.setAttribute('data-term',''); // term unknown for now
-                    tr.setAttribute('data-faculty-id', f.user_id); // Add faculty ID for button manager
-                    const statusRaw = f.clearance_status;
-                    let clearanceKey = 'unapplied';
-                    if(statusRaw==='Completed' || statusRaw==='Complete') clearanceKey='complete';
-                    else if(statusRaw==='Applied') clearanceKey='applied';
-                    else if(statusRaw==='In Progress' || statusRaw==='Pending') clearanceKey='in-progress';
-                    else if(statusRaw==='Rejected') clearanceKey='rejected';
-
-                    const accountStatus = f.account_status ? f.account_status.toLowerCase() : 'active';
-                    const clearanceStatus=clearanceKey;
-                    tr.innerHTML=`<td class="checkbox-column"><input type=\"checkbox\" class=\"faculty-checkbox\" data-id=\"${f.employee_number}\"></td>
-                                <td data-label="Employee Number:">${f.employee_number}</td>
-                                <td data-label="Name:">${f.first_name} ${f.last_name}</td>
-                                <td data-label="Employment Status:"><span class="status-badge employment-${f.employment_status.toLowerCase().replace(/ /g,'-')}">${f.employment_status}</span></td>
-                                <td data-label="Account Status:"><span class="status-badge account-${accountStatus}">${accountStatus.charAt(0).toUpperCase()+accountStatus.slice(1)}</span></td>
-                                <td data-label="Clearance Progress:"><span class="status-badge clearance-${clearanceStatus}">${statusRaw}</span></td>
-                                <td class="action-buttons"><div class="action-buttons">
-                                        <button class=\"btn-icon view-progress-btn\" onclick=\"viewClearanceProgress('${f.employee_number}')\" title=\"View Clearance Progress\"><i class=\"fas fa-tasks\"></i></button>
-                                        <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
-                                        <button class="btn-icon status-toggle-btn ${accountStatus==='active'?'active':'inactive'}" onclick="toggleFacultyStatus(this)" title="Toggle Status"><i class="fas ${accountStatus==='active'?'fa-toggle-on':'fa-toggle-off'}"></i></button>
-                                        <button class=\"btn-icon delete-btn\" onclick=\"deleteFaculty('${f.employee_number}')\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>
-                                   </div></td>`;
-
-                    if(accountStatus!=='active'){
-                        tr.classList.add('row-disabled');
-                        // Keep checkbox enabled; bulk logic will govern action button states
-                    }
-                    tbody.appendChild(tr);
-                    // stats counting
-                    total++;
-                    if(accountStatus==='active') active++;
-                    else if(accountStatus==='inactive') inactive++;
-                    else if(accountStatus==='resigned') resigned++;
-                });
-                // update stats dashboard
-                document.getElementById('totalFaculty').textContent=total;
-                document.getElementById('activeFaculty').textContent=active;
-                document.getElementById('inactiveFaculty').textContent=inactive;
-                document.getElementById('resignedFaculty').textContent=resigned;
-            }catch(err){console.error(err);}
-        }
-
-        // Initialize pagination
-        function initializePagination() {
-            const allRows = document.querySelectorAll('#facultyTableBody tr');
-            totalEntries = allRows.length;
-            filteredEntries = Array.from(allRows);
-            updatePagination();
-        }
-
-        // Update pagination display
-        function updatePagination() {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            const startEntry = (currentPage - 1) * entriesPerPage + 1;
-            const endEntry = Math.min(currentPage * entriesPerPage, filteredEntries.length);
-            
-            // Update pagination info
-            document.getElementById('paginationInfo').textContent = 
-                `Showing ${startEntry} to ${endEntry} of ${filteredEntries.length} entries`;
-            
-            // Update page numbers
-            updatePageNumbers(totalPages);
-            
-            // Update navigation buttons
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage === totalPages;
-            
-            // Show current page entries
-            showCurrentPageEntries();
-        }
-
-        // Update page number buttons
-        function updatePageNumbers(totalPages) {
-            const pageNumbersContainer = document.getElementById('pageNumbers');
-            pageNumbersContainer.innerHTML = '';
-            
-            if (totalPages <= 7) {
-                // Show all page numbers
-                for (let i = 1; i <= totalPages; i++) {
-                    addPageButton(i, i === currentPage);
-                }
-            } else {
-                // Show smart pagination with ellipsis
-                if (currentPage <= 4) {
-                    // Show first 5 pages + ellipsis + last page
-                    for (let i = 1; i <= 5; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
-                    addEllipsis();
-                    addPageButton(totalPages, false);
-                } else if (currentPage >= totalPages - 3) {
-                    // Show first page + ellipsis + last 5 pages
-                    addPageButton(1, false);
-                    addEllipsis();
-                    for (let i = totalPages - 4; i <= totalPages; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
-                } else {
-                    // Show first page + ellipsis + current-1, current, current+1 + ellipsis + last page
-                    addPageButton(1, false);
-                    addEllipsis();
-                    for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
-                    addEllipsis();
-                    addPageButton(totalPages, false);
-                }
-            }
-        }
-
-        // Add page button
-        function addPageButton(pageNum, isActive) {
-            const pageNumbersContainer = document.getElementById('pageNumbers');
-            const button = document.createElement('button');
-            button.className = `pagination-btn ${isActive ? 'active' : ''}`;
-            button.textContent = pageNum;
-            button.onclick = () => goToPage(pageNum);
-            pageNumbersContainer.appendChild(button);
-        }
-
-        // Add ellipsis
-        function addEllipsis() {
-            const pageNumbersContainer = document.getElementById('pageNumbers');
-            const span = document.createElement('span');
-            span.className = 'pagination-dots';
-            span.textContent = '...';
-            span.style.padding = '8px 12px';
-            span.style.color = 'var(--medium-muted-blue)';
-            pageNumbersContainer.appendChild(span);
-        }
-
-        // Go to specific page
-        function goToPage(pageNum) {
-            currentPage = pageNum;
-            updatePagination();
-        }
-
-        // Change page (previous/next)
-        function changePage(direction) {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            
-            if (direction === 'prev' && currentPage > 1) {
-                currentPage--;
-            } else if (direction === 'next' && currentPage < totalPages) {
-                currentPage++;
-            }
-            
-            updatePagination();
-        }
-
-        // Change entries per page
-        function changeEntriesPerPage() {
-            const newEntriesPerPage = parseInt(document.getElementById('entriesPerPage').value);
-            entriesPerPage = newEntriesPerPage;
-            currentPage = 1; // Reset to first page
-            updatePagination();
-        }
-
-        // Show current page entries
-        function showCurrentPageEntries() {
-            const startIndex = (currentPage - 1) * entriesPerPage;
-            const endIndex = startIndex + entriesPerPage;
-            
-            // Hide all rows first
-            filteredEntries.forEach(row => {
-                row.style.display = 'none';
-            });
-            
-            // Show only current page rows
-            for (let i = startIndex; i < endIndex && i < filteredEntries.length; i++) {
-                filteredEntries[i].style.display = '';
-            }
-        }
-
-        // Update filtered entries for pagination
-        function updateFilteredEntries() {
-            const visibleRows = document.querySelectorAll('#facultyTableBody tr:not([style*="display: none"])');
-            filteredEntries = Array.from(visibleRows);
-            currentPage = 1; // Reset to first page
-            updatePagination();
-        }
+        let filteredEntries = []; // This can be removed, but let's keep for now if other logic depends on it.
 
         // Scroll to top functionality
         function scrollToTop() {
@@ -1820,25 +1734,98 @@ ob_start();
             targetIds: []
         };
 
+        async function populateFilter(selectId, url, placeholder, valueField = 'value', textField = 'text') {
+            const select = document.getElementById(selectId);
+            try {
+                const response = await fetch(url, { credentials: 'include' });
+                const data = await response.json();
 
+                select.innerHTML = `<option value="">${placeholder}</option>`;
+                if (data.success && data.options) {
+                    const termMap = {
+                        '1st': '1st Semester',
+                        '2nd': '2nd Semester',
+                        '3rd': '3rd Semester',
+                        'Summer': 'Summer'
+                    };
 
+                    data.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = typeof option === 'object' ? option[valueField] : option;
+                        let textContent = typeof option === 'object' ? option[textField] : option;
 
+                        // Apply term mapping for school terms filter
+                        if (selectId === 'schoolTermFilter' && typeof option === 'object') {
+                            const [year, term] = option.text.split(' - ');
+                            textContent = `${year} - ${termMap[term] || term}`;
+                        }
+                        
+                        optionElement.textContent = textContent;
+                        select.appendChild(optionElement);
+                    });
+                }
+            } catch (error) {
+                console.error(`Error loading options for ${selectId}:`, error);
+                select.innerHTML = `<option value="">Error loading options</option>`;
+            }
+        }
 
-        // Faculty Clearance Action Functions
+        async function loadAccountStatuses() {
+            const accountStatusesFilter = document.getElementById('accountStatusFilter');
+            accountStatusesFilter.innerHTML = '<option value="">Loading account statuses...</option>';
+            const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+            url.searchParams.append('type', 'enum');
+            url.searchParams.append('table', 'users');
+            url.searchParams.append('column', 'account_status');
+            url.searchParams.append('exclude', 'graduated');
+            await populateFilter('accountStatusFilter', url, 'All Account Statuses');
+        }
+
+        async function loadEmploymentStatuses() {
+            const employmentStatusesFilter = document.getElementById('employmentStatusFilter');
+            employmentStatusesFilter.innerHTML = '<option value="">Loading employment statuses...</option>';
+            const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+            url.searchParams.append('type', 'enum');
+            url.searchParams.append('table', 'faculty');
+            url.searchParams.append('column', 'employment_status');
+            await populateFilter('employmentStatusFilter', url, 'All Employment Statuses');
+        }
+
+        async function loadClearanceStatuses() {
+            const clearanceStatusesFilter = document.getElementById('clearanceStatusFilter');
+            clearanceStatusesFilter.innerHTML = '<option value="">Loading clearance statuses...</option>';
+            const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+            url.searchParams.append('type', 'enum');
+            url.searchParams.append('table', 'clearance_forms');
+            url.searchParams.append('column', 'clearance_form_progress');
+            await populateFilter('clearanceStatusFilter', url, 'All Clearance Statuses');
+        }
+
+        async function loadSchoolTerms() {
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            schoolTermFilter.innerHTML = '<option value="">Loading school terms...</option>';
+            const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+            url.searchParams.append('type', 'school_terms');
+            await populateFilter('schoolTermFilter', url, 'All School Terms');
+        }
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
-            // Load faculty list from backend then initialize pagination
-            refreshFacultyTable().then(async ()=>{
-                showToastNotification('Faculty table refreshed','success');
-                initializePagination();
-                updateSelectionCounter();
-                
-                // Update button states after table is loaded
-                if (window.clearanceButtonManager) {
-                    await window.clearanceButtonManager.updateAllButtons('Faculty', 'faculty');
-                }
-            });
+
+            // Load dynamic filters
+            loadEmploymentStatuses();
+            loadAccountStatuses();
+            loadClearanceStatuses();
+            loadSchoolTerms();
+
+            // load faculty table
+            refreshFacultyTable();
+
+            // Initialize Activity Tracker
+            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
+                window.activityTrackerInstance = new ActivityTracker();
+                console.log('Activity Tracker initialized');
+            }
 
             // Add event listeners for checkboxes
             document.addEventListener('change', function(e) {
@@ -1858,10 +1845,10 @@ ob_start();
             // Listen for new faculty event from modal
             document.addEventListener('faculty-added',function(e){
                 refreshFacultyTable().then(()=>{
-                    showToastNotification('Faculty table refreshed','success');
-                    initializePagination();
+                    showToastNotification('Faculty table refreshed', 'success');
                 });
             });
+
 
             // load current clearance period for banner
             fetch('../../api/clearance/periods.php', { credentials: 'include' })
@@ -1931,7 +1918,7 @@ ob_start();
                 });
             }
         });
-
+        
         // Tab switch helper: shows confirmation, clears selections/filters, then switches
         function switchFacultyTab(btn){
             const newTabStatus = btn.getAttribute('data-status');
@@ -2309,17 +2296,6 @@ ob_start();
     
     <!-- Include Clearance Button Manager -->
     <script src="../../assets/js/clearance-button-manager.js"></script>
-    
-    <!-- Initialize Activity Tracker -->
-    <script>
-        // Initialize Activity Tracker when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-                window.activityTrackerInstance = new ActivityTracker();
-                console.log('Activity Tracker initialized');
-            }
-        });
-    </script>
     
     <!-- TEMPORARILY DISABLED: Include Audit Functions -->
     <!-- <?php include '../../includes/functions/audit_functions.php'; ?> -->
