@@ -780,7 +780,12 @@ handleFacultyManagementPageRequest();
         }
         
         function triggerExportModal() {
-            showToastNotification('Export functionality not implemented yet', 'info');
+            if (typeof window.openExportModal === 'function') {
+                window.openExportModal();
+            } else {
+                console.error('Export modal function not found');
+                showToastNotification('Export modal not available', 'error');
+            }
         }
         
         // Global variable for current staff position (set by PHP above)
@@ -1244,22 +1249,7 @@ handleFacultyManagementPageRequest();
             }
         });
 
-        // Export functionality
-        function triggerExportModal() {
-            showConfirmationModal(
-                'Export Faculty Clearance Report',
-                'Generate a PDF report of your faculty clearance signing activities?',
-                'Export',
-                'Cancel',
-                () => {
-                    showToastNotification('Report generation started...', 'info');
-                    setTimeout(() => {
-                        showToastNotification('Faculty clearance report exported successfully!', 'success');
-                    }, 2000);
-                },
-                'info'
-            );
-        }
+        // Export functionality - Remove duplicate, use the one above
 
         // Load current clearance period for banner
         async function loadCurrentPeriod() {
@@ -1701,5 +1691,8 @@ handleFacultyManagementPageRequest();
             </div>
         </div>
     </div>
+    
+    <!-- Include Export Modal -->
+    <?php include '../../Modals/ExportModal.php'; ?>
 </body>
 </html>

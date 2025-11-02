@@ -1027,14 +1027,15 @@ if (session_status() == PHP_SESSION_NONE) {
 
         // Modal functions
         function triggerExportModal() {
-            // Simple export functionality for now
-            showToastNotification('Export functionality will be implemented soon', 'info');
-            
-            // For now, we can implement a basic CSV export
-            exportStudentsToCSV();
+            if (typeof window.openExportModal === 'function') {
+                window.openExportModal();
+            } else {
+                console.error('Export modal function not found');
+                showToastNotification('Export modal not available', 'error');
+            }
         }
 
-        // Basic CSV export function
+        // Basic CSV export function (kept for backwards compatibility if needed)
         function exportStudentsToCSV() {
             const table = document.getElementById('studentsTable');
             const rows = table.querySelectorAll('tbody tr');
@@ -2356,5 +2357,8 @@ if (session_status() == PHP_SESSION_NONE) {
             window.currentTabStatus = '';
         });
     </script>
+    
+    <!-- Include Export Modal -->
+    <?php include '../../Modals/ExportModal.php'; ?>
 </body>
 </html>

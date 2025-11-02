@@ -1074,7 +1074,12 @@ handleFacultyManagementPageRequest();
 
         // Modal functions
         function triggerExportModal() {
-            showToastNotification('Export functionality will be implemented soon.', 'info');
+            if (typeof window.openExportModal === 'function') {
+                window.openExportModal();
+            } else {
+                console.error('Export modal function not found');
+                showToastNotification('Export modal not available', 'error');
+            }
         }
 
         function escapeHtml(unsafe) {
@@ -2018,6 +2023,10 @@ handleFacultyManagementPageRequest();
             }
         }
     </script>
+    
+    <!-- Include Export Modal -->
+    <?php include '../../Modals/ExportModal.php'; ?>
+    
     <script src="../../assets/js/alerts.js"></script>
 </body>
 </html>

@@ -456,6 +456,7 @@ try {
         </div>
     </div>
     <?php include '../../Modals/ClearanceExportModal.php'; ?>
+    <?php include '../../Modals/ExportModal.php'; ?>
 
     <!-- Rejection Remarks Modal -->
     <div id="rejectionRemarksModal" class="modal-overlay" style="display: none;">
@@ -1069,19 +1070,16 @@ try {
 
         // Export functionality
         function triggerExportModal() {
-            showConfirmationModal(
-                'Export Student Clearance Report',
-                'Generate a PDF report of your student clearance signing activities?',
-                'Export',
-                'Cancel',
-                () => {
-                    showToastNotification('Report generation started...', 'info');
-                    setTimeout(() => {
-                        showToastNotification('Student clearance report exported successfully!', 'success');
-                    }, 2000);
-                },
-                'info'
-            );
+            // For Regular Staff, we should use the ClearanceExportModal which is already included
+            // But check if ExportModal is available for general reports
+            if (typeof window.openExportModal === 'function') {
+                window.openExportModal();
+            } else if (typeof window.openClearanceExportModal === 'function') {
+                window.openClearanceExportModal();
+            } else {
+                console.error('Export modal function not found');
+                showToastNotification('Export modal not available', 'error');
+            }
         }
 
         // Check if current user is signatory for this sector

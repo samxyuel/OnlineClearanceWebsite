@@ -956,6 +956,16 @@ handleFacultyManagementPageRequest();
         }
 
         // Bulk selection functions
+        // Modal functions
+        function triggerExportModal() {
+            if (typeof window.openExportModal === 'function') {
+                window.openExportModal();
+            } else {
+                console.error('Export modal function not found');
+                showToastNotification('Export modal not available', 'error');
+            }
+        }
+
         function openBulkSelectionModal() {
             const modal = document.getElementById('bulkSelectionModal');
             modal.style.display = 'flex';
@@ -1654,5 +1664,8 @@ handleFacultyManagementPageRequest();
     
     <!-- Include Faculty Batch Update Modal -->
     <?php include '../../Modals/FacultyBatchUpdateModal.php'; ?>
+    
+    <!-- Include Export Modal -->
+    <?php include '../../Modals/ExportModal.php'; ?>
 </body>
 </html>
