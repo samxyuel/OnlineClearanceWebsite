@@ -120,7 +120,7 @@ function handleGetDepartments($pdo, $userId, $userRoleName, $pageType) {
         // Program Head: Only their assigned departments that match the sector
         // Get staff employee_number for this user
         $staffStmt = $pdo->prepare("
-            SELECT s.employee_number 
+            SELECT s.employee_number, s.staff_category 
             FROM staff s 
             WHERE s.user_id = ? AND s.staff_category = 'Program Head' AND s.is_active = 1
             LIMIT 1
@@ -129,15 +129,32 @@ function handleGetDepartments($pdo, $userId, $userRoleName, $pageType) {
         $staff = $staffStmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$staff) {
-            echo json_encode([
-                'success' => true,
-                'departments' => [],
-                'message' => 'No assigned departments found for Program Head'
-            ]);
-            return;
+            // Try alternative query - maybe staff_category is different
+            $altStmt = $pdo->prepare("
+                SELECT s.employee_number, s.staff_category 
+                FROM staff s 
+                WHERE s.user_id = ? AND s.is_active = 1
+                LIMIT 1
+            ");
+            $altStmt->execute([$userId]);
+            $altStaff = $altStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$altStaff) {
+                echo json_encode([
+                    'success' => true,
+                    'departments' => [],
+                    'message' => 'Program Head staff record not found',
+                    'debug' => ['user_id' => $userId, 'expected_sector' => $expectedSectorName]
+                ]);
+                return;
+            }
+            
+            // Use alternative staff record if found
+            $staff = $altStaff;
         }
         
         // Get assigned departments from staff_department_assignments
+        // Try both sda.sector_id join and s.sector_name filter
         $sql = "
             SELECT 
                 d.department_id,
@@ -145,7 +162,7 @@ function handleGetDepartments($pdo, $userId, $userRoleName, $pageType) {
                 s.sector_name
             FROM staff_department_assignments sda
             JOIN departments d ON sda.department_id = d.department_id
-            JOIN sectors s ON sda.sector_id = s.sector_id
+            JOIN sectors s ON d.sector_id = s.sector_id
             WHERE sda.staff_id = ? 
                 AND sda.is_active = 1
                 AND d.is_active = 1
@@ -156,6 +173,31 @@ function handleGetDepartments($pdo, $userId, $userRoleName, $pageType) {
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$staff['employee_number'], $expectedSectorName]);
         $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // If no departments found, return debug info
+        if (empty($departments)) {
+            // Check if staff has any assignments at all
+            $checkStmt = $pdo->prepare("
+                SELECT COUNT(*) as total
+                FROM staff_department_assignments sda
+                WHERE sda.staff_id = ? AND sda.is_active = 1
+            ");
+            $checkStmt->execute([$staff['employee_number']]);
+            $totalAssignments = $checkStmt->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            echo json_encode([
+                'success' => true,
+                'departments' => [],
+                'message' => 'No departments found for Program Head in this sector',
+                'debug' => [
+                    'user_id' => $userId,
+                    'employee_number' => $staff['employee_number'],
+                    'expected_sector' => $expectedSectorName,
+                    'total_assignments' => $totalAssignments
+                ]
+            ]);
+            return;
+        }
     }
     
     echo json_encode([

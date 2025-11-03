@@ -164,15 +164,24 @@
 </div>
 
 <script>
+// CRITICAL: This log must appear if script is executing
+console.log('[ImportModal] ==========================================');
+console.log('[ImportModal] SCRIPT START - ImportModal.php loaded');
+console.log('[ImportModal] ==========================================');
+
 // Import Modal Global Variables
 let currentPageType = ''; // 'college', 'shs', 'faculty'
 let currentImportType = ''; // 'student_import', 'faculty_import'
 let userRole = ''; // 'Admin', 'Program Head'
 
+// Ensure functions are defined immediately when script loads (before DOMContentLoaded)
+// This prevents "function not found" errors if called before DOM is ready
+console.log('[ImportModal] Script loading - defining functions...');
+
 // Load departments from API - Define EARLY to ensure it's available
-// Using function declaration for hoisting
-async function loadDepartments() {
-  console.log('[ImportModal] >>> loadDepartments() STARTED');
+// Using unique name to avoid collision with page-level loadDepartments() functions
+async function loadImportModalDepartments() {
+  console.log('[ImportModal] >>> loadImportModalDepartments() STARTED');
   console.log('[ImportModal] Function execution began - this log should appear');
   
   // Use the global variables or closure variables
@@ -261,7 +270,10 @@ async function loadDepartments() {
         document.getElementById('selectedDepartmentId').value = singleDept.department_id;
         const finalImportType = window.currentImportType || currentImportType;
         if (finalImportType === 'student_import') {
-          loadPrograms(singleDept.department_id);
+          console.log('[ImportModal] Auto-selected department - loading programs:', singleDept.department_id);
+          if (window.loadImportModalPrograms) {
+            window.loadImportModalPrograms(singleDept.department_id);
+          }
         } else {
           enableFileUpload();
         }
@@ -281,11 +293,16 @@ async function loadDepartments() {
   }
 }
 
-// Make it globally accessible
-window.loadImportDepartments = loadDepartments;
+// Make it globally accessible with unique name
+console.log('[ImportModal] Assigning loadImportModalDepartments to window...');
+window.loadImportModalDepartments = loadImportModalDepartments;
+// Keep legacy alias for compatibility
+window.loadImportDepartments = loadImportModalDepartments;
 
-// Initialize modal with page context
+// Initialize modal with page context - Define immediately
+console.log('[ImportModal] Defining window.initializeImportModal...');
 window.initializeImportModal = function(pageType, importType, role = 'Admin') {
+  console.log('[ImportModal] initializeImportModal called');
   console.log('[ImportModal] initializeImportModal called with:', { pageType, importType, role });
   
   currentPageType = pageType;
@@ -318,23 +335,24 @@ window.initializeImportModal = function(pageType, importType, role = 'Admin') {
   
   // Load departments immediately - no need for setTimeout delay
   // The modal is already visible and DOM is ready
-  console.log('[ImportModal] About to call loadDepartments immediately...');
-  console.log('[ImportModal] Checking if loadDepartments exists:', typeof loadDepartments);
-  console.log('[ImportModal] Checking window.loadImportDepartments:', typeof window.loadImportDepartments);
+  // Use unique function name to avoid collision with page-level functions
+  console.log('[ImportModal] About to call loadImportModalDepartments immediately...');
+  console.log('[ImportModal] Checking window.loadImportModalDepartments:', typeof window.loadImportModalDepartments);
   
-  // Determine which function to use
-  const loadFunc = typeof loadDepartments === 'function' ? loadDepartments : 
-                   typeof window.loadImportDepartments === 'function' ? window.loadImportDepartments : 
-                   null;
+  // Use the unique function name from window scope
+  const loadFunc = window.loadImportModalDepartments || window.loadImportDepartments;
   
-  if (!loadFunc) {
-    console.error('[ImportModal] Neither loadDepartments nor window.loadImportDepartments is a function!');
-    showToastNotification('Error: loadDepartments function not available', 'error');
+  if (!loadFunc || typeof loadFunc !== 'function') {
+    console.error('[ImportModal] loadImportModalDepartments function not available!');
+    console.error('[ImportModal] Available:', {
+      loadImportModalDepartments: typeof window.loadImportModalDepartments,
+      loadImportDepartments: typeof window.loadImportDepartments
+    });
+    showToastNotification('Error: loadImportModalDepartments function not available', 'error');
     return;
   }
   
-  console.log('[ImportModal] Calling loadDepartments function...');
-  console.log('[ImportModal] loadFunc.toString():', loadFunc.toString().substring(0, 200));
+  console.log('[ImportModal] Calling loadImportModalDepartments function...');
   
   // Call the function and safely handle the result
   try {
@@ -349,14 +367,14 @@ window.initializeImportModal = function(pageType, importType, role = 'Admin') {
     if (result && typeof result === 'object' && typeof result.then === 'function') {
       console.log('[ImportModal] Result is a Promise, attaching handlers...');
       result.then(() => {
-        console.log('[ImportModal] ✅ loadDepartments completed successfully');
+        console.log('[ImportModal] ✅ loadImportModalDepartments completed successfully');
       }).catch(err => {
-        console.error('[ImportModal] ❌ Error in loadDepartments():', err);
+        console.error('[ImportModal] ❌ Error in loadImportModalDepartments():', err);
         console.error('[ImportModal] Error stack:', err.stack);
         showToastNotification('Error loading departments: ' + (err.message || 'Unknown error'), 'error');
       });
     } else {
-      console.warn('[ImportModal] ⚠️ loadDepartments() did not return a Promise!');
+      console.warn('[ImportModal] ⚠️ loadImportModalDepartments() did not return a Promise!');
       console.warn('[ImportModal] Returned value:', result);
       console.warn('[ImportModal] This should not happen with async functions. Checking function definition...');
       
@@ -368,7 +386,7 @@ window.initializeImportModal = function(pageType, importType, role = 'Admin') {
     }
   } catch (error) {
     // Synchronous error during function call
-    console.error('[ImportModal] ❌ SYNCHRONOUS ERROR calling loadDepartments():', error);
+    console.error('[ImportModal] ❌ SYNCHRONOUS ERROR calling loadImportModalDepartments():', error);
     console.error('[ImportModal] Error message:', error.message);
     console.error('[ImportModal] Error stack:', error.stack);
     showToastNotification('Error loading departments: ' + (error.message || 'Unknown error'), 'error');
@@ -408,9 +426,13 @@ function updateModalTitle() {
   }
 }
 
-// Load programs when department is selected
-async function loadPrograms(departmentId) {
+// Load programs when department is selected - Make globally accessible
+window.loadImportModalPrograms = async function(departmentId) {
+  console.log('[ImportModal] >>> loadImportModalPrograms() STARTED');
+  console.log('[ImportModal] departmentId:', departmentId);
+  
   if (!departmentId) {
+    console.log('[ImportModal] No departmentId provided, resetting program select');
     const programSelect = document.getElementById('importProgramSelect');
     programSelect.innerHTML = '<option value="">Select Department first</option>';
     programSelect.disabled = true;
@@ -420,12 +442,44 @@ async function loadPrograms(departmentId) {
   }
   
   const programSelect = document.getElementById('importProgramSelect');
+  if (!programSelect) {
+    console.error('[ImportModal] Program select element not found!');
+    return;
+  }
+  
+  console.log('[ImportModal] Program select element found');
   programSelect.innerHTML = '<option value="">Loading Programs...</option>';
   programSelect.disabled = true;
   
   try {
-    const response = await fetch(`../../api/import/options.php?resource=programs&department_id=${departmentId}`);
+    const apiUrl = `../../api/import/options.php?resource=programs&department_id=${departmentId}`;
+    console.log('[ImportModal] Fetching programs from:', apiUrl);
+    
+    const response = await fetch(apiUrl, {
+      credentials: 'include',
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    console.log('[ImportModal] Programs response status:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[ImportModal] Programs response error text:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+    
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('[ImportModal] Non-JSON response for programs:', text);
+      throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+    }
+    
     const data = await response.json();
+    console.log('[ImportModal] Programs API response:', data);
     
     if (data.success && data.programs && data.programs.length > 0) {
       programSelect.innerHTML = '<option value="">Select Course/Program</option>';
@@ -438,16 +492,22 @@ async function loadPrograms(departmentId) {
       });
       
       programSelect.disabled = false;
+      console.log('[ImportModal] ✅ Loaded', data.programs.length, 'programs');
     } else {
       programSelect.innerHTML = '<option value="">No programs available</option>';
+      console.warn('[ImportModal] No programs found:', data.message);
       showToastNotification(data.message || 'No programs found for this department', 'warning');
     }
   } catch (error) {
-    console.error('Failed to load programs:', error);
+    console.error('[ImportModal] Failed to load programs:', error);
+    console.error('[ImportModal] Error stack:', error.stack);
     programSelect.innerHTML = '<option value="">Error loading programs</option>';
-    showToastNotification('An error occurred while loading programs', 'error');
+    showToastNotification('An error occurred while loading programs: ' + error.message, 'error');
   }
-}
+};
+
+// Keep legacy alias for compatibility
+const loadPrograms = window.loadImportModalPrograms;
 
 // Check if all required selections are made
 function checkSelectionsComplete() {
@@ -691,7 +751,9 @@ function validateImportForm() {
   return true;
 }
 
-// Modal functions
+// Modal functions - Define immediately (not in DOMContentLoaded)
+// This ensures the function is available as soon as the script loads
+console.log('[ImportModal] Defining window.openImportModal...');
 window.openImportModal = function(pageType = null, importType = null, role = 'Admin') {
   console.log('[ImportModal] ===== openImportModal called =====');
   console.log('[ImportModal] Parameters:', { pageType, importType, role });
@@ -732,20 +794,32 @@ window.openImportModal = function(pageType = null, importType = null, role = 'Ad
   
   console.log('[ImportModal] Final initialization values:', { finalPageType, finalImportType, finalRole });
   
-  // Initialize immediately
-  initializeImportModal(finalPageType, finalImportType, finalRole);
+  // Initialize immediately - use window.initializeImportModal to ensure it's available
+  if (typeof window.initializeImportModal === 'function') {
+    window.initializeImportModal(finalPageType, finalImportType, finalRole);
+  } else {
+    console.error('[ImportModal] initializeImportModal function not found!');
+    showToastNotification('Error: Import modal initialization failed', 'error');
+  }
   
   // Reset form
-  document.getElementById('importForm').reset();
+  const form = document.getElementById('importForm');
+  if (form) {
+    form.reset();
+  }
   removeSelectedFile();
   
   // Reset to defaults
-  document.querySelector('input[name="importMode"][value="skip"]').checked = true;
-  document.querySelector('input[name="validateData"]').checked = true;
+  const skipRadio = document.querySelector('input[name="importMode"][value="skip"]');
+  const validateCheckbox = document.querySelector('input[name="validateData"]');
+  if (skipRadio) skipRadio.checked = true;
+  if (validateCheckbox) validateCheckbox.checked = true;
   
   // Reset selections
-  document.getElementById('selectedDepartmentId').value = '';
-  document.getElementById('selectedProgramId').value = '';
+  const selectedDept = document.getElementById('selectedDepartmentId');
+  const selectedProg = document.getElementById('selectedProgramId');
+  if (selectedDept) selectedDept.value = '';
+  if (selectedProg) selectedProg.value = '';
   
   // Reset dropdowns
   const deptSelect = document.getElementById('importDepartmentSelect');
@@ -760,17 +834,27 @@ window.openImportModal = function(pageType = null, importType = null, role = 'Ad
   }
   
   disableFileUpload();
-}
+};
 
+// Define other modal functions to ensure they're available
+console.log('[ImportModal] Defining window.closeImportModal...');
 window.closeImportModal = function() {
-  document.getElementById('importModal').style.display = 'none';
+  const modal = document.getElementById('importModal');
+  if (!modal) return;
+  
+  modal.style.display = 'none';
   document.body.classList.remove('modal-open');
   
   // Reset form
-  document.getElementById('importForm').reset();
+  const form = document.getElementById('importForm');
+  if (form) {
+    form.reset();
+  }
   removeSelectedFile();
 }
 
+// Ensure functions are available even if DOMContentLoaded hasn't fired
+console.log('[ImportModal] Defining window.submitImportForm...');
 window.submitImportForm = function() {
   if (!validateImportForm()) {
     return;
@@ -806,9 +890,9 @@ window.submitImportForm = function() {
     window.closeImportModal();
     } else {
       showToastNotification(data.message || 'Import failed', 'error');
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Import Data';
-      form.classList.remove('modal-loading');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Import Data';
+    form.classList.remove('modal-loading');
     }
   })
   .catch(error => {
@@ -857,17 +941,30 @@ document.addEventListener('DOMContentLoaded', function() {
   const departmentSelect = document.getElementById('importDepartmentSelect');
   if (departmentSelect) {
     departmentSelect.addEventListener('change', function() {
+      console.log('[ImportModal] Department dropdown changed, value:', this.value);
       const departmentId = this.value;
       document.getElementById('selectedDepartmentId').value = departmentId;
       
+      // Get current import type from window or closure
+      const importType = window.currentImportType || currentImportType;
+      console.log('[ImportModal] Current importType:', importType);
+      
       if (departmentId) {
-        if (currentImportType === 'student_import') {
-          loadPrograms(departmentId);
+        if (importType === 'student_import') {
+          console.log('[ImportModal] Student import - loading programs for department:', departmentId);
+          // Use window function to ensure correct function is called
+          if (window.loadImportModalPrograms) {
+            window.loadImportModalPrograms(departmentId);
+          } else {
+            console.error('[ImportModal] loadImportModalPrograms function not found!');
+            showToastNotification('Error: Programs loading function not available', 'error');
+          }
         } else {
+          console.log('[ImportModal] Faculty import - enabling file upload');
           enableFileUpload();
         }
       } else {
-        if (currentImportType === 'student_import') {
+        if (importType === 'student_import') {
           const programSelect = document.getElementById('importProgramSelect');
           programSelect.innerHTML = '<option value="">Select Department first</option>';
           programSelect.disabled = true;
@@ -911,4 +1008,25 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initially disable file upload
   disableFileUpload();
 });
+
+// Verify functions are defined after script loads
+console.log('[ImportModal] ==========================================');
+console.log('[ImportModal] SCRIPT END - Verifying function definitions');
+console.log('[ImportModal] ==========================================');
+console.log('[ImportModal] Script loaded. Functions defined:', {
+  openImportModal: typeof window.openImportModal,
+  initializeImportModal: typeof window.initializeImportModal,
+  loadImportModalDepartments: typeof window.loadImportModalDepartments,
+  loadImportModalPrograms: typeof window.loadImportModalPrograms,
+  closeImportModal: typeof window.closeImportModal,
+  submitImportForm: typeof window.submitImportForm
+});
+
+// CRITICAL DEBUG: Try to call a function to see if script executed
+if (typeof window.openImportModal === 'function') {
+  console.log('[ImportModal] ✅ SUCCESS: window.openImportModal is defined');
+} else {
+  console.error('[ImportModal] ❌ ERROR: window.openImportModal is NOT defined!');
+  console.error('[ImportModal] This means the script failed to execute properly.');
+}
 </script> 

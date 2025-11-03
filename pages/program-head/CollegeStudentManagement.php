@@ -839,12 +839,28 @@ try {
         }
 
         function triggerImportModal() {
-            if (typeof window.openImportModal === 'function') {
-                // Initialize modal with page context: college student import for Program Head
-                window.openImportModal('college', 'student_import', 'Program Head');
-            } else {
-                console.error('Import modal function not found');
+            console.log('triggerImportModal function called (Program Head)');
+            console.log('Checking window.openImportModal:', typeof window.openImportModal);
+            
+            // Wait a bit if function not immediately available (script loading race condition)
+            if (typeof window.openImportModal !== 'function') {
+                console.warn('window.openImportModal not found immediately, waiting 100ms...');
+                setTimeout(() => {
+                    if (typeof window.openImportModal === 'function') {
+                        window.openImportModal('college', 'student_import', 'Program Head');
+                        console.log('Import modal opened successfully (delayed)');
+                    } else {
+                        console.error('Import modal function still not found after delay');
+                        console.error('Debug - window object keys:', Object.keys(window).filter(k => k.includes('Import') || k.includes('Modal')).slice(0, 20));
+                        showToastNotification('Import modal not available. Please refresh the page.', 'error');
+                    }
+                }, 100);
+                return;
             }
+            
+            // Initialize modal with page context: college student import for Program Head
+            window.openImportModal('college', 'student_import', 'Program Head');
+            console.log('Import modal opened successfully');
         }
 
         function triggerExportModal() {
