@@ -243,18 +243,19 @@ function submitStudentRegistrationForm() {
 function confirmStudentCreation(credentialData) {
   const form = document.getElementById('studentRegistrationForm');
   const formData = {
-    student_number: form.studentNumber.value.trim(),
+    studentNumber: form.studentNumber.value.trim(),
     department: form.department.value,
     program: form.program.value,
-    year_level: form.yearLevel.value,
+    yearLevel: form.yearLevel.value,
     section: form.section.value.trim(),
-    first_name: form.firstName.value.trim(),
-    last_name: form.lastName.value.trim(),
-    middle_name: form.middleName.value.trim() || null,
+    firstName: form.firstName.value.trim(),
+    lastName: form.lastName.value.trim(),
+    middleName: form.middleName.value.trim() || null,
     email: form.email.value.trim() || null,
-    phone_number: form.phoneNumber.value.trim() || null,
+    phoneNumber: form.phoneNumber.value.trim() || null,
     username: credentialData.username,
     password: credentialData.password,
+    confirmPassword: credentialData.password, // Add confirmPassword for validation
     sector: 'senior_high'
   };
 

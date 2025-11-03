@@ -351,6 +351,9 @@ try {
     
     <!-- Include College Batch Update Modal -->
     <?php include '../../Modals/CollegeBatchUpdateModal.php'; ?>
+
+    <!-- Include Clearance Progress Modal -->
+    <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
@@ -1464,6 +1467,9 @@ try {
                 <td data-label="Clearance Progress:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
+                            <i class="fas fa-tasks"></i>
+                        </button>
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.id}')" title="Edit Student">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -1480,6 +1486,10 @@ try {
                 </td>
             `;
             return row;
+        }
+
+        function viewClearanceProgress(studentId) {
+            openClearanceProgressModal(studentId, 'student', 'Student Name');
         }
 
         // Update statistics
@@ -1604,9 +1614,35 @@ try {
             await populateFilter('programFilter', url, 'All Programs');
         }
 
+        async function setDefaultSchoolTerm() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    // Find the active period specifically for the 'College' sector
+                    const activeCollegePeriod = data.active_periods.find(p => p.sector === 'College');
+
+                    if (activeCollegePeriod) {
+                        const schoolTermFilter = document.getElementById('schoolTermFilter');
+                        // The value format for the filter is 'YYYY-YYYY|period_id'
+                        const termValue = `${activeCollegePeriod.school_year}|${activeCollegePeriod.semester_id}`;
+                        // Check if the option exists before setting it
+                        if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
+                            schoolTermFilter.value = termValue;
+                            console.log('Default school term set to:', termValue);
+                        } else {
+                            console.warn('Default school term option not found in filter:', termValue);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting default school term:', error);
+            }
+        }
+
 
         // Initialize pagination when page loads
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
                 initializePagination();
                 updateSelectionCounter();
             
@@ -1629,14 +1665,17 @@ try {
             });
 
             // 2. Load general data and options for filters and modals
-            loadRejectionReasons();
-            loadSchoolTerms();
-            loadClearanceStatuses();
-            loadYearLevel();
-            loadAccountStatuses();
-            loadCurrentPeriod(); // For the banner
+            await Promise.all([
+            loadRejectionReasons(),
+            loadSchoolTerms(),
+            loadClearanceStatuses(),
+            loadYearLevel(),
+            loadAccountStatuses(),
+            loadCurrentPeriod()
+            ]);
 
             // 3. Perform the initial data fetch for the main table
+            await setDefaultSchoolTerm();
             loadStudentsData();
 
             // 4. Initialize UI components and event listeners

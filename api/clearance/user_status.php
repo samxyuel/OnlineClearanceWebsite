@@ -25,17 +25,49 @@ if (!$auth->isLoggedIn()) {
 try {
     $connection = Database::getInstance()->getConnection();
 
-    // Allow admins to check the status of other users.
-    // A role-based check is more robust if the permission system isn't fully implemented.
-    $targetUserId = $_GET['user_id'] ?? null;
+    // Determine target user
+    $targetUserIdParam = $_GET['user_id'] ?? null;
+    $employeeNumberParam = $_GET['employee_number'] ?? null;
     $userRole = $auth->getRoleName(); // Assuming getRoleName() returns the user's role name string.
+    $userId = null;
 
-    if ($targetUserId && in_array($userRole, ['Admin', 'School Administrator', 'Regular Staff', 'Program Head'])) {
-        $userId = (int)$targetUserId;
+    // Check if an admin/staff is looking up another user
+    if (($targetUserIdParam || $employeeNumberParam) && in_array($userRole, ['Admin', 'School Administrator', 'Regular Staff', 'Program Head'])) {
+        if ($targetUserIdParam) {
+            $userId = (int)$targetUserIdParam;
+        } elseif ($employeeNumberParam) {
+            // Resolve employee_number to user_id
+            // It could be a faculty or a student, so we check both tables.
+            $stmt = $connection->prepare("
+                SELECT user_id FROM faculty WHERE employee_number = :identifier1
+                UNION
+                SELECT user_id FROM students WHERE student_id = :identifier2
+                UNION
+                SELECT user_id FROM users WHERE username = :identifier3
+                LIMIT 1
+            ");
+            $stmt->execute([
+                ':identifier1' => $employeeNumberParam,
+                ':identifier2' => $employeeNumberParam,
+                ':identifier3' => $employeeNumberParam
+            ]);
+            $userId = $stmt->fetchColumn();
+
+            if (!$userId) {
+                echo json_encode(['success' => false, 'message' => 'User not found for the given employee number.']);
+                exit;
+            }
+        }
     } else {
+        // Default to the logged-in user
         $userId = $auth->getUserId();
     }
     
+    if (!$userId) {
+        echo json_encode(['success' => false, 'message' => 'Could not determine the target user.']);
+        exit;
+    }
+
     // Check if specific form_id is requested
     $requestedFormId = $_GET['form_id'] ?? null;
     

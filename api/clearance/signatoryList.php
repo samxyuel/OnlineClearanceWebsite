@@ -74,6 +74,7 @@ try {
     $schoolTerm = $_GET['school_term'] ?? ''; // e.g., "2024-2025|2"
     $programId = $_GET['program_id'] ?? '';
     $yearLevel = $_GET['year_level'] ?? '';
+    $employmentStatus = $_GET['employment_status'] ?? ''; // New filter for faculty
     $departmentId = $_GET['departments'] ?? ''; // Added to handle department filter
 
     // If a school term is selected, look for periods within that term (Ongoing or Closed)
@@ -110,6 +111,7 @@ try {
                 u.first_name,
                 u.last_name,
                 d.department_name as program,
+                f.employment_status,
                 f.employment_status as year_level,
                 '' as section, -- Faculty don't have sections
                 u.account_status as account_status,
@@ -143,8 +145,9 @@ try {
         $from = "
             FROM students s
             JOIN users u ON s.user_id = u.user_id
-            JOIN programs p ON s.program_id = p.program_id
-            JOIN clearance_periods cp ON cp.sector IN ('College', 'Senior High School') AND cp.status IN ('Ongoing', 'Closed')
+            LEFT JOIN programs p ON s.program_id = p.program_id
+            LEFT JOIN departments d ON s.department_id = d.department_id
+            LEFT JOIN clearance_periods cp ON cp.sector = s.sector AND cp.status IN ('Ongoing', 'Closed')
             LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id
         ";
         $searchFields = ['u.first_name', 'u.last_name', 's.student_id', 'p.program_code'];
@@ -157,7 +160,7 @@ try {
         $select = str_replace('NULL as signatory_id', 'cs.signatory_id', $select);
     }
 
-    $where = "WHERE 1=1"; // The JOINs already filter by designation, but we can add sector check for robustness if needed.
+    $where = " WHERE 1=1"; // The JOINs already filter by designation, but we can add sector check for robustness if needed.
     $params = [];
     if (!$isAdmin) $params[':designationId'] = $designationId;
 
@@ -216,6 +219,12 @@ try {
         // $where .= " AND COALESCE(cs.action, 'Unapplied') != 'Unapplied'";
     }
 
+    // If employment status filter is provided (for faculty)
+    if (!empty($employmentStatus) && strtolower($type) === 'faculty') {
+        $where .= " AND f.employment_status = :employmentStatus";
+        $params[':employmentStatus'] = $employmentStatus;
+    }
+
     if (!empty($accountStatus)) {
         $where .= " AND u.account_status = :accountStatus";
         $params[':accountStatus'] = $accountStatus;
@@ -256,7 +265,15 @@ try {
         $params[':requestSector'] = $requestSector;
     }
 
-    $orderBy = " ORDER BY u.last_name, u.first_name";
+    // Pending First and Rejected Second Sorting
+    $orderBy = " ORDER BY 
+        CASE 
+            WHEN cs.action = 'Pending' THEN 1
+            WHEN cs.action = 'Rejected' THEN 2
+            WHEN cs.action = 'Approved' THEN 3
+            ELSE 4
+        END,
+        u.last_name, u.first_name";
     $limitClause = " LIMIT :limit OFFSET :offset";
 
     // Prepare and execute the main query
@@ -301,6 +318,7 @@ try {
                 'name' => trim($item['first_name'] . ' ' . $item['last_name']),
                 'program' => $item['program'],
                 'year_level' => $item['year_level'], // For faculty, this is employment_status
+                'employment_status' => $item['employment_status'] ?? null, // Explicitly add employment_status
                 'section' => $item['section'],
                 'account_status' => $item['account_status'],
                 'clearance_status' => $item['clearance_status'] ?? 'Unapplied',

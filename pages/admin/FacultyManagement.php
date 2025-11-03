@@ -42,7 +42,7 @@ ob_start();
                                     <i class="fas fa-users"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="totalFaculty">6</h3>
+                                    <h3 id="totalFaculty">0</h3>
                                     <p>Total Faculty</p>
                                 </div>
                             </div>
@@ -51,7 +51,7 @@ ob_start();
                                     <i class="fas fa-user-check"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="activeFaculty">4</h3>
+                                    <h3 id="activeFaculty">0</h3>
                                     <p>Active</p>
                                 </div>
                             </div>
@@ -60,7 +60,7 @@ ob_start();
                                     <i class="fas fa-user-times"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="inactiveFaculty">1</h3>
+                                    <h3 id="inactiveFaculty">0</h3>
                                     <p>Inactive</p>
                                 </div>
                             </div>
@@ -69,7 +69,7 @@ ob_start();
                                     <i class="fas fa-user-slash"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3 id="resignedFaculty">1</h3>
+                                    <h3 id="resignedFaculty">0</h3>
                                     <p>Resigned</p>
                                 </div>
                             </div>
@@ -1281,6 +1281,23 @@ ob_start();
             const inactiveCount = document.getElementById('inactiveFaculty');
             const resignedCount = document.getElementById('resignedFaculty');
             
+            if (typeof statsOrction === 'object' && statsOrction !== null) {
+                // If an object is passed, set the stats directly
+                totalCount.textContent = (statsOrction.total || 0).toLocaleString();
+                activeCount.textContent = (statsOrction.active || 0).toLocaleString();
+                inactiveCount.textContent = (statsOrction.inactive || 0).toLocaleString();
+                resignedCount.textContent = (statsOrction.resigned || 0).toLocaleString();
+            }
+        }
+
+        /*
+        // Update statistics helper function
+        function updateStatistics(statsOrction) {
+            const totalCount = document.getElementById('totalFaculty');
+            const activeCount = document.getElementById('activeFaculty');
+            const inactiveCount = document.getElementById('inactiveFaculty');
+            const resignedCount = document.getElementById('resignedFaculty');
+            
             if (typeof statsOrAction === 'object' && statsOrAction !== null) {
                 // If an object is passed, set the stats directly
                 totalCount.textContent = (statsOrAction.total || 0).toLocaleString();
@@ -1302,6 +1319,7 @@ ob_start();
                 inactiveCount.textContent = currentInactive.toLocaleString();
             }
         }
+        */
 
 
         function updatePaginationUI(total, page, limit) {

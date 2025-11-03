@@ -391,6 +391,7 @@ try {
     <!-- Include Modals -->
     <?php include '../../Modals/CollegeStudentRegistryModal.php'; ?>
     <?php include '../../Modals/CollegeEditStudentModal.php'; ?>
+    <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
@@ -716,8 +717,8 @@ try {
                             if (uid) { await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Approved'); }
                         } catch (e) {}
                     }
-                    
-                    showToastNotification(`✓ Successfully approved clearance for ${selectedCount} students`, 'success');
+                    showToastNotification(`✓ Successfully approved clearance for ${selectedCount} students.`, 'success');
+                    fetchStudents(); // Refresh data
                 },
                 'success'
             );
@@ -747,6 +748,7 @@ try {
             const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
             const studentName = row.querySelector('td:nth-child(3)').textContent;
             const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
+            const clearanceFormId = row.getAttribute('data-clearance-form-id');
             
             // Check if signatory actions are allowed
             const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
@@ -768,8 +770,9 @@ try {
                 async () => {
                     try {
                         const uid = await resolveUserIdFromStudentNumber(studentId);
-                        if (uid) {
-                            const result = await sendSignatoryAction(uid, 'Approved', 'Approved by Staff');
+                        if (uid) {                            
+                            // Corrected: Pass remarks in the 4th argument, not concatenated with the designation.
+                            const result = await sendSignatoryAction(uid, 'Approved', 'Approved by ' + CURRENT_STAFF_POSITION);
                             if (result.success) {
                                 showToastNotification('Student clearance approved successfully', 'success');
                                 fetchStudents(); // Refresh the table to update button states
@@ -781,7 +784,6 @@ try {
                         console.error("Error during individual approval:", e);
                         showToastNotification('An error occurred during approval.', 'error');
                     }
-                    showToastNotification('Student clearance approved successfully', 'success');
                 },
                 'success'
             );
@@ -821,7 +823,8 @@ try {
             const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
 
             // Base parameters
-            url.searchParams.append('sector', 'College');
+            url.searchParams.append('type', 'student'); 
+            url.searchParams.append('sector', 'College'); 
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
 
@@ -874,6 +877,7 @@ try {
                 }
 
                 return `
+                    <tr data-clearance-form-id="${student.clearance_form_id}">
                     <tr data-signatory-id="${student.signatory_id}">
                         <td><input type="checkbox" class="student-checkbox" data-id="${student.id}"></td>
                         <td>${student.id}</td>
@@ -885,6 +889,9 @@ try {
                         <td><span class="status-badge ${clearanceStatusClass}">${escapeHtml(student.clearance_status || 'N/A')}</span></td>
                         <td>
                             <div class="action-buttons">
+                                <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
+                                    <i class="fas fa-tasks"></i>
+                                </button>
                                 <button class="btn-icon approve-btn" onclick="approveStudentClearance('${student.id}')" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>
                                     <i class="fas fa-check"></i>
                                 </button>
@@ -896,6 +903,10 @@ try {
                     </tr>
                 `;
             }).join('');
+        }
+
+        function viewClearanceProgress(studentId) {
+            openClearanceProgressModal(studentId, 'student', 'Student Name');
         }
 
         function renderPagination(total, page, limit) {
@@ -918,6 +929,32 @@ try {
 
             document.getElementById('prevPage').disabled = page === 1;
             document.getElementById('nextPage').disabled = page === totalPages;
+        }
+
+        async function setDefaultSchoolTerm() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    // Find the active period specifically for the 'College' sector
+                    const activeCollegePeriod = data.active_periods.find(p => p.sector === 'College');
+
+                    if (activeCollegePeriod) {
+                        const schoolTermFilter = document.getElementById('schoolTermFilter');
+                        // The value format for the filter is 'YYYY-YYYY|period_id'
+                        const termValue = `${activeCollegePeriod.school_year}|${activeCollegePeriod.semester_id}`;
+                        // Check if the option exists before setting it
+                        if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
+                            schoolTermFilter.value = termValue;
+                            console.log('Default school term set to:', termValue);
+                        } else {
+                            console.warn('Default school term option not found in filter:', termValue);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting default school term:', error);
+            }
         }
 
         function updateStatistics(stats) {
@@ -1074,14 +1111,14 @@ try {
         }
 
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() { // Make this async
             // Load current clearance period for banner
-            loadCurrentPeriod();
             
             updateSelectionCounter();
+            loadCurrentPeriod();
             
             document.addEventListener('change', function(e) {
-                if (e.target.classList.contains('student-checkbox')) {
+                if (e.target && e.target.classList.contains('student-checkbox')) {
                     updateBulkButtons();
                     updateSelectionCounter();
                 }
@@ -1091,13 +1128,18 @@ try {
             window.sidebarHandledByPage = true;
             window.activityTrackerInstance = new ActivityTracker();
 
-            // Initial data fetch
+            // --- New Initializer Logic ---
+            // Wait for all filters to be populated before setting defaults and loading data.
+            await Promise.all([
+                loadRejectionReasons(),
+                loadSchoolTerms(),
+                loadClearanceStatuses(),
+                loadAccountStatuses(),
+                loadStaffPosition()
+            ]);
+
+            await setDefaultSchoolTerm();
             fetchStudents();
-            loadRejectionReasons();
-            loadSchoolTerms();
-            loadClearanceStatuses();
-            loadAccountStatuses();
-            loadStaffPosition();
 
             document.getElementById('searchInput').addEventListener('keydown', function(event) {
                 if (event.key === 'Enter') {
@@ -1259,7 +1301,7 @@ try {
                 // server-side record
                 try {
                     const uid = await resolveUserIdFromStudentNumber(currentRejectionData.targetId); // targetId is student number
-                    if (uid) { await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Rejected', additionalRemarks); }
+                    if (uid) { await sendSignatoryAction(uid, 'Rejected', additionalRemarks, rejectionReason); }
                 } catch (e) {}
                 
                 showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
@@ -1286,16 +1328,16 @@ try {
                 return match ? match.user_id : null;
             }catch(e){ return null; }
         }
-        async function sendSignatoryAction(applicantUserId, designationName, action, remarks, reasonId = null){
+        async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null){
             // Fetch the current staff's actual designation from the API to ensure accuracy.
-            let currentDesignation = designationName; // Fallback
+            let currentDesignation = CURRENT_STAFF_POSITION; // Fallback
             try {
                 const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
                 const desigData = await desigResponse.json();
                 if (desigData.success && desigData.designation_name) { 
                     currentDesignation = desigData.designation_name; 
                 }
-            } catch (e) { /* Ignore error, use fallback */ }
+            } catch (e) { console.warn("Could not fetch designation, using fallback."); }
 
             const payload = { 
                 applicant_user_id: applicantUserId, 

@@ -355,6 +355,9 @@ try {
     
     <!-- Include Senior High School Batch Update Modal -->
     <?php include '../../Modals/SeniorHighSchoolBatchUpdateModal.php'; ?>
+
+    <!-- Include Clearance Progress Modal -->
+    <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
@@ -1457,10 +1460,35 @@ try {
             }
         }
 
+        async function setDefaultSchoolTerm() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    // Find the active period specifically for the 'College' sector
+                    const activeCollegePeriod = data.active_periods.find(p => p.sector === 'College');
+
+                    if (activeCollegePeriod) {
+                        const schoolTermFilter = document.getElementById('schoolTermFilter');
+                        // The value format for the filter is 'YYYY-YYYY|period_id'
+                        const termValue = `${activeCollegePeriod.school_year}|${activeCollegePeriod.semester_id}`;
+                        // Check if the option exists before setting it
+                        if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
+                            schoolTermFilter.value = termValue;
+                            console.log('Default school term set to:', termValue);
+                        } else {
+                            console.warn('Default school term option not found in filter:', termValue);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting default school term:', error);
+            }
+        }
+
         // Initialize pagination when page loads
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             const tableWrapper = document.getElementById('studentsTableWrapper');
-            window.isAssignedToSeniorHigh = false;
             if (tableWrapper) {
                 tableWrapper.addEventListener('scroll', handleTableScroll);
             }
@@ -1471,31 +1499,30 @@ try {
                     userRole: 'Program Head'
                 });
             }
+            // 1. Check permissions and load user-specific data first
+            const isAssigned = await checkSeniorHighSectorAssignment();
+            window.isAssignedToSeniorHigh = isAssigned;
+            if (!isAssigned) {
+                showToastNotification('You are not assigned to the Senior High School sector. You have view-only access.', 'warning');
+            }
+            await loadProgramHeadProfile();
 
-            // Load current clearance period
-            loadCurrentPeriod();
-            
-            // Initialize tab status
-            window.currentTabStatus = '';
-            
-            // Load Program Head profile and then other data
-            checkSeniorHighSectorAssignment().then(isAssigned => {
-                window.isAssignedToSeniorHigh = isAssigned;
-                if (!isAssigned) {
-                    showToastNotification('You are not assigned to the Senior High School sector. You have view-only access.', 'warning');
-                }
-                loadProgramHeadProfile().then(() => {
-                    loadStudentsData();
-                    loadRejectionReasons();
-                    loadSchoolTerms();
-                    loadClearanceStatuses();
-                    loadAccountStatuses();
-                    loadPrograms();
-                    loadYearLevels();
-                });
-            });
+            // 2. Load all independent filter options and page data in parallel
+            await Promise.all([
+                loadRejectionReasons(),
+                loadSchoolTerms(),
+                loadClearanceStatuses(),
+                loadAccountStatuses(),
+                loadPrograms(),
+                loadYearLevels(),
+                loadCurrentPeriod()
+            ]);
 
-            // Initialize UI components
+            // 3. Set default filter values and load the main table data
+            await setDefaultSchoolTerm();
+            loadStudentsData();
+
+            // 4. Initialize UI components
             updateSelectionCounter();
         });
 
@@ -1787,6 +1814,10 @@ try {
             document.getElementById('nextPage').disabled = page >= totalPages;
         }
 
+        function viewClearanceProgress(studentId) {
+            openClearanceProgressModal(studentId, 'student', 'Student Name');
+        }
+
         function createStudentRow(student) {
             const accountStatusClass = `account-${student.account_status || 'inactive'}`;
             const accountStatusText = student.account_status ? student.account_status.charAt(0).toUpperCase() + student.account_status.slice(1) : 'Inactive';
@@ -1816,6 +1847,9 @@ try {
                 <td data-label="Clearance Progress:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
+                            <i class="fas fa-tasks"></i>
+                        </button>
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.id}')" title="Edit Student">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -1869,6 +1903,8 @@ try {
                 const studentName = row ? row.cells[2].textContent : 'Student';
                 const clearanceBadge = row ? row.querySelector('.status-badge[class*="clearance-"]') : null;
                 const currentStatus = clearanceBadge ? clearanceBadge.textContent.trim() : '';
+                const clearanceFormId = row ? row.getAttribute('data-form-id') : null;
+                const signatoryId = row ? row.getAttribute('data-signatory-id') : null;
 
                 let existingRemarks = '';
                 let existingReasonId = '';
@@ -2001,17 +2037,6 @@ try {
             const url = `../../api/clearance/get_filter_options.php?type=enum&table=students&column=year_level&filter_by_sector=Senior High School`;
             await populateFilter('yearLevelFilter', url, 'All Year Levels');
         }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            loadProgramHeadProfile();
-            loadStudentsData();
-            loadRejectionReasons();
-            loadSchoolTerms();
-            loadClearanceStatuses();
-            loadAccountStatuses();
-            loadPrograms();
-            loadYearLevels();
-        });
     </script>
     
     <!-- Include Alert System JavaScript -->
