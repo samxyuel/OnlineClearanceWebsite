@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../controllers/FacultyManagementController.php';
 
 // The controller function acts as a "gatekeeper". If it doesn't exit, the user is authorized.
 handleFacultyManagementPageRequest();
+// handleFacultyManagementPageRequest(); // Authorization check disabled for now.
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -189,6 +190,12 @@ handleFacultyManagementPageRequest();
                                 <!-- Employment Status Filter -->
                                 <select id="employmentStatusFilter" class="filter-select">
                                     <option value="">All Employment Status</option>
+                                    <!-- Options will be loaded dynamically -->
+                                </select>
+
+                                <!-- Clearance Status Filter -->
+                                <select id="clearanceStatusFilter" class="filter-select">
+                                    <option value="">All Clearance Status</option>
                                     <!-- Options will be loaded dynamically -->
                                 </select>
                                 
@@ -735,13 +742,15 @@ handleFacultyManagementPageRequest();
             const search = currentSearch;
 
             const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
-            url.searchParams.append('type', 'Faculty'); 
+            url.searchParams.append('type', 'faculty'); 
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
 
             if (search) url.searchParams.append('search', search);
-            if (employmentStatus) url.searchParams.append('clearance_status', clearanceStatus);
+            if (employmentStatus) url.searchParams.append('employment_status', employmentStatus);
             if (accountStatus) url.searchParams.append('account_status', accountStatus);
+            if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+
 
             try {
                 const response = await fetch(url, { credentials: 'include' });
@@ -839,10 +848,10 @@ handleFacultyManagementPageRequest();
             const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
             const accountStatus = (faculty.account_status || 'inactive').toLowerCase();
             
-            let approveBtnDisabled = !canPerformActions || !['Pending', 'Approved'].includes(faculty.clearance_status);
-            let rejectBtnDisabled = !canPerformActions || !['Pending', 'Approved'].includes(faculty.clearance_status);
+            let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
+            let rejectBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
             let approveTitle = 'Approve Clearance';
-            let rejectTitle = 'Reject Clearance';
+            let rejectTitle = faculty.clearance_status === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Clearance';
             if (!canPerformActions) {
                 approveTitle = rejectTitle = '<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a faculty signatory."; ?>';
             }
@@ -1313,15 +1322,45 @@ handleFacultyManagementPageRequest();
             await populateFilter('accountStatusFilter', url.toString(), 'All Account Statuses');
         }
 
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
-            fetchFaculty();
+        async function setDefaultSchoolTerm() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    // Find the active period specifically for the 'College' sector
+                    const activeCollegePeriod = data.active_periods.find(p => p.sector === 'College');
 
-            loadEmploymentStatuses();
-            loadAccountStatuses();
-            loadRejectionReasons();
-            loadSchoolTerms();
-            loadCurrentStaffDesignation();
+                    if (activeCollegePeriod) {
+                        const schoolTermFilter = document.getElementById('schoolTermFilter');
+                        // The value format for the filter is 'YYYY-YYYY|period_id'
+                        const termValue = `${activeCollegePeriod.school_year}-${activeCollegePeriod.semester_name}`;
+                        // Check if the option exists before setting it
+                        if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
+                            schoolTermFilter.value = termValue;
+                            console.log('Default school term set to:', termValue);
+                        } else {
+                            console.warn('Default school term option not found in filter:', termValue);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting default school term:', error);
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async function() {
+            
+            await Promise.all([
+            loadEmploymentStatuses(),
+            loadAccountStatuses(),
+            loadRejectionReasons(),
+            loadSchoolTerms(),
+            loadCurrentStaffDesignation()
+            ]);
+
+            await setDefaultSchoolTerm();
+            fetchFaculty();
             
             // Add event listeners for checkboxes
             document.getElementById('facultyTableBody').addEventListener('change', function(e) {
