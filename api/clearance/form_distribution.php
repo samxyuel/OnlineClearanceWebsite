@@ -143,6 +143,19 @@ function handleFormDistribution($connection) {
             return;
         }
         
+        // De-duplicate signatory assignments to ensure one signatory per designation
+        $uniqueSignatoryAssignments = [];
+        $seenDesignations = [];
+        foreach ($signatoryAssignments as $assignment) {
+            if (!in_array($assignment['designation_id'], $seenDesignations)) {
+                $uniqueSignatoryAssignments[] = $assignment;
+                $seenDesignations[] = $assignment['designation_id'];
+            }
+        }
+        $signatoryAssignments = $uniqueSignatoryAssignments;
+        error_log("📝 FORM DISTRIBUTION: Found " . count($signatoryAssignments) . " unique signatory assignments for $clearanceType after de-duplication.");
+
+
         // Step 3: Create clearance forms for all eligible users
         $formsCreated = 0;
         $signatoriesAssigned = 0;

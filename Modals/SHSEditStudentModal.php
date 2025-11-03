@@ -30,19 +30,13 @@
                  style="background-color: var(--very-light-off-white); color: var(--medium-muted-blue);">
         </div>
         
-        <!-- Department (SHS Only, Editable) -->
-        <div class="form-group">
-          <label for="editDepartment">Department *</label>
-          <select id="editDepartment" name="department" required onchange="updateEditProgramsAndYearLevels()">
-            <option value="">Select Department</option>
-            <option value="Senior High School">Senior High School</option>
-          </select>
-        </div>
-        
+        <!-- Department is fixed for SHS, so it's a hidden field -->
+        <input type="hidden" id="editDepartment" name="department" value="Senior High School"> <!-- This might be for display/legacy, we'll use departmentId for submission -->
+        <input type="hidden" id="editDepartmentId" name="departmentId"> <!-- This will hold the actual department ID -->
         <!-- Program (SHS Only, Editable) -->
         <div class="form-group">
           <label for="editProgram">Program *</label>
-          <select id="editProgram" name="program" required>
+          <select id="editProgram" name="program" required onchange="updateDepartmentFromProgram()">
             <option value="">Select Program</option>
           </select>
         </div>
@@ -52,16 +46,6 @@
           <label for="editYearLevel">Year Level *</label>
           <select id="editYearLevel" name="yearLevel" required>
             <option value="">Select Year Level</option>
-          </select>
-        </div>
-        
-        <!-- Year Level for Section (Editable) -->
-        <div class="form-group">
-          <label for="editSectionYearLevel">Year Level for Section *</label>
-          <select id="editSectionYearLevel" name="sectionYearLevel" required>
-            <option value="">Select Year Level</option>
-            <option value="11">Grade 11</option>
-            <option value="12">Grade 12</option>
           </select>
         </div>
         
@@ -92,8 +76,7 @@
         <!-- Generated Section Display (Read-only) -->
         <div class="form-group">
           <label>Generated Section Format</label>
-          <input type="text" id="editGeneratedSection" name="generatedSection" readonly 
-                 placeholder="e.g., 11/2-1" style="background-color: var(--very-light-off-white); color: var(--medium-muted-blue);">
+          <input type="text" id="editGeneratedSection" name="generatedSection" readonly placeholder="e.g., 11/2-1" style="background-color: var(--very-light-off-white); color: var(--medium-muted-blue);">
         </div>
         
         <!-- Last Name (Read-only) -->
@@ -119,16 +102,14 @@
         
         <!-- Email (Editable) -->
         <div class="form-group">
-          <label for="editEmail">Email *</label>
-          <input type="email" id="editEmail" name="email" required 
-                 placeholder="Enter email address">
+          <label for="editEmail">Email</label>
+          <input type="email" id="editEmail" name="email" placeholder="Enter email address">
         </div>
         
         <!-- Contact Number (Editable) -->
         <div class="form-group">
-          <label for="editContactNumber">Contact Number *</label>
-          <input type="tel" id="editContactNumber" name="contactNumber" required 
-                 placeholder="e.g., +63 912 345 6789">
+          <label for="editContactNumber">Contact Number</label>
+          <input type="tel" id="editContactNumber" name="contactNumber" placeholder="e.g., +63 912 345 6789">
         </div>
         
         <!-- Account Status (Editable) -->
@@ -140,13 +121,6 @@
             <option value="inactive">Inactive</option>
             <option value="graduated">Graduated</option>
           </select>
-        </div>
-        
-        <!-- Address (Editable) -->
-        <div class="form-group">
-          <label for="editAddress">Address *</label>
-          <textarea id="editAddress" name="address" required 
-                    placeholder="Enter complete address" rows="3"></textarea>
         </div>
         
         <!-- Password Section -->
@@ -201,42 +175,62 @@
 </div>
 
 <script>
-// Use the same SHS department mappings from registry modal
-// These are already declared globally, so we can reference them directly
+// --- Dynamic Filter Population ---
+async function populateSelect(selectId, url, placeholder, valueField = 'value', textField = 'text') {
+    const select = document.getElementById(selectId);
+    try {
+        select.innerHTML = `<option value="">Loading...</option>`;
+        const response = await fetch(url, { credentials: 'include' });
+        const data = await response.json();
 
-// Update programs and year levels when department changes
-function updateEditProgramsAndYearLevels() {
-  const department = document.getElementById('editDepartment').value;
-  const programSelect = document.getElementById('editProgram');
-  const yearLevelSelect = document.getElementById('editYearLevel');
-  
-  // Clear current options
-  programSelect.innerHTML = '<option value="">Select Program</option>';
-  yearLevelSelect.innerHTML = '<option value="">Select Year Level</option>';
-  
-  if (department) {
-    // Update programs
-    if (window.shsDepartmentPrograms && window.shsDepartmentPrograms[department]) {
-      window.shsDepartmentPrograms[department].forEach(program => {
-        const option = document.createElement('option');
-        option.value = program;
-        option.textContent = program;
-        programSelect.appendChild(option);
-      });
+        select.innerHTML = `<option value="">${placeholder}</option>`;
+        if (data.success && data.options) {
+            data.options.forEach(option => {
+                const optionElement = document.createElement('option');
+                optionElement.value = typeof option === 'object' ? option[valueField] : option;
+                if (typeof option === 'object' && option.department_id) optionElement.dataset.departmentId = option.department_id;
+                optionElement.textContent = typeof option === 'object' ? option[textField] : option;
+                select.appendChild(optionElement);
+            });
+        }
+    } catch (error) {
+        console.error(`Error loading options for ${selectId}:`, error);
+        select.innerHTML = `<option value="">Error loading</option>`;
     }
-    
-    // Update year levels
-    if (window.shsDepartmentYearLevels && window.shsDepartmentYearLevels[department]) {
-      window.shsDepartmentYearLevels[department].forEach(yearLevel => {
-        const option = document.createElement('option');
-        option.value = yearLevel;
-        option.textContent = yearLevel;
-        yearLevelSelect.appendChild(option);
-      });
-    }
-  }
 }
 
+async function loadEditSHSPrograms() {
+    const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+    url.searchParams.append('type', 'programs');
+    url.searchParams.append('sector', 'Senior High School');
+    await populateSelect('editProgram', url, 'Select Program', 'program_id', 'program_name');
+}
+
+async function loadEditSHSYearLevels() {
+    const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+    url.searchParams.append('type', 'enum');
+    url.searchParams.append('table', 'students');
+    url.searchParams.append('column', 'year_level');
+    url.searchParams.append('sector', 'Senior High School');
+    await populateSelect('editYearLevel', url, 'Select Year Level');
+}
+
+async function updateEditProgramsAndYearLevels() {
+    // For SHS, programs and year levels are independent of the department (which is fixed)
+    await Promise.all([
+        loadEditSHSPrograms(),
+        loadEditSHSYearLevels()
+    ]);
+}
+
+function updateDepartmentFromProgram() {
+    const programSelect = document.getElementById('editProgram');
+    const selectedOption = programSelect.options[programSelect.selectedIndex];
+    const departmentIdField = document.getElementById('editDepartmentId');
+    if (selectedOption && selectedOption.dataset.departmentId) {
+        departmentIdField.value = selectedOption.dataset.departmentId;
+    }
+}
 // Toggle password fields
 function togglePasswordFields() {
   const changePassword = document.getElementById('editChangePassword');
@@ -259,13 +253,16 @@ function togglePasswordFields() {
 
 // Update generated section display
 function updateGeneratedSection() {
-  const yearLevel = document.getElementById('editSectionYearLevel').value;
+  const yearLevelSelect = document.getElementById('editYearLevel');
+  const yearLevelText = yearLevelSelect.value; // e.g., "Grade 11"
   const term = document.getElementById('editSectionTerm').value;
   const sectionNumber = document.getElementById('editSectionNumber').value;
   const generatedSection = document.getElementById('editGeneratedSection');
   
-  if (yearLevel && term && sectionNumber) {
-    generatedSection.value = `${yearLevel}/${term}-${sectionNumber}`;
+  const yearLevelNum = yearLevelText ? yearLevelText.match(/\d+/)?.[0] : null;
+
+  if (yearLevelNum && term && sectionNumber) {
+    generatedSection.value = `${yearLevelNum}/${term}-${sectionNumber}`;
   } else {
     generatedSection.value = '';
   }
@@ -273,7 +270,7 @@ function updateGeneratedSection() {
 
 // Add event listeners for section generation
 document.addEventListener('DOMContentLoaded', function() {
-  const yearLevelSelect = document.getElementById('editSectionYearLevel');
+  const yearLevelSelect = document.getElementById('editYearLevel');
   const termSelect = document.getElementById('editSectionTerm');
   const sectionSelect = document.getElementById('editSectionNumber');
   
@@ -287,7 +284,7 @@ function validateEditStudentForm() {
   const form = document.getElementById('editStudentForm');
   
   // Check required fields
-  const requiredFields = ['editDepartment', 'editProgram', 'editYearLevel', 'editEmail', 'editContactNumber', 'editAccountStatus', 'editAddress'];
+  const requiredFields = ['editProgram', 'editYearLevel', 'editSectionTerm', 'editSectionNumber', 'editAccountStatus'];
   
   for (const field of requiredFields) {
     const input = form.querySelector(`#${field}`);
@@ -313,13 +310,15 @@ function validateEditStudentForm() {
   
   // Validate email format
   const email = document.getElementById('editEmail').value;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    showToastNotification('Please enter a valid email address', 'error');
-    document.getElementById('editEmail').focus();
-    return false;
+  if (email.trim() !== '') { // Only validate if an email is entered
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showToastNotification('Please enter a valid email address', 'error');
+      document.getElementById('editEmail').focus();
+      return false;
+    }
   }
-  
+
   return true;
 }
 
@@ -393,14 +392,64 @@ function openEditStudentModal(studentId) {
 }
 
 // Load student data for editing
-function loadStudentData(studentId) {
-  // This would typically fetch student data from an API
-  // For now, we'll show a placeholder
-  document.getElementById('editStudentId').value = studentId;
-  
-  // Focus on first editable input
-  setTimeout(() => {
-    document.getElementById('editDepartment').focus();
-  }, 100);
+async function loadStudentData(userId) {
+    const form = document.getElementById('editStudentForm');
+    const submitBtn = document.getElementById('editSubmitBtn');
+    form.classList.add('loading');
+
+    // Ensure dropdowns are populated before setting values
+    await updateEditProgramsAndYearLevels();
+
+    submitBtn.disabled = true;
+
+    try {
+        // Fetch student data from the API using the user_id
+        const response = await fetch(`../../api/users/get_student.php?user_id=${userId}`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+
+        if (data.success && data.student) {
+            const student = data.student;
+
+            // Populate form fields
+            document.getElementById('editStudentId').value = student.user_id;
+            document.getElementById('editStudentNumber').value = student.student_id;
+            document.getElementById('editLastName').value = student.last_name;
+            document.getElementById('editFirstName').value = student.first_name;
+            document.getElementById('editMiddleName').value = student.middle_name || '';
+            document.getElementById('editEmail').value = student.email || '';
+            document.getElementById('editContactNumber').value = student.contact_number || '';
+            document.getElementById('editAccountStatus').value = student.account_status || 'inactive';
+
+            // Set department, program, and year level after options are loaded
+            document.getElementById('editProgram').value = student.program_id;
+            document.getElementById('editYearLevel').value = student.year_level;
+
+            // Trigger department update based on the selected program
+            updateDepartmentFromProgram();
+
+            // Populate section fields by parsing the section string
+            const sectionParts = (student.section || '').split('/');
+            if (sectionParts.length === 2 && sectionParts[1].includes('-')) {
+                const yearLevelNum = sectionParts[0];
+                const termAndSection = sectionParts[1].split('-');
+                document.getElementById('editSectionTerm').value = termAndSection[0];
+                document.getElementById('editSectionNumber').value = termAndSection[1];
+            }
+
+            updateGeneratedSection(); // Update the generated section display
+
+        } else {
+            throw new Error(data.message || 'Failed to load student data.');
+        }
+    } catch (error) {
+        console.error('Error loading student data:', error);
+        showToastNotification(error.message, 'error');
+        closeEditStudentModal(); // Close modal on error
+    } finally {
+        form.classList.remove('loading');
+        submitBtn.disabled = false;
+    }
 }
 </script>

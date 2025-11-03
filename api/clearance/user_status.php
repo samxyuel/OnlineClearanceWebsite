@@ -24,7 +24,17 @@ if (!$auth->isLoggedIn()) {
 
 try {
     $connection = Database::getInstance()->getConnection();
-    $userId = $auth->getUserId();
+
+    // Allow admins to check the status of other users.
+    // A role-based check is more robust if the permission system isn't fully implemented.
+    $targetUserId = $_GET['user_id'] ?? null;
+    $userRole = $auth->getRoleName(); // Assuming getRoleName() returns the user's role name string.
+
+    if ($targetUserId && in_array($userRole, ['Admin', 'School Administrator', 'Regular Staff', 'Program Head'])) {
+        $userId = (int)$targetUserId;
+    } else {
+        $userId = $auth->getUserId();
+    }
     
     // Check if specific form_id is requested
     $requestedFormId = $_GET['form_id'] ?? null;
@@ -242,6 +252,8 @@ try {
         'can_apply' => $periodStatusValue !== 'Closed',
         'signatories' => $processedSignatories,
         'total_signatories' => count($processedSignatories),
+        'total' => count($processedSignatories), // For backward compatibility
+        'approved' => count(array_filter($processedSignatories, fn($s) => $s['action'] === 'Approved')), // For backward compatibility
         'approved_count' => count(array_filter($processedSignatories, fn($s) => $s['action'] === 'Approved')),
         'pending_count' => count(array_filter($processedSignatories, fn($s) => $s['action'] === 'Pending')),
         'rejected_count' => count(array_filter($processedSignatories, fn($s) => $s['action'] === 'Rejected')),
