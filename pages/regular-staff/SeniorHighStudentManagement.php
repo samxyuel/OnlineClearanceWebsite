@@ -457,6 +457,7 @@ try {
     </div>
     <?php include '../../Modals/ClearanceExportModal.php'; ?>
     <?php include '../../Modals/ExportModal.php'; ?>
+    <?php include '../../Modals/ClearanceProgressModal.php'; ?>
 
     <!-- Rejection Remarks Modal -->
     <div id="rejectionRemarksModal" class="modal-overlay" style="display: none;">
@@ -879,6 +880,9 @@ try {
                         <td><span class="status-badge ${clearanceStatusClass}">${escapeHtml(student.clearance_status || 'N/A')}</span></td>
                         <td>
                             <div class="action-buttons">
+                                <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
+                                    <i class="fas fa-tasks"></i>
+                                </button>
                                 <button class="btn-icon approve-btn" onclick="approveStudentClearance('${student.id}')" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>
                                     <i class="fas fa-check"></i>
                                 </button>
@@ -890,6 +894,10 @@ try {
                     </tr>
                 `;
             }).join('');
+        }
+
+        function viewClearanceProgress(studentId) {
+            openClearanceProgressModal(studentId, 'student', 'Student Name');
         }
 
         function renderPagination(total, page, limit) {
@@ -1123,8 +1131,34 @@ try {
             }
         }
 
+        async function setDefaultSchoolTerm() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    // Find the active period specifically for the 'College' sector
+                    const activeSHSPeriod = data.active_periods.find(p => p.sector === 'Senior High School');
+
+                    if (activeSHSPeriod) {
+                        const schoolTermFilter = document.getElementById('schoolTermFilter');
+                        // The value format for the filter is 'YYYY-YYYY|period_id'
+                        const termValue = `${activeSHSPeriod.school_year}|${activeSHSPeriod.semester_id}`;
+                        // Check if the option exists before setting it
+                        if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
+                            schoolTermFilter.value = termValue;
+                            console.log('Default school term set to:', termValue);
+                        } else {
+                            console.warn('Default school term option not found in filter:', termValue);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting default school term:', error);
+            }
+        }
+
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // Load current clearance period for banner
             loadCurrentPeriod();
             
@@ -1142,12 +1176,16 @@ try {
             window.activityTrackerInstance = new ActivityTracker();
 
             // Initial data fetch
+            await Promise.all([
+            loadRejectionReasons(),
+            loadSchoolTerms(),
+            loadClearanceStatuses(),
+            loadAccountStatuses(),
+            loadStaffPosition()
+            ]);
+
+            await setDefaultSchoolTerm();
             fetchStudents();
-            loadRejectionReasons();
-            loadSchoolTerms();
-            loadClearanceStatuses();
-            loadAccountStatuses();
-            loadStaffPosition();
 
             document.getElementById('searchInput').addEventListener('keydown', function(event) {
                 if (event.key === 'Enter') {
@@ -1308,8 +1346,8 @@ try {
                 }
                 // server-side record
                 try {
-                    const uid = await resolveUserIdFromStudentNumber(currentRejectionData.targetId); // targetId is student number
-                    if (uid) { await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Rejected', additionalRemarks); }
+                    const uid = await resolveUserIdFromStudentNumber(currentRejectionData.targetId);
+                    if (uid) { await sendSignatoryAction(uid, 'Rejected', additionalRemarks, rejectionReason); }
                 } catch (e) {}
                 
                 showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');

@@ -118,7 +118,6 @@
                             <i class="fas fa-file-alt"></i>
                             <span id="applyBtnText">Apply for Clearance</span>
                         </button>
-                    <!--    <p class="action-description-compact" id="actionDescription">Begin your clearance application</p> -->
                         <div class="period-info-compact" id="clearancePeriodInfo" style="display: none;">
                             <i class="fas fa-calendar-check"></i>
                             <span>Clearance period is now open</span>
@@ -324,25 +323,25 @@
     function updateMainActionButton(data) {
         const btn = document.getElementById('applyClearanceBtn');
         const text = document.getElementById('applyBtnText');
-        const desc = document.getElementById('actionDescription');
+
         const icon = btn.querySelector('i');
 
         if (!data.period) { // No active period
             btn.disabled = true;
             text.textContent = 'Clearance Period Closed';
             icon.className = 'fas fa-clock';
-            desc.textContent = 'There is no active clearance period.';
+            btn.title = 'There is no active clearance period.';
         } else if (data.clearance.status !== 'Not Started' && data.clearance.status !== 'Unapplied') {
             // Already applied
             text.textContent = 'Go to My Clearance';
             icon.className = 'fas fa-eye';
-            desc.textContent = 'View your clearance status and progress.';
+            btn.title = 'View your clearance status and progress.';
             btn.disabled = false;
         } else {
             // Can apply
             text.textContent = 'Apply for Clearance';
             icon.className = 'fas fa-file-alt';
-            desc.textContent = 'Begin your clearance application for the current semester.';
+            btn.title = 'Begin your clearance application for the current semester.';
             btn.disabled = false;
         }
     }

@@ -366,6 +366,8 @@ handleFacultyManagementPageRequest();
     <script src="../../assets/js/clearance-button-manager.js"></script>
     
     <?php include '../../includes/functions/audit_functions.php'; ?>
+
+    <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     <script>
         let currentPage = 1;
         let entriesPerPage = 20;
@@ -819,6 +821,15 @@ handleFacultyManagementPageRequest();
             fetchFaculty();
         }
 
+        function viewClearanceProgress(facultyId) {
+            // Get faculty name from the table row
+            const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
+            const facultyName = row.querySelector('td:nth-child(3)').textContent;
+            
+            // Open the clearance progress modal
+            openClearanceProgressModal(facultyId, 'faculty', facultyName);
+        }
+
         function createFacultyRow(faculty) {
             const tr = document.createElement('tr');
             tr.setAttribute('data-faculty-id', faculty.user_id);
@@ -828,7 +839,7 @@ handleFacultyManagementPageRequest();
             const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
             const accountStatus = (faculty.account_status || 'inactive').toLowerCase();
             
-            let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
+            let approveBtnDisabled = !canPerformActions || !['Pending', 'Approved'].includes(faculty.clearance_status);
             let rejectBtnDisabled = !canPerformActions || !['Pending', 'Approved'].includes(faculty.clearance_status);
             let approveTitle = 'Approve Clearance';
             let rejectTitle = 'Reject Clearance';
@@ -845,6 +856,9 @@ handleFacultyManagementPageRequest();
                 <td data-label="Clearance Progress:"><span class="status-badge clearance-${clearanceKey}">${faculty.clearance_status || 'N/A'}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${faculty.id}')" title="View Clearance Progress">
+                            <i class="fas fa-tasks"></i>
+                        </button>
                         <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${faculty.id}')" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>
                             <i class="fas fa-check"></i>
                         </button>
@@ -1315,8 +1329,6 @@ handleFacultyManagementPageRequest();
                     updateBulkButtons();
                 }
             });
-
-
 
             // Add event listener for search input (Enter key)
             document.getElementById('searchInput').addEventListener('keydown', function(event) {

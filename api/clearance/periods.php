@@ -69,6 +69,7 @@ function handleGetPeriods($connection) {
         $activeSql = "SELECT 
                           cp.period_id,
                           ay.year AS school_year,
+                          cp.semester_id,
                           s.semester_name,
                           cp.sector,
                           cp.status,

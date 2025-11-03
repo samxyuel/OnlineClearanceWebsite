@@ -275,7 +275,7 @@ handleFacultyManagementPageRequest();
                                 </select>
                                 
                                 <!-- School Term Filter -->
-                                <select id="schoolTermFilter" class="filter-select" onchange="updateStatisticsByTerm()">
+                                <select id="schoolTermFilter" class="filter-select" >
                                     <option value="">All School Terms</option>
                                     <option value="">Loading...</option>
                                 </select>
@@ -291,6 +291,9 @@ handleFacultyManagementPageRequest();
                             <div class="filter-actions">
                                 <button class="btn btn-primary apply-filters-btn" onclick="applyFilters()">
                                     <i class="fas fa-filter"></i> Apply Filters
+                                </button>
+                                <button class="btn btn-secondary clear-filters-btn" onclick="clearFilters()">
+                                    <i class="fas fa-times"></i> Clear All
                                 </button>
                             </div>
                         </div>
@@ -436,13 +439,14 @@ handleFacultyManagementPageRequest();
     <script src="../../assets/js/clearance-button-manager.js"></script>
     
     <?php include '../../includes/functions/audit_functions.php'; ?>
+    <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     <script>
         let currentPage = 1;
         let entriesPerPage = 20;
         let currentSearch = '';
         let currentFilters = {};
         let totalEntries = 0;
-        let filteredEntries = [];
+
         let CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'Staff'; ?>';
         let canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
         
@@ -593,11 +597,11 @@ handleFacultyManagementPageRequest();
                 }
 
                 populateFacultyTable(data.faculty);
-                updatePagination(data.total, data.page, data.limit);
+                renderPagination(data.total, data.page, data.limit);
                 updateStatistics(data.faculty);
 
             } catch (error) {
-                showEmptyState('A network error occurred.');
+                tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:red;">A network error occurred.</td></tr>`;
                 console.error("Fetch error:", error);
             }
         }
@@ -610,8 +614,8 @@ handleFacultyManagementPageRequest();
             const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
             const accountStatus = (faculty.account_status || 'inactive').toLowerCase();
             
-            let approveBtnDisabled = faculty.clearance_status === 'Approved' || !canPerformActions;
-            let rejectBtnDisabled = faculty.clearance_status === 'Rejected' || faculty.clearance_status === 'Approved' || !canPerformActions;
+            let approveBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || !canPerformActions;
+            let rejectBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || !canPerformActions;
             let approveTitle = 'Approve Clearance';
             let rejectTitle = 'Reject Clearance';
             if (!canPerformActions) {
@@ -627,6 +631,9 @@ handleFacultyManagementPageRequest();
                 <td data-label="Clearance Progress:"><span class="status-badge clearance-${clearanceKey}">${faculty.clearance_status || 'N/A'}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
+                        <button class="bt   n-icon view-progress-btn" onclick="viewClearanceProgress('${faculty.id}')" title="View Clearance Progress">
+                            <i class="fas fa-tasks"></i>
+                        </button>
                         <button class="btn-icon approve-btn" onclick="approveFacultyClearance(this)" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>
                             <i class="fas fa-check"></i>
                         </button>
@@ -646,6 +653,16 @@ handleFacultyManagementPageRequest();
         
         function escapeHtml(unsafe) {
             return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        
+        function viewClearanceProgress(facultyId) {
+            // Get faculty name from the table row
+            const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
+            const facultyName = row.querySelector('td:nth-child(3)').textContent;
+            
+            // Open the clearance progress modal
+            openClearanceProgressModal(facultyId, 'faculty', facultyName);
         }
 
         function populateFacultyTable(facultyList) {
@@ -700,7 +717,6 @@ handleFacultyManagementPageRequest();
                     </td>
                 </tr>
             `;
-            updatePagination(0, 1, entriesPerPage);
             updateStatistics([]);
         }
 
@@ -721,28 +737,26 @@ handleFacultyManagementPageRequest();
             document.getElementById('resignedFaculty').textContent = resigned;
         }
 
-        // Update filtered entries for pagination
-        function updateFilteredEntries() {
-            const visibleRows = document.querySelectorAll('#facultyTableBody tr:not([style*="display: none"])');
-            filteredEntries = Array.from(visibleRows);
-            currentPage = 1;
-            updatePagination();
-        }
+        function renderPagination(total, page, limit) {
+            const totalPages = Math.ceil(total / limit);
+            const startEntry = (page - 1) * limit + 1;
+            const endEntry = Math.min(page * limit, total);
 
-        // Pagination functions (simplified for now)
-        function updatePagination() {
-            const totalRows = document.querySelectorAll('#facultyTableBody tr').length;
-            document.getElementById('paginationInfo').textContent = `Showing 1 to ${totalRows} of ${totalRows} entries`;
-        }
-        
-        function changePage(direction) {
-            // Simplified pagination - could be enhanced later
-            console.log('Page change:', direction);
-        }
-        
-        function changeEntriesPerPage() {
-            // Simplified pagination - could be enhanced later
-            console.log('Entries per page changed');
+            document.getElementById('paginationInfo').textContent = `Showing ${total > 0 ? startEntry : 0} to ${endEntry} of ${total} entries`;
+            
+            const pageNumbersContainer = document.getElementById('pageNumbers');
+            pageNumbersContainer.innerHTML = ''; // Clear old page numbers
+
+            // Simplified pagination buttons for this example
+            for (let i = 1; i <= totalPages; i++) {
+                const button = document.createElement('button');
+                button.className = `pagination-btn ${i === page ? 'active' : ''}`;
+                button.textContent = i;                button.onclick = () => goToPage(i);
+                pageNumbersContainer.appendChild(button);
+            }
+
+            document.getElementById('prevPage').disabled = page === 1;
+            document.getElementById('nextPage').disabled = page === totalPages;
         }
         
         function scrollToTop() {
@@ -765,18 +779,18 @@ handleFacultyManagementPageRequest();
         
         // Filter functions (simplified for now)
         function applyFilters() {
-            // Simplified filtering - could be enhanced later
-            console.log('Applying filters');
+            currentPage = 1;
+            fetchFaculty();
         }
         
         function clearFilters() {
-            // Simplified filtering - could be enhanced later
-            console.log('Clearing filters');
-        }
-        
-        function updateStatisticsByTerm() {
-            // Simplified statistics - could be enhanced later
-            console.log('Updating statistics by term');
+            document.getElementById('searchInput').value = '';
+            document.getElementById('clearanceStatusFilter').value = '';
+            document.getElementById('accountStatusFilter').value = '';
+            document.getElementById('schoolTermFilter').value = '';
+            document.getElementById('employmentStatusFilter').value = '';
+            fetchFaculty();
+            showToastNotification('All filters cleared', 'info');
         }
         
         function triggerExportModal() {
@@ -849,19 +863,28 @@ handleFacultyManagementPageRequest();
             await populateFilter('clearanceStatusFilter', url, 'All Clearance Statuses');
         }
 
-        async function loadAccountStatuses() {
-            const url = `../../api/clearance/get_filter_options.php?type=enum&table=users&column=account_status&exclude=resigned`;
-            await populateFilter('accountStatusFilter', url, 'All Account Statuses');
-        }
-
         async function loadSchoolTerms() {
             const url = `../../api/clearance/get_filter_options.php?type=school_terms`;
             await populateFilter('schoolTermFilter', url, 'All School Terms');
         }
 
         async function loadEmploymentStatuses() {
-            const url = `../../api/clearance/get_filter_options.php?type=enum&table=faculty&column=employment_status`;
-            await populateFilter('employmentStatusFilter', url, 'All Employment Statuses');
+            const employementStatus = document.getElementById('employmentStatusFilter');
+            employementStatus.innerHTML = '<option value="">Loading Employement Statuses...</option>';
+            const url = new URL('../../api/clearance/get_filter_options.php', window.location.href);
+            url.searchParams.append('type', 'employment_statuses');
+            await populateFilter('employmentStatusFilter', url.toString(), 'All Employment Statuses');
+        }
+
+        async function loadAccountStatuses() {
+            const accountStatus = document.getElementById('accountStatusFilter');
+            accountStatus.innerHTML = '<option value="">Loading Account Statuses...</option>';
+            const url = new URL('../../api/clearance/get_filter_options.php', window.location.href);
+            url.searchParams.append('type', 'enum');
+            url.searchParams.append('table', 'users');
+            url.searchParams.append('column', 'account_status');
+            url.searchParams.append('exclude', 'graduated');
+            await populateFilter('accountStatusFilter', url.toString(), 'All Account Statuses');
         }
 
         // Tab navigation functions
@@ -1094,45 +1117,12 @@ handleFacultyManagementPageRequest();
         
         function clearFilters() {
             document.getElementById('searchInput').value = '';
-            document.getElementById('employmentStatusFilter').value = '';
             document.getElementById('clearanceStatusFilter').value = '';
             document.getElementById('accountStatusFilter').value = '';
             document.getElementById('schoolTermFilter').value = '';
-            
-            const tableRows = document.querySelectorAll('#facultyTableBody tr');
-            tableRows.forEach(row => {
-                row.style.display = '';
-            });
-            
-            updateFilteredEntries();
+            document.getElementById('employmentStatusFilter').value = '';
+            fetchFaculty();
             showToastNotification('All filters cleared', 'info');
-        }
-
-        function updateStatisticsByTerm() {
-            applyFilters();
-        }
-
-
-        function initializePagination() {
-            const allRows = document.querySelectorAll('#facultyTableBody tr');
-            filteredEntries = Array.from(allRows);
-            updatePagination();
-        }
-
-        function updatePagination() {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            const startEntry = (currentPage - 1) * entriesPerPage + 1;
-            const endEntry = Math.min(currentPage * entriesPerPage, filteredEntries.length);
-            
-            document.getElementById('paginationInfo').textContent = 
-                `Showing ${startEntry} to ${endEntry} of ${filteredEntries.length} entries`;
-            
-            updatePageNumbers(totalPages);
-            
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage === totalPages;
-            
-            showCurrentPageEntries();
         }
 
         function updatePageNumbers(totalPages) {
@@ -1189,7 +1179,7 @@ handleFacultyManagementPageRequest();
 
         function goToPage(pageNum) {
             currentPage = pageNum;
-            updatePagination();
+            fetchFaculty();
         }
 
         function changePage(direction) {
@@ -1197,40 +1187,18 @@ handleFacultyManagementPageRequest();
             
             if (direction === 'prev' && currentPage > 1) {
                 currentPage--;
-            } else if (direction === 'next' && currentPage < totalPages) {
+             } else if (direction === 'next') {
                 currentPage++;
             }
             
-            updatePagination();
+            fetchFaculty();
         }
 
         function changeEntriesPerPage() {
             const newEntriesPerPage = parseInt(document.getElementById('entriesPerPage').value);
             entriesPerPage = newEntriesPerPage;
             currentPage = 1;
-            updatePagination();
         }
-
-        function showCurrentPageEntries() {
-            const startIndex = (currentPage - 1) * entriesPerPage;
-            const endIndex = startIndex + entriesPerPage;
-            
-            filteredEntries.forEach(row => {
-                row.style.display = 'none';
-            });
-            
-            for (let i = startIndex; i < endIndex && i < filteredEntries.length; i++) {
-                filteredEntries[i].style.display = '';
-            }
-        }
-
-        function updateFilteredEntries() {
-            const visibleRows = document.querySelectorAll('#facultyTableBody tr:not([style*="display: none"])');
-            filteredEntries = Array.from(visibleRows);
-            currentPage = 1;
-            updatePagination();
-        }
-
         function scrollToTop() {
             const tableWrapper = document.getElementById('facultyTableWrapper');
             tableWrapper.scrollTo({
@@ -1289,8 +1257,34 @@ handleFacultyManagementPageRequest();
             }
         }
 
+        async function setDefaultSchoolTerm() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    // Find the active period specifically for the 'College' sector
+                    const activeCollegePeriod = data.active_periods.find(p => p.sector === 'College');
+
+                    if (activeCollegePeriod) {
+                        const schoolTermFilter = document.getElementById('schoolTermFilter');
+                        // The value format for the filter is 'YYYY-YYYY|period_id'
+                        const termValue = `${activeCollegePeriod.school_year}|${activeCollegePeriod.semester_id}`;
+                        // Check if the option exists before setting it
+                        if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
+                            schoolTermFilter.value = termValue;
+                            console.log('Default school term set to:', termValue);
+                        } else {
+                            console.warn('Default school term option not found in filter:', termValue);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting default school term:', error);
+            }
+        }
+
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             document.addEventListener('change', function(e) {
                 if (e.target.classList.contains('faculty-checkbox')) {
                     updateBulkButtons();
@@ -1302,17 +1296,23 @@ handleFacultyManagementPageRequest();
             window.sidebarHandledByPage = true;
             window.activityTrackerInstance = new ActivityTracker();
             
-            // Initial data fetch and filter population
-            fetchFaculty();
-            loadSchoolTerms();
-            loadClearanceStatuses();
-            loadAccountStatuses();
-            loadEmploymentStatuses();
-            loadRejectionReasons();
             loadCurrentStaffDesignation();
+            loadCurrentPeriod();
+
+            
+            await Promise.all([
+            loadSchoolTerms(),
+            loadClearanceStatuses(),
+            loadAccountStatuses(),
+            loadEmploymentStatuses(),
+            loadRejectionReasons()
+            ])
+
+            await setDefaultSchoolTerm();
+            fetchFaculty();
             
             // Load current clearance period
-            loadCurrentPeriod();;
+
 
             document.getElementById('searchInput').addEventListener('keydown', function(event) {
                 if (event.key === 'Enter') {
@@ -1346,26 +1346,6 @@ handleFacultyManagementPageRequest();
             } catch (error) {
                 console.error('Error loading staff designation:', error);
             }
-        }
-
-        async function loadClearanceStatuses() {
-            const url = `../../api/clearance/get_filter_options.php?type=enum&table=clearance_signatories&column=action`;
-            await populateFilter('clearanceStatusFilter', url, 'All Clearance Statuses');
-        }
-
-        async function loadAccountStatuses() {
-            const url = `../../api/clearance/get_filter_options.php?type=enum&table=users&column=account_status&exclude=resigned`;
-            await populateFilter('accountStatusFilter', url, 'All Account Statuses');
-        }
-
-        async function loadSchoolTerms() {
-            const url = `../../api/clearance/get_filter_options.php?type=school_terms`;
-            await populateFilter('schoolTermFilter', url, 'All School Terms');
-        }
-
-        async function loadEmploymentStatuses() {
-            const url = `../../api/clearance/get_filter_options.php?type=enum&table=faculty&column=employment_status`;
-            await populateFilter('employmentStatusFilter', url, 'All Employment Statuses');
         }
 
         // Rejection Remarks Modal Functions

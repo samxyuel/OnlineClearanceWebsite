@@ -311,9 +311,21 @@ function closeClearanceProgressModal() {
 function loadClearanceProgressData(personId, personType) {
     // The user_status.php API can handle both students and faculty by user_id.
     // The personId from the management pages is the user_id.
-    const apiUrl = `../../api/clearance/user_status.php?user_id=${encodeURIComponent(personId)}`;
+
     
-    fetch(apiUrl, {credentials:'include'})
+    const url = new URL('../../api/clearance/user_status.php', window.location.href);
+
+    if (personType === 'student') {
+        url.searchParams.append('user_id', personId);
+    } else if (personType === 'faculty') {
+        url.searchParams.append('employee_number', personId);
+    } else {
+        console.error('Invalid person type for clearance progress:', personType);
+        return; // Stop if the type is unknown
+    }
+    
+    
+    fetch(url.toString(), {credentials:'include'})
         .then(r => {
             if (!r.ok) throw new Error(`Network response was not ok, status: ${r.status}`);
             return r.json();
