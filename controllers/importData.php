@@ -47,9 +47,10 @@ function handleImportRequest() {
     
     try {
         // Validate import type
+        // Staff import disabled - not implemented in bulk import system
         $importType = $_POST['type'] ?? '';
-        if (!in_array($importType, ['faculty_import', 'student_import', 'staff_import'])) {
-            throw new Exception('Invalid import type');
+        if (!in_array($importType, ['faculty_import', 'student_import'])) {
+            throw new Exception('Invalid import type. Only student and faculty imports are supported.');
         }
 
         // Validate file upload
