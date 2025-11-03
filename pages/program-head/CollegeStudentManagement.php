@@ -837,7 +837,8 @@ try {
 
         function triggerImportModal() {
             if (typeof window.openImportModal === 'function') {
-                window.openImportModal();
+                // Initialize modal with page context: college student import for Program Head
+                window.openImportModal('college', 'student_import', 'Program Head');
             } else {
                 console.error('Import modal function not found');
             }

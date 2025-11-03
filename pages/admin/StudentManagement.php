@@ -1479,8 +1479,12 @@ if (session_status() == PHP_SESSION_NONE) {
 
         function triggerImportModal() {
             // Call the function from ImportModal.php
+            // Note: This is a generic StudentManagement page, determine context from URL or default to college
             if (typeof window.openImportModal === 'function') {
-                window.openImportModal();
+                // Check if this is SHS or College page from URL or page title
+                const isSHS = window.location.href.includes('SeniorHigh') || document.title.includes('Senior High');
+                const pageType = isSHS ? 'shs' : 'college';
+                window.openImportModal(pageType, 'student_import', 'Admin');
             } else {
                 console.error('Import modal function not found');
             }

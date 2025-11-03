@@ -1,6 +1,6 @@
 <?php
-// Import Modal - Import Student Data
-// This modal is included in StudentManagement.php
+// Import Modal - Dynamic Import for Students and Faculty
+// This modal adapts based on the page type (college/shs/faculty)
 ?>
 <!-- Include Modal Styles -->
 <link rel="stylesheet" href="../../assets/css/modals.css">
@@ -12,18 +12,57 @@
     
     <!-- Modal Header -->
     <div class="modal-header">
-      <h2 class="modal-title">📥 Import Student Data</h2>
-      <div class="modal-supporting-text">Upload a file to import student data. Supported formats: Excel (.xlsx, .xls), CSV (.csv), JSON (.json), XML (.xml)</div>
+      <h2 class="modal-title" id="importModalTitle">📥 Import Data</h2>
+      <div class="modal-supporting-text" id="importModalDescription">Upload a file to import data. Supported formats: Excel (.xlsx, .xls), CSV (.csv), JSON (.json), XML (.xml)</div>
     </div>
     
     <!-- Content Area -->
     <div class="modal-content-area">
       <form id="importForm" class="modal-form" data-endpoint="../../controllers/importData.php" enctype="multipart/form-data">
-        <input type="hidden" name="type" value="student_import">
+        <!-- Hidden Fields -->
+        <input type="hidden" name="type" id="importType" value="">
+        <input type="hidden" name="pageType" id="pageType" value="">
+        <input type="hidden" name="selectedDepartment" id="selectedDepartmentId" value="">
+        <input type="hidden" name="selectedProgram" id="selectedProgramId" value="">
+        
+        <!-- Selection Requirements Section -->
+        <div class="import-section">
+          <h3 class="section-title">📋 Selection Requirements</h3>
+          <p class="selection-note">Before uploading a file, please select the appropriate scope:</p>
+          
+          <!-- Department Selection -->
+          <div class="form-group">
+            <label for="importDepartmentSelect">Department <span class="required-asterisk">*</span></label>
+            <select id="importDepartmentSelect" class="form-control" required>
+              <option value="">Loading Departments...</option>
+            </select>
+            <div id="importDepartmentNote" class="selection-info-note" style="display: none;"></div>
+          </div>
+          
+          <!-- Course/Program Selection (Students Only) -->
+          <div class="form-group" id="importProgramGroup" style="display: none;">
+            <label for="importProgramSelect">Course/Program <span class="required-asterisk">*</span></label>
+            <select id="importProgramSelect" class="form-control" disabled>
+              <option value="">Select Department first</option>
+            </select>
+          </div>
+          
+          <div class="selection-note" id="uploadEnabledNote" style="display: none;">
+            <i class="fas fa-info-circle"></i> File upload will be enabled once all selections are made.
+          </div>
+        </div>
         
         <!-- File Upload Section -->
         <div class="import-section">
           <h3 class="section-title">📁 File Upload</h3>
+          
+          <!-- Disabled State Overlay -->
+          <div class="file-upload-disabled-overlay" id="fileUploadDisabledOverlay" style="display: none;">
+            <div class="disabled-message">
+              <i class="fas fa-exclamation-triangle"></i>
+              <p id="disabledMessageText">Please select Department and Course/Program first</p>
+            </div>
+          </div>
           
           <!-- Drag & Drop Area -->
           <div class="file-upload-area" id="fileUploadArea">
@@ -31,7 +70,7 @@
               <i class="fas fa-cloud-upload-alt upload-icon"></i>
               <h4>Drag & Drop your file here</h4>
               <p>or</p>
-              <button type="button" class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">
+              <button type="button" class="btn btn-secondary" id="browseFilesBtn" onclick="document.getElementById('fileInput').click()">
                 <i class="fas fa-folder-open"></i> Browse Files
               </button>
               <p class="file-info">Supported: Excel (.xlsx, .xls), CSV (.csv), JSON (.json), XML (.xml)</p>
@@ -59,12 +98,12 @@
             <label class="radio-option">
               <input type="radio" name="importMode" value="skip" checked>
               <span class="radio-custom"></span>
-              <span class="radio-label">Skip existing students</span>
+              <span class="radio-label" id="skipLabel">Skip existing records</span>
             </label>
             <label class="radio-option">
               <input type="radio" name="importMode" value="update">
               <span class="radio-custom"></span>
-              <span class="radio-label">Update existing students</span>
+              <span class="radio-label" id="updateLabel">Update existing records</span>
             </label>
             <label class="radio-option">
               <input type="radio" name="importMode" value="replace">
@@ -79,95 +118,6 @@
               <span class="checkbox-custom"></span>
               <span class="checkbox-label">Validate data before import</span>
             </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="createBackup">
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Create backup before import</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" name="sendNotification">
-              <span class="checkbox-custom"></span>
-              <span class="checkbox-label">Send email notifications</span>
-            </label>
-          </div>
-        </div>
-        
-        <!-- Data Mapping Section -->
-        <div class="import-section">
-          <h3 class="section-title">📋 Data Mapping</h3>
-          <div class="mapping-grid">
-            <div class="mapping-row">
-              <label>Student Number</label>
-              <select name="mapping[studentNumber]" class="mapping-select">
-                <option value="">Select Column</option>
-                <option value="A" selected>A - Student Number</option>
-                <option value="B">B - Student ID</option>
-                <option value="C">C - ID Number</option>
-              </select>
-            </div>
-            <div class="mapping-row">
-              <label>Last Name</label>
-              <select name="mapping[lastName]" class="mapping-select">
-                <option value="">Select Column</option>
-                <option value="B">B - Last Name</option>
-                <option value="C">C - Surname</option>
-                <option value="D">D - Family Name</option>
-              </select>
-            </div>
-            <div class="mapping-row">
-              <label>First Name</label>
-              <select name="mapping[firstName]" class="mapping-select">
-                <option value="">Select Column</option>
-                <option value="C">C - First Name</option>
-                <option value="D">D - Given Name</option>
-                <option value="E">E - Name</option>
-              </select>
-            </div>
-            <div class="mapping-row">
-              <label>Program</label>
-              <select name="mapping[program]" class="mapping-select">
-                <option value="">Select Column</option>
-                <option value="D">D - Program</option>
-                <option value="E">E - Course</option>
-                <option value="F">F - Degree</option>
-              </select>
-            </div>
-            <div class="mapping-row">
-              <label>Year Level</label>
-              <select name="mapping[yearLevel]" class="mapping-select">
-                <option value="">Select Column</option>
-                <option value="E">E - Year Level</option>
-                <option value="F">F - Year</option>
-                <option value="G">G - Level</option>
-              </select>
-            </div>
-            <div class="mapping-row">
-              <label>Section</label>
-              <select name="mapping[section]" class="mapping-select">
-                <option value="">Select Column</option>
-                <option value="F">F - Section</option>
-                <option value="G">G - Class</option>
-                <option value="H">H - Group</option>
-              </select>
-            </div>
-            <div class="mapping-row">
-              <label>Email</label>
-              <select name="mapping[email]" class="mapping-select">
-                <option value="">Select Column</option>
-                <option value="G">G - Email</option>
-                <option value="H">H - Email Address</option>
-                <option value="I">I - Contact Email</option>
-              </select>
-            </div>
-            <div class="mapping-row">
-              <label>Contact Number</label>
-              <select name="mapping[contactNumber]" class="mapping-select">
-                <option value="">Select Column</option>
-                <option value="H">H - Contact Number</option>
-                <option value="I">I - Phone</option>
-                <option value="J">J - Mobile</option>
-              </select>
-            </div>
           </div>
         </div>
         
@@ -183,15 +133,8 @@
             </div>
             <div class="preview-table-container">
               <table class="preview-table" id="previewTable">
-                <thead>
-                  <tr>
-                    <th>Student Number</th>
-                    <th>Name</th>
-                    <th>Program</th>
-                    <th>Year Level</th>
-                    <th>Section</th>
-                    <th>Status</th>
-                  </tr>
+                <thead id="previewTableHead">
+                  <!-- Table headers will be populated dynamically -->
                 </thead>
                 <tbody id="previewTableBody">
                   <!-- Preview data will be populated here -->
@@ -220,216 +163,342 @@
   </div>
 </div>
 
-<style>
-/* Import Modal Specific Styles */
-.import-section {
-  margin-bottom: 25px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--light-blue-gray);
-}
-
-.import-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-}
-
-/* File Upload Area */
-.file-upload-area {
-  border: 2px dashed var(--light-blue-gray);
-  border-radius: 12px;
-  padding: 40px 20px;
-  text-align: center;
-  transition: all 0.3s ease;
-  background: var(--very-light-off-white);
-  cursor: pointer;
-}
-
-.file-upload-area:hover {
-  border-color: var(--medium-muted-blue);
-  background: white;
-}
-
-.file-upload-area.dragover {
-  border-color: var(--medium-muted-blue);
-  background: rgba(81, 134, 177, 0.1);
-  transform: scale(1.02);
-}
-
-.upload-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 15px;
-}
-
-.upload-icon {
-  font-size: 3rem;
-  color: var(--medium-muted-blue);
-  margin-bottom: 10px;
-}
-
-.upload-content h4 {
-  margin: 0;
-  color: var(--deep-navy-blue);
-  font-size: 1.2rem;
-}
-
-.upload-content p {
-  margin: 5px 0;
-  color: var(--medium-muted-blue);
-}
-
-.file-info {
-  font-size: 0.85rem;
-  color: var(--medium-muted-blue);
-  margin-top: 10px;
-}
-
-/* Selected File */
-.selected-file {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 15px;
-  background: var(--very-light-off-white);
-  border-radius: 8px;
-  margin-top: 15px;
-}
-
-.file-details {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.file-details i {
-  color: var(--medium-muted-blue);
-  font-size: 1.2rem;
-}
-
-/* Data Mapping */
-.mapping-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-}
-
-.mapping-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.mapping-row label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--deep-navy-blue);
-}
-
-.mapping-select {
-  padding: 8px 12px;
-  border: 1px solid var(--light-blue-gray);
-  border-radius: 6px;
-  background: white;
-  font-size: 0.9rem;
-  transition: border-color 0.2s;
-}
-
-.mapping-select:focus {
-  border-color: var(--medium-muted-blue);
-  outline: none;
-}
-
-/* Preview Section */
-.preview-container {
-  background: var(--very-light-off-white);
-  border-radius: 8px;
-  padding: 15px;
-}
-
-.preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  font-size: 0.9rem;
-  color: var(--medium-muted-blue);
-}
-
-.preview-table-container {
-  max-height: 200px;
-  overflow-y: auto;
-  border: 1px solid var(--light-blue-gray);
-  border-radius: 6px;
-  background: white;
-}
-
-.preview-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.preview-table th {
-  background: var(--light-blue-gray);
-  padding: 10px 8px;
-  text-align: left;
-  font-weight: 600;
-  color: var(--deep-navy-blue);
-  position: sticky;
-  top: 0;
-}
-
-.preview-table td {
-  padding: 8px;
-  border-bottom: 1px solid var(--light-blue-gray);
-}
-
-.preview-table tr:hover {
-  background: var(--very-light-off-white);
-}
-
-.preview-stats {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 15px;
-  font-size: 0.85rem;
-  color: var(--medium-muted-blue);
-}
-
-.no-preview {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--medium-muted-blue);
-}
-
-.no-preview i {
-  font-size: 2rem;
-  margin-bottom: 10px;
-}
-
-.no-preview p {
-  margin: 0;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .mapping-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .preview-stats {
-    flex-direction: column;
-    gap: 5px;
-  }
-  
-  .modal-window {
-    max-width: 95vw !important;
-  }
-}
-</style>
-
 <script>
+// Import Modal Global Variables
+let currentPageType = ''; // 'college', 'shs', 'faculty'
+let currentImportType = ''; // 'student_import', 'faculty_import'
+let userRole = ''; // 'Admin', 'Program Head'
+
+// Load departments from API - Define EARLY to ensure it's available
+// Using function declaration for hoisting
+async function loadDepartments() {
+  console.log('[ImportModal] >>> loadDepartments() STARTED');
+  console.log('[ImportModal] Function execution began - this log should appear');
+  
+  // Use the global variables or closure variables
+  const pageType = window.currentImportPageType || currentPageType;
+  console.log('[ImportModal] Function context - currentPageType (from window):', window.currentImportPageType);
+  console.log('[ImportModal] Function context - currentPageType (from closure):', currentPageType);
+  console.log('[ImportModal] Using pageType:', pageType);
+  
+  const departmentSelect = document.getElementById('importDepartmentSelect');
+  if (!departmentSelect) {
+    console.error('[ImportModal] Department select element not found!');
+    return Promise.reject(new Error('Department select element not found'));
+  }
+  console.log('[ImportModal] Department select element found');
+  
+  departmentSelect.innerHTML = '<option value="">Loading Departments...</option>';
+  departmentSelect.disabled = true;
+  console.log('[ImportModal] Dropdown set to loading state');
+  
+  console.log('[ImportModal] Loading departments for pageType:', pageType);
+  console.log('[ImportModal] Type check - pageType:', typeof pageType, pageType);
+  
+  if (!pageType || pageType === '') {
+    console.error('[ImportModal] ERROR: pageType is empty or undefined!', pageType);
+    departmentSelect.innerHTML = '<option value="">Error: Page type not set</option>';
+    showToastNotification('Error: Page type not configured. Please refresh and try again.', 'error');
+    return Promise.reject(new Error('Page type not set'));
+  }
+  
+  try {
+    const apiUrl = `../../api/import/options.php?resource=departments&pageType=${pageType}`;
+    console.log('[ImportModal] Fetching from:', apiUrl);
+    console.log('[ImportModal] Full URL would be:', window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + apiUrl);
+    
+    const response = await fetch(apiUrl, {
+      credentials: 'include',
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    console.log('[ImportModal] Response status:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[ImportModal] Response error text:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+    
+    const contentType = response.headers.get('content-type');
+    console.log('[ImportModal] Response content-type:', contentType);
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('[ImportModal] Non-JSON response:', text);
+      throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+    }
+    
+    const data = await response.json();
+    console.log('[ImportModal] API response:', data);
+    
+    if (data.success && data.departments && data.departments.length > 0) {
+      departmentSelect.innerHTML = '<option value="">Select Department</option>';
+      
+      data.departments.forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept.department_id;
+        option.textContent = dept.department_name;
+        departmentSelect.appendChild(option);
+      });
+      
+      // Program Head: Auto-select if single department
+      const finalUserRole = window.currentImportUserRole || userRole;
+      if (finalUserRole === 'Program Head' && data.departments.length === 1) {
+        const singleDept = data.departments[0];
+        departmentSelect.value = singleDept.department_id;
+        departmentSelect.disabled = true;
+        
+        // Show note
+        const noteEl = document.getElementById('importDepartmentNote');
+        noteEl.textContent = 'ℹ️ Auto-selected: Your assigned department';
+        noteEl.style.display = 'block';
+        
+        // Set hidden field and trigger program load
+        document.getElementById('selectedDepartmentId').value = singleDept.department_id;
+        const finalImportType = window.currentImportType || currentImportType;
+        if (finalImportType === 'student_import') {
+          loadPrograms(singleDept.department_id);
+        } else {
+          enableFileUpload();
+        }
+      }
+      
+      departmentSelect.disabled = false;
+    } else {
+      departmentSelect.innerHTML = '<option value="">No departments available</option>';
+      console.warn('[ImportModal] No departments found:', data.message);
+      showToastNotification(data.message || 'No departments found', 'warning');
+    }
+  } catch (error) {
+    console.error('[ImportModal] Failed to load departments:', error);
+    console.error('[ImportModal] Error stack:', error.stack);
+    departmentSelect.innerHTML = '<option value="">Error loading departments</option>';
+    showToastNotification('An error occurred while loading departments: ' + error.message, 'error');
+  }
+}
+
+// Make it globally accessible
+window.loadImportDepartments = loadDepartments;
+
+// Initialize modal with page context
+window.initializeImportModal = function(pageType, importType, role = 'Admin') {
+  console.log('[ImportModal] initializeImportModal called with:', { pageType, importType, role });
+  
+  currentPageType = pageType;
+  currentImportType = importType;
+  userRole = role;
+  
+  // Also set as window properties for debugging and global access
+  window.currentImportPageType = pageType;
+  window.currentImportType = importType;
+  window.currentImportUserRole = role;
+  
+  // Set hidden form fields
+  const pageTypeInput = document.getElementById('pageType');
+  const importTypeInput = document.getElementById('importType');
+  
+  if (pageTypeInput) {
+    pageTypeInput.value = pageType;
+  } else {
+    console.error('[ImportModal] pageType input not found');
+  }
+  
+  if (importTypeInput) {
+    importTypeInput.value = importType;
+  } else {
+    console.error('[ImportModal] importType input not found');
+  }
+  
+  // Update modal title and description
+  updateModalTitle();
+  
+  // Load departments immediately - no need for setTimeout delay
+  // The modal is already visible and DOM is ready
+  console.log('[ImportModal] About to call loadDepartments immediately...');
+  console.log('[ImportModal] Checking if loadDepartments exists:', typeof loadDepartments);
+  console.log('[ImportModal] Checking window.loadImportDepartments:', typeof window.loadImportDepartments);
+  
+  // Determine which function to use
+  const loadFunc = typeof loadDepartments === 'function' ? loadDepartments : 
+                   typeof window.loadImportDepartments === 'function' ? window.loadImportDepartments : 
+                   null;
+  
+  if (!loadFunc) {
+    console.error('[ImportModal] Neither loadDepartments nor window.loadImportDepartments is a function!');
+    showToastNotification('Error: loadDepartments function not available', 'error');
+    return;
+  }
+  
+  console.log('[ImportModal] Calling loadDepartments function...');
+  console.log('[ImportModal] loadFunc.toString():', loadFunc.toString().substring(0, 200));
+  
+  // Call the function and safely handle the result
+  try {
+    console.log('[ImportModal] About to invoke loadFunc()...');
+    const result = loadFunc();
+    console.log('[ImportModal] loadFunc() returned:', result);
+    console.log('[ImportModal] Result type:', typeof result);
+    console.log('[ImportModal] Is result a Promise?', result instanceof Promise);
+    console.log('[ImportModal] Has result.then?', result && typeof result.then === 'function');
+    
+    // Check if result is a Promise before calling .catch()
+    if (result && typeof result === 'object' && typeof result.then === 'function') {
+      console.log('[ImportModal] Result is a Promise, attaching handlers...');
+      result.then(() => {
+        console.log('[ImportModal] ✅ loadDepartments completed successfully');
+      }).catch(err => {
+        console.error('[ImportModal] ❌ Error in loadDepartments():', err);
+        console.error('[ImportModal] Error stack:', err.stack);
+        showToastNotification('Error loading departments: ' + (err.message || 'Unknown error'), 'error');
+      });
+    } else {
+      console.warn('[ImportModal] ⚠️ loadDepartments() did not return a Promise!');
+      console.warn('[ImportModal] Returned value:', result);
+      console.warn('[ImportModal] This should not happen with async functions. Checking function definition...');
+      
+      // Check if function is actually async
+      const funcString = loadFunc.toString();
+      const isAsync = funcString.trim().startsWith('async');
+      console.warn('[ImportModal] Function is async?', isAsync);
+      console.warn('[ImportModal] Function signature:', funcString.substring(0, 100));
+    }
+  } catch (error) {
+    // Synchronous error during function call
+    console.error('[ImportModal] ❌ SYNCHRONOUS ERROR calling loadDepartments():', error);
+    console.error('[ImportModal] Error message:', error.message);
+    console.error('[ImportModal] Error stack:', error.stack);
+    showToastNotification('Error loading departments: ' + (error.message || 'Unknown error'), 'error');
+  }
+}
+
+function updateModalTitle() {
+  const titleEl = document.getElementById('importModalTitle');
+  const descEl = document.getElementById('importModalDescription');
+  
+  if (currentImportType === 'faculty_import') {
+    titleEl.textContent = '📥 Import Faculty Data';
+    descEl.textContent = 'Upload a file to import faculty data. Supported formats: Excel (.xlsx, .xls), CSV (.csv), JSON (.json), XML (.xml)';
+  } else if (currentPageType === 'shs') {
+    titleEl.textContent = '📥 Import SHS Data';
+    descEl.textContent = 'Upload a file to import senior high school student data. Supported formats: Excel (.xlsx, .xls), CSV (.csv), JSON (.json), XML (.xml)';
+  } else {
+    titleEl.textContent = '📥 Import College Data';
+    descEl.textContent = 'Upload a file to import college student data. Supported formats: Excel (.xlsx, .xls), CSV (.csv), JSON (.json), XML (.xml)';
+  }
+  
+  // Update radio labels
+  if (currentImportType === 'student_import') {
+    document.getElementById('skipLabel').textContent = 'Skip existing students';
+    document.getElementById('updateLabel').textContent = 'Update existing students';
+  } else {
+    document.getElementById('skipLabel').textContent = 'Skip existing faculty';
+    document.getElementById('updateLabel').textContent = 'Update existing faculty';
+  }
+  
+  // Show/hide program group
+  const programGroup = document.getElementById('importProgramGroup');
+  if (currentImportType === 'student_import') {
+    programGroup.style.display = 'block';
+  } else {
+    programGroup.style.display = 'none';
+  }
+}
+
+// Load programs when department is selected
+async function loadPrograms(departmentId) {
+  if (!departmentId) {
+    const programSelect = document.getElementById('importProgramSelect');
+    programSelect.innerHTML = '<option value="">Select Department first</option>';
+    programSelect.disabled = true;
+    document.getElementById('selectedProgramId').value = '';
+    checkSelectionsComplete();
+    return;
+  }
+  
+  const programSelect = document.getElementById('importProgramSelect');
+  programSelect.innerHTML = '<option value="">Loading Programs...</option>';
+  programSelect.disabled = true;
+  
+  try {
+    const response = await fetch(`../../api/import/options.php?resource=programs&department_id=${departmentId}`);
+    const data = await response.json();
+    
+    if (data.success && data.programs && data.programs.length > 0) {
+      programSelect.innerHTML = '<option value="">Select Course/Program</option>';
+      
+      data.programs.forEach(program => {
+        const option = document.createElement('option');
+        option.value = program.program_id;
+        option.textContent = program.program_name;
+        programSelect.appendChild(option);
+      });
+      
+      programSelect.disabled = false;
+    } else {
+      programSelect.innerHTML = '<option value="">No programs available</option>';
+      showToastNotification(data.message || 'No programs found for this department', 'warning');
+    }
+  } catch (error) {
+    console.error('Failed to load programs:', error);
+    programSelect.innerHTML = '<option value="">Error loading programs</option>';
+    showToastNotification('An error occurred while loading programs', 'error');
+  }
+}
+
+// Check if all required selections are made
+function checkSelectionsComplete() {
+  const departmentId = document.getElementById('importDepartmentSelect').value;
+  const programId = currentImportType === 'student_import' 
+    ? document.getElementById('importProgramSelect').value 
+    : true; // Faculty doesn't need program
+  
+  if (departmentId && programId) {
+    enableFileUpload();
+  } else {
+    disableFileUpload();
+  }
+}
+
+function enableFileUpload() {
+  const fileUploadArea = document.getElementById('fileUploadArea');
+  const fileUploadDisabledOverlay = document.getElementById('fileUploadDisabledOverlay');
+  const browseBtn = document.getElementById('browseFilesBtn');
+  const fileInput = document.getElementById('fileInput');
+  const uploadNote = document.getElementById('uploadEnabledNote');
+  
+  fileUploadArea.style.pointerEvents = 'auto';
+  fileUploadArea.style.opacity = '1';
+  fileUploadDisabledOverlay.style.display = 'none';
+  browseBtn.disabled = false;
+  fileInput.disabled = false;
+  uploadNote.style.display = 'none';
+}
+
+function disableFileUpload() {
+  const fileUploadArea = document.getElementById('fileUploadArea');
+  const fileUploadDisabledOverlay = document.getElementById('fileUploadDisabledOverlay');
+  const browseBtn = document.getElementById('browseFilesBtn');
+  const fileInput = document.getElementById('fileInput');
+  const disabledMessageText = document.getElementById('disabledMessageText');
+  
+  fileUploadArea.style.pointerEvents = 'none';
+  fileUploadArea.style.opacity = '0.5';
+  fileUploadDisabledOverlay.style.display = 'flex';
+  
+  if (currentImportType === 'student_import') {
+    disabledMessageText.textContent = 'Please select Department and Course/Program first';
+  } else {
+    disabledMessageText.textContent = 'Please select Department first';
+  }
+  
+  browseBtn.disabled = true;
+  fileInput.disabled = true;
+}
+
 // File handling
 function handleFileSelect(input) {
   const file = input.files[0];
@@ -588,27 +657,29 @@ function generatePreviewData() {
 function refreshPreview() {
   // Simulate refreshing preview data
   generatePreviewData();
-  showNotification('Preview refreshed', 'success');
+  showToastNotification('Preview refreshed', 'success');
 }
 
 // Form validation
 function validateImportForm() {
+  const departmentId = document.getElementById('selectedDepartmentId').value;
+  const programId = document.getElementById('selectedProgramId').value;
   const fileInput = document.getElementById('fileInput');
   const importMode = document.querySelector('input[name="importMode"]:checked').value;
   
-  if (!fileInput.files[0]) {
-    showNotification('Please select a file to import', 'error');
+  if (!departmentId) {
+    showToastNotification('Please select a department', 'error');
     return false;
   }
   
-  // Validate mapping selections
-  const requiredMappings = ['studentNumber', 'lastName', 'firstName'];
-  for (const field of requiredMappings) {
-    const mappingSelect = document.querySelector(`select[name="mapping[${field}]"]`);
-    if (!mappingSelect.value) {
-      showNotification(`Please map the ${field.replace(/([A-Z])/g, ' $1').toLowerCase()} field`, 'error');
+  if (currentImportType === 'student_import' && !programId) {
+    showToastNotification('Please select a course/program', 'error');
       return false;
     }
+  
+  if (!fileInput.files[0]) {
+    showToastNotification('Please select a file to import', 'error');
+    return false;
   }
   
   if (importMode === 'replace') {
@@ -621,9 +692,48 @@ function validateImportForm() {
 }
 
 // Modal functions
-window.openImportModal = function() {
-  document.getElementById('importModal').style.display = 'flex';
+window.openImportModal = function(pageType = null, importType = null, role = 'Admin') {
+  console.log('[ImportModal] ===== openImportModal called =====');
+  console.log('[ImportModal] Parameters:', { pageType, importType, role });
+  console.log('[ImportModal] Current state:', { currentPageType, currentImportType, userRole });
+  
+  // Show modal first
+  const modal = document.getElementById('importModal');
+  if (!modal) {
+    console.error('[ImportModal] Modal element not found!');
+    return;
+  }
+  
+  console.log('[ImportModal] Showing modal...');
+  modal.style.display = 'flex';
   document.body.classList.add('modal-open');
+  
+  // Always initialize with provided or default parameters
+  let finalPageType, finalImportType, finalRole;
+  
+  if (pageType && importType) {
+    console.log('[ImportModal] Using provided parameters');
+    finalPageType = pageType;
+    finalImportType = importType;
+    finalRole = role;
+  } else if (currentPageType && currentImportType) {
+    // Use existing context if already initialized
+    console.log('[ImportModal] Using existing context');
+    finalPageType = currentPageType;
+    finalImportType = currentImportType;
+    finalRole = userRole || role;
+  } else {
+    // Default to college student import if not specified
+    console.warn('[ImportModal] No context provided. Using defaults.');
+    finalPageType = 'college';
+    finalImportType = 'student_import';
+    finalRole = role;
+  }
+  
+  console.log('[ImportModal] Final initialization values:', { finalPageType, finalImportType, finalRole });
+  
+  // Initialize immediately
+  initializeImportModal(finalPageType, finalImportType, finalRole);
   
   // Reset form
   document.getElementById('importForm').reset();
@@ -632,6 +742,24 @@ window.openImportModal = function() {
   // Reset to defaults
   document.querySelector('input[name="importMode"][value="skip"]').checked = true;
   document.querySelector('input[name="validateData"]').checked = true;
+  
+  // Reset selections
+  document.getElementById('selectedDepartmentId').value = '';
+  document.getElementById('selectedProgramId').value = '';
+  
+  // Reset dropdowns
+  const deptSelect = document.getElementById('importDepartmentSelect');
+  if (deptSelect) {
+    deptSelect.value = '';
+  }
+  const progSelect = document.getElementById('importProgramSelect');
+  if (progSelect) {
+    progSelect.value = '';
+    progSelect.disabled = true;
+    progSelect.innerHTML = '<option value="">Select Department first</option>';
+  }
+  
+  disableFileUpload();
 }
 
 window.closeImportModal = function() {
@@ -656,17 +784,40 @@ window.submitImportForm = function() {
   submitBtn.textContent = 'Importing...';
   form.classList.add('modal-loading');
   
-  // Simulate import process
-  setTimeout(() => {
-    const fileName = document.getElementById('fileName').textContent;
-    showNotification(`Successfully imported data from ${fileName}`, 'success');
+  // Create FormData for file upload
+  const formData = new FormData(form);
+  
+  // Submit to backend
+  fetch(form.dataset.endpoint, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showToastNotification(data.message || 'Data imported successfully', 'success');
+      
+      // Trigger page refresh if callback exists
+      if (typeof window.onImportSuccess === 'function') {
+        window.onImportSuccess(data);
+      }
+      
     window.closeImportModal();
-    
-    // Reset button state
+    } else {
+      showToastNotification(data.message || 'Import failed', 'error');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Import Data';
+      form.classList.remove('modal-loading');
+    }
+  })
+  .catch(error => {
+    console.error('Import error:', error);
+    showToastNotification('An error occurred during import', 'error');
     submitBtn.disabled = false;
     submitBtn.textContent = 'Import Data';
     form.classList.remove('modal-loading');
-  }, 3000);
+  });
 }
 
 // Drag and drop functionality
@@ -702,6 +853,43 @@ function setupDragAndDrop() {
 document.addEventListener('DOMContentLoaded', function() {
   setupDragAndDrop();
   
+  // Department change handler
+  const departmentSelect = document.getElementById('importDepartmentSelect');
+  if (departmentSelect) {
+    departmentSelect.addEventListener('change', function() {
+      const departmentId = this.value;
+      document.getElementById('selectedDepartmentId').value = departmentId;
+      
+      if (departmentId) {
+        if (currentImportType === 'student_import') {
+          loadPrograms(departmentId);
+        } else {
+          enableFileUpload();
+        }
+      } else {
+        if (currentImportType === 'student_import') {
+          const programSelect = document.getElementById('importProgramSelect');
+          programSelect.innerHTML = '<option value="">Select Department first</option>';
+          programSelect.disabled = true;
+          document.getElementById('selectedProgramId').value = '';
+        }
+        disableFileUpload();
+      }
+      
+      checkSelectionsComplete();
+    });
+  }
+  
+  // Program change handler
+  const programSelect = document.getElementById('importProgramSelect');
+  if (programSelect) {
+    programSelect.addEventListener('change', function() {
+      const programId = this.value;
+      document.getElementById('selectedProgramId').value = programId;
+      checkSelectionsComplete();
+    });
+  }
+  
   // Form submission on Enter key
   const form = document.getElementById('importForm');
   if (form) {
@@ -719,5 +907,8 @@ document.addEventListener('DOMContentLoaded', function() {
       closeImportModal();
     }
   });
+  
+  // Initially disable file upload
+  disableFileUpload();
 });
 </script> 

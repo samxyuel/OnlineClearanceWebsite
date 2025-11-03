@@ -848,8 +848,11 @@ try {
         }
 
         function triggerImportModal() {
+            // Determine if this is SHS or College from URL or page title
             if (typeof window.openImportModal === 'function') {
-                window.openImportModal();
+                const isSHS = window.location.href.includes('SeniorHigh') || document.title.includes('Senior High');
+                const pageType = isSHS ? 'shs' : 'college';
+                window.openImportModal(pageType, 'student_import', 'Program Head');
             } else {
                 console.error('Import modal function not found');
             }

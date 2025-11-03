@@ -1127,7 +1127,8 @@ if (session_status() == PHP_SESSION_NONE) {
         function triggerImportModal() {
             console.log('triggerImportModal function called');
             if (typeof window.openImportModal === 'function') {
-                window.openImportModal();
+                // Initialize modal with page context: college student import
+                window.openImportModal('college', 'student_import', 'Admin');
                 console.log('Import modal opened successfully');
             } else {
                 console.error('Import modal function not found');
