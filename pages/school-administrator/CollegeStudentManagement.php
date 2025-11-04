@@ -153,6 +153,12 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <option value="">All Year Levels</option>
                                     <!-- Options will be loaded dynamically -->
                                 </select>
+
+                                <!-- School Term Filter -->
+                                <select id="schoolTermFilter" class="filter-select">
+                                    <option value="">All School Terms</option>
+                                    <!-- Options will be loaded dynamically -->
+                                </select>
                                 
                                 <!-- Clearance Status Filter -->
                                 <select id="clearanceStatusFilter" class="filter-select">
@@ -821,6 +827,7 @@ if (session_status() == PHP_SESSION_NONE) {
             document.getElementById('yearLevelFilter').value = '';
             document.getElementById('clearanceStatusFilter').value = '';
             document.getElementById('accountStatusFilter').value = '';
+            document.getElementById('schoolTermFilter').value = '';
             
             // Show all rows
             const tableRows = document.querySelectorAll('#studentsTableBody tr');
@@ -1082,6 +1089,7 @@ if (session_status() == PHP_SESSION_NONE) {
             const programId = document.getElementById('programFilter').value;
             const yearLevel = document.getElementById('yearLevelFilter').value;
             const departments = document.getElementById('departmentFilter').value;
+            const schoolTerm = document.getElementById('schoolTermFilter').value;
 
             // Program Head for College is a specific case of a signatory list.
             // We use the central signatoryList API.
@@ -1097,6 +1105,7 @@ if (session_status() == PHP_SESSION_NONE) {
             if (yearLevel) url.searchParams.append('year_level', yearLevel);
             if (accountStatus) url.searchParams.append('account_status', accountStatus);
             if (departments) url.searchParams.append('departments', departments);
+            if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
 
             try {
                 const response = await fetch(url.toString(), {
@@ -1466,11 +1475,7 @@ if (session_status() == PHP_SESSION_NONE) {
         // New function for viewing clearance progress
         function viewClearanceProgress(studentId) {
             // Get student name from the table row
-            const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
-            const studentName = row.querySelector('td:nth-child(3)').textContent;
-            
-            // Open the clearance progress modal
-            openClearanceProgressModal(studentId, 'student', studentName);
+            openClearanceProgressModal(studentId, 'student', 'Student Name');
         }
 
         // Duplicate removed - using the one above
@@ -2024,22 +2029,22 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
 
-        async function loadClearanceStatuses() {
+        async function loadClearanceStatusesFilter() {
             const url = `../../api/clearance/get_filter_options.php?type=enum&table=clearance_signatories&column=action`;
             await populateFilter('clearanceStatusFilter', url, 'All Clearance Statuses');
         }
 
-        async function loadAccountStatuses() {
+        async function loadAccountStatusesFilter() {
             const url = `../../api/clearance/get_filter_options.php?type=enum&table=users&column=account_status&exclude=resigned`;
             await populateFilter('accountStatusFilter', url, 'All Account Statuses');
         }
 
-        async function loadYearLevel() {
+        async function loadYearLevelFilter() {
             const url = `../../api/clearance/get_filter_options.php?type=enum&table=students&column=year_level`;
             await populateFilter('yearLevelFilter', url, 'All Year Levels');
         }
 
-        async function loadPrograms(departmentId = '') {
+        async function loadProgramsFilter(departmentId) {
             const programFilter = document.getElementById('programFilter');
             programFilter.innerHTML = '<option value="">Loading programs...</option>';
             const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
@@ -2049,7 +2054,9 @@ if (session_status() == PHP_SESSION_NONE) {
             await populateFilter('programFilter', url, 'All Programs');
         }
         
-        async function loadDepartments() {
+        async function loadDepartmentsFilter() {
+            const departmentFilter = document.getElementById('departmentFilter');
+            departmentFilter.innerHTML = '<option value="">Loading departments...</option>';
             const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
             url.searchParams.append('type', 'departments');
             url.searchParams.append('sector', 'College');
@@ -2364,22 +2371,73 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        async function setDefaultSchoolTerm() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    // Find the active period specifically for the 'College' sector
+                    const activeCollegePeriod = data.active_periods.find(p => p.sector === 'College');
+
+                    if (activeCollegePeriod) {
+                        const schoolTermFilter = document.getElementById('schoolTermFilter');
+                        // The value format for the filter is 'YYYY-YYYY|period_id'
+                        const termValue = `${activeCollegePeriod.school_year}|${activeCollegePeriod.semester_id}`;
+                        // Check if the option exists before setting it
+                        if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
+                            schoolTermFilter.value = termValue;
+                            console.log('Default school term set to:', termValue);
+                        } else {
+                            console.warn('Default school term option not found in filter:', termValue);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting default school term:', error);
+            }
+        }
+
+        async function loadSchoolTermsFilter() {
+            const termSelect = document.getElementById('schoolTermFilter');
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+
+                termSelect.innerHTML = '<option value="">All School Terms</option>';
+                if (data.success && data.periods) {
+                    const uniqueTerms = [...new Map(data.periods.map(item => [`${item.academic_year}-${item.semester_name}`, item])).values()];
+                    
+                    uniqueTerms.forEach(period => {
+                        const option = document.createElement('option');
+                        option.value = `${period.academic_year}|${period.semester_id}`; // Use a format the backend can parse
+                        option.textContent = `${period.academic_year} - ${period.semester_name}`;
+                        termSelect.appendChild(option);
+                    });
+                }
+            } catch (error) { console.error('Error loading school terms:', error); }
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized for School Administrator Student Management');
             }
 
-            // 1. Load general data and options for filters and modals
-            loadRejectionReasons();
-            loadClearanceStatuses();
-            loadYearLevel();
-            loadPrograms();
-            loadDepartments();
-            loadAccountStatuses();
-            loadCurrentPeriod(); // For the banner
+            // 1. Load the rest of the filter options.
+            await Promise.all([
+                loadClearanceStatusesFilter(),
+                loadDepartmentsFilter(),
+                loadYearLevelFilter(),
+                loadProgramsFilter(),
+                loadSchoolTermsFilter(),
+                loadAccountStatusesFilter(),
+                loadRejectionReasons(),
+                loadCurrentPeriod() // For the banner
+            ]);
+        
 
-            // 2. Perform the initial data fetch for the main table
+            // 2. Perform the initial data fetch for the main table with Default Filter
+            await setDefaultSchoolTerm();
             loadStudentsData();
 
             // 3. Initialize UI components and event listeners
@@ -2403,8 +2461,22 @@ if (session_status() == PHP_SESSION_NONE) {
 
         // Handle department filter change to update programs
         function handleDepartmentChange() {
+            alert('DEBUG 1: Department change event fired!');
+            
             const departmentId = document.getElementById('departmentFilter').value;
-            loadPrograms(departmentId);
+            console.log('DEBUG 2: Department ID selected:', departmentId);
+
+            // --- THIS IS THE TEST ---
+            const programFilterElement = document.getElementById('programFilter');
+            
+            if (!programFilterElement) {
+                alert('DEBUG 3: CRITICAL ERROR! The element with id="programFilter" was NOT found. The function will now stop.');
+                return; // This is the silent failure
+            }
+            // --- END TEST ---
+
+            alert('DEBUG 4: Element "programFilter" WAS found. Calling loadPrograms...');
+            loadProgramsFilter(departmentId);
         }
 
         // Add event listeners for student checkboxes
@@ -2427,5 +2499,7 @@ if (session_status() == PHP_SESSION_NONE) {
     
     <!-- Include Export Modal -->
     <?php include '../../Modals/ExportModal.php'; ?>
+
+
 </body>
 </html>

@@ -542,10 +542,10 @@ handleFacultyManagementPageRequest();
             const facultyUserId = row.getAttribute('data-faculty-id');
 
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
+            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
             
             if (!clearanceBadge) {
-                showToastNotification('No clearance to approve', 'warning');
+                showToastNotification('Invalid Clearance Status to approve', 'warning');
                 return;
             }
             
@@ -577,10 +577,10 @@ handleFacultyManagementPageRequest();
             const row = document.querySelector(`.faculty-checkbox[data-id="${employeeId}"]`).closest('tr');
             const facultyUserId = row.getAttribute('data-faculty-id');
             const facultyName = row ? row.querySelector('td:nth-child(3)').textContent.trim() : 'Faculty Member';
-            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-completed');
+            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
             
             if (!clearanceBadge) {
-                showToastNotification('No clearance to reject', 'warning');
+                showToastNotification('Invalid Clearance Status to reject', 'warning');
                 return;
             }
             
@@ -1333,7 +1333,7 @@ handleFacultyManagementPageRequest();
                     if (activeCollegePeriod) {
                         const schoolTermFilter = document.getElementById('schoolTermFilter');
                         // The value format for the filter is 'YYYY-YYYY|period_id'
-                        const termValue = `${activeCollegePeriod.school_year}-${activeCollegePeriod.semester_name}`;
+                        const termValue = `${activeCollegePeriod.school_year}|${activeCollegePeriod.semester_id}`;
                         // Check if the option exists before setting it
                         if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
                             schoolTermFilter.value = termValue;
@@ -1352,9 +1352,9 @@ handleFacultyManagementPageRequest();
         document.addEventListener('DOMContentLoaded', async function() {
             
             await Promise.all([
+            loadRejectionReasons(),
             loadEmploymentStatuses(),
             loadAccountStatuses(),
-            loadRejectionReasons(),
             loadSchoolTerms(),
             loadCurrentStaffDesignation()
             ]);
@@ -1583,15 +1583,23 @@ handleFacultyManagementPageRequest();
                 termSelect.innerHTML = '<option value="">All School Terms</option>';
                 if (data.success && data.periods) {
                     const uniqueTerms = [...new Map(data.periods.map(item => [`${item.academic_year}-${item.semester_name}`, item])).values()];
-                    
+
                     uniqueTerms.forEach(period => {
                         const option = document.createElement('option');
-                        option.value = `${period.academic_year}-${period.semester_name}`;
-                        
-                        const termMap = { '1st': '1st Semester', '2nd': '2nd Semester', '3rd': '3rd Semester' };
+                        // The API expects the format 'YYYY-YYYY|semester_id'
+                        option.value = `${period.academic_year}|${period.semester_id}`;
+
+                        const termMap = {
+                            '1st': '1st Semester',
+                            '2nd': '2nd Semester',
+                            '3rd': '3rd Semester',
+                            '1st Semester': '1st Semester',
+                            '2nd Semester': '2nd Semester',
+                            '3rd Semester': '3rd Semester'
+                        };
                         const semLabel = termMap[period.semester_name] || period.semester_name || '';
                         const activeText = period.is_active ? ' (Active)' : '';
-                        
+
                         option.textContent = `${period.academic_year} ${semLabel}${activeText}`;
                         termSelect.appendChild(option);
                     });
