@@ -118,7 +118,7 @@ try {
             JOIN clearance_periods cp ON cp.sector = 'Faculty' AND cp.status IN ('Ongoing', 'Closed')
             LEFT JOIN clearance_forms cf ON f.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id = :designationId
         ";
-        $searchFields = ['u.first_name', 'u.last_name', 'f.employee_number', 'd.department_name'];
+        $searchFields = ['u.first_name', 'u.last_name', 'f.employee_number', 'd.department_name', 'f.employement_status'];
     } else { // Default to student
         $select = "
             SELECT SQL_CALC_FOUND_ROWS
@@ -142,7 +142,7 @@ try {
             LEFT JOIN clearance_periods cp ON cp.sector = s.sector AND cp.status IN ('Ongoing', 'Closed')
             LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id = :designationId
         ";
-        $searchFields = ['u.first_name', 'u.last_name', 's.student_id', 'p.program_code'];
+        $searchFields = ['u.first_name', 'u.last_name', 's.student_id', 'p.program_code', 'year_level'];
     }
 
     $where = " WHERE 1=1"; // The JOINs already filter by designation, but we can add sector check for robustness if needed.

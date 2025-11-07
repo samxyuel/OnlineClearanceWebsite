@@ -225,6 +225,7 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
+                                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Select all visible">
                                                 </th>
                                                 <th>Student Number</th>
                                                 <th>Name</th>
@@ -547,6 +548,29 @@ if (session_status() == PHP_SESSION_NONE) {
     </div>
 
     <script>
+        // Select all functionality
+        function toggleSelectAll(checked) {
+            const studentCheckboxes = document.querySelectorAll('#studentsTableBody .student-checkbox');
+            studentCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                // Only toggle visible rows, respecting current filters
+                if (row.style.display !== 'none') {
+                    checkbox.checked = checked;
+                }
+            });
+            updateBulkButtons();
+        }
+
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const allCheckboxes = document.querySelectorAll('#studentsTableBody .student-checkbox');
+            const checkedCount = document.querySelectorAll('#studentsTableBody .student-checkbox:checked').length;
+
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
+            }
+        }
+
         // Toggle sidebar
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');

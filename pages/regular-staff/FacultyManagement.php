@@ -509,30 +509,44 @@ handleFacultyManagementPageRequest();
                 'Approve',
                 'Cancel',
                 async () => {
-                    const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
-                    for (const checkbox of selectedCheckboxes) {
-                        try {
-                            const eid = checkbox.getAttribute('data-id');
-                            const uid = await resolveUserIdFromEmployeeNumber(eid);
-                            
-                            if (uid) {
-                                await sendSignatoryAction(uid, 'Approved');
-                                
-                                const row = checkbox.closest('tr');
-                                const badge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
-                                if (badge) {
-                                    badge.textContent = 'Approved';
-                                    badge.className = 'status-badge clearance-approved';
-                                }
-                            } else {
-                                console.error('Could not resolve user ID for', eid);
-                            }
-                        } catch (e) {
-                            console.error('Error approving clearance for', eid, ':', e);
-                        }
+                    const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');                    
+                    const applicantUserIds = Array.from(selectedCheckboxes).map(cb => {
+                        const row = cb.closest('tr');
+                        return row ? parseInt(row.getAttribute('data-faculty-id')) : null;
+                    }).filter(id => id !== null);
+
+                    if (applicantUserIds.length === 0) {
+                        showToastNotification('Could not identify users to approve.', 'error');
+                        return;
                     }
-                    showToastNotification(`Successfully approved clearance for ${selectedCount} faculty.`, 'success');
-                    fetchFaculty(); // Refresh data
+
+                    // Single API call to the new bulk endpoint
+                    try {
+                        const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                applicant_user_ids: applicantUserIds,
+                                action: 'Approved',
+                                designation_name: CURRENT_STAFF_POSITION,
+                                remarks: `Approved by ${CURRENT_STAFF_POSITION}`
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (result.success) {
+                            showToastNotification(`Successfully approved clearance for ${result.affected_rows} faculty.`, 'success');
+                        } else {
+                            throw new Error(result.message || 'Bulk approval failed.');
+                        }
+                    } catch (error) {
+                        console.error('Bulk approval error:', error);
+                        showToastNotification(error.message, 'error');
+                    } finally {
+                        fetchFaculty(); // Refresh the entire table with a single call
+                    }
                 },
                 'success'
             );
@@ -609,6 +623,7 @@ handleFacultyManagementPageRequest();
         function createFacultyRow(faculty) {
             const tr = document.createElement('tr');
             tr.setAttribute('data-faculty-id', faculty.user_id);
+            tr.setAttribute('data-signatory-id', faculty.signatory_id);
             
             const statusRaw = faculty.clearance_status;
             const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
@@ -822,6 +837,9 @@ handleFacultyManagementPageRequest();
                     // Update the position info in the header
                     const positionInfo = document.getElementById('staffPositionInfo');
                     if (positionInfo) {
+                        // Update the global variable
+                        CURRENT_STAFF_POSITION = data.designation_name;
+                        
                         positionInfo.textContent = `Position: ${data.designation_name}`;
                     }
                 } else {
@@ -1426,7 +1444,32 @@ handleFacultyManagementPageRequest();
             const userId = row.getAttribute('data-faculty-id');
             const facultyName = row ? row.querySelector('td:nth-child(3)').textContent : 'Faculty Member';
             // Open rejection remarks modal for individual rejection
-            openRejectionRemarksModal(userId, facultyName, 'faculty', false);
+
+            let existingRemarks = '';
+            let existingReasonId = '';
+            const signatoryId = row.getAttribute('data-signatory-id');
+
+            try {
+                const response = await fetch(`../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.details) {
+                    existingRemarks = data.details.additional_remarks || '';
+                    existingReasonId = data.details.reason_id || '';
+                }
+            } catch (error) {
+                console.error("Error fetching rejection details:", error);
+                showToastNotification('Could not load existing rejection details.', 'error');
+            }
+        
+            console.log('Opening rejection modal for', facultyName);
+            console.log('Existing reason ID:', existingReasonId);
+            console.log('Existing remarks:', existingRemarks);
+
+            openRejectionRemarksModal(userId, facultyName, 'faculty', false, [], existingRemarks, existingReasonId);
+
+
+
+
         }
 
         function handleReasonChange() {
@@ -1468,38 +1511,44 @@ handleFacultyManagementPageRequest();
                 rejectionSummary += `\nAdditional Remarks: ${additionalRemarks}`;
             }
             
-            // Demo: Update UI and show success message
+            // Use the new bulk endpoint for bulk rejections
             if (currentRejectionData.isBulk) {
-                // Update faculty table rows
-                currentRejectionData.targetIds.forEach(id => {
-                    const checkbox = document.querySelector(`.faculty-checkbox[data-id="${id}"]`);
-                    if (checkbox) {
-                        const row = checkbox.closest('tr');
-                        const badge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-approved');
-                        if (badge) {
-                            badge.textContent = 'Rejected';
-                            badge.className = 'status-badge clearance-rejected';
-                        }
-                    }
-                });
-                
-                // Uncheck all checkboxes
-                document.getElementById('headerCheckbox').checked = false;
-                currentRejectionData.targetIds.forEach(id => { // Corrected variable name
-                    const checkbox = document.querySelector(`.faculty-checkbox[data-id="${id}"]`);
-                    if (checkbox) checkbox.checked = false;
-                });
-                updateBulkButtons();
+                const employeeNumbers = currentRejectionData.targetIds;
+                const userIds = [];
+                for (const eid of employeeNumbers) {
+                    const uid = await resolveUserIdFromEmployeeNumber(eid);
+                    if (uid) userIds.push(uid);
+                }
 
-                // server-side records
+                if (userIds.length === 0) {
+                    showToastNotification('Could not identify users to reject.', 'error');
+                    closeRejectionRemarksModal();
+                    return;
+                }
+
                 try {
-                    for (const id of currentRejectionData.targetIds) {
-                        const uid = await resolveUserIdFromEmployeeNumber(id);
-                        if (uid) { await sendSignatoryAction(uid, 'Rejected', additionalRemarks); }
+                    const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            applicant_user_ids: userIds,
+                            action: 'Rejected',
+                            designation_name: CURRENT_STAFF_POSITION,
+                            remarks: additionalRemarks,
+                            reason_id: reasonId
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        showToastNotification(`Successfully rejected clearance for ${result.affected_rows} faculty.`, 'success');
+                    } else {
+                        throw new Error(result.message || 'Bulk rejection failed.');
                     }
-                } catch (e) {}
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} faculty with remarks`, 'success');
+                } catch (error) {
+                    console.error('Bulk rejection error:', error);
+                    showToastNotification(error.message, 'error');
+                }
             } else {
                 // Individual rejection - no need to resolve ID, it's already the user_id
                 try {
@@ -1512,8 +1561,6 @@ handleFacultyManagementPageRequest();
                         showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
                     }
                 } catch (e) {}
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
             }
             
             // Close modal
