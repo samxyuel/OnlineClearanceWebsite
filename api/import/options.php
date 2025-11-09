@@ -100,29 +100,54 @@ function handleGetDepartments($pdo, $userId, $userRoleName, $pageType) {
     
     if ($userRoleName === 'Admin') {
         // Admin sees all departments for the selected sector
-        $sql = "
-            SELECT 
-                d.department_id,
-                d.department_name,
-                s.sector_name
-            FROM departments d
-            JOIN sectors s ON d.sector_id = s.sector_id
-            WHERE d.is_active = 1 
-                AND s.sector_name = ?
-            ORDER BY d.department_name ASC
-        ";
+        // For Faculty sector, use department_type = 'Faculty' or sector_id = 3
+        if ($expectedSectorName === 'Faculty') {
+            $sql = "
+                SELECT 
+                    d.department_id,
+                    d.department_name,
+                    s.sector_name
+                FROM departments d
+                JOIN sectors s ON d.sector_id = s.sector_id
+                WHERE d.is_active = 1 
+                    AND (d.department_type = 'Faculty' OR d.sector_id = 3)
+                ORDER BY d.department_name ASC
+            ";
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute();
+        } else {
+            // For College and SHS sectors, use sector_name
+            $sql = "
+                SELECT 
+                    d.department_id,
+                    d.department_name,
+                    s.sector_name
+                FROM departments d
+                JOIN sectors s ON d.sector_id = s.sector_id
+                WHERE d.is_active = 1 
+                    AND s.sector_name = ?
+                ORDER BY d.department_name ASC
+            ";
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$expectedSectorName]);
+        }
         
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$expectedSectorName]);
         $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
     } else {
-        // Program Head: Only their assigned departments that match the sector
-        // Get staff employee_number for this user
+        // Program Head: Get their assigned department from the staff table
+        // The staff.department_id column contains the Program Head's assigned department
         $staffStmt = $pdo->prepare("
-            SELECT s.employee_number, s.staff_category 
+            SELECT 
+                s.employee_number, 
+                s.staff_category,
+                s.department_id
             FROM staff s 
-            WHERE s.user_id = ? AND s.staff_category = 'Program Head' AND s.is_active = 1
+            WHERE s.user_id = ? 
+                AND s.staff_category = 'Program Head' 
+                AND s.is_active = 1
             LIMIT 1
         ");
         $staffStmt->execute([$userId]);
@@ -131,7 +156,10 @@ function handleGetDepartments($pdo, $userId, $userRoleName, $pageType) {
         if (!$staff) {
             // Try alternative query - maybe staff_category is different
             $altStmt = $pdo->prepare("
-                SELECT s.employee_number, s.staff_category 
+                SELECT 
+                    s.employee_number, 
+                    s.staff_category,
+                    s.department_id
                 FROM staff s 
                 WHERE s.user_id = ? AND s.is_active = 1
                 LIMIT 1
@@ -153,51 +181,104 @@ function handleGetDepartments($pdo, $userId, $userRoleName, $pageType) {
             $staff = $altStaff;
         }
         
-        // Get assigned departments from staff_department_assignments
-        // Try both sda.sector_id join and s.sector_name filter
-        $sql = "
-            SELECT 
-                d.department_id,
-                d.department_name,
-                s.sector_name
-            FROM staff_department_assignments sda
-            JOIN departments d ON sda.department_id = d.department_id
-            JOIN sectors s ON d.sector_id = s.sector_id
-            WHERE sda.staff_id = ? 
-                AND sda.is_active = 1
-                AND d.is_active = 1
-                AND s.sector_name = ?
-            ORDER BY d.department_name ASC
-        ";
-        
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$staff['employee_number'], $expectedSectorName]);
-        $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // If no departments found, return debug info
-        if (empty($departments)) {
-            // Check if staff has any assignments at all
-            $checkStmt = $pdo->prepare("
-                SELECT COUNT(*) as total
-                FROM staff_department_assignments sda
-                WHERE sda.staff_id = ? AND sda.is_active = 1
-            ");
-            $checkStmt->execute([$staff['employee_number']]);
-            $totalAssignments = $checkStmt->fetch(PDO::FETCH_ASSOC)['total'];
-            
+        // Check if Program Head has a department assigned
+        if (empty($staff['department_id'])) {
             echo json_encode([
                 'success' => true,
                 'departments' => [],
-                'message' => 'No departments found for Program Head in this sector',
+                'message' => 'Program Head does not have a department assigned',
                 'debug' => [
                     'user_id' => $userId,
                     'employee_number' => $staff['employee_number'],
-                    'expected_sector' => $expectedSectorName,
-                    'total_assignments' => $totalAssignments
+                    'staff_category' => $staff['staff_category'],
+                    'department_id' => $staff['department_id']
                 ]
             ]);
             return;
         }
+        
+        // Get the assigned department and verify it matches the expected sector
+        // For Faculty sector, check department_type = 'Faculty' or sector_id = 3
+        if ($expectedSectorName === 'Faculty') {
+            $sql = "
+                SELECT 
+                    d.department_id,
+                    d.department_name,
+                    s.sector_name
+                FROM departments d
+                JOIN sectors s ON d.sector_id = s.sector_id
+                WHERE d.department_id = ? 
+                    AND d.is_active = 1
+                    AND (d.department_type = 'Faculty' OR d.sector_id = 3)
+                LIMIT 1
+            ";
+        } else {
+            // For College and SHS sectors, use sector_name
+            $sql = "
+                SELECT 
+                    d.department_id,
+                    d.department_name,
+                    s.sector_name
+                FROM departments d
+                JOIN sectors s ON d.sector_id = s.sector_id
+                WHERE d.department_id = ? 
+                    AND d.is_active = 1
+                    AND s.sector_name = ?
+                LIMIT 1
+            ";
+        }
+        
+        if ($expectedSectorName === 'Faculty') {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$staff['department_id']]);
+        } else {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$staff['department_id'], $expectedSectorName]);
+        }
+        
+        $department = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // If department not found or doesn't match sector, return debug info
+        if (!$department) {
+            // Check what sector the assigned department actually belongs to
+            $checkStmt = $pdo->prepare("
+                SELECT 
+                    d.department_id,
+                    d.department_name,
+                    d.department_type,
+                    s.sector_name,
+                    s.sector_id
+                FROM departments d
+                JOIN sectors s ON d.sector_id = s.sector_id
+                WHERE d.department_id = ? AND d.is_active = 1
+            ");
+            $checkStmt->execute([$staff['department_id']]);
+            $actualDepartment = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Get all available sector names for comparison
+            $sectorStmt = $pdo->prepare("SELECT sector_name FROM sectors ORDER BY sector_name");
+            $sectorStmt->execute();
+            $allSectors = $sectorStmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            echo json_encode([
+                'success' => true,
+                'departments' => [],
+                'message' => 'Program Head\'s assigned department does not match the expected sector',
+                'debug' => [
+                    'user_id' => $userId,
+                    'employee_number' => $staff['employee_number'],
+                    'assigned_department_id' => $staff['department_id'],
+                    'assigned_department' => $actualDepartment,
+                    'expected_sector' => $expectedSectorName,
+                    'available_sectors' => $allSectors,
+                    'sector_match' => in_array($expectedSectorName, $allSectors)
+                ]
+            ]);
+            return;
+        }
+        
+        // Return the single assigned department
+        $departments = [$department];
     }
     
     echo json_encode([
@@ -231,33 +312,47 @@ function handleGetPrograms($pdo, $userId, $userRoleName, $departmentId) {
         
     } else {
         // Program Head: Verify department is assigned to them, then get programs
-        // Get staff employee_number for this user
+        // Get staff record with department_id for this user
         $staffStmt = $pdo->prepare("
-            SELECT s.employee_number 
+            SELECT 
+                s.employee_number,
+                s.department_id
             FROM staff s 
-            WHERE s.user_id = ? AND s.staff_category = 'Program Head' AND s.is_active = 1
+            WHERE s.user_id = ? 
+                AND s.staff_category = 'Program Head' 
+                AND s.is_active = 1
             LIMIT 1
         ");
         $staffStmt->execute([$userId]);
         $staff = $staffStmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$staff) {
-            throw new Exception('Program Head not found or inactive');
+            // Try alternative query - maybe staff_category is different
+            $altStmt = $pdo->prepare("
+                SELECT 
+                    s.employee_number,
+                    s.department_id
+                FROM staff s 
+                WHERE s.user_id = ? AND s.is_active = 1
+                LIMIT 1
+            ");
+            $altStmt->execute([$userId]);
+            $altStaff = $altStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$altStaff) {
+                throw new Exception('Program Head not found or inactive');
+            }
+            
+            $staff = $altStaff;
         }
         
-        // Verify department assignment
-        $checkStmt = $pdo->prepare("
-            SELECT 1 
-            FROM staff_department_assignments sda
-            WHERE sda.staff_id = ? 
-                AND sda.department_id = ?
-                AND sda.is_active = 1
-            LIMIT 1
-        ");
-        $checkStmt->execute([$staff['employee_number'], $departmentId]);
+        // Verify that the requested department matches the Program Head's assigned department
+        if (empty($staff['department_id'])) {
+            throw new Exception('Program Head does not have a department assigned');
+        }
         
-        if (!$checkStmt->fetchColumn()) {
-            throw new Exception('Program Head does not have access to this department');
+        if ((int)$staff['department_id'] !== (int)$departmentId) {
+            throw new Exception('Program Head does not have access to this department. Assigned department: ' . $staff['department_id']);
         }
         
         // Get programs for the assigned department

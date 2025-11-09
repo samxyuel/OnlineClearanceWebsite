@@ -18,7 +18,7 @@
     
     <!-- Content Area -->
     <div class="modal-content-area">
-      <form id="importForm" class="modal-form" data-endpoint="../../controllers/importData.php" enctype="multipart/form-data">
+      <form id="importForm" class="modal-form" data-endpoint="../../controllers/importData.php" enctype="multipart/form-data" onsubmit="event.preventDefault(); window.submitImportForm(); return false;">
         <!-- Hidden Fields -->
         <input type="hidden" name="type" id="importType" value="">
         <input type="hidden" name="pageType" id="pageType" value="">
@@ -105,11 +105,6 @@
               <span class="radio-custom"></span>
               <span class="radio-label" id="updateLabel">Update existing records</span>
             </label>
-            <label class="radio-option">
-              <input type="radio" name="importMode" value="replace">
-              <span class="radio-custom"></span>
-              <span class="radio-label">Replace all data</span>
-            </label>
           </div>
           
           <div class="checkbox-group">
@@ -158,7 +153,56 @@
     <!-- Actions -->
     <div class="modal-actions">
       <button class="modal-action-secondary" onclick="closeImportModal()">Cancel</button>
-      <button class="modal-action-primary" onclick="submitImportForm()" id="importSubmitBtn" disabled>Import Data</button>
+      <button type="button" class="modal-action-primary" onclick="window.submitImportForm()" id="importSubmitBtn" disabled>Import Data</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation Dialog for Duplicate Records -->
+<div class="modal-overlay import-confirmation-modal-overlay" id="importConfirmationModal" style="display: none;">
+  <div class="modal-window" style="max-width: 800px;">
+    <!-- Close Button -->
+    <button class="modal-close" onclick="closeImportConfirmationModal()">&times;</button>
+    
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <h2 class="modal-title">⚠️ Confirm Update</h2>
+      <div class="modal-supporting-text" id="confirmationMessage">
+        The following records already exist in the database and will be updated.
+      </div>
+    </div>
+    
+    <!-- Content Area -->
+    <div class="modal-content-area">
+      <div class="confirmation-summary" id="confirmationSummary" style="margin-bottom: 20px; padding: 15px; background-color: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+        <strong id="summaryText">Loading...</strong>
+      </div>
+      
+      <div class="preview-container" style="max-height: 400px; overflow-y: auto;">
+        <div class="preview-header" style="margin-bottom: 10px;">
+          <span><strong>Records to be Updated:</strong></span>
+        </div>
+        <div class="preview-table-container">
+          <table class="preview-table" id="confirmationTable">
+            <thead id="confirmationTableHead">
+              <!-- Table headers will be populated dynamically -->
+            </thead>
+            <tbody id="confirmationTableBody">
+              <!-- Duplicate records will be populated here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <div class="confirmation-note" style="margin-top: 15px; padding: 10px; background-color: #e7f3ff; border-radius: 8px; font-size: 0.9rem;">
+        <i class="fas fa-info-circle"></i> New records (not shown here) will be imported automatically after confirmation.
+      </div>
+    </div>
+    
+    <!-- Actions -->
+    <div class="modal-actions">
+      <button class="modal-action-secondary" onclick="closeImportConfirmationModal()">Cancel</button>
+      <button type="button" class="modal-action-primary" onclick="confirmImportUpdate()" id="confirmUpdateBtn">Confirm & Update</button>
     </div>
   </div>
 </div>
@@ -506,9 +550,6 @@ window.loadImportModalPrograms = async function(departmentId) {
   }
 };
 
-// Keep legacy alias for compatibility
-const loadPrograms = window.loadImportModalPrograms;
-
 // Check if all required selections are made
 function checkSelectionsComplete() {
   const departmentId = document.getElementById('importDepartmentSelect').value;
@@ -612,6 +653,8 @@ function removeSelectedFile() {
 }
 
 function validateAndPreviewFile(file) {
+  console.log('[ImportModal] validateAndPreviewFile called for file:', file.name, file.type, file.size);
+  
   const allowedTypes = [
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
     'application/vnd.ms-excel', // .xls
@@ -625,99 +668,245 @@ function validateAndPreviewFile(file) {
   const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
   
   if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
-    showNotification('Invalid file type. Please upload Excel, CSV, JSON, or XML files.', 'error');
+    console.error('[ImportModal] Invalid file type:', file.type, fileExtension);
+    showToastNotification('Invalid file type. Please upload Excel, CSV, JSON, or XML files.', 'error');
     removeSelectedFile();
     return;
   }
   
   if (file.size > 10 * 1024 * 1024) { // 10MB limit
-    showNotification('File size too large. Please upload files smaller than 10MB.', 'error');
+    console.error('[ImportModal] File too large:', file.size);
+    showToastNotification('File size too large. Please upload files smaller than 10MB.', 'error');
     removeSelectedFile();
     return;
   }
   
-  // Simulate file preview
-  generatePreviewData();
+  // Parse and preview actual file content
+  console.log('[ImportModal] File validated, parsing for preview...');
+  parseAndPreviewFile(file);
 }
 
-function generatePreviewData() {
+// Parse CSV file and generate preview
+function parseAndPreviewFile(file) {
+  console.log('[ImportModal] ==========================================');
+  console.log('[ImportModal] parseAndPreviewFile() called');
+  console.log('[ImportModal] File:', file.name, file.type, file.size, 'bytes');
+  console.log('[ImportModal] ==========================================');
+  
+  const reader = new FileReader();
+  
+  reader.onload = function(e) {
+    try {
+      const text = e.target.result;
+      console.log('[ImportModal] ✓ File read successfully');
+      console.log('[ImportModal] File length:', text.length, 'characters');
+      console.log('[ImportModal] First 500 chars:', text.substring(0, 500));
+      
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      console.log('[ImportModal] File extension:', fileExtension);
+      
+      if (fileExtension === '.csv') {
+        console.log('[ImportModal] Parsing as CSV...');
+        parseCSVAndPreview(text);
+      } else if (fileExtension === '.json') {
+        console.log('[ImportModal] Parsing as JSON...');
+        parseJSONAndPreview(text);
+      } else {
+        console.warn('[ImportModal] Preview not available for', fileExtension, 'files');
+        // For Excel/XML, show a message that preview is limited
+        showPreviewMessage('Preview available for CSV and JSON files only. File will be processed on import.');
+      }
+    } catch (error) {
+      console.error('[ImportModal] ✗ Error parsing file:', error);
+      console.error('[ImportModal] Error stack:', error.stack);
+      showPreviewMessage('Error parsing file: ' + error.message);
+    }
+  };
+  
+  reader.onerror = function(error) {
+    console.error('[ImportModal] ✗ FileReader error:', error);
+    console.error('[ImportModal] Error details:', error.target?.error);
+    showPreviewMessage('Error reading file: ' + (error.target?.error?.message || 'Unknown error'));
+  };
+  
+  reader.onprogress = function(e) {
+    if (e.lengthComputable) {
+      const percentLoaded = Math.round((e.loaded / e.total) * 100);
+      console.log('[ImportModal] File reading progress:', percentLoaded + '%');
+    }
+  };
+  
+  console.log('[ImportModal] Starting file read...');
+  reader.readAsText(file);
+}
+
+// Parse CSV content
+function parseCSVAndPreview(csvText) {
+  console.log('[ImportModal] Parsing CSV content...');
+  
+  const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== '');
+  if (lines.length === 0) {
+    showPreviewMessage('File is empty or contains no data.');
+    return;
+  }
+  
+  // Parse header row
+  const headers = parseCSVLine(lines[0]);
+  console.log('[ImportModal] CSV Headers:', headers);
+  
+  // Parse data rows
+  const dataRows = [];
+  const errors = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    try {
+      const values = parseCSVLine(lines[i]);
+      if (values.length === 0) continue; // Skip empty rows
+      
+      // Create row object
+      const row = {};
+      headers.forEach((header, index) => {
+        row[header.trim()] = values[index] ? values[index].trim() : '';
+      });
+      
+      dataRows.push(row);
+    } catch (error) {
+      errors.push({ row: i + 1, error: error.message });
+    }
+  }
+  
+  console.log('[ImportModal] Parsed', dataRows.length, 'rows,', errors.length, 'errors');
+  console.log('[ImportModal] First row:', dataRows[0]);
+  
+  // Display preview
+  displayPreview(dataRows, headers, errors, lines.length - 1);
+}
+
+// Parse a single CSV line (handles quoted fields)
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        // Escaped quote
+        current += '"';
+        i++; // Skip next quote
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      // End of field
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  // Add last field
+  result.push(current);
+  
+  return result;
+}
+
+// Parse JSON content
+function parseJSONAndPreview(jsonText) {
+  try {
+    const data = JSON.parse(jsonText);
+    const rows = Array.isArray(data) ? data : [data];
+    
+    if (rows.length === 0) {
+      showPreviewMessage('JSON file contains no data.');
+      return;
+    }
+    
+    const headers = Object.keys(rows[0]);
+    displayPreview(rows, headers, [], rows.length);
+  } catch (error) {
+    console.error('[ImportModal] JSON parse error:', error);
+    showPreviewMessage('Error parsing JSON: ' + error.message);
+  }
+}
+
+// Display preview in table
+function displayPreview(dataRows, headers, errors, totalRows) {
   const previewContainer = document.getElementById('previewContainer');
   const noPreview = document.getElementById('noPreview');
+  const previewTableHead = document.getElementById('previewTableHead');
   const previewTableBody = document.getElementById('previewTableBody');
   
-  // Sample preview data
-  const sampleData = [
-    {
-      studentNumber: '02000288322',
-      name: 'Zinzu Chan Lee',
-      program: 'BS Information Technology',
-      yearLevel: '3rd Year',
-      section: 'A',
-      status: 'Valid'
-    },
-    {
-      studentNumber: '02000288323',
-      name: 'Maria Santos Garcia',
-      program: 'BS Business Administration',
-      yearLevel: '2nd Year',
-      section: 'B',
-      status: 'Valid'
-    },
-    {
-      studentNumber: '02000288324',
-      name: 'Juan Carlos Santos',
-      program: 'BS Tourism Management',
-      yearLevel: '4th Year',
-      section: 'C',
-      status: 'Valid'
-    },
-    {
-      studentNumber: '02000288325',
-      name: 'Ana Sofia Martinez',
-      program: 'STEM',
-      yearLevel: 'Grade 12',
-      section: 'A',
-      status: 'Valid'
-    },
-    {
-      studentNumber: '02000288326',
-      name: 'Carlos Miguel Reyes',
-      program: 'BS Computer Science',
-      yearLevel: '1st Year',
-      section: 'D',
-      status: 'Valid'
-    }
-  ];
+  if (!previewContainer || !previewTableHead || !previewTableBody) {
+    console.error('[ImportModal] Preview elements not found');
+    return;
+  }
   
-  // Populate preview table
+  // Clear previous content
+  previewTableHead.innerHTML = '';
   previewTableBody.innerHTML = '';
-  sampleData.forEach(row => {
+  
+  // Create header row
+  const headerRow = document.createElement('tr');
+  headers.forEach(header => {
+    const th = document.createElement('th');
+    th.textContent = header;
+    headerRow.appendChild(th);
+  });
+  previewTableHead.appendChild(headerRow);
+  
+  // Display first 5 rows
+  const previewRows = dataRows.slice(0, 5);
+  previewRows.forEach(row => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${row.studentNumber}</td>
-      <td>${row.name}</td>
-      <td>${row.program}</td>
-      <td>${row.yearLevel}</td>
-      <td>${row.section}</td>
-      <td><span class="status-badge account-active">${row.status}</span></td>
-    `;
+    headers.forEach(header => {
+      const td = document.createElement('td');
+      const value = row[header.trim()] || '';
+      td.textContent = value;
+      tr.appendChild(td);
+    });
     previewTableBody.appendChild(tr);
   });
   
   // Update stats
-  document.getElementById('totalRows').textContent = 'Total Rows: 5';
-  document.getElementById('validRows').textContent = 'Valid Rows: 5';
-  document.getElementById('errorRows').textContent = 'Errors: 0';
+  document.getElementById('totalRows').textContent = `Total Rows: ${totalRows}`;
+  document.getElementById('validRows').textContent = `Valid Rows: ${dataRows.length}`;
+  document.getElementById('errorRows').textContent = `Errors: ${errors.length}`;
   
   // Show preview
   previewContainer.style.display = 'block';
   noPreview.style.display = 'none';
+  
+  console.log('[ImportModal] Preview displayed:', previewRows.length, 'rows shown');
+}
+
+// Show preview message instead of table
+function showPreviewMessage(message) {
+  const previewContainer = document.getElementById('previewContainer');
+  const noPreview = document.getElementById('noPreview');
+  const previewTableBody = document.getElementById('previewTableBody');
+  
+  if (previewTableBody) {
+    previewTableBody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 20px; color: #666;">${message}</td></tr>`;
+  }
+  
+  if (previewContainer) previewContainer.style.display = 'block';
+  if (noPreview) noPreview.style.display = 'none';
 }
 
 function refreshPreview() {
-  // Simulate refreshing preview data
-  generatePreviewData();
-  showToastNotification('Preview refreshed', 'success');
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput && fileInput.files[0]) {
+    console.log('[ImportModal] Refreshing preview...');
+    parseAndPreviewFile(fileInput.files[0]);
+    showToastNotification('Preview refreshed', 'success');
+  } else {
+    showToastNotification('No file selected to preview', 'warning');
+  }
 }
 
 // Form validation
@@ -740,12 +929,6 @@ function validateImportForm() {
   if (!fileInput.files[0]) {
     showToastNotification('Please select a file to import', 'error');
     return false;
-  }
-  
-  if (importMode === 'replace') {
-    if (!confirm('This will replace all existing data. Are you sure you want to continue?')) {
-      return false;
-    }
   }
   
   return true;
@@ -853,51 +1036,506 @@ window.closeImportModal = function() {
   removeSelectedFile();
 }
 
-// Ensure functions are available even if DOMContentLoaded hasn't fired
-console.log('[ImportModal] Defining window.submitImportForm...');
-window.submitImportForm = function() {
-  if (!validateImportForm()) {
+// Store pending form data for confirmation resubmission
+let pendingImportData = null;
+
+// Download credentials file
+function downloadCredentialsFile(fileContent, fileName) {
+  console.log('[ImportModal] Downloading credentials file:', fileName);
+  
+  try {
+    // Create a blob from the file content
+    const blob = new Blob([fileContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    
+    // Create a temporary anchor element and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    console.log('[ImportModal] ✓ Credentials file downloaded successfully');
+    showToastNotification('Credentials file downloaded', 'success');
+  } catch (error) {
+    console.error('[ImportModal] Error downloading credentials file:', error);
+    showToastNotification('Error downloading credentials file', 'error');
+  }
+}
+
+// Show confirmation modal with duplicates
+function showImportConfirmationModal(data) {
+  console.log('[ImportModal] showImportConfirmationModal called with:', data);
+  
+  const modal = document.getElementById('importConfirmationModal');
+  if (!modal) {
+    console.error('[ImportModal] Confirmation modal not found!');
     return;
   }
   
+  const duplicates = data.duplicates || [];
+  const duplicateCount = data.duplicateCount || duplicates.length;
+  const newCount = data.newCount || 0;
+  const total = data.total || 0;
+  
+  // Update summary text
+  const summaryText = document.getElementById('summaryText');
+  if (summaryText) {
+    summaryText.textContent = `${duplicateCount} existing record(s) will be updated. ${newCount > 0 ? newCount + ' new record(s) will be imported automatically.' : ''}`;
+  }
+  
+  // Determine if student or faculty import
+  const importType = document.getElementById('importType').value;
+  const isStudent = importType === 'student_import';
+  
+  // Populate table
+  const tableHead = document.getElementById('confirmationTableHead');
+  const tableBody = document.getElementById('confirmationTableBody');
+  
+  if (tableHead && tableBody) {
+    // Clear existing content
+    tableHead.innerHTML = '';
+    tableBody.innerHTML = '';
+    
+    // Create header row
+    const headerRow = document.createElement('tr');
+    if (isStudent) {
+      headerRow.innerHTML = '<th>Student Number</th><th>Name</th><th>Department</th><th>Program</th><th>Year Level</th><th>Section</th>';
+    } else {
+      headerRow.innerHTML = '<th>Employee Number</th><th>Name</th><th>Department</th><th>Employment Status</th>';
+    }
+    tableHead.appendChild(headerRow);
+    
+    // Populate data rows
+    duplicates.forEach(duplicate => {
+      const row = document.createElement('tr');
+      
+      if (isStudent) {
+        const name = [duplicate.first_name, duplicate.middle_name, duplicate.last_name].filter(Boolean).join(' ');
+        row.innerHTML = `
+          <td>${duplicate.student_number || ''}</td>
+          <td>${name || ''}</td>
+          <td>${duplicate.department || ''}</td>
+          <td>${duplicate.program || ''}</td>
+          <td>${duplicate.year_level || ''}</td>
+          <td>${duplicate.section || ''}</td>
+        `;
+      } else {
+        const name = [duplicate.first_name, duplicate.middle_name, duplicate.last_name].filter(Boolean).join(' ');
+        row.innerHTML = `
+          <td>${duplicate.employee_number || ''}</td>
+          <td>${name || ''}</td>
+          <td>${duplicate.department || ''}</td>
+          <td>${duplicate.employment_status || ''}</td>
+        `;
+      }
+      
+      tableBody.appendChild(row);
+    });
+  }
+  
+  // Show modal
+  modal.style.display = 'flex';
+  document.body.classList.add('modal-open');
+}
+
+// Close confirmation modal
+function closeImportConfirmationModal() {
+  const modal = document.getElementById('importConfirmationModal');
+  if (!modal) return;
+  
+  modal.style.display = 'none';
+  document.body.classList.remove('modal-open');
+  
+  // Clear pending data
+  pendingImportData = null;
+}
+
+// Confirm and proceed with update
+function confirmImportUpdate() {
+  console.log('[ImportModal] confirmImportUpdate called');
+  
+  const confirmBtn = document.getElementById('confirmUpdateBtn');
+  const form = document.getElementById('importForm');
+  const fileInput = document.getElementById('fileInput');
+  const submitBtn = document.getElementById('importSubmitBtn');
+  
+  if (!form || !fileInput) {
+    console.error('[ImportModal] Form or fileInput not found!');
+    showToastNotification('Error: Form elements not found', 'error');
+    return;
+  }
+  
+  // Disable confirm button
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Processing...';
+  }
+  
+  // Get form values
+  const departmentId = document.getElementById('selectedDepartmentId').value;
+  const programId = document.getElementById('selectedProgramId').value;
+  const pageType = document.getElementById('pageType').value;
+  const importType = document.getElementById('importType').value;
+  const importMode = document.querySelector('input[name="importMode"]:checked')?.value || 'update';
+  const validateData = document.querySelector('input[name="validateData"]')?.checked || false;
+  const file = fileInput.files[0];
+  
+  // Create FormData
+  const formData = new FormData();
+  formData.append('type', importType);
+  formData.append('pageType', pageType);
+  formData.append('selectedDepartment', departmentId);
+  if (programId) {
+    formData.append('selectedProgram', programId);
+  }
+  formData.append('importMode', importMode);
+  formData.append('validateData', validateData ? 'on' : '');
+  formData.append('confirmed', '1'); // Flag to skip duplicate check on backend
+  formData.append('importFile', file);
+  
+  // Get endpoint URL
+  const endpoint = form.dataset.endpoint || '../../controllers/importData.php';
+  
+  console.log('[ImportModal] Proceeding with confirmed import...');
+  
+  // Submit to backend
+  fetch(endpoint, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData
+  })
+  .then(response => {
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return response.text().then(text => {
+        console.error('[ImportModal] Non-JSON response:', text.substring(0, 500));
+        throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+      });
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log('[ImportModal] Confirmed import response:', data);
+    
+    // Close confirmation modal
+    closeImportConfirmationModal();
+    
+    if (data.success) {
+      showToastNotification(data.message || 'Data imported successfully', 'success');
+      
+      // Handle credentials file download if available
+      if (data.credentialsFile && data.credentialsFileName) {
+        downloadCredentialsFile(data.credentialsFile, data.credentialsFileName);
+      }
+      
+      // Trigger table refresh (same logic as in submitImportForm)
+      const importType = document.getElementById('importType').value;
+      const pageType = document.getElementById('pageType').value;
+      
+      if (importType === 'student_import' && typeof window.loadStudentsData === 'function') {
+        window.loadStudentsData();
+      } else if (importType === 'faculty_import') {
+        if (typeof window.fetchFaculty === 'function') {
+          window.fetchFaculty();
+        } else if (typeof window.refreshFacultyTable === 'function') {
+          window.refreshFacultyTable();
+        }
+      }
+      
+      // Close import modal after a delay
+      setTimeout(() => {
+        window.closeImportModal();
+      }, 1000);
+    } else {
+      showToastNotification(data.message || 'Import failed', 'error');
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirm & Update';
+      }
+    }
+  })
+  .catch(error => {
+    console.error('[ImportModal] Confirmed import error:', error);
+    showToastNotification('An error occurred during import: ' + error.message, 'error');
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirm & Update';
+    }
+  });
+}
+
+// Ensure functions are available even if DOMContentLoaded hasn't fired
+console.log('[ImportModal] Defining window.submitImportForm...');
+window.submitImportForm = function() {
+  console.log('[ImportModal] ==========================================');
+  console.log('[ImportModal] submitImportForm() CALLED');
+  console.log('[ImportModal] ==========================================');
+  
+  // Validate form first
+  console.log('[ImportModal] Validating form...');
+  if (!validateImportForm()) {
+    console.error('[ImportModal] Form validation failed');
+    return;
+  }
+  console.log('[ImportModal] ✓ Form validation passed');
+  
   const submitBtn = document.getElementById('importSubmitBtn');
   const form = document.getElementById('importForm');
+  const fileInput = document.getElementById('fileInput');
+  
+  if (!form || !fileInput) {
+    console.error('[ImportModal] Form or fileInput not found!');
+    showToastNotification('Error: Form elements not found', 'error');
+    return;
+  }
   
   // Show loading state
   submitBtn.disabled = true;
   submitBtn.textContent = 'Importing...';
   form.classList.add('modal-loading');
   
+  // Get form values for logging
+  const departmentId = document.getElementById('selectedDepartmentId').value;
+  const programId = document.getElementById('selectedProgramId').value;
+  const pageType = document.getElementById('pageType').value;
+  const importType = document.getElementById('importType').value;
+  const importMode = document.querySelector('input[name="importMode"]:checked')?.value || 'skip';
+  const validateData = document.querySelector('input[name="validateData"]')?.checked || false;
+  const file = fileInput.files[0];
+  
+  // Detect current page context for better debugging
+  const currentPagePath = window.location.pathname;
+  const isCollegePage = currentPagePath.includes('CollegeStudentManagement');
+  const isShsPage = currentPagePath.includes('SeniorHighStudentManagement') || currentPagePath.includes('SHSStudentManagement');
+  const isFacultyPage = currentPagePath.includes('FacultyManagement');
+  const isAdminPage = currentPagePath.includes('/admin/');
+  const isProgramHeadPage = currentPagePath.includes('/program-head/');
+  
+  console.log('[ImportModal] Form values:', {
+    departmentId,
+    programId,
+    pageType,
+    importType,
+    importMode,
+    validateData,
+    fileName: file ? file.name : 'NO FILE',
+    fileSize: file ? file.size : 0
+  });
+  
+  console.log('[ImportModal] Page Context Detection:', {
+    currentPagePath,
+    isCollegePage,
+    isShsPage,
+    isFacultyPage,
+    isAdminPage,
+    isProgramHeadPage,
+    detectedPageType: isCollegePage ? 'College' : (isShsPage ? 'SHS' : (isFacultyPage ? 'Faculty' : 'Unknown'))
+  });
+  
   // Create FormData for file upload
   const formData = new FormData(form);
   
+  // Explicitly add all required fields to FormData
+  formData.set('type', importType);
+  formData.set('pageType', pageType);
+  formData.set('selectedDepartment', departmentId);
+  if (programId) {
+    formData.set('selectedProgram', programId);
+  }
+  formData.set('importMode', importMode);
+  formData.set('validateData', validateData ? 'on' : '');
+  
+  // Verify file is in FormData
+  if (!file) {
+    console.error('[ImportModal] ERROR: No file selected!');
+    showToastNotification('Please select a file to import', 'error');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Import Data';
+    form.classList.remove('modal-loading');
+    return;
+  }
+  
+  // Log FormData contents (for debugging)
+  console.log('[ImportModal] FormData entries:');
+  for (const [key, value] of formData.entries()) {
+    if (value instanceof File) {
+      console.log(`  ${key}: [File] ${value.name} (${value.size} bytes, type: ${value.type})`);
+    } else {
+      console.log(`  ${key}: ${value}`);
+    }
+  }
+  
+  // Get endpoint URL
+  const endpoint = form.dataset.endpoint || '../../controllers/importData.php';
+  console.log('[ImportModal] Submitting to endpoint:', endpoint);
+  console.log('[ImportModal] Full URL will be:', window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + endpoint);
+  
   // Submit to backend
-  fetch(form.dataset.endpoint, {
+  console.log('[ImportModal] Initiating fetch request...');
+  fetch(endpoint, {
     method: 'POST',
     credentials: 'include',
     body: formData
   })
-  .then(response => response.json())
+  .then(response => {
+    console.log('[ImportModal] Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+    
+    // Check content type
+    const contentType = response.headers.get('content-type');
+    console.log('[ImportModal] Response content-type:', contentType);
+    
+    if (!contentType || !contentType.includes('application/json')) {
+      // Try to get text response for debugging
+      return response.text().then(text => {
+        console.error('[ImportModal] Non-JSON response:', text.substring(0, 500));
+        throw new Error('Server returned non-JSON response: ' + text.substring(0, 200));
+      });
+    }
+    
+    return response.json();
+  })
   .then(data => {
+    console.log('[ImportModal] Response data:', data);
+    
+    // Check if confirmation is needed (duplicates found in update mode)
+    if (data.needsConfirmation && data.duplicates) {
+      console.log('[ImportModal] Duplicates found - showing confirmation dialog');
+      showImportConfirmationModal(data);
+      // Reset button state
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Import Data';
+      form.classList.remove('modal-loading');
+      return;
+    }
+    
     if (data.success) {
+      console.log('[ImportModal] ✓ Import successful!');
       showToastNotification(data.message || 'Data imported successfully', 'success');
       
-      // Trigger page refresh if callback exists
-      if (typeof window.onImportSuccess === 'function') {
-        window.onImportSuccess(data);
+      // Handle credentials file download if available
+      if (data.credentialsFile && data.credentialsFileName) {
+        downloadCredentialsFile(data.credentialsFile, data.credentialsFileName);
       }
       
+      // Trigger table refresh
+      console.log('[ImportModal] ==========================================');
+      console.log('[ImportModal] Attempting to refresh table...');
+      console.log('[ImportModal] Import type:', importType);
+      console.log('[ImportModal] Page type:', pageType);
+      
+      // Check which refresh functions are available
+      const availableFunctions = {
+        loadStudentsData: typeof window.loadStudentsData === 'function',
+        fetchFaculty: typeof window.fetchFaculty === 'function',
+        refreshFacultyTable: typeof window.refreshFacultyTable === 'function',
+        onImportSuccess: typeof window.onImportSuccess === 'function'
+      };
+      
+      console.log('[ImportModal] Available refresh functions:', availableFunctions);
+      
+      // Try multiple refresh methods based on import type and page
+      let refreshCalled = false;
+      
+      if (importType === 'student_import') {
+        // Student import - try loadStudentsData first
+        if (availableFunctions.loadStudentsData) {
+          console.log('[ImportModal] ✓ Found loadStudentsData() - calling for', pageType, 'students...');
+          try {
+            window.loadStudentsData();
+            refreshCalled = true;
+            console.log('[ImportModal] ✓ loadStudentsData() called successfully');
+          } catch (error) {
+            console.error('[ImportModal] ✗ Error calling loadStudentsData():', error);
+          }
+        } else {
+          console.warn('[ImportModal] ⚠️ loadStudentsData() not found for student import');
+        }
+      } else if (importType === 'faculty_import') {
+        // Faculty import - try both faculty refresh functions
+        if (availableFunctions.fetchFaculty) {
+          console.log('[ImportModal] ✓ Found fetchFaculty() - calling...');
+          try {
+            window.fetchFaculty();
+            refreshCalled = true;
+            console.log('[ImportModal] ✓ fetchFaculty() called successfully');
+          } catch (error) {
+            console.error('[ImportModal] ✗ Error calling fetchFaculty():', error);
+          }
+        } else if (availableFunctions.refreshFacultyTable) {
+          console.log('[ImportModal] ✓ Found refreshFacultyTable() - calling...');
+          try {
+            window.refreshFacultyTable();
+            refreshCalled = true;
+            console.log('[ImportModal] ✓ refreshFacultyTable() called successfully');
+          } catch (error) {
+            console.error('[ImportModal] ✗ Error calling refreshFacultyTable():', error);
+          }
+        } else {
+          console.warn('[ImportModal] ⚠️ No faculty refresh function found (fetchFaculty or refreshFacultyTable)');
+        }
+      }
+      
+      // Fallback to callback if available
+      if (!refreshCalled && availableFunctions.onImportSuccess) {
+        console.log('[ImportModal] Using fallback: onImportSuccess() callback...');
+        try {
+          window.onImportSuccess(data);
+          refreshCalled = true;
+          console.log('[ImportModal] ✓ onImportSuccess() called successfully');
+        } catch (error) {
+          console.error('[ImportModal] ✗ Error calling onImportSuccess():', error);
+        }
+      }
+      
+      if (!refreshCalled) {
+        console.warn('[ImportModal] ⚠️ No refresh function was called!');
+        console.warn('[ImportModal] Available window functions:', Object.keys(window).filter(k => 
+          typeof window[k] === 'function' && 
+          (k.toLowerCase().includes('student') || 
+           k.toLowerCase().includes('faculty') || 
+           k.toLowerCase().includes('refresh') || 
+           k.toLowerCase().includes('load') ||
+           k.toLowerCase().includes('fetch'))
+        ).slice(0, 20));
+        console.warn('[ImportModal] Reloading page as fallback...');
+        // Fallback: reload page after a short delay
+  setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
+      
+      console.log('[ImportModal] ==========================================');
+      
+      // Close modal after a short delay to show success message
+      setTimeout(() => {
     window.closeImportModal();
+      }, 1000);
     } else {
+      console.error('[ImportModal] ✗ Import failed:', data.message);
       showToastNotification(data.message || 'Import failed', 'error');
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Import Data';
-    form.classList.remove('modal-loading');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Import Data';
+      form.classList.remove('modal-loading');
     }
   })
   .catch(error => {
-    console.error('Import error:', error);
-    showToastNotification('An error occurred during import', 'error');
+    console.error('[ImportModal] ==========================================');
+    console.error('[ImportModal] ✗ IMPORT ERROR:', error);
+    console.error('[ImportModal] Error message:', error.message);
+    console.error('[ImportModal] Error stack:', error.stack);
+    console.error('[ImportModal] ==========================================');
+    
+    showToastNotification('An error occurred during import: ' + error.message, 'error');
     submitBtn.disabled = false;
     submitBtn.textContent = 'Import Data';
     form.classList.remove('modal-loading');

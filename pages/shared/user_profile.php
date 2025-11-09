@@ -194,6 +194,11 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
             </div>
             <div class="user-info">
                 <h1 class="user-name"><?php echo htmlspecialchars($displayName); ?></h1>
+                <div class="last-login-indicator">
+                    <i class="fas fa-clock"></i>
+                    <span class="last-login-label">Last Login:</span>
+                    <span class="last-login-value"><?php echo htmlspecialchars($lastLogin); ?></span>
+                </div>
             </div>
             
             <div class="header-actions">
@@ -284,13 +289,6 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
                         <span class="value editable" data-field="phone" contenteditable="false"><?php echo htmlspecialchars($phone); ?></span>
                     </div>
                     
-                    <!-- Last Login - Only for Admin -->
-                    <?php if ($currentRole === 'admin'): ?>
-                        <div class="info-item">
-                            <span class="label">Last Login:</span>
-                            <span class="value"><?php echo htmlspecialchars($lastLogin); ?></span>
-                        </div>
-                    <?php endif; ?>
                     <?php if ($currentRole === 'faculty'): ?>
                         <div class="info-item">
                             <span class="label">Employment Status:</span>

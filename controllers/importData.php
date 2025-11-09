@@ -134,6 +134,115 @@ function handleImportRequest() {
 }
 
 /**
+ * Detect duplicate students (existing in database) for confirmation dialog
+ */
+function detectDuplicateStudents($data, $connection) {
+    $duplicates = [];
+    $newRecords = [];
+    
+    foreach ($data as $index => $row) {
+        $studentNumber = trim($row['student_number'] ?? '');
+        if (empty($studentNumber)) {
+            continue;
+        }
+        
+        // Check if student exists
+        $stmt = $connection->prepare("
+            SELECT s.student_id, s.user_id, u.first_name, u.last_name, u.middle_name,
+                   d.department_name, p.program_name, s.year_level, s.section
+            FROM students s
+            JOIN users u ON s.user_id = u.user_id
+            LEFT JOIN departments d ON s.department_id = d.department_id
+            LEFT JOIN programs p ON s.program_id = p.program_id
+            WHERE s.student_id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$studentNumber]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($existing) {
+            $duplicates[] = [
+                'student_number' => $studentNumber,
+                'first_name' => $row['first_name'] ?? '',
+                'middle_name' => $row['middle_name'] ?? '',
+                'last_name' => $row['last_name'] ?? '',
+                'department' => $existing['department_name'] ?? '',
+                'program' => $existing['program_name'] ?? '',
+                'year_level' => $existing['year_level'] ?? '',
+                'section' => $existing['section'] ?? '',
+                'existing_name' => trim(($existing['first_name'] ?? '') . ' ' . ($existing['middle_name'] ?? '') . ' ' . ($existing['last_name'] ?? ''))
+            ];
+        } else {
+            $newRecords[] = [
+                'student_number' => $studentNumber,
+                'first_name' => $row['first_name'] ?? '',
+                'middle_name' => $row['middle_name'] ?? '',
+                'last_name' => $row['last_name'] ?? ''
+            ];
+        }
+    }
+    
+    return [
+        'duplicates' => $duplicates,
+        'newRecords' => $newRecords,
+        'hasDuplicates' => count($duplicates) > 0
+    ];
+}
+
+/**
+ * Detect duplicate faculty (existing in database) for confirmation dialog
+ */
+function detectDuplicateFaculty($data, $connection) {
+    $duplicates = [];
+    $newRecords = [];
+    
+    foreach ($data as $index => $row) {
+        $employeeNumber = trim($row['employee_number'] ?? '');
+        if (empty($employeeNumber)) {
+            continue;
+        }
+        
+        // Check if faculty exists
+        $stmt = $connection->prepare("
+            SELECT f.employee_number, f.user_id, u.first_name, u.last_name, u.middle_name,
+                   d.department_name, f.employment_status
+            FROM faculty f
+            JOIN users u ON f.user_id = u.user_id
+            LEFT JOIN departments d ON f.department_id = d.department_id
+            WHERE f.employee_number = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$employeeNumber]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($existing) {
+            $duplicates[] = [
+                'employee_number' => $employeeNumber,
+                'first_name' => $row['first_name'] ?? '',
+                'middle_name' => $row['middle_name'] ?? '',
+                'last_name' => $row['last_name'] ?? '',
+                'department' => $existing['department_name'] ?? '',
+                'employment_status' => $existing['employment_status'] ?? '',
+                'existing_name' => trim(($existing['first_name'] ?? '') . ' ' . ($existing['middle_name'] ?? '') . ' ' . ($existing['last_name'] ?? ''))
+            ];
+        } else {
+            $newRecords[] = [
+                'employee_number' => $employeeNumber,
+                'first_name' => $row['first_name'] ?? '',
+                'middle_name' => $row['middle_name'] ?? '',
+                'last_name' => $row['last_name'] ?? ''
+            ];
+        }
+    }
+    
+    return [
+        'duplicates' => $duplicates,
+        'newRecords' => $newRecords,
+        'hasDuplicates' => count($duplicates) > 0
+    ];
+}
+
+/**
  * Get Program Head's assigned departments and sector
  */
 function getProgramHeadAssignments($connection, $auth) {
@@ -297,6 +406,26 @@ function importFacultyData($file, $selectedDepartmentId, $importMode, $validateD
             throw new Exception('Data validation failed: ' . implode('; ', $validationResult['errors']));
         }
 
+        // Check for duplicates if update mode - return for confirmation dialog
+        // Skip if already confirmed (confirmed flag sent from frontend)
+        $confirmed = isset($_POST['confirmed']) && $_POST['confirmed'] === '1';
+        if ($importMode === 'update' && !$confirmed) {
+            $duplicateCheck = detectDuplicateFaculty($data, $connection);
+            if ($duplicateCheck['hasDuplicates']) {
+                // Return duplicates for confirmation dialog
+                return [
+                    'success' => false,
+                    'needsConfirmation' => true,
+                    'message' => 'Some records already exist and will be updated',
+                    'duplicates' => $duplicateCheck['duplicates'],
+                    'newRecords' => $duplicateCheck['newRecords'],
+                    'duplicateCount' => count($duplicateCheck['duplicates']),
+                    'newCount' => count($duplicateCheck['newRecords']),
+                    'total' => count($data)
+                ];
+            }
+        }
+
         // Process import based on mode and policy
         $importResult = processFacultyImport($data, $importMode, $connection, $sendNotifications, $selectedDepartmentId);
 
@@ -325,12 +454,27 @@ function importFacultyData($file, $selectedDepartmentId, $importMode, $validateD
             $connection->commit();
         }
 
+        // Generate credentials file if new accounts were created
+        $credentialsFileContent = null;
+        $credentialsFileName = null;
+        if (!empty($importResult['credentials'])) {
+            $credentialsFileContent = generateCredentialsFile($importResult['credentials'], 'faculty_import');
+            $credentialsFileName = 'imported_credentials_' . date('Y-m-d_H-i-s') . '.txt';
+        }
+
+        // Only return success if at least one record was imported
+        $isSuccess = $importResult['imported'] > 0 || $importResult['updated'] > 0;
+        
         // Log successful import
-        logImportActivity('faculty', count($data), $importResult['imported'], $importResult['updated'], $importResult['skipped']);
+        if ($isSuccess) {
+            logImportActivity('faculty', count($data), $importResult['imported'], $importResult['updated'], $importResult['skipped']);
+        }
 
         return [
-            'success' => true,
-            'message' => 'Faculty data imported successfully',
+            'success' => $isSuccess,
+            'message' => $isSuccess 
+                ? 'Faculty data imported successfully' 
+                : 'No records were imported. All records were skipped or had errors.',
             'summary' => [
                 'total' => count($data),
                 'imported' => $importResult['imported'],
@@ -338,7 +482,9 @@ function importFacultyData($file, $selectedDepartmentId, $importMode, $validateD
                 'skipped' => $importResult['skipped'],
                 'errors' => $importResult['errors']
             ],
-            'rows' => $importResult['rows'] ?? []
+            'rows' => $importResult['rows'] ?? [],
+            'credentialsFile' => $credentialsFileContent,
+            'credentialsFileName' => $credentialsFileName
         ];
 
     } catch (Exception $e) {
@@ -486,6 +632,26 @@ function importStudentData($file, $pageType, $selectedDepartmentId, $selectedPro
             throw new Exception('Data validation failed: ' . implode('; ', $validationResult['errors']));
         }
 
+        // Check for duplicates if update mode - return for confirmation dialog
+        // Skip if already confirmed (confirmed flag sent from frontend)
+        $confirmed = isset($_POST['confirmed']) && $_POST['confirmed'] === '1';
+        if ($importMode === 'update' && !$confirmed) {
+            $duplicateCheck = detectDuplicateStudents($data, $connection);
+            if ($duplicateCheck['hasDuplicates']) {
+                // Return duplicates for confirmation dialog
+                return [
+                    'success' => false,
+                    'needsConfirmation' => true,
+                    'message' => 'Some records already exist and will be updated',
+                    'duplicates' => $duplicateCheck['duplicates'],
+                    'newRecords' => $duplicateCheck['newRecords'],
+                    'duplicateCount' => count($duplicateCheck['duplicates']),
+                    'newCount' => count($duplicateCheck['newRecords']),
+                    'total' => count($data)
+                ];
+            }
+        }
+
         // Process import
         $importResult = processStudentImport($data, $pageType, $selectedDepartmentId, $selectedProgramId, $importMode, $connection, $sendNotifications);
 
@@ -513,12 +679,27 @@ function importStudentData($file, $pageType, $selectedDepartmentId, $selectedPro
             $connection->commit();
         }
 
+        // Generate credentials file if new accounts were created
+        $credentialsFileContent = null;
+        $credentialsFileName = null;
+        if (!empty($importResult['credentials'])) {
+            $credentialsFileContent = generateCredentialsFile($importResult['credentials'], 'student_import');
+            $credentialsFileName = 'imported_credentials_' . date('Y-m-d_H-i-s') . '.txt';
+        }
+
+        // Only return success if at least one record was imported
+        $isSuccess = $importResult['imported'] > 0 || $importResult['updated'] > 0;
+        
         // Log successful import
-        logImportActivity('student', count($data), $importResult['imported'], $importResult['updated'], $importResult['skipped']);
+        if ($isSuccess) {
+            logImportActivity('student', count($data), $importResult['imported'], $importResult['updated'], $importResult['skipped']);
+        }
 
         return [
-            'success' => true,
-            'message' => 'Student data imported successfully',
+            'success' => $isSuccess,
+            'message' => $isSuccess 
+                ? 'Student data imported successfully' 
+                : 'No records were imported. All records were skipped or had errors.',
             'summary' => [
                 'total' => count($data),
                 'imported' => $importResult['imported'],
@@ -526,7 +707,9 @@ function importStudentData($file, $pageType, $selectedDepartmentId, $selectedPro
                 'skipped' => $importResult['skipped'],
                 'errors' => $importResult['errors']
             ],
-            'rows' => $importResult['rows'] ?? []
+            'rows' => $importResult['rows'] ?? [],
+            'credentialsFile' => $credentialsFileContent,
+            'credentialsFileName' => $credentialsFileName
         ];
 
     } catch (Exception $e) {
@@ -805,6 +988,7 @@ function processFacultyImport($data, $importMode, $connection, $sendNotification
     $skipped = 0;
     $errors = [];
     $rowsOutcomes = [];
+    $credentials = []; // Track credentials for newly created accounts
     
     foreach ($data as $index => $row) {
         try {
@@ -865,31 +1049,21 @@ function processFacultyImport($data, $importMode, $connection, $sendNotification
                             ];
                         }
                         break;
-                        
-                    case 'replace':
-                        $result = updateFacultyRecord($row, $existingFaculty, $connection);
-                        if ($result) {
-                            $updated++;
-                            $rowsOutcomes[] = [
-                                'rowNumber' => $rowNumber,
-                                'employee_number' => $row['employee_number'],
-                                'action' => 'updated'
-                            ];
-                        } else {
-                            $errors[] = "Row $rowNumber: Failed to update faculty";
-                            $rowsOutcomes[] = [
-                                'rowNumber' => $rowNumber,
-                                'employee_number' => $row['employee_number'],
-                                'action' => 'error',
-                                'reason' => 'update failed'
-                            ];
-                        }
-                        break;
                 }
             } else {
-                // Faculty doesn't exist
+                // Faculty doesn't exist - create new account
                 $result = createFacultyRecord($row, $connection, $sendNotifications, $selectedDepartmentId);
-                if ($result) {
+                if ($result && is_array($result) && isset($result['credentials'])) {
+                    // New account created with credentials
+                    $imported++;
+                    $credentials[] = $result['credentials'];
+                    $rowsOutcomes[] = [
+                        'rowNumber' => $rowNumber,
+                        'employee_number' => $row['employee_number'],
+                        'action' => 'imported'
+                    ];
+                } elseif ($result === true) {
+                    // Account existed (updated existing user)
                     $imported++;
                     $rowsOutcomes[] = [
                         'rowNumber' => $rowNumber,
@@ -923,7 +1097,8 @@ function processFacultyImport($data, $importMode, $connection, $sendNotification
         'updated' => $updated,
         'skipped' => $skipped,
         'errors' => $errors,
-        'rows' => $rowsOutcomes
+        'rows' => $rowsOutcomes,
+        'credentials' => $credentials
     ];
 }
 
@@ -934,6 +1109,7 @@ function createFacultyRecord($data, $connection, $sendNotifications, $selectedDe
         if (!in_array($accountStatus, ['active', 'inactive'])) {
             $accountStatus = 'active';
         }
+        $credentials = null; // Will contain username and unhashed password for new accounts
 
         // Check for existing user by username (employee_number)
         $stmt = $connection->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
@@ -951,7 +1127,7 @@ function createFacultyRecord($data, $connection, $sendNotifications, $selectedDe
                     $emailToUse = null;
                 }
             }
-            $upd = $connection->prepare("UPDATE users SET email = COALESCE(?, email), first_name = ?, last_name = ?, middle_name = ?, contact_number = ?, status = ?, updated_at = NOW() WHERE user_id = ?");
+            $upd = $connection->prepare("UPDATE users SET email = COALESCE(?, email), first_name = ?, last_name = ?, middle_name = ?, contact_number = ?, account_status = ?, updated_at = NOW() WHERE user_id = ?");
             $upd->execute([
                 $emailToUse,
                 $data['first_name'],
@@ -963,14 +1139,20 @@ function createFacultyRecord($data, $connection, $sendNotifications, $selectedDe
             ]);
         } else {
             // Create user account first (email conflict-safe)
-            $stmt = $connection->prepare("
-            INSERT INTO users (username, password, email, first_name, last_name, middle_name, contact_number, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-        ");
-            
-            // Generate default password (LastName + EmployeeID)
-            $defaultPasswordPlain = ($data['last_name'] ?? '') . ($data['employee_number'] ?? '');
+            // Generate password: [last_name] + [employee_number]
+            $lastName = trim($data['last_name'] ?? '');
+            $employeeNumber = trim($data['employee_number'] ?? '');
+            $defaultPasswordPlain = $lastName . $employeeNumber;
             $defaultPassword = password_hash($defaultPasswordPlain, PASSWORD_DEFAULT);
+            
+            // Store credentials for file generation (unhashed password + name components)
+            $credentials = [
+                'username' => $username,
+                'password' => $defaultPasswordPlain,
+                'first_name' => trim($data['first_name'] ?? ''),
+                'middle_name' => trim($data['middle_name'] ?? ''),
+                'last_name' => trim($data['last_name'] ?? '')
+            ];
 
             // Ensure email uniqueness on create
             $emailToUse = $data['email'] ?? null;
@@ -981,6 +1163,11 @@ function createFacultyRecord($data, $connection, $sendNotifications, $selectedDe
                     $emailToUse = null;
                 }
             }
+            
+            $stmt = $connection->prepare("
+                INSERT INTO users (username, password, email, first_name, last_name, middle_name, contact_number, account_status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+            ");
             
             $stmt->execute([
                 $data['employee_number'],
@@ -1022,7 +1209,8 @@ function createFacultyRecord($data, $connection, $sendNotifications, $selectedDe
             logImportActivity('faculty_notification', 1, 1, 0, 0);
         }
         
-        return true;
+        // Return true if no credentials (updated existing), or credentials array if new account
+        return $credentials !== null ? ['success' => true, 'credentials' => $credentials] : true;
         
     } catch (Exception $e) {
         throw new Exception('Failed to create faculty record: ' . $e->getMessage());
@@ -1074,6 +1262,51 @@ function updateFacultyRecord($data, $existingFaculty, $connection) {
     } catch (Exception $e) {
         throw new Exception('Failed to update faculty record: ' . $e->getMessage());
     }
+}
+
+/**
+ * Generate credentials file content from credentials array
+ */
+function generateCredentialsFile($credentials, $importType = 'student') {
+    if (empty($credentials)) {
+        return null;
+    }
+    
+    $content = "Imported Account Credentials\n";
+    $content .= "Generated: " . date('Y-m-d H:i:s') . "\n";
+    $content .= "Import Type: " . ucfirst(str_replace('_', ' ', $importType)) . "\n";
+    $content .= str_repeat("=", 50) . "\n\n";
+    
+    foreach ($credentials as $index => $cred) {
+        // Format name as: [last_name], [first_name] [middle_name]
+        $lastName = trim($cred['last_name'] ?? '');
+        $firstName = trim($cred['first_name'] ?? '');
+        $middleName = trim($cred['middle_name'] ?? '');
+        
+        // Build name label
+        $nameLabel = $lastName;
+        if ($firstName || $middleName) {
+            $nameLabel .= ',';
+            if ($firstName) {
+                $nameLabel .= ' ' . $firstName;
+            }
+            if ($middleName) {
+                $nameLabel .= ' ' . $middleName;
+            }
+        }
+        
+        // If no name available, fallback to "Account X"
+        if (empty($nameLabel) || $nameLabel === ',') {
+            $nameLabel = "Account " . ($index + 1);
+        }
+        
+        $content .= $nameLabel . ":\n";
+        $content .= "Username: " . $cred['username'] . "\n";
+        $content .= "Password: " . $cred['password'] . "\n";
+        $content .= "\n";
+    }
+    
+    return $content;
 }
 
 function logImportActivity($type, $total, $imported, $updated, $skipped) {
@@ -1246,6 +1479,7 @@ function processStudentImport($data, $pageType, $selectedDepartmentId, $selected
     $skipped = 0;
     $errors = [];
     $rowsOutcomes = [];
+    $credentials = []; // Track credentials for newly created accounts
     
     foreach ($data as $index => $row) {
         try {
@@ -1307,31 +1541,21 @@ function processStudentImport($data, $pageType, $selectedDepartmentId, $selected
                             ];
                         }
                         break;
-                        
-                    case 'replace':
-                        $result = updateStudentRecord($row, $existingStudent, $connection, $selectedDepartmentId, $selectedProgramId);
-                        if ($result) {
-                            $updated++;
-                            $rowsOutcomes[] = [
-                                'rowNumber' => $rowNumber,
-                                'student_number' => $row['student_number'],
-                                'action' => 'updated'
-                            ];
-                        } else {
-                            $errors[] = "Row $rowNumber: Failed to update student";
-                            $rowsOutcomes[] = [
-                                'rowNumber' => $rowNumber,
-                                'student_number' => $row['student_number'],
-                                'action' => 'error',
-                                'reason' => 'update failed'
-                            ];
-                        }
-                        break;
                 }
             } else {
-                // Student doesn't exist
+                // Student doesn't exist - create new account
                 $result = createStudentRecord($row, $pageType, $selectedDepartmentId, $selectedProgramId, $connection, $sendNotifications);
-                if ($result) {
+                if ($result && is_array($result) && isset($result['credentials'])) {
+                    // New account created with credentials
+                    $imported++;
+                    $credentials[] = $result['credentials'];
+                    $rowsOutcomes[] = [
+                        'rowNumber' => $rowNumber,
+                        'student_number' => $row['student_number'],
+                        'action' => 'imported'
+                    ];
+                } elseif ($result === true) {
+                    // Account existed (updated existing user)
                     $imported++;
                     $rowsOutcomes[] = [
                         'rowNumber' => $rowNumber,
@@ -1365,7 +1589,8 @@ function processStudentImport($data, $pageType, $selectedDepartmentId, $selected
         'updated' => $updated,
         'skipped' => $skipped,
         'errors' => $errors,
-        'rows' => $rowsOutcomes
+        'rows' => $rowsOutcomes,
+        'credentials' => $credentials
     ];
 }
 
@@ -1373,12 +1598,13 @@ function createStudentRecord($data, $pageType, $selectedDepartmentId, $selectedP
     try {
         $username = $data['student_number'];
         $accountStatus = 'active';
+        $credentials = null; // Will contain username and unhashed password for new accounts
         
         // Check for existing user by username (student_number)
         $stmt = $connection->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
         $stmt->execute([$username]);
         $existingUserId = $stmt->fetchColumn();
-        
+
         if ($existingUserId) {
             $userId = (int)$existingUserId;
             // Safeguard email: if provided email is used by another user, null it
@@ -1390,7 +1616,7 @@ function createStudentRecord($data, $pageType, $selectedDepartmentId, $selectedP
                     $emailToUse = null;
                 }
             }
-            $upd = $connection->prepare("UPDATE users SET email = COALESCE(?, email), first_name = ?, last_name = ?, middle_name = ?, contact_number = ?, status = ?, updated_at = NOW() WHERE user_id = ?");
+            $upd = $connection->prepare("UPDATE users SET email = COALESCE(?, email), first_name = ?, last_name = ?, middle_name = ?, contact_number = ?, account_status = ?, updated_at = NOW() WHERE user_id = ?");
             $upd->execute([
                 $emailToUse,
                 $data['first_name'],
@@ -1402,9 +1628,20 @@ function createStudentRecord($data, $pageType, $selectedDepartmentId, $selectedP
             ]);
         } else {
             // Create user account first (email conflict-safe)
-            // Generate default password (LastName + StudentNumber) - same as addUsers.php
-            $defaultPasswordPlain = ($data['last_name'] ?? '') . ($data['student_number'] ?? '');
+            // Generate password: [last_name] + [student_number]
+            $lastName = trim($data['last_name'] ?? '');
+            $studentNumber = trim($data['student_number'] ?? '');
+            $defaultPasswordPlain = $lastName . $studentNumber;
             $defaultPassword = password_hash($defaultPasswordPlain, PASSWORD_DEFAULT);
+            
+            // Store credentials for file generation (unhashed password + name components)
+            $credentials = [
+                'username' => $username,
+                'password' => $defaultPasswordPlain,
+                'first_name' => trim($data['first_name'] ?? ''),
+                'middle_name' => trim($data['middle_name'] ?? ''),
+                'last_name' => trim($data['last_name'] ?? '')
+            ];
             
             // Ensure email uniqueness on create
             $emailToUse = $data['email'] ?? null;
@@ -1417,7 +1654,7 @@ function createStudentRecord($data, $pageType, $selectedDepartmentId, $selectedP
             }
             
             $stmt = $connection->prepare("
-                INSERT INTO users (username, password, email, first_name, last_name, middle_name, contact_number, status, created_at, updated_at)
+                INSERT INTO users (username, password, email, first_name, last_name, middle_name, contact_number, account_status, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
             ");
             
@@ -1468,7 +1705,8 @@ function createStudentRecord($data, $pageType, $selectedDepartmentId, $selectedP
             logImportActivity('student_notification', 1, 1, 0, 0);
         }
         
-        return true;
+        // Return true if no credentials (updated existing), or credentials array if new account
+        return $credentials !== null ? ['success' => true, 'credentials' => $credentials] : true;
         
     } catch (Exception $e) {
         throw new Exception('Failed to create student record: ' . $e->getMessage());

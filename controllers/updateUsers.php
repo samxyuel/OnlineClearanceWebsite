@@ -165,6 +165,59 @@ try {
             $stmt = $pdo->prepare("UPDATE students SET " . implode(', ', $updateFields) . " WHERE user_id = ?");
             $stmt->execute($updateParams);
         }
+        
+        // ============================================
+        // AUTO-REACTIVATION LOGIC FOR GRADUATED STUDENTS
+        // ============================================
+        // If a graduated student's details are being updated (sector, department, program, year_level, section),
+        // automatically reactivate their account by changing account_status from 'graduated' to 'active'
+        
+        // Check if student is currently graduated
+        $checkGraduatedStmt = $pdo->prepare("SELECT account_status FROM users WHERE user_id = ?");
+        $checkGraduatedStmt->execute([$targetUserId]);
+        $currentAccountStatus = $checkGraduatedStmt->fetchColumn();
+        
+        // Check if any student-specific fields are being updated
+        $studentFieldsBeingUpdated = !empty($studentUpdateData);
+        $hasRelevantUpdate = false;
+        
+        if ($studentFieldsBeingUpdated) {
+            // Check if any of these fields are being updated: department_id, program_id, year_level, section
+            // Also check if sector might change (via department change)
+            $relevantFields = ['department_id', 'program_id', 'year_level', 'section'];
+            foreach ($relevantFields as $field) {
+                if (isset($studentUpdateData[$field])) {
+                    $hasRelevantUpdate = true;
+                    break;
+                }
+            }
+        }
+        
+        // If student is graduated AND relevant fields are being updated, reactivate
+        if ($currentAccountStatus === 'graduated' && $hasRelevantUpdate) {
+            // Update account_status to 'active'
+            $reactivateStmt = $pdo->prepare("UPDATE users SET account_status = 'active' WHERE user_id = ?");
+            $reactivateStmt->execute([$targetUserId]);
+            
+            // Log the reactivation
+            $logStmt = $pdo->prepare("
+                INSERT INTO user_activities (user_id, activity_type, activity_details, ip_address, user_agent) 
+                VALUES (?, 'student_auto_reactivated', ?, ?, ?)
+            ");
+            $logStmt->execute([
+                $targetUserId,
+                json_encode([
+                    'action' => 'auto_reactivated_from_graduated',
+                    'student_id' => $targetUserId,
+                    'updated_by' => $actingUserId,
+                    'updated_fields' => array_keys($studentUpdateData),
+                    'reason' => 'Student details updated (sector, department, program, year level, or section changed)',
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]),
+                $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+                $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+            ]);
+        }
     } elseif ($type === 'faculty') {
         // This part would be for a FacultyEditModal.php if it existed and used this controller
         // For now, assuming only student updates are handled by this specific request context.
