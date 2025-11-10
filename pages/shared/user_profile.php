@@ -19,7 +19,12 @@ $firstName = isset($_SESSION['first_name']) ? trim($_SESSION['first_name']) : ''
 $middleName = isset($_SESSION['middle_name']) ? trim($_SESSION['middle_name']) : '';
 $lastName = isset($_SESSION['last_name']) ? trim($_SESSION['last_name']) : '';
 $email = isset($_SESSION['email']) ? trim($_SESSION['email']) : '';
-$phone = isset($_SESSION['phone']) ? trim($_SESSION['phone']) : '';
+$phone = '';
+if (isset($_SESSION['contact_number'])) {
+    $phone = trim($_SESSION['contact_number']);
+} elseif (isset($_SESSION['phone'])) {
+    $phone = trim($_SESSION['phone']);
+}
 $roleId = isset($_SESSION['role_id']) ? $_SESSION['role_id'] : null;
 
 // Construct display name
@@ -71,87 +76,13 @@ if (!empty($_SESSION['role_name'])) {
 
 if ($currentRole === null) { $currentRole = 'student'; }
 
-// Fetch additional user data based on role
-$userData = [];
-$accountStatus = 'Active'; // Default
-$lastLogin = 'Never'; // Default
-
-try {
-    $pdo = Database::getInstance()->getConnection();
-    
-    // Get account status and last login
-    $stmt = $pdo->prepare("SELECT is_active, last_login FROM users WHERE user_id = ?");
-    $stmt->execute([$userId]);
-    $userInfo = $stmt->fetch(PDO::FETCH_ASSOC);
-    $isActive = $userInfo['is_active'];
-    $accountStatus = $isActive ? 'Active' : 'Inactive';
-    $lastLogin = $userInfo['last_login'] ? date('M d, Y H:i', strtotime($userInfo['last_login'])) : 'Never';
-    
-    // Role-specific data fetching
-    switch ($currentRole) {
-        case 'admin':
-            // Admin doesn't need additional data from other tables
-            // Admin data comes from users table and session
-            break;
-            
-        case 'student':
-            // Fetch student data
-            $stmt = $pdo->prepare("
-                SELECT s.student_number, s.year_level, s.section_number, 
-                       sec.sector_name, d.department_name, p.program_name
-                FROM students s 
-                LEFT JOIN departments d ON s.department_id = d.department_id
-                LEFT JOIN sectors sec ON d.sector_id = sec.sector_id
-                LEFT JOIN programs p ON s.program_id = p.program_id
-                WHERE s.user_id = ?
-            ");
-            $stmt->execute([$userId]);
-            $studentData = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($studentData) {
-                $userData = array_merge($userData, $studentData);
-            }
-            break;
-            
-        case 'faculty':
-            // Fetch faculty data
-            $stmt = $pdo->prepare("
-                SELECT f.employee_number, f.employment_status, f.employment_date,
-                       sec.sector_name, d.department_name
-                FROM faculty f 
-                LEFT JOIN departments d ON f.department_id = d.department_id
-                LEFT JOIN sectors sec ON d.sector_id = sec.sector_id
-                WHERE f.user_id = ?
-            ");
-            $stmt->execute([$userId]);
-            $facultyData = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($facultyData) {
-                $userData = array_merge($userData, $facultyData);
-            }
-            break;
-            
-        case 'staff':
-        case 'school_admin':
-        case 'program_head':
-            // Fetch staff data
-            $stmt = $pdo->prepare("
-                SELECT s.employee_number, s.designation, s.employment_date,
-                       sec.sector_name, d.department_name
-                FROM staff s 
-                LEFT JOIN departments d ON s.department_id = d.department_id
-                LEFT JOIN sectors sec ON d.sector_id = sec.sector_id
-                WHERE s.user_id = ?
-            ");
-            $stmt->execute([$userId]);
-            $staffData = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($staffData) {
-                $userData = array_merge($userData, $staffData);
-            }
-            break;
-    }
-} catch (Exception $e) {
-    // Handle database errors gracefully
-    error_log("Profile data fetch error: " . $e->getMessage());
+// Placeholders (values will be hydrated via profile API)
+$displayName = trim($displayName);
+if ($displayName === '') {
+    $displayName = 'Loading...';
 }
+$accountStatus = 'Loading...';
+$lastLogin = 'Loading...';
 
 // Role display names
 $roleDisplayNames = [
@@ -193,21 +124,21 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
                 <i class="fas fa-user"></i>
             </div>
             <div class="user-info">
-                <h1 class="user-name"><?php echo htmlspecialchars($displayName); ?></h1>
+                <h1 class="user-name" id="profileUserName"><?php echo htmlspecialchars($displayName); ?></h1>
                 <div class="last-login-indicator">
                     <i class="fas fa-clock"></i>
                     <span class="last-login-label">Last Login:</span>
-                    <span class="last-login-value"><?php echo htmlspecialchars($lastLogin); ?></span>
+                    <span class="last-login-value" id="lastLoginValue"><?php echo htmlspecialchars($lastLogin); ?></span>
                 </div>
             </div>
             
             <div class="header-actions">
                 <div class="status-info">
-                <span class="account-status-badge status-<?php echo strtolower($accountStatus); ?>">
+                <span class="account-status-badge status-loading" id="accountStatusBadge" data-status="loading">
                         <i class="fas fa-shield-alt"></i>
-                        <?php echo htmlspecialchars($accountStatus); ?>
+                        <span id="accountStatusLabel">Loading...</span>
                     </span>
-                    <span class="role-badge role-<?php echo $currentRole; ?>">
+                    <span class="role-badge role-<?php echo htmlspecialchars($currentRole); ?>" id="roleBadge">
                         <?php echo htmlspecialchars($currentRoleDisplay); ?>
                     </span>  
                 </div>
@@ -240,12 +171,12 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
                     Edit Profile
                 </button>
             </div>
-            <!-- Personal Information Card -->
+            <!-- User Information Card -->
             <div class="info-card">
                 <div class="card-header">
                     <div class="card-header-left">
                         <i class="fas fa-user"></i>
-                        <h3>Personal Information</h3>
+                        <h3>User Information</h3>
                     </div>
                     <div class="card-header-right">
                         <!-- <span class="role-badge role-< ?php echo $currentRole; ?>">
@@ -258,9 +189,9 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
                     <div class="info-item">
                         <span class="label">Full Name:</span>
                         <?php if ($currentRole === 'admin'): ?>
-                            <span class="value editable" data-field="full_name" contenteditable="false"><?php echo htmlspecialchars($displayName); ?></span>
+                            <span class="value editable" data-field="profile.full_name" data-field-edit="full_name" contenteditable="false">Loading...</span>
                         <?php else: ?>
-                            <span class="value"><?php echo htmlspecialchars($displayName); ?></span>
+                            <span class="value" data-field="profile.full_name">Loading...</span>
                         <?php endif; ?>
                     </div>
                     
@@ -268,49 +199,63 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
                     <?php if ($currentRole === 'student'): ?>
                         <div class="info-item">
                             <span class="label">Student Number:</span>
-                            <span class="value"><?php echo htmlspecialchars($userData['student_number'] ?? 'N/A'); ?></span>
+                            <span class="value" data-field="profile.student_number">N/A</span>
                         </div>
                     <?php else: ?>
                         <div class="info-item">
                             <span class="label">Employee Number:</span>
-                            <span class="value"><?php echo htmlspecialchars($userData['employee_number'] ?? 'N/A'); ?></span>
+                            <span class="value" data-field="profile.employee_number">N/A</span>
                         </div>
                     <?php endif; ?>
                     
                     <!-- Email - Editable for all users -->
                     <div class="info-item">
                         <span class="label">Email:</span>
-                        <span class="value editable" data-field="email" contenteditable="false"><?php echo htmlspecialchars($email); ?></span>
+                        <span class="value editable" data-field="profile.email" data-field-edit="email" contenteditable="false">Loading...</span>
                     </div>
                     
                     <!-- Phone Number - Editable for all users -->
                     <div class="info-item">
                         <span class="label">Phone Number:</span>
-                        <span class="value editable" data-field="phone" contenteditable="false"><?php echo htmlspecialchars($phone); ?></span>
+                        <span class="value editable" data-field="profile.contact_number" data-field-edit="contact_number" contenteditable="false">N/A</span>
                     </div>
+                    
+                    <?php if ($currentRole === 'admin'): ?>
+                        <div class="info-item">
+                            <span class="label">Last Login:</span>
+                            <span class="value last-login-value" data-last-login-field="profile.last_login" data-fallback="Never">Never</span>
+                        </div>
+                    <?php endif; ?>
                     
                     <?php if ($currentRole === 'faculty'): ?>
                         <div class="info-item">
                             <span class="label">Employment Status:</span>
-                            <span class="value status-badge <?php echo strtolower(str_replace(' ', '-', $userData['employment_status'] ?? 'N/A')); ?>">
-                                <?php echo htmlspecialchars($userData['employment_status'] ?? 'N/A'); ?>
-                            </span>
+                            <span class="value status-badge" data-field="profile.employment_status" data-fallback="N/A">N/A</span>
                         </div>
                     <?php endif; ?>
                     <?php if (in_array($currentRole, ['staff', 'school_admin', 'program_head'])): ?>
                         <div class="info-item">
                             <span class="label">Designation:</span>
-                            <span class="value"><?php echo htmlspecialchars($userData['designation'] ?? 'N/A'); ?></span>
+                            <span class="value" data-field="profile.designation" data-fallback="N/A">N/A</span>
                         </div>
                     <?php endif; ?>
                     <?php if (in_array($currentRole, ['admin', 'faculty', 'staff', 'school_admin', 'program_head'])): ?>
                         <div class="info-item">
                             <span class="label">Employment Date:</span>
                             <?php if (in_array($currentRole, ['admin', 'staff', 'school_admin', 'program_head'])): ?>
-                                <span class="value editable" data-field="employment_date" contenteditable="false"><?php echo isset($userData['employment_date']) ? date('M d, Y', strtotime($userData['employment_date'])) : 'N/A'; ?></span>
+                                <span class="value editable" data-field="profile.employment_date" data-field-edit="employment_date" data-fallback="N/A" contenteditable="false">N/A</span>
                             <?php else: ?>
-                                <span class="value"><?php echo isset($userData['employment_date']) ? date('M d, Y', strtotime($userData['employment_date'])) : 'N/A'; ?></span>
+                                <span class="value" data-field="profile.employment_date" data-fallback="N/A">N/A</span>
                             <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($currentRole === 'program_head'): ?>
+                        <div class="info-item program-head-scope">
+                            <span class="label">Department Handled:</span>
+                            <span class="value scope-value" data-scope-field="profile.department" data-fallback="Not Assigned">
+                                <i class="fas fa-shield-alt"></i>
+                                <span class="scope-text">Not Assigned</span>
+                            </span>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -331,31 +276,25 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
                     <?php if ($currentRole === 'student'): ?>
                         <div class="info-item">
                             <span class="label">Year Level:</span>
-                            <span class="value"><?php echo htmlspecialchars($userData['year_level'] ?? 'N/A'); ?></span>
+                            <span class="value" data-field="profile.year_level">N/A</span>
                         </div>
                         <div class="info-item">
                             <span class="label">Section:</span>
-                            <span class="value"><?php echo htmlspecialchars($userData['section_number'] ?? 'N/A'); ?></span>
+                            <span class="value" data-field="profile.section">N/A</span>
                         </div>
                     <?php endif; ?>
                     <div class="info-item">
                         <span class="label">Sector:</span>
-                        <span class="value"><?php echo htmlspecialchars($userData['sector_name'] ?? 'N/A'); ?></span>
+                        <span class="value" data-field="profile.sector">N/A</span>
                     </div>
                     <div class="info-item">
                         <span class="label">Department:</span>
-                        <span class="value"><?php echo htmlspecialchars($userData['department_name'] ?? 'N/A'); ?></span>
+                        <span class="value" data-field="profile.department">N/A</span>
                     </div>
                     <?php if ($currentRole === 'student'): ?>
                         <div class="info-item">
                             <span class="label">Program:</span>
-                            <span class="value"><?php echo htmlspecialchars($userData['program_name'] ?? 'N/A'); ?></span>
-                        </div>
-                    <?php endif; ?>
-                    <?php if ($currentRole === 'program_head'): ?>
-                        <div class="info-item">
-                            <span class="label">Department Handled:</span>
-                            <span class="value"><?php echo htmlspecialchars($userData['department_name'] ?? 'N/A'); ?></span>
+                            <span class="value" data-field="profile.program">N/A</span>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -509,6 +448,201 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
     </div>
 
     <script>
+        const PROFILE_API_URL = '../../api/profile_info.php';
+        let profileDataCache = null;
+
+        function getValueByPath(obj, path) {
+            if (!obj || !path) return undefined;
+            return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
+        }
+
+        function formatDateTime(value) {
+            if (!value) return 'Never';
+            const parsed = value.includes('T') ? new Date(value) : new Date(value.replace(' ', 'T'));
+            if (Number.isNaN(parsed.getTime())) return value;
+            return new Intl.DateTimeFormat('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).format(parsed);
+        }
+
+        function formatDate(value) {
+            if (!value) return null;
+            const parsed = value.includes('T') ? new Date(value) : new Date(value);
+            if (Number.isNaN(parsed.getTime())) {
+                return value;
+            }
+            return new Intl.DateTimeFormat('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit'
+            }).format(parsed);
+        }
+
+        function setTextContent(selectorOrElement, value, fallback = 'N/A') {
+            const el = typeof selectorOrElement === 'string'
+                ? document.querySelector(selectorOrElement)
+                : selectorOrElement;
+            if (!el) return;
+            const finalValue = value === null || value === undefined || value === '' ? fallback : value;
+            el.textContent = finalValue;
+        }
+
+        function setFieldValue(path, value) {
+            document.querySelectorAll(`[data-field="${path}"]`).forEach(el => {
+                const fallback = el.dataset.fallback || 'N/A';
+                setTextContent(el, value, fallback);
+            });
+        }
+
+        function updateAccountStatusBadge(accountStatus) {
+            const badge = document.getElementById('accountStatusBadge');
+            const label = document.getElementById('accountStatusLabel') || badge;
+            if (!badge) return;
+
+            const statusLabel = (accountStatus && (accountStatus.label || accountStatus.raw || accountStatus)) || 'Unknown';
+            const statusKey = (accountStatus && (accountStatus.raw || accountStatus.label || accountStatus))
+                ? String(accountStatus.raw || accountStatus.label || accountStatus).toLowerCase().replace(/\s+/g, '-')
+                : 'unknown';
+
+            badge.className = `account-status-badge status-${statusKey}`;
+            badge.setAttribute('data-status', statusKey);
+            setTextContent(label, statusLabel, 'Unknown');
+        }
+
+        function updateRoleBadge(role) {
+            const badge = document.getElementById('roleBadge');
+            if (!badge) return;
+            const roleLabel = role?.label || 'User';
+            const roleKey = role?.key || roleLabel.toLowerCase().replace(/\s+/g, '_');
+            badge.className = `role-badge role-${roleKey}`;
+            setTextContent(badge, roleLabel, 'User');
+        }
+
+        function buildDisplayName(profile, user) {
+            if (profile?.full_name) return profile.full_name;
+            const parts = [
+                user?.first_name,
+                user?.middle_name,
+                user?.last_name
+            ].filter(Boolean);
+            return parts.length ? parts.join(' ') : 'User';
+        }
+
+        async function loadProfileData() {
+            try {
+                const response = await fetch(PROFILE_API_URL, {
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load profile data (HTTP ${response.status})`);
+                }
+
+                const payload = await response.json();
+                if (!payload.success || !payload.data) {
+                    throw new Error(payload.error || 'Profile data unavailable.');
+                }
+
+                profileDataCache = payload.data;
+                populateProfile(payload.data);
+            } catch (error) {
+                console.error('Error loading profile data:', error);
+                showProfileLoadError(error.message);
+            }
+        }
+
+        function populateProfile(data) {
+            const user = data.user || {};
+            const profile = data.profile || {};
+            const role = data.role || {};
+
+            const displayName = buildDisplayName(profile, user);
+            setTextContent('#profileUserName', displayName, 'User');
+            setFieldValue('profile.full_name', displayName);
+
+            updateAccountStatusBadge(profile.account_status);
+            updateRoleBadge(role);
+
+            setTextContent('#lastLoginValue', formatDateTime(profile.last_login));
+
+            setFieldValue('profile.student_number', profile.student_number);
+            setFieldValue('profile.year_level', profile.year_level);
+            setFieldValue('profile.section', profile.section);
+            setFieldValue('profile.sector', profile.sector);
+            setFieldValue('profile.department', profile.department);
+            setFieldValue('profile.program', profile.program);
+            setFieldValue('profile.email', profile.email);
+            setFieldValue('profile.contact_number', profile.contact_number);
+            setFieldValue('profile.employee_number', profile.employee_number);
+            setFieldValue('profile.employment_status', profile.employment_status);
+            setFieldValue('profile.employment_date', formatDate(profile.employment_date));
+            setFieldValue('profile.designation', profile.designation);
+            const scopeElements = document.querySelectorAll('.scope-value');
+            console.debug('[Profile] Program head scope elements:', scopeElements);
+            document.querySelectorAll('.scope-value').forEach(el => {
+                const textEl = el.querySelector('.scope-text');
+                const fallback = el.dataset.fallback || 'Not Assigned';
+                const department = profile.department;
+                const scopeText = department ? department : fallback;
+                console.debug('[Profile] Setting department handled text:', { department, scopeText, el });
+                if (textEl) {
+                    textEl.textContent = scopeText;
+                } else {
+                    setTextContent(el, scopeText, fallback);
+                }
+            });
+
+            document.querySelectorAll('.last-login-value').forEach(el => {
+                const fallback = el.dataset.fallback || 'Never';
+                const formatted = formatDateTime(profile.last_login);
+                console.debug('[Profile] Admin last login formatted:', { raw: profile.last_login, formatted });
+                el.textContent = formatted || fallback;
+            });
+
+        console.group('Profile API');
+        console.debug('Profile role-specific data:', data.role_specific);
+        console.log('Profile data snapshot:', data);
+        console.groupEnd();
+
+            setEditableFieldBaseline();
+        }
+
+        function showProfileLoadError(message) {
+            setTextContent('#profileUserName', 'Unable to load profile', 'Error');
+            setTextContent('#accountStatusLabel', 'Unavailable', 'Unavailable');
+            setTextContent('#lastLoginValue', 'Unavailable', 'Unavailable');
+            document.querySelectorAll('[data-field]').forEach(el => {
+                const fallback = el.dataset.fallback || 'N/A';
+                setTextContent(el, fallback, fallback);
+            });
+
+            const errorBanner = document.createElement('div');
+            errorBanner.className = 'profile-error-banner';
+            errorBanner.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>${message}</span>
+            `;
+            document.querySelector('.profile-container')?.prepend(errorBanner);
+        }
+
+        function getEditableFieldName(field) {
+            return field.dataset.fieldEdit || field.dataset.field || field.getAttribute('data-field');
+        }
+
+        function setEditableFieldBaseline() {
+            document.querySelectorAll('.info-item .value.editable').forEach(field => {
+                field.dataset.originalValue = field.textContent.trim();
+                field.classList.remove('changed');
+            });
+        }
+
         // Tab switching functionality - Global scope
         window.switchTab = function(tabName) {
             console.log('Switching to tab:', tabName); // Debug log
@@ -571,10 +705,11 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
             const editableFields = document.querySelectorAll('.admin-editable .value.editable');
             
             editableFields.forEach(field => {
-                let originalValue = field.textContent.trim();
+                const originalValue = field.textContent.trim();
+                field.dataset.originalValue = originalValue;
                 
                 field.addEventListener('input', function() {
-                    if (this.textContent.trim() !== originalValue) {
+                    if (this.textContent.trim() !== this.dataset.originalValue) {
                         this.classList.add('changed');
                     } else {
                         this.classList.remove('changed');
@@ -598,7 +733,7 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
         
         // Save admin field changes
         function saveAdminField(field) {
-            const fieldName = field.getAttribute('data-field');
+            const fieldName = getEditableFieldName(field);
             const newValue = field.textContent.trim();
             
             // Show loading state
@@ -699,6 +834,7 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
             
             initMobileEnhancements();
             initAdminEditing();
+            loadProfileData();
             initEditableFields();
             
             // Security questions form
@@ -726,12 +862,12 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
             console.log('Found editable fields:', editableFields.length); // Debug log
             
             editableFields.forEach(field => {
-                let originalValue = field.textContent.trim();
+                field.dataset.originalValue = field.textContent.trim();
                 
                 field.addEventListener('input', function() {
-                    if (this.textContent.trim() !== originalValue) {
+                    if (this.textContent.trim() !== this.dataset.originalValue) {
                         this.classList.add('changed');
-                        console.log('Field changed:', this.getAttribute('data-field')); // Debug log
+                        console.log('Field changed:', getEditableFieldName(this)); // Debug log
                     } else {
                         this.classList.remove('changed');
                     }
@@ -739,7 +875,7 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
                 
                 field.addEventListener('blur', function() {
                     if (this.classList.contains('changed')) {
-                        console.log('Field blurred with changes:', this.getAttribute('data-field')); // Debug log
+                        console.log('Field blurred with changes:', getEditableFieldName(this)); // Debug log
                     }
                 });
             });

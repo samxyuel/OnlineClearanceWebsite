@@ -36,6 +36,12 @@ try {
         $search = isset($_GET['search']) ? trim($_GET['search']) : '';
         $includeFilters = isset($_GET['include_filters']);
 
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $limit = ($scope === 'resigned')
+            ? min(100, max(5, (int) ($_GET['limit'] ?? 10)))
+            : 500;
+        $offset = ($page - 1) * $limit;
+
         $facultyRoleStmt = $pdo->prepare("SELECT role_id FROM roles WHERE LOWER(role_name) = :roleName LIMIT 1");
         $facultyRoleStmt->execute([':roleName' => 'faculty']);
         $facultyRoleId = $facultyRoleStmt->fetchColumn();
@@ -96,8 +102,19 @@ try {
                 {$whereSql}
                 ORDER BY u.last_name, u.first_name";
 
+        if ($scope === 'resigned') {
+            $sql .= " LIMIT :limit OFFSET :offset";
+        }
+
         $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+        if ($scope === 'resigned') {
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        }
+        $stmt->execute();
         $facultyRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $faculty = array_map(function ($row) {
@@ -107,10 +124,33 @@ try {
             return $row;
         }, $facultyRows);
 
+        $total = count($faculty);
+        $totalPages = 1;
+        if ($scope === 'resigned') {
+            $countSql = "SELECT COUNT(*)
+                FROM faculty f
+                INNER JOIN users u ON u.user_id = f.user_id
+                INNER JOIN user_roles ur ON ur.user_id = u.user_id AND ur.role_id = :facultyRoleId
+                LEFT JOIN departments d ON d.department_id = f.department_id
+                {$whereSql}";
+
+            $countStmt = $pdo->prepare($countSql);
+            foreach ($params as $key => $value) {
+                $countStmt->bindValue($key, $value);
+            }
+            $countStmt->execute();
+            $total = (int) $countStmt->fetchColumn();
+            $totalPages = max(1, (int) ceil($total / $limit));
+
+        }
+
         $responseData = [
             'faculty' => $faculty,
             'meta' => [
-                'total' => count($faculty)
+                'total' => $total,
+                'page' => $page,
+                'limit' => $limit,
+                'total_pages' => $totalPages
             ]
         ];
 

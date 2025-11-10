@@ -72,6 +72,7 @@ try {
         $departmentId = $_GET['department_id'] ?? '';
         $programId = $_GET['program_id'] ?? '';
         $yearLevel = $_GET['year_level'] ?? '4th Year'; // Default to 4th Year for graduation eligibility
+        $includeFilters = isset($_GET['include_filters']);
 
         // Build where conditions
         // Note: enrollment_status column doesn't exist in students table
@@ -197,6 +198,63 @@ try {
             error_log("Existing year levels for {$sector}: " . print_r($existingYearLevels, true));
         }
 
+        $filtersAvailable = [
+            'departments' => [],
+            'programs' => [],
+            'year_levels' => []
+        ];
+
+        if ($includeFilters) {
+            $filtersParams = $params;
+
+            $deptSql = "
+                SELECT DISTINCT s.department_id, COALESCE(d.department_name, 'Unassigned Department') AS department_name
+                FROM students s
+                JOIN users u ON s.user_id = u.user_id
+                LEFT JOIN departments d ON s.department_id = d.department_id
+                {$whereClause}
+                ORDER BY department_name ASC
+            ";
+            $deptStmt = $pdo->prepare($deptSql);
+            $deptStmt->execute($filtersParams);
+            $filtersAvailable['departments'] = array_map(function ($row) {
+                return [
+                    'value' => (string) ($row['department_id'] ?? ''),
+                    'label' => $row['department_name'] ?? 'Unassigned Department'
+                ];
+            }, $deptStmt->fetchAll(PDO::FETCH_ASSOC));
+
+            $programSql = "
+                SELECT DISTINCT s.program_id, COALESCE(p.program_name, 'Unassigned Program') AS program_name
+                FROM students s
+                JOIN users u ON s.user_id = u.user_id
+                LEFT JOIN programs p ON s.program_id = p.program_id
+                {$whereClause}
+                ORDER BY program_name ASC
+            ";
+            $programStmt = $pdo->prepare($programSql);
+            $programStmt->execute($filtersParams);
+            $filtersAvailable['programs'] = array_map(function ($row) {
+                return [
+                    'value' => (string) ($row['program_id'] ?? ''),
+                    'label' => $row['program_name'] ?? 'Unassigned Program'
+                ];
+            }, $programStmt->fetchAll(PDO::FETCH_ASSOC));
+
+            $yearLevelSql = "
+                SELECT DISTINCT s.year_level
+                FROM students s
+                JOIN users u ON s.user_id = u.user_id
+                {$whereClause}
+                ORDER BY s.year_level ASC
+            ";
+            $yearStmt = $pdo->prepare($yearLevelSql);
+            $yearStmt->execute($filtersParams);
+            $filtersAvailable['year_levels'] = array_map(function ($row) {
+                return $row['year_level'];
+            }, $yearStmt->fetchAll(PDO::FETCH_ASSOC));
+        }
+
         // Get statistics
         $statsSql = "
             SELECT 
@@ -220,6 +278,7 @@ try {
             'limit' => $limit,
             'total_pages' => ceil($total / $limit),
             'stats' => $stats,
+            'filters_available' => $filtersAvailable,
             'filters' => [
                 'year_level' => $yearLevel,
                 'sector' => $sector,

@@ -508,6 +508,7 @@ if (session_status() == PHP_SESSION_NONE) {
                                                             </tbody>
                                                         </table>
                                                     </div>
+                                                    <div class="table-pagination" id="graduatedCollegePagination"></div>
                                                 </div>
                                             </div>
                                         </section>
@@ -570,6 +571,7 @@ if (session_status() == PHP_SESSION_NONE) {
                                                             </tbody>
                                                         </table>
                                                     </div>
+                                                    <div class="table-pagination" id="graduatedShsPagination"></div>
                                                 </div>
                                             </div>
                                         </section>
@@ -646,6 +648,7 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </tbody>
                                                 </table>
                                             </div>
+                                            <div class="table-pagination" id="resignedFacultyPagination"></div>
                                         </div>
                                     </div>
                                 </section>
@@ -787,12 +790,16 @@ if (session_status() == PHP_SESSION_NONE) {
             college: {
                 label: 'College',
                 allStudents: [],
-                filters: { department: '', program: '', yearLevel: '' }
+                filters: { department: '', program: '', yearLevel: '' },
+                filtersAvailable: null,
+                pagination: { page: 1, totalPages: 1, total: 0, limit: 10 }
             },
             shs: {
                 label: 'Senior High School',
                 allStudents: [],
-                filters: { department: '', program: '', yearLevel: '' }
+                filters: { department: '', program: '', yearLevel: '' },
+                filtersAvailable: null,
+                pagination: { page: 1, totalPages: 1, total: 0, limit: 10 }
             }
         };
 
@@ -802,7 +809,8 @@ if (session_status() == PHP_SESSION_NONE) {
             resignedFaculty: [],
             filters: { department: '', employment: '', account: '' },
             options: { departments: [], employment_statuses: [], account_statuses: [] },
-            currentResignedIds: new Set()
+            currentResignedIds: new Set(),
+            pagination: { page: 1, totalPages: 1, total: 0, limit: 10 }
         };
 
         const resignedFacultySelectionState = {
@@ -836,7 +844,8 @@ if (session_status() == PHP_SESSION_NONE) {
                         select.addEventListener('change', () => {
                             const key = filterKey === 'YearLevel' ? 'yearLevel' : filterKey.toLowerCase();
                             graduatedStudentsState[sector].filters[key] = select.value;
-                            renderGraduatedStudentsTable(sector);
+                            graduatedStudentsState[sector].pagination.page = 1;
+                            loadGraduatedStudentsData(sector);
                         });
                     }
                 });
@@ -898,6 +907,15 @@ if (session_status() == PHP_SESSION_NONE) {
                 const params = new URLSearchParams();
                 params.append('sector', graduatedStudentsState[sector].label);
                 params.append('account_status', 'graduated');
+                const filters = graduatedStudentsState[sector].filters;
+                if (filters.department) params.append('department_id', filters.department);
+                if (filters.program) params.append('program_id', filters.program);
+                const defaultYearLevel = sector === 'shs' ? '2nd Year' : '4th Year';
+                params.append('year_level', filters.yearLevel || defaultYearLevel);
+                const pagination = graduatedStudentsState[sector].pagination || { page: 1, limit: 10 };
+                params.append('page', pagination.page);
+                params.append('limit', pagination.limit);
+                params.append('include_filters', '1');
 
                 const response = await fetch(`../../api/users/graduation_management.php?${params.toString()}`, {
                     method: 'GET',
@@ -914,8 +932,23 @@ if (session_status() == PHP_SESSION_NONE) {
                     throw new Error(data.message || 'Failed to load graduated students');
                 }
 
-                graduatedStudentsState[sector].allStudents = data.data?.students || [];
-                resetGraduatedFilters(sector);
+                const payload = data.data || {};
+                const meta = {
+                    page: Number(payload.page ?? pagination.page ?? 1),
+                    limit: Number(payload.limit ?? pagination.limit ?? 10),
+                    totalPages: Math.max(1, Number(payload.total_pages ?? 1)),
+                    total: Number(payload.total ?? 0)
+                };
+
+                if (meta.totalPages > 0 && meta.page > meta.totalPages && meta.total > 0) {
+                    graduatedStudentsState[sector].pagination.page = meta.totalPages;
+                    await loadGraduatedStudentsData(sector);
+                    return;
+                }
+
+                graduatedStudentsState[sector].pagination = meta;
+                graduatedStudentsState[sector].allStudents = payload.students || [];
+                graduatedStudentsState[sector].filtersAvailable = payload.filters_available || null;
                 populateGraduatedFilterOptions(sector);
                 renderGraduatedStudentsTable(sector);
                 updateGraduatedSummaryCounts();
@@ -929,6 +962,9 @@ if (session_status() == PHP_SESSION_NONE) {
 
         function resetGraduatedFilters(sector) {
             graduatedStudentsState[sector].filters = { department: '', program: '', yearLevel: '' };
+            if (graduatedStudentsState[sector].pagination) {
+                graduatedStudentsState[sector].pagination.page = 1;
+            }
             ['Department', 'Program', 'YearLevel'].forEach(filterKey => {
                 const select = document.getElementById(`graduated${capitalizeSectorKey(sector)}${filterKey}`);
                 if (select) {
@@ -938,6 +974,7 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         function populateGraduatedFilterOptions(sector) {
+            const filtersAvailable = graduatedStudentsState[sector].filtersAvailable;
             const students = graduatedStudentsState[sector].allStudents;
             const departmentSelect = document.getElementById(`graduated${capitalizeSectorKey(sector)}Department`);
             const programSelect = document.getElementById(`graduated${capitalizeSectorKey(sector)}Program`);
@@ -947,6 +984,22 @@ if (session_status() == PHP_SESSION_NONE) {
                 return;
             }
 
+            if (filtersAvailable) {
+                const departmentMap = new Map(
+                    (filtersAvailable.departments || []).map(opt => [opt.value, opt.label])
+                );
+                const programMap = new Map(
+                    (filtersAvailable.programs || []).map(opt => [opt.value, opt.label])
+                );
+                const yearLevels = filtersAvailable.year_levels || [];
+
+                setSelectOptions(departmentSelect, departmentMap, 'All Departments');
+                setSelectOptions(programSelect, programMap, 'All Programs');
+                setSelectOptions(yearLevelSelect, yearLevels.slice().sort((a, b) => a.localeCompare(b)), 'All Year Levels');
+                return;
+            }
+
+            // Fallback using current page data
             const departments = new Map();
             const programs = new Map();
             const yearLevels = new Set();
@@ -1016,6 +1069,7 @@ if (session_status() == PHP_SESSION_NONE) {
 
             const students = graduatedStudentsState[sector].allStudents;
             const filters = graduatedStudentsState[sector].filters;
+            const pagination = graduatedStudentsState[sector].pagination || { page: 1, totalPages: 1, total: students.length };
 
             const filteredStudents = students.filter(student => {
                 const departmentMatch = !filters.department || matchesStudentField(student, filters.department, ['department_id', 'department', 'department_name']);
@@ -1038,7 +1092,9 @@ if (session_status() == PHP_SESSION_NONE) {
                         </td>
                     </tr>
                 `;
-                updateGraduatedSectorCount(sector, students.length);
+                renderGraduatedPagination(sector);
+                const total = pagination.total || 0;
+                updateGraduatedSectorCount(sector, total);
                 return;
             }
 
@@ -1070,7 +1126,9 @@ if (session_status() == PHP_SESSION_NONE) {
             }).join('');
 
             tableBody.innerHTML = rowsHtml;
-            updateGraduatedSectorCount(sector, students.length);
+            renderGraduatedPagination(sector);
+            const total = pagination.total || filteredStudents.length;
+            updateGraduatedSectorCount(sector, total);
         }
 
         function matchesStudentField(student, filterValue, fields) {
@@ -1130,20 +1188,112 @@ if (session_status() == PHP_SESSION_NONE) {
                     </td>
                 </tr>
             `;
+            if (graduatedStudentsState[sector].pagination) {
+                graduatedStudentsState[sector].pagination.total = 0;
+                graduatedStudentsState[sector].pagination.totalPages = 1;
+                graduatedStudentsState[sector].pagination.page = 1;
+            }
+            renderGraduatedPagination(sector);
             updateGraduatedSectorCount(sector, 0);
+        }
+
+        function renderGraduatedPagination(sector) {
+            const container = document.getElementById(`graduated${capitalizeSectorKey(sector)}Pagination`);
+            if (!container) {
+                return;
+            }
+
+            const pagination = graduatedStudentsState[sector].pagination;
+            if (!pagination || pagination.totalPages <= 1 || pagination.total === 0) {
+                container.style.display = 'none';
+                container.innerHTML = '';
+                return;
+            }
+
+            const { page, totalPages, total } = pagination;
+            const prevDisabled = page <= 1 ? 'disabled' : '';
+            const nextDisabled = page >= totalPages ? 'disabled' : '';
+
+            container.style.display = 'flex';
+            container.innerHTML = `
+                <div class="pagination-controls">
+                    <button class="pagination-btn" ${prevDisabled} onclick="changeGraduatedPage('${sector}', ${page - 1})">Prev</button>
+                    <span class="pagination-info">Page ${page} of ${totalPages}</span>
+                    <button class="pagination-btn" ${nextDisabled} onclick="changeGraduatedPage('${sector}', ${page + 1})">Next</button>
+                </div>
+                <div class="pagination-summary">${total} total</div>
+            `;
+        }
+
+        function changeGraduatedPage(sector, newPage) {
+            const pagination = graduatedStudentsState[sector].pagination;
+            if (!pagination) {
+                return;
+            }
+
+            if (newPage < 1 || newPage > pagination.totalPages || newPage === pagination.page) {
+                return;
+            }
+
+            graduatedStudentsState[sector].pagination.page = newPage;
+            loadGraduatedStudentsData(sector);
+        }
+
+        function renderResignedPagination() {
+            const container = document.getElementById('resignedFacultyPagination');
+            if (!container) {
+                return;
+            }
+
+            const pagination = resignedFacultyState.pagination;
+            if (!pagination || pagination.totalPages <= 1 || pagination.total === 0) {
+                container.style.display = 'none';
+                container.innerHTML = '';
+                return;
+            }
+
+            const { page, totalPages, total } = pagination;
+            const prevDisabled = page <= 1 ? 'disabled' : '';
+            const nextDisabled = page >= totalPages ? 'disabled' : '';
+
+            container.style.display = 'flex';
+            container.innerHTML = `
+                <div class="pagination-controls">
+                    <button class="pagination-btn" ${prevDisabled} onclick="changeResignedFacultyPage(${page - 1})">Prev</button>
+                    <span class="pagination-info">Page ${page} of ${totalPages}</span>
+                    <button class="pagination-btn" ${nextDisabled} onclick="changeResignedFacultyPage(${page + 1})">Next</button>
+                </div>
+                <div class="pagination-summary">${total} total</div>
+            `;
+        }
+
+        function changeResignedFacultyPage(newPage) {
+            const pagination = resignedFacultyState.pagination;
+            if (!pagination) {
+                return;
+            }
+
+            if (newPage < 1 || newPage > pagination.totalPages || newPage === pagination.page) {
+                return;
+            }
+
+            resignedFacultyState.pagination.page = newPage;
+            loadResignedFacultyList();
         }
 
         function updateGraduatedSectorCount(sector, count) {
             const sectorTotalEl = document.getElementById(`graduated${capitalizeSectorKey(sector)}Total`);
+            const pagination = graduatedStudentsState[sector].pagination;
+            const total = pagination ? pagination.total : count;
             if (sectorTotalEl) {
-                sectorTotalEl.textContent = count;
+                sectorTotalEl.textContent = total;
             }
             updateGraduatedSummaryCounts();
         }
 
         function updateGraduatedSummaryCounts() {
-            const collegeTotal = graduatedStudentsState.college.allStudents.length;
-            const shsTotal = graduatedStudentsState.shs.allStudents.length;
+            const collegeTotal = graduatedStudentsState.college.pagination?.total ?? graduatedStudentsState.college.allStudents.length;
+            const shsTotal = graduatedStudentsState.shs.pagination?.total ?? graduatedStudentsState.shs.allStudents.length;
             const overall = collegeTotal + shsTotal;
 
             const overallEl = document.getElementById('graduatedTotal');
@@ -1168,6 +1318,7 @@ if (session_status() == PHP_SESSION_NONE) {
             if (departmentSelect) {
                 departmentSelect.addEventListener('change', () => {
                     resignedFacultyState.filters.department = departmentSelect.value;
+                    resignedFacultyState.pagination.page = 1;
                     applyResignedMainFilters();
                 });
             }
@@ -1175,6 +1326,7 @@ if (session_status() == PHP_SESSION_NONE) {
             if (employmentSelect) {
                 employmentSelect.addEventListener('change', () => {
                     resignedFacultyState.filters.employment = employmentSelect.value;
+                    resignedFacultyState.pagination.page = 1;
                     applyResignedMainFilters();
                 });
             }
@@ -1182,6 +1334,7 @@ if (session_status() == PHP_SESSION_NONE) {
             if (accountSelect) {
                 accountSelect.addEventListener('change', () => {
                     resignedFacultyState.filters.account = accountSelect.value;
+                    resignedFacultyState.pagination.page = 1;
                     applyResignedMainFilters();
                 });
             }
@@ -1192,11 +1345,14 @@ if (session_status() == PHP_SESSION_NONE) {
         async function loadResignedFacultyList({ includeFilters = false } = {}) {
             const params = new URLSearchParams({ scope: 'resigned' });
             const { department, employment, account } = resignedFacultyState.filters;
+            const pagination = resignedFacultyState.pagination || { page: 1, limit: 10 };
 
             if (department) params.append('department_id', department);
             if (employment) params.append('employment_status', employment);
             if (account) params.append('account_status', account);
             if (includeFilters) params.append('include_filters', '1');
+            params.append('page', pagination.page);
+            params.append('limit', pagination.limit);
 
             const tableBody = document.getElementById('resignedFacultyTableBody');
             if (tableBody) {
@@ -1228,6 +1384,25 @@ if (session_status() == PHP_SESSION_NONE) {
                 const currentIds = new Set((data.current_resigned_ids || []).map(Number));
                 resignedFacultyState.currentResignedIds = currentIds;
 
+                const meta = data.meta || {};
+                const total = Number(meta.total ?? resignedFacultyState.resignedFaculty.length);
+                const totalPages = Math.max(1, Number(meta.total_pages ?? 1));
+                const currentPage = Number(meta.page ?? pagination.page);
+                const limit = Number(meta.limit ?? pagination.limit);
+
+                resignedFacultyState.pagination = {
+                    page: currentPage,
+                    totalPages,
+                    total,
+                    limit
+                };
+
+                if (totalPages > 0 && currentPage > totalPages && total > 0) {
+                    resignedFacultyState.pagination.page = totalPages;
+                    await loadResignedFacultyList({ includeFilters });
+                    return;
+                }
+
                 if (resignedFacultySelectionState.selectedIds.size === 0 && resignedFacultySelectionState.originalSelectedIds.size === 0) {
                     resignedFacultySelectionState.selectedIds = new Set(currentIds);
                     resignedFacultySelectionState.originalSelectedIds = new Set(currentIds);
@@ -1256,6 +1431,10 @@ if (session_status() == PHP_SESSION_NONE) {
                         </tr>
                     `;
                 }
+                resignedFacultyState.pagination.total = 0;
+                resignedFacultyState.pagination.totalPages = 1;
+                resignedFacultyState.pagination.page = 1;
+                renderResignedPagination();
             } finally {
                 updateResignedFacultySummary();
             }
@@ -1303,6 +1482,7 @@ if (session_status() == PHP_SESSION_NONE) {
                         </td>
                     </tr>
                 `;
+                renderResignedPagination();
                 return;
             }
 
@@ -1344,12 +1524,15 @@ if (session_status() == PHP_SESSION_NONE) {
                     </tr>
                 `;
             }).join('');
+
+            renderResignedPagination();
         }
 
         function updateResignedFacultySummary() {
             const totalEl = document.getElementById('resignedFacultyTotal');
             if (totalEl) {
-                totalEl.textContent = resignedFacultyState.resignedFaculty.length;
+                const total = resignedFacultyState.pagination?.total ?? resignedFacultyState.resignedFaculty.length;
+                totalEl.textContent = total;
             }
         }
 
@@ -1366,13 +1549,13 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
 function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
-    const modal = document.getElementById('resignedFacultySelectionModal');
-    if (!modal) {
-        return;
-    }
+            const modal = document.getElementById('resignedFacultySelectionModal');
+            if (!modal) {
+                return;
+            }
 
-    modal.style.display = 'none';
-    document.body.style.overflow = 'auto';
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
 
     if (resetSelection) {
         resignedFacultySelectionState.selectedIds = new Set(resignedFacultySelectionState.originalSelectedIds);
@@ -1718,9 +1901,9 @@ function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
             if (toResign.length === 0 && toRestore.length === 0) {
                 showToast('No changes to update.', 'info');
                 closeResignedFacultySelectionModal({ resetSelection: false });
-                if (confirmBtn) {
-                    confirmBtn.disabled = false;
-                    confirmBtn.textContent = 'Confirm Selection';
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Confirm Selection';
                 }
                 return;
             }
@@ -1744,7 +1927,7 @@ function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
                 resignedFacultySelectionState.originalSelectedIds = new Set(resignedFacultySelectionState.selectedIds);
                 resignedFacultyState.currentResignedIds = new Set(resignedFacultySelectionState.selectedIds);
 
-                showToast('Resigned faculty selection updated.', 'success');
+            showToast('Resigned faculty selection updated.', 'success');
                 document.dispatchEvent(new CustomEvent('resigned-faculty-updated', { detail: { count: newSelectedSet.size } }));
 
                 await loadResignedFacultyList();
