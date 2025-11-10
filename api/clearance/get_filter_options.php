@@ -160,7 +160,7 @@ function handleGetPrograms($pdo, $auth) {
         $departmentId = $_GET['department_id'] ?? null;
         $params = [];
 
-        // Always join departments to safely filter by department_type
+        // Always join departments to safely filter by sector (using department_type)
         $sql = "SELECT p.program_id, p.program_name 
                 FROM programs p
                 JOIN departments d ON p.department_id = d.department_id";

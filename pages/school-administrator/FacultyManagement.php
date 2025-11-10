@@ -214,6 +214,11 @@ handleFacultyManagementPageRequest();
                                     <option value="resigned">Resigned</option>
                                 </select>
                             </div>
+                            <!-- Current Period Banner -->
+                            <span class="academic-year-semester">
+                                <i class="fas fa-calendar-check"></i> 
+                                <span id="currentAcademicYear">Loading...</span> - <span id="currentSemester">Loading...</span>
+                            </span>
                         </div>
 
                         <!-- Search and Filters Section -->
@@ -1096,16 +1101,19 @@ handleFacultyManagementPageRequest();
             const employmentStatus = document.getElementById('employmentStatusFilter').value;
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value.trim();
+            const clearanceStatus = document.getElementById('clearanceStatusFilter').value;
 
             const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
-            url.searchParams.append('type', 'Faculty'); 
+            url.searchParams.append('type', 'faculty'); 
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
 
             if (search) url.searchParams.append('search', search);
-            if (employmentStatus) url.searchParams.append('clearance_status', clearanceStatus);
+            if (employmentStatus) url.searchParams.append('employment_status', employmentStatus);
             if (accountStatus) url.searchParams.append('account_status', accountStatus);
             if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+            if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
+
 
             try {
                 const response = await fetch(url, { credentials: 'include' });
@@ -1192,7 +1200,7 @@ handleFacultyManagementPageRequest();
                 <td data-label="Clearance Progress:"><span class="status-badge clearance-${clearanceKey}">${faculty.clearance_status || 'N/A'}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${faculty.user_id}')" title="View Clearance Progress"><i class="fas fa-tasks"></i></button>
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${faculty.id}')" title="View Clearance Progress"><i class="fas fa-tasks"></i></button>
                         <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${faculty.id}')" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>
                             <i class="fas fa-check"></i>
                         </button>
@@ -1484,19 +1492,85 @@ handleFacultyManagementPageRequest();
             await populateFilter('accountStatusFilter', url.toString(), 'All Account Statuses');
         }
 
+        
+        async function setDefaultSchoolTerm() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    // Find the active period specifically for the 'College' sector
+                    const activeCollegePeriod = data.active_periods.find(p => p.sector === 'College');
+
+                    if (activeCollegePeriod) {
+                        const schoolTermFilter = document.getElementById('schoolTermFilter');
+                        // The value format for the filter is 'YYYY-YYYY|period_id'
+                        const termValue = `${activeCollegePeriod.school_year}|${activeCollegePeriod.semester_id}`;
+                        // Check if the option exists before setting it
+                        if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
+                            schoolTermFilter.value = termValue;
+                            console.log('Default school term set to:', termValue);
+                        } else {
+                            console.warn('Default school term option not found in filter:', termValue);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting default school term:', error);
+            }
+        }
+
+        // Load current clearance period for banner
+        async function loadCurrentPeriod() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                const yearEl = document.getElementById('currentAcademicYear');
+                const semesterEl = document.getElementById('currentSemester');
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    const period = data.active_periods[0];
+                    const termMap = {
+                        '1st': '1st Semester',
+                        '2nd': '2nd Semester',
+                        '3rd': '3rd Semester',
+                        '1st Semester': '1st Semester',
+                        '2nd Semester': '2nd Semester',
+                        '3rd Semester': '3rd Semester',
+                        'Summer': 'Summer'
+                    };
+                    const semLabel = termMap[period.semester_name] || period.semester_name || '';
+                    if (yearEl) yearEl.textContent = period.school_year;
+                    if (semesterEl) semesterEl.textContent = semLabel;
+                } else {
+                    if (yearEl) yearEl.textContent = 'No active period';
+                    if (semesterEl) semesterEl.textContent = 'No term';
+                }
+            } catch (error) {
+                console.error('Error loading current period:', error);
+                const yearEl = document.getElementById('currentAcademicYear');
+                const semesterEl = document.getElementById('currentSemester');
+                if (yearEl) yearEl.textContent = 'Error loading';
+                if (semesterEl) semesterEl.textContent = 'Error';
+            }
+        }
+
 
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
+
+            await Promise.all ([
+                loadRejectionReasons(),
+                loadSchoolTermsFilter(),
+                loadEmploymentStatuses(),
+                loadClearanceStatuses(),
+                loadAccountStatuses(),
+                loadCurrentPeriod()
+            ]);
+
+            await setDefaultSchoolTerm();
             fetchFaculty();
-            
-            
-            loadRejectionReasons();
-            loadSchoolTerms();
-            loadEmploymentStatuses();
-            loadClearanceStatuses();
-            loadAccountStatuses();
-
-
 
             document.getElementById('facultyTableBody').addEventListener('change', function(e) {
                 if (e.target.classList.contains('faculty-checkbox')) {
@@ -1999,28 +2073,24 @@ handleFacultyManagementPageRequest();
             }
         }
 
-        async function loadSchoolTerms() {
+        async function loadSchoolTermsFilter() {
             const termSelect = document.getElementById('schoolTermFilter');
             try {
                 const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
                 const data = await response.json();
+
                 termSelect.innerHTML = '<option value="">All School Terms</option>';
                 if (data.success && data.periods) {
                     const uniqueTerms = [...new Map(data.periods.map(item => [`${item.academic_year}-${item.semester_name}`, item])).values()];
+                    
                     uniqueTerms.forEach(period => {
                         const option = document.createElement('option');
-                        option.value = `${period.academic_year}-${period.semester_name}`;
-                        const termMap = { '1st': '1st Semester', '2nd': '2nd Semester', '3rd': '3rd Semester' };
-                        const semLabel = termMap[period.semester_name] || period.semester_name || '';
-                        const activeText = period.is_active ? ' (Active)' : '';
-                        option.textContent = `${period.academic_year} ${semLabel}${activeText}`;
+                        option.value = `${period.academic_year}|${period.semester_id}`; // Use a format the backend can parse
+                        option.textContent = `${period.academic_year} - ${period.semester_name}`;
                         termSelect.appendChild(option);
                     });
                 }
-            } catch (error) {
-                console.error('Error loading school terms:', error);
-                termSelect.innerHTML = '<option value="">Error loading terms</option>';
-            }
+            } catch (error) { console.error('Error loading school terms:', error); }
         }
     </script>
     

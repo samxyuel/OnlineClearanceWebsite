@@ -21,36 +21,28 @@ try {
     }
 
     $userId = $auth->getUserId();
-    $userRole = $auth->getRoleName();
-    $isAdmin = in_array($userRole, ['Admin', 'School Administrator']);
     $pdo = Database::getInstance()->getConnection();
 
-    $designationId = null;
-    $designationName = '';
-    $isProgramHead = false;
+    // 1. Get the staff member's designation ID. This API is now signatory-only.
+    $staffStmt = $pdo->prepare("
+        SELECT s.designation_id, d.designation_name 
+        FROM staff s
+        JOIN designations d ON s.designation_id = d.designation_id
+        WHERE s.user_id = ? AND s.is_active = 1
+    ");
+    $staffStmt->execute([$userId]);
+    $staffInfo = $staffStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$staffInfo) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Access Denied: You are not an active staff member with a designation.']);
+        exit;
+    }
+    $designationId = $staffInfo['designation_id'];
+    $designationName = $staffInfo['designation_name'];
+    $isProgramHead = (strcasecmp($designationName, 'Program Head') === 0);
     $programHeadDepartments = [];
     $isShsProgramHead = false;
-
-    if (!$isAdmin) {
-        // 1. Get the staff member's designation ID if not an Admin
-        $staffStmt = $pdo->prepare("
-            SELECT s.designation_id, d.designation_name 
-            FROM staff s
-            JOIN designations d ON s.designation_id = d.designation_id
-            WHERE s.user_id = ? AND s.is_active = 1
-        ");
-        $staffStmt->execute([$userId]);
-        $staffInfo = $staffStmt->fetch(PDO::FETCH_ASSOC);
-
-        if (!$staffInfo) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Access Denied: You are not an active staff member with a designation.']);
-            exit;
-        }
-        $designationId = $staffInfo['designation_id'];
-        $designationName = $staffInfo['designation_name'];
-        $isProgramHead = (strcasecmp($designationName, 'Program Head') === 0);
-    }
 
     if ($isProgramHead) {
         // Get departments assigned to this Program Head
@@ -115,8 +107,8 @@ try {
                 f.employment_status as year_level,
                 '' as section, -- Faculty don't have sections
                 u.account_status as account_status,
-                cf.clearance_form_progress as clearance_status,
-                NULL as signatory_id, -- Not relevant for admin view
+                cs.action as clearance_status,
+                cs.signatory_id,
                 cf.clearance_form_id
         ";
         $from = "
@@ -124,9 +116,9 @@ try {
             JOIN users u ON f.user_id = u.user_id
             LEFT JOIN departments d ON f.department_id = d.department_id
             JOIN clearance_periods cp ON cp.sector = 'Faculty' AND cp.status IN ('Ongoing', 'Closed')
-            LEFT JOIN clearance_forms cf ON f.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id
+            LEFT JOIN clearance_forms cf ON f.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id = :designationId
         ";
-        $searchFields = ['u.first_name', 'u.last_name', 'f.employee_number', 'd.department_name'];
+        $searchFields = ['u.first_name', 'u.last_name', 'f.employee_number', 'd.department_name', 'f.employement_status'];
     } else { // Default to student
         $select = "
             SELECT SQL_CALC_FOUND_ROWS
@@ -138,8 +130,8 @@ try {
                 s.year_level,
                 s.section,
                 u.account_status as account_status,
-                cf.clearance_form_progress as clearance_status,
-                NULL as signatory_id, -- Not relevant for admin view
+                cs.action as clearance_status,
+                cs.signatory_id,
                 cf.clearance_form_id
         ";
         $from = "
@@ -148,24 +140,16 @@ try {
             LEFT JOIN programs p ON s.program_id = p.program_id
             LEFT JOIN departments d ON s.department_id = d.department_id
             LEFT JOIN clearance_periods cp ON cp.sector = s.sector AND cp.status IN ('Ongoing', 'Closed')
-            LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id
+            LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id = :designationId
         ";
-        $searchFields = ['u.first_name', 'u.last_name', 's.student_id', 'p.program_code'];
-    }
-
-    // If not an admin, add the signatory-specific join
-    if (!$isAdmin) {
-        $from .= " LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id = :designationId";
-        $select = str_replace('cf.clearance_form_progress as clearance_status', 'cs.action as clearance_status', $select);
-        $select = str_replace('NULL as signatory_id', 'cs.signatory_id', $select);
+        $searchFields = ['u.first_name', 'u.last_name', 's.student_id', 'p.program_code', 'year_level'];
     }
 
     $where = " WHERE 1=1"; // The JOINs already filter by designation, but we can add sector check for robustness if needed.
-    $params = [];
-    if (!$isAdmin) $params[':designationId'] = $designationId;
+    $params = [':designationId' => $designationId];
 
     // Apply department scoping for Program Heads
-    if (!$isAdmin && $isProgramHead && !empty($programHeadDepartments)) {
+    if ($isProgramHead) {
         $deptIds = array_column($programHeadDepartments, 'department_id');
         $isShsProgramHead = in_array('Senior High School', array_column($programHeadDepartments, 'sector_name'));
 
@@ -211,7 +195,7 @@ try {
     }
 
     if (!empty($clearanceStatus) && $clearanceStatus !== 'all') {
-        $where .= " AND COALESCE(" . ($isAdmin ? "cf.clearance_form_progress" : "cs.action") . ", 'Unapplied') = :clearanceStatus";
+        $where .= " AND COALESCE(cs.action, 'Unapplied') = :clearanceStatus";
         $params[':clearanceStatus'] = $clearanceStatus;
     } else {
         // By default, show actionable items (not 'Unapplied')
@@ -264,8 +248,8 @@ try {
         $where .= " AND s.sector = :requestSector";
         $params[':requestSector'] = $requestSector;
     }
-
-    // Pending First and Rejected Second Sorting
+    
+    // Conditional sorting
     $orderBy = " ORDER BY 
         CASE 
             WHEN cs.action = 'Pending' THEN 1
@@ -277,6 +261,12 @@ try {
     $limitClause = " LIMIT :limit OFFSET :offset";
 
     // Prepare and execute the main query
+    // --- DEBUG LOGGING ---
+    error_log("SIGNATORY_LIST_DEBUG: Final SQL Query: " . $select . $from . $where . $orderBy . $limitClause);
+    error_log("SIGNATORY_LIST_DEBUG: Final Parameters: " . json_encode($params, JSON_PRETTY_PRINT));
+    error_log("SIGNATORY_LIST_DEBUG: Limit: " . $limit . ", Offset: " . $offset);
+    // --- END DEBUG LOGGING ---
+
     $stmt = $pdo->prepare($select . $from . $where . $orderBy . $limitClause);
     $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
     $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
@@ -290,16 +280,23 @@ try {
     $total = $pdo->query("SELECT FOUND_ROWS()")->fetchColumn();
 
     // 5. Get statistics
-    $statsQuery = "SELECT u.account_status, COUNT(*) as count FROM users u JOIN students s ON u.user_id = s.user_id WHERE s.sector = :requestSector GROUP BY u.account_status";
-    $statsStmt = $pdo->prepare($statsQuery);
-    $statsStmt->execute([':requestSector' => $requestSector]);
+    if (strtolower($type) === 'faculty') {
+        $statsQuery = "SELECT u.account_status, COUNT(*) as count FROM users u JOIN faculty f ON u.user_id = f.user_id GROUP BY u.account_status";
+        $statsStmt = $pdo->prepare($statsQuery);
+        $statsStmt->execute();
+    } else { // student
+        $statsQuery = "SELECT u.account_status, COUNT(*) as count FROM users u JOIN students s ON u.user_id = s.user_id WHERE s.sector = :requestSector GROUP BY u.account_status";
+        $statsStmt = $pdo->prepare($statsQuery);
+        $statsStmt->execute([':requestSector' => $requestSector]);
+    }
     $statsResults = $statsStmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
     $stats = [
         'total' => array_sum($statsResults),
         'active' => $statsResults['active'] ?? 0,
         'inactive' => $statsResults['inactive'] ?? 0,
-        'graduated' => $statsResults['graduated'] ?? 0, // Assuming 'graduated' is a possible status
+        'graduated' => $statsResults['graduated'] ?? 0, // For students
+        'resigned' => $statsResults['resigned'] ?? 0, // For faculty
     ];
 
 

@@ -328,6 +328,7 @@ try {
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
+                                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Select all visible">
                                                 </th>
                                                 <th>Student Number</th>
                                                 <th>Name</th>
@@ -503,7 +504,8 @@ try {
         let currentSearch = '';
         let currentFilters = {};
 
-        const CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'Staff'; ?>';
+        
+        let CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'Staff'; ?>'; // This will be updated by loadStaffPosition()
         // Toggle sidebar
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
@@ -527,6 +529,29 @@ try {
                     mainContent.classList.add('expanded');
                 }
             }
+        }
+
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const allCheckboxes = document.querySelectorAll('#studentTableBody .student-checkbox');
+            const checkedCount = document.querySelectorAll('#studentTableBody .student-checkbox:checked').length;
+
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
+            }
+        }
+
+        // Select all functionality
+        function toggleSelectAll(checked) {
+            const studentCheckboxes = document.querySelectorAll('#studentTableBody .student-checkbox');
+            studentCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                // Only toggle visible rows, respecting current filters
+                if (row.style.display !== 'none') {
+                    checkbox.checked = checked;
+                }
+            });
+            updateBulkButtons();
         }
 
         // Bulk selection modal functions
@@ -724,7 +749,7 @@ try {
             );
         }
 
-        function rejectSelected() {
+        async function rejectSelected() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
                 showToastNotification('Please select students to reject clearance', 'warning');
@@ -735,8 +760,28 @@ try {
             const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
             const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.getAttribute('data-id'));
             
+            let existingRemarks = '';
+            let existingReasonId = '';
+            const signatoryId = row.getAttribute('data-signatory-id');
+
+            try {
+                const response = await fetch(`../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.details) {
+                    existingRemarks = data.details.additional_remarks || '';
+                    existingReasonId = data.details.reason_id || '';
+                }
+            } catch (error) {
+                console.error("Error fetching rejection details:", error);
+                showToastNotification('Could not load existing rejection details.', 'error');
+            }
+        
+            console.log('Opening rejection modal for', studentName);
+            console.log('Existing reason ID:', existingReasonId);
+            console.log('Existing remarks:', existingRemarks);
+
             // Open rejection remarks modal for bulk rejection
-            openRejectionRemarksModal(null, null, 'student', true, selectedIds);
+            openRejectionRemarksModal(null, null, 'student', true, [selectedIds], existingRemarks = '', existingRemarks, existingReasonId);
         }
 
         function getSelectedCount() {
@@ -787,7 +832,7 @@ try {
             );
         }
 
-        function rejectStudentClearance(studentId) {
+        async function rejectStudentClearance(studentId) {
             // Check if signatory actions are allowed
             const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
             if (!canPerformActions) {
@@ -803,9 +848,29 @@ try {
                 showToastNotification('Invalid clearance status to reject', 'warning');
                 return;
             }
+
+            let existingRemarks = '';
+            let existingReasonId = '';
+            const signatoryId = row.getAttribute('data-signatory-id');
+
+            try {
+                const response = await fetch(`../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.details) {
+                    existingRemarks = data.details.additional_remarks || '';
+                    existingReasonId = data.details.reason_id || '';
+                }
+            } catch (error) {
+                console.error("Error fetching rejection details:", error);
+                showToastNotification('Could not load existing rejection details.', 'error');
+            }
+        
+            console.log('Opening rejection modal for', studentName);
+            console.log('Existing reason ID:', existingReasonId);
+            console.log('Existing remarks:', existingRemarks);
             
             // Open rejection remarks modal for individual rejection
-            openRejectionRemarksModal(studentId, studentName, 'student', false);
+            openRejectionRemarksModal(studentId, studentName, 'student', false, [], existingRemarks, existingReasonId);
         }
 
         async function fetchStudents() {
@@ -1440,6 +1505,7 @@ try {
                 if (positionElement) {
                     if (data.success && data.designation_name) {
                         positionElement.textContent = `Position: ${data.designation_name} - Clearance Signatory`;
+                        CURRENT_STAFF_POSITION = data.designation_name; // Update the global variable
                     } else {
                         positionElement.textContent = 'Position: Staff - Clearance Signatory';
                     }
