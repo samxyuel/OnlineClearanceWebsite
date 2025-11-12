@@ -421,7 +421,7 @@ ob_start();
     <?php include '../../Modals/EditFacultyModal.php'; ?>
     <?php include '../../Modals/FacultyExportModal.php'; ?>
     <?php include '../../Modals/ExportModal.php'; ?>
-    <?php include '../../Modals/FacultyImportModal.php'; ?>
+    <?php include '../../Modals/ImportModal.php'; ?>
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     
     <!-- Include Faculty Batch Update Modal -->
@@ -1461,12 +1461,28 @@ ob_start();
         }
 
         function triggerImportModal() {
-            // Call the function from FacultyImportModal.php
-            if (typeof openFacultyImportModal === 'function') {
-                openFacultyImportModal();
-            } else {
-                console.error('Faculty import modal function not found');
+            console.log('triggerImportModal function called (Admin - Faculty)');
+            console.log('Checking window.openImportModal:', typeof window.openImportModal);
+            
+            // Wait a bit if function not immediately available (script loading race condition)
+            if (typeof window.openImportModal !== 'function') {
+                console.warn('window.openImportModal not found immediately, waiting 100ms...');
+                setTimeout(() => {
+                    if (typeof window.openImportModal === 'function') {
+                        window.openImportModal('faculty', 'faculty_import', 'Admin');
+                        console.log('Import modal opened successfully (delayed)');
+                    } else {
+                        console.error('Import modal function still not found after delay');
+                        console.error('Debug - window object keys:', Object.keys(window).filter(k => k.includes('Import') || k.includes('Modal')).slice(0, 20));
+                        showToastNotification('Import modal not available. Please refresh the page.', 'error');
+                    }
+                }, 100);
+                return;
             }
+            
+            // Initialize modal with page context: faculty import for Admin
+            window.openImportModal('faculty', 'faculty_import', 'Admin');
+            console.log('Import modal opened successfully');
         }
 
         function triggerExportModal() {

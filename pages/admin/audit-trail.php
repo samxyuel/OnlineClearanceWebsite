@@ -75,7 +75,7 @@ $activity_types = getActivityTypes();
     <?php include '../../includes/components/sidebar.php'; ?>
 
     <!-- Main Content -->
-    <main class="main-content">
+    <main class="main-content audit-trail-page">
         <div class="content-wrapper">
             <!-- Page Header -->
             <div class="page-header">

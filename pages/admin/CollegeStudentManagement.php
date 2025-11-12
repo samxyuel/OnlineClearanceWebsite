@@ -1138,13 +1138,28 @@ if (session_status() == PHP_SESSION_NONE) {
 
         function triggerImportModal() {
             console.log('triggerImportModal function called');
-            if (typeof window.openImportModal === 'function') {
-                window.openImportModal();
-                console.log('Import modal opened successfully');
-            } else {
-                console.error('Import modal function not found');
-                showToastNotification('Import modal not available', 'error');
+            console.log('Checking window.openImportModal:', typeof window.openImportModal);
+            console.log('Available window functions:', Object.keys(window).filter(k => typeof window[k] === 'function' && k.toLowerCase().includes('import')).join(', '));
+            
+            // Wait a bit if function not immediately available (script loading race condition)
+            if (typeof window.openImportModal !== 'function') {
+                console.warn('window.openImportModal not found immediately, waiting 100ms...');
+                setTimeout(() => {
+                    if (typeof window.openImportModal === 'function') {
+                        window.openImportModal('college', 'student_import', 'Admin');
+                        console.log('Import modal opened successfully (delayed)');
+                    } else {
+                        console.error('Import modal function still not found after delay');
+                        console.error('Debug - window object keys:', Object.keys(window).filter(k => k.includes('Import') || k.includes('Modal')).slice(0, 20));
+                        showToastNotification('Import modal not available. Please refresh the page.', 'error');
+                    }
+                }, 100);
+                return;
             }
+            
+            // Initialize modal with page context: college student import
+            window.openImportModal('college', 'student_import', 'Admin');
+            console.log('Import modal opened successfully');
         }
 
         function triggerExportModal() {

@@ -178,6 +178,116 @@ try {
     $insSem->execute(['2nd', $ayId]);
     $sem2Id = (int)$pdo->lastInsertId();
 
+    // ============================================
+    // YEAR LEVEL INCREMENT LOGIC
+    // ============================================
+    // Increment year levels for all active students, except:
+    // 1. Students with retain_year_level_for_next_year = TRUE (they keep their current year level)
+    // 2. Students with account_status = 'graduated' (they are excluded)
+    
+    // Year level mapping for increment
+    $yearLevelMap = [
+        '1st Year' => '2nd Year',
+        '2nd Year' => '3rd Year',
+        '3rd Year' => '4th Year',
+        // Note: 4th Year students should have been marked as graduated before creating new year
+        // But if any remain, they won't be incremented (they'll stay at 4th Year)
+    ];
+    
+    // Get all active students (not graduated) who are not retained
+    $studentsToIncrement = $pdo->prepare("
+        SELECT s.student_id, s.user_id, s.year_level, s.sector, u.first_name, u.last_name
+        FROM students s
+        JOIN users u ON s.user_id = u.user_id
+        WHERE u.account_status = 'active'
+        AND (s.retain_year_level_for_next_year = FALSE OR s.retain_year_level_for_next_year IS NULL)
+        AND s.year_level IN ('1st Year', '2nd Year', '3rd Year')
+    ");
+    $studentsToIncrement->execute();
+    $students = $studentsToIncrement->fetchAll(PDO::FETCH_ASSOC);
+    
+    $incrementedCount = 0;
+    $retainedCount = 0;
+    
+    foreach ($students as $student) {
+        $currentYearLevel = $student['year_level'];
+        
+        // Check if this year level should be incremented
+        if (isset($yearLevelMap[$currentYearLevel])) {
+            $newYearLevel = $yearLevelMap[$currentYearLevel];
+            
+            // Update student's year level
+            $updateStmt = $pdo->prepare("
+                UPDATE students 
+                SET year_level = ?, updated_at = NOW()
+                WHERE student_id = ?
+            ");
+            $updateStmt->execute([$newYearLevel, $student['student_id']]);
+            $incrementedCount++;
+            
+            // Log the year level increment
+            $logStmt = $pdo->prepare("
+                INSERT INTO user_activities (user_id, activity_type, activity_details, ip_address, user_agent) 
+                VALUES (?, 'year_level_incremented', ?, ?, ?)
+            ");
+            $logStmt->execute([
+                $student['user_id'],
+                json_encode([
+                    'action' => 'year_level_incremented',
+                    'student_id' => $student['student_id'],
+                    'student_name' => $student['first_name'] . ' ' . $student['last_name'],
+                    'old_year_level' => $currentYearLevel,
+                    'new_year_level' => $newYearLevel,
+                    'sector' => $student['sector'],
+                    'academic_year' => $year,
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]),
+                $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+                $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+            ]);
+        }
+    }
+    
+    // Get count of retained students (for logging)
+    $retainedStmt = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM students s
+        JOIN users u ON s.user_id = u.user_id
+        WHERE u.account_status = 'active'
+        AND s.retain_year_level_for_next_year = TRUE
+    ");
+    $retainedStmt->execute();
+    $retainedCount = (int)$retainedStmt->fetchColumn();
+    
+    // Reset retain_year_level_for_next_year flag for ALL students (both retained and non-retained)
+    // This ensures the flag is cleared for the next school year cycle
+    $resetRetentionStmt = $pdo->prepare("
+        UPDATE students 
+        SET retain_year_level_for_next_year = FALSE, updated_at = NOW()
+        WHERE retain_year_level_for_next_year = TRUE
+    ");
+    $resetRetentionStmt->execute();
+    $resetCount = $resetRetentionStmt->rowCount();
+    
+    // Log the year level increment process
+    $adminLogStmt = $pdo->prepare("
+        INSERT INTO user_activities (user_id, activity_type, activity_details, ip_address, user_agent) 
+        VALUES (?, 'year_level_bulk_increment', ?, ?, ?)
+    ");
+    $adminLogStmt->execute([
+        $auth->getUserId(),
+        json_encode([
+            'action' => 'year_level_bulk_increment',
+            'academic_year' => $year,
+            'incremented_count' => $incrementedCount,
+            'retained_count' => $retainedCount,
+            'retention_flags_reset' => $resetCount,
+            'timestamp' => date('Y-m-d H:i:s')
+        ]),
+        $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+        $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+    ]);
+
     $pdo->commit();
 
     echo json_encode([
@@ -190,6 +300,11 @@ try {
         'semesters' => [
             ['semester_id' => $sem1Id, 'semester_name' => '1st'],
             ['semester_id' => $sem2Id, 'semester_name' => '2nd']
+        ],
+        'year_level_increment' => [
+            'incremented_count' => $incrementedCount,
+            'retained_count' => $retainedCount,
+            'retention_flags_reset' => $resetCount
         ]
     ]);
 } catch (Throwable $e) {

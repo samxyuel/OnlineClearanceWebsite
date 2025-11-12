@@ -173,6 +173,9 @@ handleFacultyManagementPageRequest();
                         <!-- Quick Actions Section -->
                         <div class="quick-actions-section">
                             <div class="action-buttons">
+                                <button class="btn btn-secondary import-btn" onclick="triggerImportModal()">
+                                    <i class="fas fa-file-import"></i> Import
+                                </button>
                                 <button class="btn btn-secondary export-btn" onclick="triggerExportModal()">
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
@@ -2079,5 +2082,36 @@ handleFacultyManagementPageRequest();
     
     <!-- Include Export Modal -->
     <?php include '../../Modals/ExportModal.php'; ?>
+    
+    <!-- Include Import Modal -->
+    <?php include '../../Modals/ImportModal.php'; ?>
+    
+    <script>
+        // Import Modal function for Program Head - Faculty Management
+        function triggerImportModal() {
+            console.log('triggerImportModal function called (Program Head - Faculty)');
+            console.log('Checking window.openImportModal:', typeof window.openImportModal);
+            
+            // Wait a bit if function not immediately available (script loading race condition)
+            if (typeof window.openImportModal !== 'function') {
+                console.warn('window.openImportModal not found immediately, waiting 100ms...');
+                setTimeout(() => {
+                    if (typeof window.openImportModal === 'function') {
+                        window.openImportModal('faculty', 'faculty_import', 'Program Head');
+                        console.log('Import modal opened successfully (delayed)');
+                    } else {
+                        console.error('Import modal function still not found after delay');
+                        console.error('Debug - window object keys:', Object.keys(window).filter(k => k.includes('Import') || k.includes('Modal')).slice(0, 20));
+                        showToastNotification('Import modal not available. Please refresh the page.', 'error');
+                    }
+                }, 100);
+                return;
+            }
+            
+            // Initialize modal with page context: faculty import for Program Head
+            window.openImportModal('faculty', 'faculty_import', 'Program Head');
+            console.log('Import modal opened successfully');
+        }
+    </script>
 </body>
 </html>

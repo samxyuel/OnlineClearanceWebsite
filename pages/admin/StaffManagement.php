@@ -107,9 +107,10 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                     <button class="btn btn-primary add-staff-btn" onclick="openStaffRegistrationModal()">
                         <i class="fas fa-plus"></i> Register Staff
                     </button>
-                    <button class="btn btn-secondary import-btn" onclick="openStaffImportModal()">
+                    <!-- Staff Import disabled - not implemented in bulk import system -->
+                    <!-- <button class="btn btn-secondary import-btn" onclick="openStaffImportModal()">
                         <i class="fas fa-file-import"></i> Import Staff
-                    </button>
+                    </button> -->
                     <button class="btn btn-secondary export-btn" onclick="openStaffExportModal()">
                         <i class="fas fa-file-export"></i> Export Staff
                     </button>
@@ -248,7 +249,8 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     <?php 
     include '../../Modals/StaffRegistryModal.php';
     include '../../Modals/EditStaffModal.php';
-    include '../../Modals/StaffImportModal.php';
+    // Staff Import disabled - not implemented in bulk import system
+    // include '../../Modals/StaffImportModal.php';
     include '../../Modals/StaffExportModal.php';
     include '../../Modals/GeneratedCredentialsModal.php';
     ?>
@@ -754,13 +756,14 @@ $adminName = 'Admin User'; // Temporary admin name for testing
             }
         }
 
-        function openStaffImportModal() {
-            const modal = document.querySelector('.staff-import-modal-overlay');
-            if (modal) {
-                modal.style.display = 'flex';
-                document.body.classList.add('modal-open');
-            }
-        }
+        // Staff Import disabled - not implemented in bulk import system
+        // function openStaffImportModal() {
+        //     const modal = document.querySelector('.staff-import-modal-overlay');
+        //     if (modal) {
+        //         modal.style.display = 'flex';
+        //         document.body.classList.add('modal-open');
+        //     }
+        // }
 
         function openStaffExportModal() {
             const modal = document.querySelector('.staff-export-modal-overlay');

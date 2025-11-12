@@ -269,7 +269,11 @@
   window.openEditFacultyModal = function(facultyId) {
     const modal = document.getElementById('editFacultyModal');
     modal.style.display = 'flex';
-    
+
+    // Remember which faculty is being edited for follow-up actions
+    const form = document.getElementById('editFacultyForm');
+    form.dataset.userId = facultyId;
+
     // Populate form with faculty data
     populateEditForm(facultyId);
   };

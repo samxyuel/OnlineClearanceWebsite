@@ -23,12 +23,10 @@
 
 /* Override global user-info styles specifically for profile page */
 .profile-container .user-info {
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: center !important;
-  align-items: flex-start !important;
-  margin-left: 20px !important;
-  max-width: calc(100% - 120px) !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 /* Body styles are handled by styles.css to avoid conflicts */
@@ -39,6 +37,34 @@
   padding: 20px;
   background-color: transparent;
   min-height: calc(100vh - 60px);
+}
+
+.profile-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fbeaea;
+  color: #b00020;
+  border: 1px solid #f5c2c7;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.profile-error-banner i {
+  font-size: 18px;
+}
+
+/* Program Head Scope */
+.program-head-scope .scope-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.program-head-scope .scope-value i {
+  color: var(--deep-navy-blue);
 }
 
 /* Profile Header */
@@ -84,6 +110,31 @@
   font-weight: 600;
   margin-bottom: 8px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Last Login Indicator */
+.last-login-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 4px;
+}
+
+.last-login-indicator i {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.last-login-label {
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.last-login-value {
+  font-weight: 400;
+  opacity: 0.85;
 }
 
 .user-role {
@@ -133,11 +184,13 @@
 .header-actions {
   display: flex;
   gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .status-info {
   display: flex;
-  /* flex-direction: column; */
+  flex-direction: column;
   gap: 8px;
   align-items: flex-end;
 }
@@ -520,7 +573,7 @@
 .info-item .value {
   font-weight: 600;
   color: #495057;
-  text-align: right;
+  text-align: left;
   flex: 1;
   padding: 10px 16px;
   background: #f8f9fa;
@@ -779,6 +832,8 @@ input:checked + .slider:before {
     flex-direction: column;
     text-align: center;
     padding: 15px;
+    align-items: center;
+    gap: 15px;
   }
 
   .user-avatar {
@@ -786,21 +841,64 @@ input:checked + .slider:before {
     height: 60px;
     font-size: 24px;
     margin-right: 0;
-    margin-bottom: 15px;
+    margin-bottom: 0;
+  }
+
+  .profile-header .user-info {
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   .profile-header .user-name {
     font-size: 20px;
     margin-bottom: 5px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .last-login-indicator {
+    font-size: 12px;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 6px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .last-login-indicator i {
+    font-size: 11px;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .status-info {
     flex-direction: row;
-    gap: 12px;
+    gap: 10px;
     align-items: center;
+    justify-content: center;
+    width: 100%;
+    flex-wrap: wrap;
   }
 
   .account-status-badge {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  .role-badge {
     font-size: 11px;
     padding: 5px 10px;
   }
@@ -827,41 +925,101 @@ input:checked + .slider:before {
     max-width: 100%;
   }
 
-  /* Fix user-info layout on mobile */
-  .profile-container .user-info {
-    margin-left: 15px !important;
-    max-width: calc(100% - 100px) !important;
-  }
-
-  .profile-header .user-info {
-    margin-left: 15px;
-    max-width: calc(100% - 100px);
-  }
-
   .user-role {
-    margin-bottom: 15px;
+    margin-bottom: 0;
   }
 }
 
 /* Extra small mobile devices */
 @media (max-width: 480px) {
-  .profile-container .user-info {
-    margin-left: 10px !important;
-    max-width: calc(100% - 90px) !important;
+  .profile-header {
+    padding: 12px;
+    gap: 12px;
   }
 
   .profile-header .user-info {
-    margin-left: 10px;
-    max-width: calc(100% - 90px);
+    margin-left: 0;
+    max-width: 100%;
   }
 
   .profile-header .user-name {
-    font-size: 20px;
+    font-size: 18px;
+  }
+
+  .last-login-indicator {
+    font-size: 11px;
+    gap: 5px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .last-login-label {
+    font-size: 11px;
+  }
+
+  .last-login-value {
+    font-size: 11px;
+  }
+
+  .status-info {
+    gap: 8px;
+  }
+
+  .account-status-badge,
+  .role-badge {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+}
+
+/* Specific breakpoint for 425px and below - optimized symmetry */
+@media (max-width: 425px) {
+  .profile-header {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .user-avatar {
+    width: 55px;
+    height: 55px;
+    font-size: 22px;
+  }
+
+  .profile-header .user-name {
+    font-size: 17px;
+    margin-bottom: 4px;
+  }
+
+  .last-login-indicator {
+    font-size: 10px;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .last-login-indicator i {
+    font-size: 10px;
+  }
+
+  .last-login-label,
+  .last-login-value {
+    font-size: 10px;
   }
 
   .header-actions {
-    width: 100%;
+    gap: 8px;
+  }
+
+  .status-info {
+    gap: 6px;
+    flex-wrap: wrap;
     justify-content: center;
+  }
+
+  .account-status-badge,
+  .role-badge {
+    font-size: 9px;
+    padding: 4px 7px;
+    white-space: nowrap;
   }
 
   .edit-btn {
