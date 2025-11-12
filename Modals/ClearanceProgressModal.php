@@ -287,15 +287,15 @@
 
 <script>
 // Clearance Progress Modal Functions
-function openClearanceProgressModal(personId, personType, personName) {
+function openClearanceProgressModal(personId, personType, personName, schoolTerm = '') {
     const modal = document.getElementById('clearanceProgressModal');
     const personNameElement = document.getElementById('progressPersonName');
     
     // Set the person name in the modal header
     personNameElement.textContent = personName;
     
-    // Load clearance progress data
-    loadClearanceProgressData(personId, personType);
+    // Load clearance progress data for the optional school term (if provided)
+    loadClearanceProgressData(personId, personType, schoolTerm);
     
     // Show the modal
     modal.style.display = 'flex';
@@ -308,7 +308,7 @@ function closeClearanceProgressModal() {
     document.body.classList.remove('modal-open');
 }
 
-function loadClearanceProgressData(personId, personType) {
+function loadClearanceProgressData(personId, personType, schoolTerm = '') {
     // The user_status.php API can handle both students and faculty by user_id.
     // The personId from the management pages is the user_id.
 
@@ -322,6 +322,12 @@ function loadClearanceProgressData(personId, personType) {
     } else {
         console.error('Invalid person type for clearance progress:', personType);
         return; // Stop if the type is unknown
+    }
+
+    // If a specific school term was provided (from the filters), include it so
+    // the backend can scope the progress to that term.
+    if (schoolTerm) {
+        url.searchParams.append('school_term', schoolTerm);
     }
     
     

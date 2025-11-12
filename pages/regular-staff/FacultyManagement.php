@@ -635,10 +635,10 @@ handleFacultyManagementPageRequest();
             const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
             const accountStatus = (faculty.account_status || 'inactive').toLowerCase();
             
-            let approveBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || !canPerformActions;
-            let rejectBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || !canPerformActions;
+            let approveBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || faculty.clearance_status === '' || !canPerformActions;
+            let rejectBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || faculty.clearance_status === '' || !canPerformActions;
             // Disable checkbox for 'Unapplied' and 'Approved' statuses (same logic as buttons)
-            let checkboxDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || !canPerformActions;
+            let checkboxDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || faculty.clearance_status === '' || !canPerformActions;
             let approveTitle = 'Approve Clearance';
             let rejectTitle = 'Reject Clearance';
             if (!canPerformActions) {
@@ -683,9 +683,10 @@ handleFacultyManagementPageRequest();
             // Get faculty name from the table row
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
+            const schoolTerm = document.getElementById('schoolTermFilter').value;
             
             // Open the clearance progress modal
-            openClearanceProgressModal(facultyId, 'faculty', facultyName);
+            openClearanceProgressModal(facultyId, 'faculty', facultyName, schoolTerm);
         }
 
         function populateFacultyTable(facultyList) {

@@ -1866,9 +1866,10 @@ handleFacultyManagementPageRequest();
             // Get faculty name from the table row
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
+            const schoolTerm = document.getElementById('schoolTermFilter').value;
             
             // Open the clearance progress modal
-            openClearanceProgressModal(facultyId, 'faculty', facultyName);
+            openClearanceProgressModal(facultyId, 'faculty', facultyName, schoolTerm);
         }
 
         // Rejection Remarks Modal Functions

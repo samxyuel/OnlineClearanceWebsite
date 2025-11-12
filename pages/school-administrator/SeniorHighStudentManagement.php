@@ -1171,6 +1171,10 @@ if (session_status() == PHP_SESSION_NONE) {
 
             let clearanceStatus = student.clearance_status || 'Unapplied';
             const clearanceStatusClass = `clearance-${clearanceStatus.toLowerCase().replace(/ /g, '-')}`;
+            
+            // Capture the currently selected school term from the filters so we can
+            // display clearance progress scoped to that term when the user opens the modal.
+            const currentSchoolTerm = document.getElementById('schoolTermFilter') ? document.getElementById('schoolTermFilter').value : '';
 
             // Determine button titles and states based on clearance status
             const isActionable = ['Pending', 'Rejected'].includes(clearanceStatus);
@@ -1194,7 +1198,7 @@ if (session_status() == PHP_SESSION_NONE) {
                 <td data-label="Clearance Status:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
                             <i class="fas fa-tasks"></i>
                         </button>
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.user_id}')" title="Edit Student">
@@ -1211,6 +1215,11 @@ if (session_status() == PHP_SESSION_NONE) {
             `;
             return row;
         }
+
+        function escapeHtml(unsafe) {
+            return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
 
         // Update statistics
         function updateStatistics(students) {
@@ -1554,10 +1563,12 @@ if (session_status() == PHP_SESSION_NONE) {
             showToastNotification('Override report export functionality will be implemented', 'info');
         }
 
-        // New function for viewing clearance progress
-        function viewClearanceProgress(studentId) {
-            openClearanceProgressModal(studentId, 'student', 'Student Name');
+        function viewClearanceProgress(studentId, studentName, schoolTerm = '') {
+            // Forward the selected school term (if any) so the modal can show
+            // the clearance progress scoped to that term.
+            openClearanceProgressModal(studentId, 'student', studentName, schoolTerm);
         }
+        
         // Rejection Remarks Modal Functions
         let currentRejectionData = {
             targetId: null,

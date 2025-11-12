@@ -925,6 +925,10 @@ try {
                 const clearanceStatusClass = `clearance-${student.clearance_status.toLowerCase().replace(' ', '-')}`;
                 const accountStatusClass = `account-${(student.account_status || '').toLowerCase()}`;
 
+                            // Capture the currently selected school term from the filters so we can
+            // display clearance progress scoped to that term when the user opens the modal.
+            const currentSchoolTerm = document.getElementById('schoolTermFilter') ? document.getElementById('schoolTermFilter').value : '';
+
                 const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
                 // Enable approve button for 'Pending' and 'Rejected' statuses.
                 let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(student.clearance_status);
@@ -951,7 +955,7 @@ try {
                         <td><span class="status-badge ${clearanceStatusClass}">${escapeHtml(student.clearance_status || 'N/A')}</span></td>
                         <td>
                             <div class="action-buttons">
-                                <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name)}')" title="View Clearance Progress">
+                                <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
                                     <i class="fas fa-tasks"></i>
                                 </button>
                                 <button class="btn-icon approve-btn" onclick="approveStudentClearance('${student.id}')" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>
@@ -967,8 +971,10 @@ try {
             }).join('');
         }
 
-        function viewClearanceProgress(studentId, studentName) {
-            openClearanceProgressModal(studentId, 'student', studentName);
+        function viewClearanceProgress(studentId, studentName, schoolTerm = '') {
+            // Forward the selected school term (if any) so the modal can show
+            // the clearance progress scoped to that term.
+            openClearanceProgressModal(studentId, 'student', studentName, schoolTerm);
         }
 
         function renderPagination(total, page, limit) {

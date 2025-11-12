@@ -106,44 +106,119 @@ try {
         $clearanceType = $form['clearance_type'];
         
     } else {
-        // Get the most recent clearance form for the user
-        $sql = "
-            SELECT 
-                cf.clearance_form_id,
-                cf.clearance_form_progress as form_status,
-                cf.applied_at,
-                cf.completed_at,
-                cf.clearance_type,
-                ay.year as academic_year,
-                s.semester_name,
-                s.semester_id,
-                ay.academic_year_id
-            FROM clearance_forms cf
-            INNER JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
-            INNER JOIN semesters s ON cf.semester_id = s.semester_id
-            WHERE cf.user_id = ?
-            ORDER BY cf.created_at DESC
-            LIMIT 1
-        ";
-        
-        $stmt = $connection->prepare($sql);
-        $stmt->execute([$userId]);
-        $form = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$form) {
-            echo json_encode([
-                'success' => true,
-                'applied' => false,
-                'message' => 'No clearance forms found for user',
-                'signatories' => [],
-                'overall_status' => 'No Form'
-            ]);
-            exit;
+        // If a specific school_term was passed from the frontend (format: "YEAR|semester_id")
+        // try to resolve the requested academic_year_id and semester_id and return the
+        // clearance form for that exact period. Otherwise, fall back to the most recent form.
+        $schoolTermParam = $_GET['school_term'] ?? null;
+
+        if ($schoolTermParam) {
+            // Expected format: "<academic_year_string>|<semester_id>" (e.g. "2026-2027|99")
+            $parts = explode('|', $schoolTermParam);
+            $academicYearStr = isset($parts[0]) ? trim($parts[0]) : '';
+            $requestedSemesterId = isset($parts[1]) ? (int)trim($parts[1]) : null;
+
+            if ($academicYearStr !== '' && $requestedSemesterId) {
+                // Resolve academic_year_id from the academic_years table using the year string
+                $ayStmt = $connection->prepare("SELECT academic_year_id FROM academic_years WHERE year = ? LIMIT 1");
+                $ayStmt->execute([$academicYearStr]);
+                $resolvedAcademicYearId = $ayStmt->fetchColumn();
+
+                // If not found, try a more permissive lookup (LIKE) to tolerate small formatting differences
+                if (!$resolvedAcademicYearId) {
+                    $ayStmt2 = $connection->prepare("SELECT academic_year_id FROM academic_years WHERE year LIKE ? LIMIT 1");
+                    $ayStmt2->execute(["%" . $academicYearStr . "%"]);
+                    $resolvedAcademicYearId = $ayStmt2->fetchColumn();
+                }
+
+                if ($resolvedAcademicYearId) {
+                    $sql = "
+                        SELECT 
+                            cf.clearance_form_id,
+                            cf.clearance_form_progress as form_status,
+                            cf.applied_at,
+                            cf.completed_at,
+                            cf.clearance_type,
+                            ay.year as academic_year,
+                            s.semester_name,
+                            s.semester_id,
+                            ay.academic_year_id
+                        FROM clearance_forms cf
+                        INNER JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
+                        INNER JOIN semesters s ON cf.semester_id = s.semester_id
+                        WHERE cf.user_id = ?
+                          AND cf.academic_year_id = ?
+                          AND cf.semester_id = ?
+                        LIMIT 1
+                    ";
+
+                    $stmt = $connection->prepare($sql);
+                    $stmt->execute([$userId, $resolvedAcademicYearId, $requestedSemesterId]);
+                    $form = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                    if (!$form) {
+                        // No form found for that specific term — return a successful empty response
+                        echo json_encode([
+                            'success' => true,
+                            'applied' => false,
+                            'message' => 'No clearance forms found for user for the selected school term',
+                            'signatories' => [],
+                            'overall_status' => 'No Form'
+                        ]);
+                        exit;
+                    }
+
+                    $academicYearId = $form['academic_year_id'];
+                    $semesterId = $form['semester_id'];
+                    $clearanceType = $form['clearance_type'];
+                } else {
+                    // Could not resolve academic year string passed — fall back to most recent form
+                    // (we'll reuse the fallback block below)
+                    $form = null;
+                }
+            }
         }
-        
-        $academicYearId = $form['academic_year_id'];
-        $semesterId = $form['semester_id'];
-        $clearanceType = $form['clearance_type'];
+
+        // If $form is not set by the school_term path, fetch the most recent clearance form
+        if (!$form) {
+            // Get the most recent clearance form for the user
+            $sql = "
+                SELECT 
+                    cf.clearance_form_id,
+                    cf.clearance_form_progress as form_status,
+                    cf.applied_at,
+                    cf.completed_at,
+                    cf.clearance_type,
+                    ay.year as academic_year,
+                    s.semester_name,
+                    s.semester_id,
+                    ay.academic_year_id
+                FROM clearance_forms cf
+                INNER JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
+                INNER JOIN semesters s ON cf.semester_id = s.semester_id
+                WHERE cf.user_id = ?
+                ORDER BY cf.created_at DESC
+                LIMIT 1
+            ";
+            
+            $stmt = $connection->prepare($sql);
+            $stmt->execute([$userId]);
+            $form = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$form) {
+                echo json_encode([
+                    'success' => true,
+                    'applied' => false,
+                    'message' => 'No clearance forms found for user',
+                    'signatories' => [],
+                    'overall_status' => 'No Form'
+                ]);
+                exit;
+            }
+            
+            $academicYearId = $form['academic_year_id'];
+            $semesterId = $form['semester_id'];
+            $clearanceType = $form['clearance_type'];
+        }
     }
     
     // Get period status for this clearance form

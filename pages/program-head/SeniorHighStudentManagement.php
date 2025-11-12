@@ -1450,52 +1450,6 @@ try {
             updateActionButtonsState();
         }
 
-        // Create student row
-        async function createStudentRow(student) {
-            // Map account status to display status
-            const displayStatus = student.status === 'active' ? 'active' : 'inactive';
-            
-            // Check if Program Head is assigned to Senior High School sector
-            const isAssignedToSeniorHigh = await checkSeniorHighSectorAssignment();
-            
-            const isActionable = ['Pending', 'Rejected'].includes(student.clearance_status);
-            const rejectButtonTitle = student.clearance_status === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Signatory';
-            const checkboxDisabled = !isActionable;
-
-            const row = document.createElement('tr');
-            row.setAttribute('data-user-id', student.user_id);
-            row.innerHTML = `
-                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.user_id}" ${checkboxDisabled ? 'disabled' : ''}></td>
-                <td data-label="Student Number:">${student.student_id || student.username}</td>
-                <td data-label="Name:">${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
-                <td data-label="Program:">${student.program || 'N/A'}</td>
-                <td data-label="Year Level:">${student.year_level || 'N/A'}</td>
-                <td data-label="Section:">${student.section || 'N/A'}</td>
-                <td data-label="Account Status:"><span class="status-badge account-${displayStatus}">${student.status === 'active' ? 'Active' : 'Inactive'}</span></td>
-                <td data-label="Clearance Progress:"><span class="status-badge clearance-${(student.clearance_status || 'unapplied').toLowerCase().replace(' ', '-')}">${student.clearance_status || 'Unapplied'}</span></td>
-                <td class="action-buttons">
-                    <div class="action-buttons">
-                        ${isAssignedToSeniorHigh ? 
-                            `<button class="btn-icon edit-btn" onclick="editStudent('${student.user_id}')" title="Edit Student">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn-icon delete-btn" onclick="deleteStudent('${student.user_id}')" title="Delete Student">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                            <button class="btn-icon approve-btn" onclick="approveSignatory('${student.user_id}')" title="Approve Signatory" ${!isActionable ? 'disabled' : ''}>
-                                <i class="fas fa-check"></i>
-                            </button>
-                            <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
-                                <i class="fas fa-times"></i>
-                            </button>` :
-                            `<span class="text-muted" style="font-size: 0.85rem; color: #6c757d;">Not Assigned</span>`
-                        }
-                    </div>
-                </td>
-            `;
-            return row;
-        }
-
         // Update statistics
         function updateStatisticsUI(stats) {
             document.getElementById('totalStudents').textContent = stats.total || 0;
@@ -1883,22 +1837,6 @@ try {
             }
         }
 
-        // Populate students table
-        function populateStudentsTable(students) {
-            const tbody = document.getElementById('studentsTableBody');
-            tbody.innerHTML = '';
-            
-            if (!students || students.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">No SHS students with pending actions found in your assigned departments.</td></tr>`;
-                return;
-            }
-
-            for (const student of students) {
-                const row = createStudentRow(student);
-                tbody.appendChild(row);
-            }
-        }
-
         // Update statistics
         function updateStatistics(stats) {
             document.getElementById('totalStudents').textContent = stats.total;
@@ -1944,16 +1882,16 @@ try {
             document.getElementById('nextPage').disabled = page >= totalPages;
         }
 
-        function viewClearanceProgress(studentId) {
-            openClearanceProgressModal(studentId, 'student', 'Student Name');
-        }
-
         function createStudentRow(student) {
             const accountStatusClass = `account-${student.account_status || 'inactive'}`;
             const accountStatusText = student.account_status ? student.account_status.charAt(0).toUpperCase() + student.account_status.slice(1) : 'Inactive';
 
             let clearanceStatus = student.clearance_status || 'Unapplied';
             const clearanceStatusClass = `clearance-${clearanceStatus.toLowerCase().replace(/ /g, '-')}`;
+
+            // Capture the currently selected school term from the filters so we can
+            // display clearance progress scoped to that term when the user opens the modal.
+            const currentSchoolTerm = document.getElementById('schoolTermFilter') ? document.getElementById('schoolTermFilter').value : '';
 
             const isActionable = ['Pending', 'Rejected'].includes(clearanceStatus);
             const rejectButtonTitle = clearanceStatus === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Signatory';
@@ -1977,7 +1915,7 @@ try {
                 <td data-label="Clearance Progress:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
                             <i class="fas fa-tasks"></i>
                         </button>
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.id}')" title="Edit Student">
@@ -1996,6 +1934,16 @@ try {
                 </td>
             `;
             return row;
+        }
+
+        function viewClearanceProgress(studentId, studentName, schoolTerm = '') {
+            // Forward the selected school term (if any) so the modal can show
+            // the clearance progress scoped to that term.
+            openClearanceProgressModal(studentId, 'student', studentName, schoolTerm);
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
         // Signatory Action Functions

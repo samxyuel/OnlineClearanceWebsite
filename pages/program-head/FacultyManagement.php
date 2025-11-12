@@ -869,9 +869,14 @@ handleFacultyManagementPageRequest();
             // Get faculty name from the table row
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
+            const schoolTerm = document.getElementById('schoolTermFilter').value || '';
             
             // Open the clearance progress modal
-            openClearanceProgressModal(facultyId, 'faculty', facultyName);
+            openClearanceProgressModal(facultyId, 'faculty', facultyName, schoolTerm);
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
         function createFacultyRow(faculty) {
@@ -1850,144 +1855,6 @@ handleFacultyManagementPageRequest();
     <?php include '../../Modals/ExportModal.php'; ?>
 </body>
 </html>
-                    }
-                } catch (e) {}
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} faculty with remarks`, 'success');
-                fetchFaculty();
-            } else {
-                try {
-                    const result = await sendSignatoryAction(currentRejectionData.targetId, 'Rejected', additionalRemarks, reasonId);
-                    if (result.success) {
-                        showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
-                        fetchFaculty();
-                    } else {
-                        showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
-                    }
-                } catch (e) {
-                    showToastNotification('An error occurred during rejection.', 'error');
-                }
-            }
-            
-            // Close modal
-            closeRejectionRemarksModal();
-        }
-
-        // Helpers for backend calls
-        async function resolveUserIdFromEmployeeNumber(employeeNumber){
-            try{
-                const r = await fetch('../../api/users/read.php?limit=5&search=' + encodeURIComponent(employeeNumber), { credentials:'include' });
-                const data = await r.json();
-                const arr = data.users || [];
-                const match = arr.find(u => String(u.username) === String(employeeNumber));
-                return match ? match.user_id : null;
-            }catch(e){ return null; }
-        }
-        async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null) {
-            const payload = { 
-                applicant_user_id: applicantUserId, 
-                action: action,
-                designation_name: CURRENT_STAFF_POSITION
-            };
-            if (remarks && remarks.length) payload.remarks = remarks;
-            if (reasonId) payload.reason_id = reasonId;
-
-            const response = await fetch('../../api/clearance/signatory_action.php', {
-                method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
-            });
-            return await response.json();
-        }
-
-        let searchTimeout;
-        function debouncedSearch() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                currentSearch = document.getElementById('searchInput').value;
-                currentPage = 1;
-                fetchFaculty();
-            }, 300);
-        }
-
-        async function loadRejectionReasons() {
-            const reasonSelect = document.getElementById('rejectionReason');
-            if (!reasonSelect) return;
-
-            try {
-                const response = await fetch('../../api/clearance/rejection_reasons.php?category=faculty', { credentials: 'include' });
-                const data = await response.json();
-
-                reasonSelect.innerHTML = '<option value="">Select a reason...</option>';
-                if (data.success && data.rejection_reasons) {
-                    data.rejection_reasons.forEach(reason => {
-                        const option = document.createElement('option');
-                        option.value = reason.reason_id;
-                        option.textContent = reason.reason_name;
-                        reasonSelect.appendChild(option);
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading rejection reasons:', error);
-            }
-        }
-
-        async function loadSchoolTerms() {
-            const termSelect = document.getElementById('schoolTermFilter');
-            try {
-                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
-                const data = await response.json();
-
-                termSelect.innerHTML = '<option value="">All School Terms</option>';
-                if (data.success && data.periods) {
-                    const uniqueTerms = [...new Map(data.periods.map(item => [`${item.academic_year}-${item.semester_name}`, item])).values()];
-
-                    uniqueTerms.forEach(period => {
-                        const option = document.createElement('option');
-                        // The API expects the format 'YYYY-YYYY|semester_id'
-                        option.value = `${period.academic_year}|${period.semester_id}`;
-
-                        const termMap = {
-                            '1st': '1st Semester',
-                            '2nd': '2nd Semester',
-                            '3rd': '3rd Semester',
-                            '1st Semester': '1st Semester',
-                            '2nd Semester': '2nd Semester',
-                            '3rd Semester': '3rd Semester'
-                        };
-                        const semLabel = termMap[period.semester_name] || period.semester_name || '';
-                        const activeText = period.is_active ? ' (Active)' : '';
-
-                        option.textContent = `${period.academic_year} ${semLabel}${activeText}`;
-                        termSelect.appendChild(option);
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading school terms:', error);
-                termSelect.innerHTML = '<option value="">Error loading terms</option>';
-            }
-        }
-
-        async function loadCurrentStaffDesignation() {
-            try {
-                const response = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
-                const data = await response.json();
-                
-                if (data.success) {
-                    CURRENT_STAFF_POSITION = data.designation_name;
-                    const positionInfo = document.getElementById('staffPositionInfo');
-                    if (positionInfo) {
-                        positionInfo.textContent = `Position: ${data.designation_name}`;
-                    }
-                } else {
-                    const positionInfo = document.getElementById('staffPositionInfo');
-                    if (positionInfo) positionInfo.textContent = 'Position: Unknown';
-                }
-            } catch (error) { console.error('Error loading staff designation:', error); }
-        }
-
-        function escapeHtml(unsafe) {
-            return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-        }
-    </script>
     <script src="../../assets/js/alerts.js"></script>
     
     <!-- Bulk Selection Filters Modal -->
