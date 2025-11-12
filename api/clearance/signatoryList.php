@@ -69,6 +69,12 @@ try {
     $employmentStatus = $_GET['employment_status'] ?? ''; // New filter for faculty
     $departmentId = $_GET['departments'] ?? ''; // Added to handle department filter
 
+    // Ensure department_id is set to avoid warnings
+    $departmentId = $_GET['department_id'] ?? null;
+
+    // Debug log for received department_id
+    error_log("SIGNATORY_LIST_DEBUG: Received department_id = " . json_encode($departmentId));
+
     // If a school term is selected, look for periods within that term (Ongoing or Closed)
     // Otherwise, default to the current 'Ongoing' period.
     if (!empty($schoolTerm)) {
@@ -148,28 +154,21 @@ try {
     $where = " WHERE 1=1"; // The JOINs already filter by designation, but we can add sector check for robustness if needed.
     $params = [':designationId' => $designationId];
 
-    // Apply department scoping for Program Heads
-    if ($isProgramHead) {
-        $deptIds = array_column($programHeadDepartments, 'department_id');
-        $isShsProgramHead = in_array('Senior High School', array_column($programHeadDepartments, 'sector_name'));
-
-        // Special case for SHS Program Head: if they manage an SHS dept, they see all SHS students.
-        if ($type === 'student' && $requestSector === 'Senior High School' && $isShsProgramHead) {
-            // The `s.sector = :requestSector` filter below will handle this. No extra department scoping needed.
-        } else {
-            if (!empty($deptIds)) {
-                $deptPlaceholders = [];
-                foreach ($deptIds as $i => $id) {
-                    $key = ":dept_id_$i";
-                    $deptPlaceholders[] = $key;
-                    $params[$key] = $id;
-                }
-                $inClause = implode(',', $deptPlaceholders);
-
-                $deptColumn = ($type === 'faculty') ? 'f.department_id' : 'p.department_id';
-                $where .= " AND $deptColumn IN ($inClause)";
-            }
+    // Apply department filtering
+    if (!empty($departmentId)) {
+        // Remove redundant department filtering logic
+        $where .= " AND s.department_id = :departmentId";
+        $params[':departmentId'] = $departmentId;
+    } else if ($isProgramHead && !empty($deptIds)) {
+        // Apply department scoping for Program Heads
+        $deptPlaceholders = [];
+        foreach ($deptIds as $i => $id) {
+            $key = ":dept_id_$i";
+            $deptPlaceholders[] = $key;
+            $params[$key] = $id;
         }
+        $inClause = implode(',', $deptPlaceholders);
+        $where .= " AND s.department_id IN ($inClause)";
     }
 
     // Apply filters
@@ -235,11 +234,6 @@ try {
     if (!empty($yearLevel)) {
         $where .= " AND s.year_level = :yearLevel";
         $params[':yearLevel'] = $yearLevel;
-    }
-
-    if (!empty($departmentId)) {
-        $where .= " AND s.department_id = :departmentId";
-        $params[':departmentId'] = $departmentId;
     }
 
     // Add sector filtering for students
@@ -322,7 +316,7 @@ try {
                 'clearance_form_id' => $item['clearance_form_id'],
                 'signatory_id' => $item['signatory_id']
             ];
-        }, $results)
+        }, $results),
     ];
 
     echo json_encode($response);

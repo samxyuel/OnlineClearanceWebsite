@@ -124,14 +124,18 @@ try {
             $applicantDeptId = $deptStmt->fetchColumn();
         }
 
-        if (!$applicantDeptId) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'Applicant department not set']); exit; }
+        if (!$applicantDeptId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Applicant department not set']);
+            exit;
+        }
 
         // Ensure acting user is PH of that department
-        $phCheckStmt = $pdo->prepare("SELECT 1 FROM staff WHERE user_id=? AND staff_category='Program Head' AND is_active=1 AND department_id=? LIMIT 1");
+        $phCheckStmt = $pdo->prepare("SELECT 1 FROM staff WHERE user_id=? AND designation_id=8 AND is_active=1 AND department_id=? LIMIT 1");
         $phCheckStmt->execute([$actingUserId, (int)$applicantDeptId]);
         if (!$phCheckStmt->fetchColumn()) {
             http_response_code(403);
-            echo json_encode(['success'=>false,'message'=>'Only the Program Head of the applicant\'s department can perform this action']);
+            echo json_encode(['success' => false, 'message' => 'Only the Program Head of the applicant\'s department can perform this action']);
             exit;
         }
         }

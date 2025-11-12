@@ -225,6 +225,7 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
+                                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Select all visible">
                                                 </th>
                                                 <th>Student Number</th>
                                                 <th>Name</th>
@@ -576,15 +577,15 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         // Select all functionality
-        function toggleSelectAll() {
-            const selectAllCheckbox = document.getElementById('selectAll');
-            const studentCheckboxes = document.querySelectorAll('.student-checkbox');
-            const bulkButtons = document.querySelectorAll('.bulk-buttons button');
-            
+        function toggleSelectAll(checked) {
+            const studentCheckboxes = document.querySelectorAll('#studentsTableBody .student-checkbox');
             studentCheckboxes.forEach(checkbox => {
-                checkbox.checked = selectAllCheckbox.checked;
+                const row = checkbox.closest('tr');
+                // Only toggle visible and enabled rows, respecting current filters
+                if (row && row.style.display !== 'none' && !checkbox.disabled) {
+                    checkbox.checked = checked;
+                }
             });
-            
             updateBulkButtons();
         }
 
@@ -629,7 +630,7 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         // Bulk Actions with Confirmation - School Administrator as Signatory
-        function approveSelected() {
+        async function approveSelected() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
                 showToastNotification('Please select students to approve clearance', 'warning');
@@ -641,21 +642,44 @@ if (session_status() == PHP_SESSION_NONE) {
                 `Are you sure you want to approve clearance for ${selectedCount} selected students?`,
                 'Approve',
                 'Cancel',
-                () => {
-                    // Perform approval
-                    const selectedRows = document.querySelectorAll('.student-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
-                        
-                        if (clearanceBadge) {
-                            clearanceBadge.textContent = 'Completed';
-                            clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
-                            clearanceBadge.classList.add('clearance-completed');
+                async () => {
+                    const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+                    const userIds = [];
+                    for (const checkbox of selectedCheckboxes) {
+                        const studentNumber = checkbox.getAttribute('data-id');
+                        const userId = await resolveUserIdFromStudentNumber(studentNumber);
+                        if (userId) userIds.push(userId);
+                    }
+
+                    if (userIds.length === 0) {
+                        showToastNotification('Could not identify users to approve.', 'error');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                applicant_user_ids: userIds,
+                                action: 'Approved',
+                                designation_name: CURRENT_STAFF_POSITION,
+                                remarks: `Approved by ${CURRENT_STAFF_POSITION}`
+                            })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            showToastNotification(`Successfully approved clearance for ${result.affected_rows} students.`, 'success');
+                        } else {
+                            throw new Error(result.message || 'Bulk approval failed.');
                         }
-                    });
-                    
-                    showToastNotification(`✓ Successfully approved clearance for ${selectedCount} students`, 'success');
+                    } catch (error) {
+                        console.error('Bulk approval error:', error);
+                        showToastNotification(error.message, 'error');
+                    } finally {
+                        loadStudentsData();
+                    }
                 },
                 'success'
             );
@@ -667,12 +691,8 @@ if (session_status() == PHP_SESSION_NONE) {
                 showToastNotification('Please select students to reject clearance', 'warning');
                 return;
             }
-            
-            // Get selected student IDs and names
             const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
-            const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.getAttribute('data-id'));
-            
-            // Open rejection remarks modal for bulk rejection
+            const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.getAttribute('data-id'));
             openRejectionRemarksModal(null, null, 'student', true, selectedIds);
         }
 
@@ -743,9 +763,7 @@ if (session_status() == PHP_SESSION_NONE) {
             );
         }
 
-        function getSelectedCount() {
-            return document.querySelectorAll('.student-checkbox:checked').length;
-        }
+        // getSelectedCount consolidated later in the file
 
         function updateBulkStatistics(action, count) {
             const activeCount = document.getElementById('activeStudents');
@@ -1165,7 +1183,7 @@ if (session_status() == PHP_SESSION_NONE) {
             row.setAttribute('data-signatory-id', student.signatory_id);
 
             row.innerHTML = `
-                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.id}"></td>
+                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.id}"  ${!isActionable ? 'disabled' : ''}></td>
                 <td data-label="Student Number:">${student.id}</td>
                 <td data-label="Name:">${student.name}</td>
                 <td data-label="Program:">${student.program || 'N/A'}</td>
