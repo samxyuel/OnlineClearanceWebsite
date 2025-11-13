@@ -339,6 +339,7 @@ handleFacultyManagementPageRequest();
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
+                                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Select all visible">
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
@@ -475,17 +476,26 @@ handleFacultyManagementPageRequest();
             }
         }
 
-        function updateSelectionCounter() {
-            const selectedCount = getSelectedCount();
-            const totalCount = document.querySelectorAll('.faculty-checkbox').length;
-            const counter = document.getElementById('selectionCounter');
+        // Select all functionality
+        function toggleSelectAll(checked) {
+            const facultyCheckboxes = document.querySelectorAll('#facultyTableBody .faculty-checkbox');
+            facultyCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                // Only toggle visible and enabled rows, respecting current filters
+                if (row && row.style.display !== 'none' && !checkbox.disabled) {
+                    checkbox.checked = checked;
+                }
+            });
+            updateBulkButtons();
+        }
 
-            if (selectedCount === 0) {
-                counter.textContent = '0 selected';
-            } else if (selectedCount > 0 && selectedCount === totalCount) {
-                counter.textContent = `All ${totalCount} selected`;
-            } else {
-                counter.textContent = `${selectedCount} selected`;
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const allCheckboxes = document.querySelectorAll('#facultyTableBody .faculty-checkbox:not(:disabled)');
+            const checkedCount = document.querySelectorAll('#facultyTableBody .faculty-checkbox:not(:disabled):checked').length;
+
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
             }
         }
 
@@ -573,10 +583,6 @@ handleFacultyManagementPageRequest();
             openRejectionRemarksModal(null, null, 'faculty', true, selectedIds);
         }
 
-        function getSelectedCount() {
-            return document.querySelectorAll('.faculty-checkbox:checked').length;
-        }
-
         async function fetchFaculty() {
             const tableBody = document.getElementById('facultyTableBody');
             tableBody.innerHTML = `<tr><td colspan="7" class="loading-row"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i><span>Loading faculty data...</span></div></td></tr>`;
@@ -629,8 +635,10 @@ handleFacultyManagementPageRequest();
             const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
             const accountStatus = (faculty.account_status || 'inactive').toLowerCase();
             
-            let approveBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || !canPerformActions;
-            let rejectBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || !canPerformActions;
+            let approveBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || faculty.clearance_status === '' || !canPerformActions;
+            let rejectBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || faculty.clearance_status === '' || !canPerformActions;
+            // Disable checkbox for 'Unapplied' and 'Approved' statuses (same logic as buttons)
+            let checkboxDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || faculty.clearance_status === '' || !canPerformActions;
             let approveTitle = 'Approve Clearance';
             let rejectTitle = 'Reject Clearance';
             if (!canPerformActions) {
@@ -638,7 +646,7 @@ handleFacultyManagementPageRequest();
             }
             
             tr.innerHTML = `
-                <td class="checkbox-column"><input type="checkbox" class="faculty-checkbox" data-id="${faculty.id}"></td>
+                <td class="checkbox-column"><input type="checkbox" class="faculty-checkbox" data-id="${faculty.id}" ${checkboxDisabled ? 'disabled' : ''}></td>
                 <td data-label="Employee Number:">${faculty.id}</td>
                 <td data-label="Name:">${escapeHtml(faculty.name)}</td>
                 <td data-label="Employment Status:"><span class="status-badge employment-${(faculty.employment_status || '').toLowerCase().replace(/ /g, '-')}">${escapeHtml(faculty.employment_status || 'N/A')}</span></td>
@@ -675,9 +683,10 @@ handleFacultyManagementPageRequest();
             // Get faculty name from the table row
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
+            const schoolTerm = document.getElementById('schoolTermFilter').value;
             
             // Open the clearance progress modal
-            openClearanceProgressModal(facultyId, 'faculty', facultyName);
+            openClearanceProgressModal(facultyId, 'faculty', facultyName, schoolTerm);
         }
 
         function populateFacultyTable(facultyList) {
@@ -686,6 +695,7 @@ handleFacultyManagementPageRequest();
 
             if (!facultyList || facultyList.length === 0) {
                 showEmptyState('No faculty data found matching your criteria.');
+                updateBulkButtons(); // Update buttons even when empty
                 return;
             }
 
@@ -693,6 +703,8 @@ handleFacultyManagementPageRequest();
                 const row = createFacultyRow(faculty);
                 tbody.appendChild(row);
             });
+            
+            updateBulkButtons(); // Update buttons after populating table
         }
 
         async function approveFacultyClearance(button) {
@@ -774,38 +786,10 @@ handleFacultyManagementPageRequest();
             document.getElementById('nextPage').disabled = page === totalPages;
         }
         
-        function scrollToTop() {
-            const tableWrapper = document.getElementById('facultyTableWrapper');
-            tableWrapper.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-        }
-        
-        // Show scroll to top button when scrolled
-        document.getElementById('facultyTableWrapper').addEventListener('scroll', function() {
-            const scrollBtn = document.getElementById('scrollToTopBtn');
-            if (this.scrollTop > 200) {
-                scrollBtn.style.display = 'block';
-            } else {
-                scrollBtn.style.display = 'none';
-            }
-        });
-        
         // Filter functions (simplified for now)
         function applyFilters() {
             currentPage = 1;
             fetchFaculty();
-        }
-        
-        function clearFilters() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('clearanceStatusFilter').value = '';
-            document.getElementById('accountStatusFilter').value = '';
-            document.getElementById('schoolTermFilter').value = '';
-            document.getElementById('employmentStatusFilter').value = '';
-            fetchFaculty();
-            showToastNotification('All filters cleared', 'info');
         }
         
         function triggerExportModal() {
@@ -1003,7 +987,7 @@ handleFacultyManagementPageRequest();
         }
 
         function selectAllVisibleFacultyRows() {
-            const checkboxes = document.querySelectorAll('.faculty-checkbox');
+            const checkboxes = document.querySelectorAll('.faculty-checkbox:not(:disabled)');
             let selectedCount = 0;
             
             checkboxes.forEach(checkbox => {
@@ -1021,11 +1005,12 @@ handleFacultyManagementPageRequest();
             
             updateSelectionCounter();
             updateBulkButtons();
+            updateSelectAllCheckbox(); // Update select all checkbox state
             showToastNotification(`Selected all ${selectedCount} visible faculty`, 'success');
         }
 
         function selectFacultyByFilters(filters) {
-            const checkboxes = document.querySelectorAll('.faculty-checkbox');
+            const checkboxes = document.querySelectorAll('.faculty-checkbox:not(:disabled)');
             let selectedCount = 0;
             
             checkboxes.forEach(checkbox => {
@@ -1083,6 +1068,7 @@ handleFacultyManagementPageRequest();
             
             updateSelectionCounter();
             updateBulkButtons();
+            updateSelectAllCheckbox(); // Update select all checkbox state
             showToastNotification(`Selected ${selectedCount} faculty based on filters`, 'success');
         }
 
@@ -1127,6 +1113,30 @@ handleFacultyManagementPageRequest();
                 if (counterPill) counterPill.classList.add('has-selections');
                 if (clearBtn) clearBtn.disabled = false;
             }
+        }
+
+        function updateBulkButtons() {
+            const checkedBoxes = document.querySelectorAll('.faculty-checkbox:checked');
+            const bulkButtons = document.querySelectorAll('.bulk-buttons button');
+            
+            // Check if signatory actions are allowed from PHP
+            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
+
+            bulkButtons.forEach(button => {
+                // Disable if no selections OR if signatory actions are not allowed
+                button.disabled = checkedBoxes.length === 0 || !canPerformActions;
+
+                // Add tooltip for disabled state due to permissions
+                if (!canPerformActions && checkedBoxes.length > 0) {
+                    button.title = 'Cannot perform action: ' + ('<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a faculty signatory."; ?>');
+                } else if (checkedBoxes.length === 0) {
+                    button.title = 'Select faculty to perform actions';
+                } else {
+                    button.title = '';
+                }
+            });
+            
+            updateSelectionCounter();
         }
 
         function getSelectedCount() {
@@ -1303,10 +1313,14 @@ handleFacultyManagementPageRequest();
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', async function() {
+            // Initialize bulk buttons state
+            updateBulkButtons();
+            
             document.addEventListener('change', function(e) {
                 if (e.target.classList.contains('faculty-checkbox')) {
                     updateBulkButtons();
                     updateSelectionCounter();
+                    updateSelectAllCheckbox();
                 }
             });
 
@@ -1341,30 +1355,6 @@ handleFacultyManagementPageRequest();
             // Initialize tab status
             window.currentTabStatus = '';
         });
-
-        // Load current staff designation
-        async function loadCurrentStaffDesignation() {
-            try {
-                const response = await fetch('../../api/users/get_current_staff_designation.php', {
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    const positionInfo = document.getElementById('staffPositionInfo');
-                    if (positionInfo) {
-                        positionInfo.textContent = `Position: ${data.designation_name}`;
-                    }
-                } else {
-                    const positionInfo = document.getElementById('staffPositionInfo');
-                    if (positionInfo) {
-                        positionInfo.textContent = 'Position: Unknown';
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading staff designation:', error);
-            }
-        }
 
         // Rejection Remarks Modal Functions
         let currentRejectionData = {
@@ -1548,6 +1538,9 @@ handleFacultyManagementPageRequest();
                 } catch (error) {
                     console.error('Bulk rejection error:', error);
                     showToastNotification(error.message, 'error');
+                } finally {
+                    closeRejectionRemarksModal(); // Close the modal
+                    fetchFaculty(); // Refresh the table
                 }
             } else {
                 // Individual rejection - no need to resolve ID, it's already the user_id
@@ -1555,24 +1548,17 @@ handleFacultyManagementPageRequest();
                     const result = await sendSignatoryAction(currentRejectionData.targetId, 'Rejected', additionalRemarks, reasonId);
                     if (result.success) {
                         showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
-                        // Refresh data to show updated status
-                        fetchFaculty();
+                        fetchFaculty(); // Refresh the table to update button states
                     } else {
                         showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.error("Error during individual rejection:", e);
+                    showToastNotification('An error occurred during rejection.', 'error');
+                } finally {
+                    closeRejectionRemarksModal(); // Close the modal
+                }
             }
-            
-            // Close modal
-            closeRejectionRemarksModal();
-            
-            // Demo: Log rejection data (in real implementation, this would be sent to server)
-            console.log('Rejection Data:', {
-                target: currentRejectionData,
-                reason: rejectionReason,
-                additionalRemarks: additionalRemarks,
-                timestamp: new Date().toISOString()
-            });
         }
 
         async function resolveUserIdFromEmployeeNumber(identifier){

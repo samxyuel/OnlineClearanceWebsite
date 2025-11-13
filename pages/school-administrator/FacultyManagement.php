@@ -306,6 +306,7 @@ handleFacultyManagementPageRequest();
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
+                                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Select all visible">
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
@@ -675,9 +676,12 @@ handleFacultyManagementPageRequest();
 
         // Select all functionality
         function toggleSelectAll(checked) {
-            const facultyCheckboxes = document.querySelectorAll('.faculty-checkbox');
+            const facultyCheckboxes = document.querySelectorAll('#facultyTableBody .faculty-checkbox');
             facultyCheckboxes.forEach(checkbox => {
-                checkbox.checked = checked;
+                const row = checkbox.closest('tr');
+                if (row && row.style.display !== 'none' && !checkbox.disabled) {
+                    checkbox.checked = checked;
+                }
             });
             updateBulkButtons();
         }
@@ -721,42 +725,56 @@ handleFacultyManagementPageRequest();
         }
 
         // Bulk Actions with Confirmation - School Administrator as Signatory
-        function approveSelected() {
+        async function approveSelected() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
                 showToastNotification('Please select faculty to approve clearance', 'warning');
                 return;
             }
-            
+
             showConfirmationModal(
                 'Approve Faculty Clearances',
                 `Are you sure you want to approve clearance for ${selectedCount} selected faculty?`,
                 'Approve',
                 'Cancel',
-                () => {
+                async () => {
                     const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
-                    const approvalPromises = Array.from(selectedCheckboxes).map(async checkbox => {
-                        try {
-                            const eid = checkbox.getAttribute('data-id');
-                            const uid = await resolveUserIdFromEmployeeNumber(eid);
-                            
-                            if (uid) {
-                                await sendSignatoryAction(uid, 'Approved');
-                                const row = checkbox.closest('tr');
-                                const badge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
-                                if (badge) {
-                                    badge.textContent = 'Approved';
-                                    badge.className = 'status-badge clearance-approved';
-                                }
-                            } else {
-                                console.error('Could not resolve user ID for', eid);
-                            }
-                        } catch (e) {
-                            console.error('Error approving clearance for', checkbox.getAttribute('data-id'), ':', e);
+                    const userIds = [];
+                    for (const checkbox of selectedCheckboxes) {
+                        const eid = checkbox.getAttribute('data-id');
+                        const uid = await resolveUserIdFromEmployeeNumber(eid);
+                        if (uid) userIds.push(uid);
+                    }
+
+                    if (userIds.length === 0) {
+                        showToastNotification('Could not identify users to approve.', 'error');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                applicant_user_ids: userIds,
+                                action: 'Approved',
+                                designation_name: CURRENT_STAFF_POSITION,
+                                remarks: `Approved by ${CURRENT_STAFF_POSITION}`
+                            })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            showToastNotification(`Successfully approved clearance for ${result.affected_rows} faculty.`, 'success');
+                        } else {
+                            throw new Error(result.message || 'Bulk approval failed.');
                         }
-                    });
-                    Promise.all(approvalPromises).then(() => fetchFaculty());
-                    showToastNotification(`✓ Successfully approved clearance for ${selectedCount} faculty`, 'success');
+                    } catch (error) {
+                        console.error('Bulk approval error:', error);
+                        showToastNotification(error.message, 'error');
+                    } finally {
+                        fetchFaculty();
+                    }
                 },
                 'success'
             );
@@ -768,9 +786,8 @@ handleFacultyManagementPageRequest();
                 showToastNotification('Please select faculty to reject clearance', 'warning');
                 return;
             }
-            
             const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
-            const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.getAttribute('data-id'));
+            const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.getAttribute('data-id'));
             openRejectionRemarksModal(null, null, 'faculty', true, selectedIds);
         }
 
@@ -1183,6 +1200,7 @@ handleFacultyManagementPageRequest();
             let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
             // Enable reject button for 'Pending' and 'Rejected' statuses to allow for edits.
             let rejectBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
+            let checkboxDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
             let approveTitle = 'Approve Clearance';
             // Change button title if the faculty member is already rejected.
             let rejectTitle = faculty.clearance_status === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Clearance';
@@ -1192,7 +1210,7 @@ handleFacultyManagementPageRequest();
             }
             
             tr.innerHTML = `
-                <td class="checkbox-column"><input type="checkbox" class="faculty-checkbox" data-id="${faculty.id}" onchange="updateBulkButtons()"></td>
+                <td class="checkbox-column"><input type="checkbox" class="faculty-checkbox" data-id="${faculty.id}"  onchange="updateBulkButtons()" ${checkboxDisabled ? 'disabled' : ''}></td>
                 <td data-label="Employee Number:">${faculty.id}</td>
                 <td data-label="Name:">${escapeHtml(faculty.name)}</td>
                 <td data-label="Employment Status:"><span class="status-badge employment-${(faculty.employment_status || '').toLowerCase().replace(/ /g, '-')}">${escapeHtml(faculty.employment_status || 'N/A')}</span></td>
@@ -1848,9 +1866,10 @@ handleFacultyManagementPageRequest();
             // Get faculty name from the table row
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
+            const schoolTerm = document.getElementById('schoolTermFilter').value;
             
             // Open the clearance progress modal
-            openClearanceProgressModal(facultyId, 'faculty', facultyName);
+            openClearanceProgressModal(facultyId, 'faculty', facultyName, schoolTerm);
         }
 
         // Rejection Remarks Modal Functions

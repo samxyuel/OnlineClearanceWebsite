@@ -48,6 +48,9 @@ try {
         }
         exit;
     }
+
+        // NOTE: Permission check moved to centralized API (api/program-head/is_assigned.php)
+        // Client-side will call the API to determine CAN_TAKE_ACTION for the given clearance_type.
 } catch (Throwable $e) {
     header('HTTP/1.1 403 Forbidden');
     echo 'Access denied.';
@@ -281,6 +284,7 @@ try {
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
+                                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Select all visible">
                                                 </th>
                                                 <th>Student Number</th>
                                                 <th>Name</th>
@@ -337,6 +341,26 @@ try {
             </div>
         </div>
     </main>
+
+    <script>
+        // Default until we query the centralized assignment API
+        window.CAN_TAKE_ACTION = false;
+
+        async function fetchCanTakeActionSHS() {
+            try {
+                const resp = await fetch('../../api/program-head/is_assigned.php?clearance_type=Senior High School', { credentials: 'include' });
+                const data = await resp.json();
+                if (data && data.success) {
+                    window.CAN_TAKE_ACTION = !!data.can_take_action;
+                    console.log('is_assigned (SHS):', data);
+                } else {
+                    console.warn('is_assigned (SHS) returned no data', data);
+                }
+            } catch (e) {
+                console.error('Error fetching is_assigned (SHS):', e);
+            }
+        }
+    </script>
 
     <!-- Include Alert System -->
     <?php include '../../includes/components/alerts.php'; ?>
@@ -485,6 +509,21 @@ try {
             }
         }
 
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const allCheckboxes = document.querySelectorAll('#studentsTableBody .student-checkbox:not(:disabled)');
+            const checkedCount = document.querySelectorAll('#studentsTableBody .student-checkbox:not(:disabled):checked').length;
+
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
+            }
+        }
+
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('student-checkbox')) {
+                updateSelectAllCheckbox();
+            }
+        });
         // Select all functionality
         function toggleSelectAll() {
             const selectAllCheckbox = document.getElementById('selectAll');
@@ -542,22 +581,37 @@ try {
                 'Approve',
                 'Cancel',
                 () => {
-                    const selectedRows = document.querySelectorAll('.student-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
-                        
-                        if (clearanceBadge) {
-                            clearanceBadge.textContent = 'Approved';
-                            clearanceBadge.classList.remove('clearance-pending', 'clearance-in-progress', 'clearance-rejected');
-                            clearanceBadge.classList.add('clearance-approved');
-                        }
-                    });
-                    
-                    showToastNotification(`✓ Successfully approved ${selectedCount} students' clearances`, 'success');
+                    bulkSignatoryAction('Approved', `Approved by Program Head`);
                 },
                 'success'
             );
+        }
+
+        async function bulkSignatoryAction(action, remarks, reasonId = null) {
+            const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+            const userIds = [];
+            for (const checkbox of selectedCheckboxes) {
+                const studentNumber = checkbox.getAttribute('data-id');
+                const userId = await resolveUserIdFromStudentNumber(studentNumber);
+                if (userId) {
+                    userIds.push(userId);
+                }
+            }
+
+            if (userIds.length === 0) {
+                showToastNotification('Could not identify users for this action.', 'error');
+                return;
+            }
+
+            const payload = {
+                applicant_user_ids: userIds,
+                action: action,
+                designation_name: 'Program Head',
+                remarks: remarks
+            };
+            if (reasonId) payload.reason_id = reasonId;
+
+            await sendBulkAction(payload);
         }
 
         function rejectSelected() {
@@ -572,7 +626,7 @@ try {
             const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.getAttribute('data-id'));
             
             // Open rejection remarks modal for bulk rejection
-            openRejectionRemarksModal(null, null, 'student', true, selectedIds);
+            openRejectionRemarksModal(null, null, null, 'Bulk Action', true, selectedIds);
         }
 
         function deleteSelected() {
@@ -717,12 +771,8 @@ try {
             );
         }
 
-        // Helper function to get selected count
-        function getSelectedCount() {
-            return document.querySelectorAll('.student-checkbox:checked').length;
-        }
         
-        // Individual student actions
+    // Individual student actions
         function editStudent(studentId) {
             openEditStudentModal(studentId);
         }
@@ -1190,7 +1240,7 @@ try {
         function clearAllSelections() {
             const checkboxes = document.querySelectorAll('.student-checkbox');
             checkboxes.forEach(checkbox => {
-                checkbox.checked = false;
+                if (!checkbox.disabled) checkbox.checked = false;
             });
             document.getElementById('selectAll').checked = false;
             updateSelectionCounter();
@@ -1313,6 +1363,74 @@ try {
             }
         }
 
+        function updateActionButtonsState() {
+            // Bulk control disabling based on global permission (CAN_TAKE_ACTION)
+            const bulkActionSelectors = [
+                '.add-student-btn',
+                '.import-btn',
+                '.export-btn',
+                '.bulk-selection-filters-btn',
+                '.bulk-controls .btn-success', // batch update
+                '.bulk-buttons button', // approve/reject/graduate/reset/delete
+                '.clear-selection-btn',
+                '.selection-counter-pill',
+                '.btn-outline-secondary.clear-selection-btn'
+            ];
+
+            // Use window.CAN_TAKE_ACTION (set by centralized API) if available, otherwise fallback to CAN_TAKE_ACTION
+            const canAct = typeof window.CAN_TAKE_ACTION !== 'undefined' ? window.CAN_TAKE_ACTION : (typeof CAN_TAKE_ACTION !== 'undefined' ? CAN_TAKE_ACTION : false);
+            
+            // Disable/enable bulk controls based on permission
+            bulkActionSelectors.forEach(sel => {
+                document.querySelectorAll(sel).forEach(btn => {
+                    try {
+                        btn.disabled = !canAct;
+                        if (!canAct) {
+                            btn.classList.add('disabled');
+                            btn.title = 'You do not have permission to take action on this page.';
+                        } else {
+                            btn.classList.remove('disabled');
+                            // Clear the permission-denied title when enabled
+                            if (btn.title === 'You do not have permission to take action on this page.') {
+                                btn.title = '';
+                            }
+                        }
+                    } catch (e) { /* ignore */ }
+                });
+            });
+
+            // Disable/enable row checkboxes and select-all based on permission
+            document.querySelectorAll('#studentsTableBody .student-checkbox').forEach(cb => cb.disabled = !canAct);
+            const selectAll = document.getElementById('selectAllCheckbox') || document.getElementById('selectAll');
+            if (selectAll) selectAll.disabled = !canAct;
+
+            // Row-level button disabling based on individual clearance status
+            // Approve/Reject buttons should only be enabled for Pending/Rejected statuses (actionable)
+            const rows = document.querySelectorAll('#studentsTableBody tr');
+            rows.forEach(row => {
+                const clearanceBadge = row.querySelector('.status-badge[class*="clearance-"]');
+                const clearanceStatus = clearanceBadge ? clearanceBadge.textContent.trim() : 'Unapplied';
+                
+                // Only Pending and Rejected are actionable
+                const isActionable = ['Pending', 'Rejected'].includes(clearanceStatus);
+                
+                // Disable individual row action buttons if not actionable
+                const rowActionButtons = row.querySelectorAll('.action-buttons button');
+                rowActionButtons.forEach(btn => {
+                    const btnClass = btn.className;
+                    // Approve and Reject buttons should be disabled if not actionable
+                    if ((btnClass.includes('approve-btn') || btnClass.includes('reject-btn')) && !isActionable) {
+                        btn.disabled = true;
+                        btn.classList.add('disabled');
+                    } else if (btnClass.includes('approve-btn') || btnClass.includes('reject-btn')) {
+                        btn.disabled = !canAct; // Enable/disable based on permission if actionable
+                        if (!canAct) btn.classList.add('disabled');
+                        else btn.classList.remove('disabled');
+                    }
+                });
+            });
+        }
+
         // Populate students table
         async function populateStudentsTable(students) {
             const tbody = document.getElementById('studentsTableBody');
@@ -1320,55 +1438,16 @@ try {
             
             if (!students || students.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">No SHS students with pending actions found in your assigned departments.</td></tr>`;
+                updateActionButtonsState();
                 return;
+                
             }
 
             for (const student of students) {
                 const row = await createStudentRow(student);
                 tbody.appendChild(row);
             }
-        }
-
-        // Create student row
-        async function createStudentRow(student) {
-            // Map account status to display status
-            const displayStatus = student.status === 'active' ? 'active' : 'inactive';
-            
-            // Check if Program Head is assigned to Senior High School sector
-            const isAssignedToSeniorHigh = await checkSeniorHighSectorAssignment();
-            
-            const row = document.createElement('tr');
-            row.setAttribute('data-user-id', student.user_id);
-            row.innerHTML = `
-                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.user_id}"></td>
-                <td data-label="Student Number:">${student.student_id || student.username}</td>
-                <td data-label="Name:">${student.last_name}, ${student.first_name} ${student.middle_name || ''}</td>
-                <td data-label="Program:">${student.program || 'N/A'}</td>
-                <td data-label="Year Level:">${student.year_level || 'N/A'}</td>
-                <td data-label="Section:">${student.section || 'N/A'}</td>
-                <td data-label="Account Status:"><span class="status-badge account-${displayStatus}">${student.status === 'active' ? 'Active' : 'Inactive'}</span></td>
-                <td data-label="Clearance Progress:"><span class="status-badge clearance-${(student.clearance_status || 'unapplied').toLowerCase().replace(' ', '-')}">${student.clearance_status || 'Unapplied'}</span></td>
-                <td class="action-buttons">
-                    <div class="action-buttons">
-                        ${isAssignedToSeniorHigh ? 
-                            `<button class="btn-icon edit-btn" onclick="editStudent('${student.user_id}')" title="Edit Student">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="btn-icon delete-btn" onclick="deleteStudent('${student.user_id}')" title="Delete Student">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                            <button class="btn-icon approve-btn" onclick="approveSignatory('${student.user_id}', 'CF-2025-00001', 1)" title="Approve Signatory">
-                                <i class="fas fa-check"></i>
-                            </button>
-                            <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}', 'CF-2025-00001', 1)" title="Reject Signatory">
-                                <i class="fas fa-times"></i>
-                            </button>` :
-                            `<span class="text-muted" style="font-size: 0.85rem; color: #6c757d;">Not Assigned</span>`
-                        }
-                    </div>
-                </td>
-            `;
-            return row;
+            updateActionButtonsState();
         }
 
         // Update statistics
@@ -1446,14 +1525,12 @@ try {
             document.getElementById('inactiveStudents').textContent = inactiveStudents;
         }
 
-        // Check if Program Head is assigned to Senior High School sector
+        // Check if Program Head is assigned to Senior High School sector (uses centralized API)
         async function checkSeniorHighSectorAssignment() {
             try {
-                const response = await fetch('../../api/clearance/check_signatory_status.php?sector=Senior High School', {
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                return data.success && data.is_signatory;
+                const resp = await fetch('../../api/program-head/is_assigned.php?clearance_type=Senior High School', { credentials: 'include' });
+                const data = await resp.json();
+                return data && data.success && !!data.can_take_action;
             } catch (error) {
                 console.error('Error checking senior high sector assignment:', error);
                 return false;
@@ -1499,12 +1576,15 @@ try {
                     userRole: 'Program Head'
                 });
             }
-            // 1. Check permissions and load user-specific data first
-            const isAssigned = await checkSeniorHighSectorAssignment();
-            window.isAssignedToSeniorHigh = isAssigned;
-            if (!isAssigned) {
-                showToastNotification('You are not assigned to the Senior High School sector. You have view-only access.', 'warning');
-            }
+
+            updateActionButtonsState();
+
+                // 1. Check permissions and load user-specific data first
+                await fetchCanTakeActionSHS();
+                window.isAssignedToSeniorHigh = window.CAN_TAKE_ACTION;
+                if (!window.CAN_TAKE_ACTION) {
+                    showToastNotification('You are not assigned to the Senior High School sector. You have view-only access.', 'warning');
+                }
             await loadProgramHeadProfile();
 
             // 2. Load all independent filter options and page data in parallel
@@ -1520,7 +1600,9 @@ try {
 
             // 3. Set default filter values and load the main table data
             await setDefaultSchoolTerm();
-            loadStudentsData();
+            await loadStudentsData();
+            // Ensure action buttons state reflects the resolved permissions after data/render
+            updateActionButtonsState();
 
             // 4. Initialize UI components
             updateSelectionCounter();
@@ -1612,21 +1694,38 @@ try {
             const rejectionReason = reasonSelect.value;
             const additionalRemarks = remarksTextarea.value.trim();
             
+            if (!rejectionReason) {
+                showToastNotification('Please select a reason for rejection.', 'warning');
+                return;
+            }
+
             // Demo: Show rejection summary
             let rejectionSummary = '';
             if (currentRejectionData.isBulk) {
-                rejectionSummary = `Rejected ${currentRejectionData.targetIds.length} ${currentRejectionData.targetType === 'student' ? 'students' : 'faculty'}`;
+                const studentNumbers = currentRejectionData.targetIds;
+                const userIds = [];
+                for (const sid of studentNumbers) {
+                    const uid = await resolveUserIdFromStudentNumber(sid);
+                    if (uid) userIds.push(uid);
+                }
+
+                if (userIds.length === 0) {
+                    showToastNotification('Could not identify users to reject.', 'error');
+                    closeRejectionRemarksModal();
+                    return;
+                }
+
+                await bulkSignatoryAction('Rejected', additionalRemarks, rejectionReason);
             } else {
-                rejectionSummary = `Rejected ${currentRejectionData.targetName}`;
-            }
-            
-            if (rejectionReason) {
-                const reasonText = reasonSelect.options[reasonSelect.selectedIndex].text;
-                rejectionSummary += `\nReason: ${reasonText}`;
-            }
-            
-            if (additionalRemarks) {
-                rejectionSummary += `\nAdditional Remarks: ${additionalRemarks}`;
+                try {
+                    const result = await sendSignatoryAction(currentRejectionData.targetId, 'Rejected', additionalRemarks, rejectionReason);
+                    if (result.success) {
+                        showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
+                        loadStudentsData();
+                    } else {
+                        showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
+                    }
+                } catch (e) { showToastNotification('An error occurred during rejection.', 'error'); }
             }
             
             // Demo: Update UI and show success message
@@ -1646,44 +1745,6 @@ try {
                         }
                     }
                 });
-                // Attempt server-side record for each
-                try {
-                    for (const id of currentRejectionData.targetIds) {
-                        const uid = await resolveUserIdFromStudentNumber(id);
-                        if (uid) { await sendSignatoryAction(uid, 'Program Head', 'Rejected', additionalRemarks); }
-                    }
-                } catch (e) { /* ignore */ }
-                
-                // Uncheck all checkboxes
-                document.getElementById('selectAll').checked = false;
-                currentRejectionData.targetIds.forEach(id => {
-                    const checkbox = document.querySelector(`.student-checkbox[data-id="${id}"]`);
-                    if (checkbox) checkbox.checked = false;
-                });
-                updateBulkButtons();
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} students with remarks`, 'success');
-            } else {
-                // Update individual student row
-                const row = document.querySelector(`.student-checkbox[data-id="${currentRejectionData.targetId}"]`);
-                if (row) {
-                    const tableRow = row.closest('tr');
-                    if (tableRow) {
-                        const clearanceBadge = tableRow.querySelector('.status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-approved');
-                        if (clearanceBadge) {
-                            clearanceBadge.textContent = 'Rejected';
-                            clearanceBadge.classList.remove('clearance-pending', 'clearance-in-progress', 'clearance-approved');
-                            clearanceBadge.classList.add('clearance-rejected');
-                        }
-                    }
-                }
-                // Attempt server-side record
-                try {
-                    const uid = await resolveUserIdFromStudentNumber(currentRejectionData.targetId);
-                    if (uid) { await sendSignatoryAction(uid, 'Program Head', 'Rejected', additionalRemarks); }
-                } catch (e) { /* ignore */ }
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
             }
             
             // Close modal
@@ -1696,6 +1757,29 @@ try {
                 additionalRemarks: additionalRemarks,
                 timestamp: new Date().toISOString()
             });
+        }
+
+        async function sendBulkAction(payload) {
+            try {
+                const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToastNotification(`Successfully performed action for ${result.affected_rows} students.`, 'success');
+                } else {
+                    throw new Error(result.message || 'Bulk action failed.');
+                }
+            } catch (error) {
+                console.error('Bulk action error:', error);
+                showToastNotification(error.message, 'error');
+            } finally {
+                if (currentRejectionData.isBulk) closeRejectionRemarksModal();
+                loadStudentsData(); // Refresh the entire table
+            }
         }
 
         // Helper: resolve user_id from student number via users API (exact username match)
@@ -1753,22 +1837,6 @@ try {
             }
         }
 
-        // Populate students table
-        function populateStudentsTable(students) {
-            const tbody = document.getElementById('studentsTableBody');
-            tbody.innerHTML = '';
-            
-            if (!students || students.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">No SHS students with pending actions found in your assigned departments.</td></tr>`;
-                return;
-            }
-
-            for (const student of students) {
-                const row = createStudentRow(student);
-                tbody.appendChild(row);
-            }
-        }
-
         // Update statistics
         function updateStatistics(stats) {
             document.getElementById('totalStudents').textContent = stats.total;
@@ -1814,16 +1882,16 @@ try {
             document.getElementById('nextPage').disabled = page >= totalPages;
         }
 
-        function viewClearanceProgress(studentId) {
-            openClearanceProgressModal(studentId, 'student', 'Student Name');
-        }
-
         function createStudentRow(student) {
             const accountStatusClass = `account-${student.account_status || 'inactive'}`;
             const accountStatusText = student.account_status ? student.account_status.charAt(0).toUpperCase() + student.account_status.slice(1) : 'Inactive';
 
             let clearanceStatus = student.clearance_status || 'Unapplied';
             const clearanceStatusClass = `clearance-${clearanceStatus.toLowerCase().replace(/ /g, '-')}`;
+
+            // Capture the currently selected school term from the filters so we can
+            // display clearance progress scoped to that term when the user opens the modal.
+            const currentSchoolTerm = document.getElementById('schoolTermFilter') ? document.getElementById('schoolTermFilter').value : '';
 
             const isActionable = ['Pending', 'Rejected'].includes(clearanceStatus);
             const rejectButtonTitle = clearanceStatus === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Signatory';
@@ -1847,7 +1915,7 @@ try {
                 <td data-label="Clearance Progress:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
                             <i class="fas fa-tasks"></i>
                         </button>
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.id}')" title="Edit Student">
@@ -1866,6 +1934,16 @@ try {
                 </td>
             `;
             return row;
+        }
+
+        function viewClearanceProgress(studentId, studentName, schoolTerm = '') {
+            // Forward the selected school term (if any) so the modal can show
+            // the clearance progress scoped to that term.
+            openClearanceProgressModal(studentId, 'student', studentName, schoolTerm);
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
         // Signatory Action Functions

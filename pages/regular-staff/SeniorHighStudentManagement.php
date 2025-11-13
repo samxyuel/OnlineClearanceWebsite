@@ -533,8 +533,8 @@ try {
 
         function updateSelectAllCheckbox() {
             const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-            const allCheckboxes = document.querySelectorAll('#studentTableBody .student-checkbox');
-            const checkedCount = document.querySelectorAll('#studentTableBody .student-checkbox:checked').length;
+            const allCheckboxes = document.querySelectorAll('#studentTableBody .student-checkbox:not(:disabled)');
+            const checkedCount = document.querySelectorAll('#studentTableBody .student-checkbox:not(:disabled):checked').length;
 
             if (selectAllCheckbox) {
                 selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
@@ -546,8 +546,8 @@ try {
             const studentCheckboxes = document.querySelectorAll('#studentTableBody .student-checkbox');
             studentCheckboxes.forEach(checkbox => {
                 const row = checkbox.closest('tr');
-                // Only toggle visible rows, respecting current filters
-                if (row.style.display !== 'none') {
+                // Only toggle visible and enabled rows, respecting current filters
+                if (row && row.style.display !== 'none' && !checkbox.disabled) {
                     checkbox.checked = checked;
                 }
             });
@@ -592,14 +592,14 @@ try {
         }
 
         function selectAllVisibleRows() {
-            const checkboxes = document.querySelectorAll('.student-checkbox');
+            const checkboxes = document.querySelectorAll('.student-checkbox:not(:disabled)');
             let selectedCount = 0;
             
             checkboxes.forEach(checkbox => {
                 const row = checkbox.closest('tr');
                 
                 // Skip hidden rows (respects table filters)
-                if (row.style.display === 'none') {
+                if (row && row.style.display === 'none') {
                     checkbox.checked = false;
                     return;
                 }
@@ -610,18 +610,19 @@ try {
             
             updateSelectionCounter();
             updateBulkButtons();
+            updateSelectAllCheckbox();
             showToastNotification(`Selected all ${selectedCount} visible students`, 'success');
         }
 
         function selectStudentsByFilters(filters) {
-            const checkboxes = document.querySelectorAll('.student-checkbox');
+            const checkboxes = document.querySelectorAll('.student-checkbox:not(:disabled)');
             let selectedCount = 0;
             
             checkboxes.forEach(checkbox => {
                 const row = checkbox.closest('tr');
                 
                 // Skip hidden rows (respects table filters)
-                if (row.style.display === 'none') {
+                if (row && row.style.display === 'none') {
                     checkbox.checked = false;
                     return;
                 }
@@ -660,6 +661,7 @@ try {
             
             updateSelectionCounter();
             updateBulkButtons();
+            updateSelectAllCheckbox();
             showToastNotification(`Selected ${selectedCount} students based on filters`, 'success');
         }
 
@@ -725,31 +727,51 @@ try {
                 'Approve',
                 'Cancel',
                 async () => {
-                    const selectedRows = document.querySelectorAll('.student-checkbox:checked');
-                    for (const checkbox of selectedRows) {
-                        const row = checkbox.closest('tr');
-                        const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
-                        
-                        if (clearanceBadge) {
-                            clearanceBadge.textContent = 'Approved';
-                            clearanceBadge.classList.remove('clearance-pending', 'clearance-rejected');
-                            clearanceBadge.classList.add('clearance-approved');
+                    const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+                    const userIds = [];
+                    for (const checkbox of selectedCheckboxes) {
+                        const studentNumber = checkbox.getAttribute('data-id');
+                        const userId = await resolveUserIdFromStudentNumber(studentNumber);
+                        if (userId) {
+                            userIds.push(userId);
                         }
-                        // server-side record
-                        try {
-                            const sid = checkbox.getAttribute('data-id');
-                            const uid = await resolveUserIdFromStudentNumber(sid);
-                            if (uid) { await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Approved'); }
-                        } catch (e) {}
                     }
-                    
-                    showToastNotification(`✓ Successfully approved clearance for ${selectedCount} students`, 'success');
+
+                    if (userIds.length === 0) {
+                        showToastNotification('Could not identify users to approve.', 'error');
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                applicant_user_ids: userIds,
+                                action: 'Approved',
+                                designation_name: CURRENT_STAFF_POSITION,
+                                remarks: `Approved by ${CURRENT_STAFF_POSITION}`
+                            })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            showToastNotification(`Successfully approved clearance for ${result.affected_rows} students.`, 'success');
+                        } else {
+                            throw new Error(result.message || 'Bulk approval failed.');
+                        }
+                    } catch (error) {
+                        console.error('Bulk approval error:', error);
+                        showToastNotification(error.message, 'error');
+                    } finally {
+                        fetchStudents(); // Refresh the entire table
+                    }
                 },
                 'success'
             );
         }
 
-        async function rejectSelected() {
+        function rejectSelected() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
                 showToastNotification('Please select students to reject clearance', 'warning');
@@ -760,28 +782,8 @@ try {
             const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
             const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.getAttribute('data-id'));
             
-            let existingRemarks = '';
-            let existingReasonId = '';
-            const signatoryId = row.getAttribute('data-signatory-id');
-
-            try {
-                const response = await fetch(`../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`, { credentials: 'include' });
-                const data = await response.json();
-                if (data.success && data.details) {
-                    existingRemarks = data.details.additional_remarks || '';
-                    existingReasonId = data.details.reason_id || '';
-                }
-            } catch (error) {
-                console.error("Error fetching rejection details:", error);
-                showToastNotification('Could not load existing rejection details.', 'error');
-            }
-        
-            console.log('Opening rejection modal for', studentName);
-            console.log('Existing reason ID:', existingReasonId);
-            console.log('Existing remarks:', existingRemarks);
-
             // Open rejection remarks modal for bulk rejection
-            openRejectionRemarksModal(null, null, 'student', true, [selectedIds], existingRemarks = '', existingRemarks, existingReasonId);
+            openRejectionRemarksModal(null, null, 'student', true, selectedIds);
         }
 
         function getSelectedCount() {
@@ -790,6 +792,11 @@ try {
 
         // Individual student actions - Staff can only approve/reject clearances
         async function approveStudentClearance(studentId) {
+            const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
+            const studentName = row.querySelector('td:nth-child(3)').textContent;
+            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
+            const clearanceFormId = row.getAttribute('data-clearance-form-id');
+            
             // Check if signatory actions are allowed
             const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
             if (!canPerformActions) {
@@ -797,12 +804,8 @@ try {
                 return;
             }
 
-            const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
-            const studentName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
-            
             if (!clearanceBadge) {
-                showToastNotification('Invalid clearance status to approve', 'warning');
+                showToastNotification('No clearance to approve', 'warning');
                 return;
             }
             
@@ -814,8 +817,9 @@ try {
                 async () => {
                     try {
                         const uid = await resolveUserIdFromStudentNumber(studentId);
-                        if (uid) {
-                            const result = await sendSignatoryAction(uid, 'Approved', 'Approved by Staff');
+                        if (uid) {                            
+                            // Corrected: Pass remarks in the 4th argument, not concatenated with the designation.
+                            const result = await sendSignatoryAction(uid, 'Approved', 'Approved by ' + CURRENT_STAFF_POSITION);
                             if (result.success) {
                                 showToastNotification('Student clearance approved successfully', 'success');
                                 fetchStudents(); // Refresh the table to update button states
@@ -921,11 +925,17 @@ try {
                 const clearanceStatusClass = `clearance-${student.clearance_status.toLowerCase().replace(' ', '-')}`;
                 const accountStatusClass = `account-${(student.account_status || '').toLowerCase()}`;
 
+                            // Capture the currently selected school term from the filters so we can
+            // display clearance progress scoped to that term when the user opens the modal.
+            const currentSchoolTerm = document.getElementById('schoolTermFilter') ? document.getElementById('schoolTermFilter').value : '';
+
                 const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
                 // Enable approve button for 'Pending' and 'Rejected' statuses.
                 let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(student.clearance_status);
                 // Enable reject button for 'Pending' and 'Rejected' statuses to allow for edits.
                 let rejectBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(student.clearance_status);
+                // Disable checkbox for 'Unapplied' and 'Approved' statuses (same logic as buttons)
+                let checkboxDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(student.clearance_status);
                 let approveTitle = 'Approve Clearance';
                 // Change button title if the student is already rejected.
                 let rejectTitle = student.clearance_status === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Clearance';
@@ -934,8 +944,8 @@ try {
                 }
 
                 return `
-                    <tr data-signatory-id="${student.signatory_id}">
-                        <td><input type="checkbox" class="student-checkbox" data-id="${student.id}"></td>
+                    <tr data-user-id="${student.user_id}" data-clearance-form-id="${student.clearance_form_id}" data-student-name="${escapeHtml(student.name)}" data-signatory-id="${student.signatory_id}">
+                        <td><input type="checkbox" class="student-checkbox" data-id="${student.id}" ${checkboxDisabled ? 'disabled' : ''}></td>
                         <td>${student.id}</td>
                         <td>${escapeHtml(student.name)}</td>
                         <td>${escapeHtml(student.program)}</td>
@@ -945,7 +955,7 @@ try {
                         <td><span class="status-badge ${clearanceStatusClass}">${escapeHtml(student.clearance_status || 'N/A')}</span></td>
                         <td>
                             <div class="action-buttons">
-                                <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
+                                <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
                                     <i class="fas fa-tasks"></i>
                                 </button>
                                 <button class="btn-icon approve-btn" onclick="approveStudentClearance('${student.id}')" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>
@@ -961,8 +971,10 @@ try {
             }).join('');
         }
 
-        function viewClearanceProgress(studentId) {
-            openClearanceProgressModal(studentId, 'student', 'Student Name');
+        function viewClearanceProgress(studentId, studentName, schoolTerm = '') {
+            // Forward the selected school term (if any) so the modal can show
+            // the clearance progress scoped to that term.
+            openClearanceProgressModal(studentId, 'student', studentName, schoolTerm);
         }
 
         function renderPagination(total, page, limit) {
@@ -1233,6 +1245,7 @@ try {
                 if (e.target.classList.contains('student-checkbox')) {
                     updateBulkButtons();
                     updateSelectionCounter();
+                    updateSelectAllCheckbox();
                 }
             });
             
@@ -1363,72 +1376,74 @@ try {
             
             // Demo: Update UI and show success message
             if (currentRejectionData.isBulk) {
-                // Update student table rows
-                currentRejectionData.targetIds.forEach(id => {
-                    const row = document.querySelector(`.student-checkbox[data-id="${id}"]`);
-                    if (row) {
-                        const tableRow = row.closest('tr');
-                        if (tableRow) {
-                            const clearanceBadge = tableRow.querySelector('.status-badge.clearance-pending, .status-badge.clearance-approved');
-                            if (clearanceBadge) {
-                                clearanceBadge.textContent = 'Rejected';
-                                clearanceBadge.classList.remove('clearance-pending', 'clearance-approved');
-                                clearanceBadge.classList.add('clearance-rejected');
-                            }
-                        }
-                    }
-                });
-                
-                // Uncheck all checkboxes
-                document.getElementById('selectAll').checked = false;
-                currentRejectionData.targetIds.forEach(id => {
-                    const checkbox = document.querySelector(`.student-checkbox[data-id="${id}"]`);
-                    if (checkbox) checkbox.checked = false;
-                });
-                updateBulkButtons();
-                // server-side records
+                const studentNumbers = currentRejectionData.targetIds; // These are the student IDs
+
+                const userIds = [];
+                for (const sid of studentNumbers) {
+                    // Assuming resolveUserIdFromStudentNumber exists and works correctly
+                    const uid = await resolveUserIdFromStudentNumber(sid);
+                    if (uid) userIds.push(uid);
+                }
+
+                if (studentNumbers.length === 0) {
+                    showToastNotification('Could not identify users to reject.', 'error');
+                    closeRejectionRemarksModal();
+                    return;
+                }
+
                 try {
-                    for (const id of currentRejectionData.targetIds) {
-                        const uid = await resolveUserIdFromStudentNumber(id); // id is student number
-                        if (uid) { await sendSignatoryAction(uid, CURRENT_STAFF_POSITION, 'Rejected', additionalRemarks); }
-                    }
-                } catch (e) {}
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} students with remarks`, 'success');
+                    const response = await fetch('../../api/clearance/bulk_signatory_action.php', { // Use the bulk endpoint
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            applicant_user_ids: userIds,
+                            action: 'Rejected',
+                            designation_name: CURRENT_STAFF_POSITION,
+                            remarks: additionalRemarks,
+                            reason_id: rejectionReason
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        showToastNotification(`Successfully rejected clearance for ${result.affected_rows} students.`, 'success');
+                    } else {
+                        throw new Error(result.message || 'Bulk rejection failed.');
+                    } 
+                } catch (error) {
+                    console.error('Bulk rejection error:', error);
+                    showToastNotification(error.message, 'error');
+                } finally {
+                    closeRejectionRemarksModal(); // Close the modal
+                    fetchStudents(); // Refresh the table
+                }
+
             } else {
                 // Update individual student row
                 const row = document.querySelector(`.student-checkbox[data-id="${currentRejectionData.targetId}"]`);
                 if (row) {
-                    const tableRow = row.closest('tr');
-                    if (tableRow) {
-                        const clearanceBadge = tableRow.querySelector('.status-badge.clearance-pending, .status-badge.clearance-approved');
-                        if (clearanceBadge) {
-                            clearanceBadge.textContent = 'Rejected';
-                            clearanceBadge.classList.remove('clearance-pending', 'clearance-approved');
-                            clearanceBadge.classList.add('clearance-rejected');
-                        }
+
                     }
                 }
                 // server-side record
                 try {
-                    const uid = await resolveUserIdFromStudentNumber(currentRejectionData.targetId);
-                    if (uid) { await sendSignatoryAction(uid, 'Rejected', additionalRemarks, rejectionReason); }
-                } catch (e) {}
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
+                    const uid = await resolveUserIdFromStudentNumber(currentRejectionData.targetId); // targetId is student number
+                    if (uid) { 
+                        const result = await sendSignatoryAction(uid, 'Rejected', additionalRemarks, rejectionReason); 
+                        if (result.success) {
+                            showToastNotification('Student clearance rejected successfully', 'success');
+                            fetchStudents(); // Refresh the table to update button states
+                        } else {
+                            showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error during individual rejection:", e);
+                    showToastNotification('An error occurred during rejection.', 'error');
+                } finally {
+                    closeRejectionRemarksModal(); // Close the modal
+                }
             }
-            
-            // Close modal
-            closeRejectionRemarksModal();
-            
-            // Demo: Log rejection data (in real implementation, this would be sent to server)
-            console.log('Rejection Data:', {
-                target: currentRejectionData,
-                reason: rejectionReason,
-                additionalRemarks: additionalRemarks,
-                timestamp: new Date().toISOString()
-            });
-        }
 
         async function resolveUserIdFromStudentNumber(studentNumber){
             try{

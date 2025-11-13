@@ -276,6 +276,7 @@ handleFacultyManagementPageRequest();
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
+                                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Select all visible">
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
@@ -387,7 +388,23 @@ handleFacultyManagementPageRequest();
         let filteredEntries = [];
 
         let CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'Program Head'; ?>';
+        // initialize from server-side but will be refreshed by centralized API
         let canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
+        window.CAN_TAKE_ACTION = !!canPerformActions;
+
+        async function fetchCanTakeActionFaculty() {
+            try {
+                const resp = await fetch('../../api/program-head/is_assigned.php?clearance_type=Faculty', { credentials: 'include' });
+                const data = await resp.json();
+                if (data && data.success) {
+                    window.CAN_TAKE_ACTION = !!data.can_take_action;
+                    canPerformActions = !!data.can_take_action;
+                    console.log('is_assigned (Faculty):', data);
+                }
+            } catch (e) {
+                console.error('Error fetching faculty assignment status:', e);
+            }
+        }
 
         // Toggle sidebar
         function toggleSidebar() {
@@ -417,6 +434,21 @@ handleFacultyManagementPageRequest();
             }
         }
 
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const allCheckboxes = document.querySelectorAll('#facultyTableBody .faculty-checkbox:not(:disabled)');
+            const checkedCount = document.querySelectorAll('#facultyTableBody .faculty-checkbox:not(:disabled):checked').length;
+
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
+            }
+        }
+
+        document.addEventListener('change', function(e) {
+            if (e.target.classList.contains('faculty-checkbox')) {
+                updateSelectAllCheckbox();
+            }
+        });
         // Clear all selections functionality
         function clearAllSelections() {
             const facultyCheckboxes = document.querySelectorAll('.faculty-checkbox');
@@ -474,12 +506,8 @@ handleFacultyManagementPageRequest();
             
             updateSelectionCounter();
         }
-
-        function getSelectedCount() {
-            return document.querySelectorAll('.faculty-checkbox:checked').length;
-        }
-
-        // Bulk Actions with Confirmation - Program Head as Signatory
+        
+    // Bulk Actions with Confirmation - Program Head as Signatory
         function approveSelected() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
@@ -493,34 +521,38 @@ handleFacultyManagementPageRequest();
                 'Approve',
                 'Cancel',
                 () => {
-                    const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
-                    const approvalPromises = Array.from(selectedCheckboxes).map(async checkbox => {
-                        try {
-                            const eid = checkbox.getAttribute('data-id');
-                            const uid = await resolveUserIdFromEmployeeNumber(eid);
-                            
-                            if (uid) {
-                                await sendSignatoryAction(uid, 'Approved');
-                                const row = checkbox.closest('tr');
-                                const badge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
-                                if (badge) {
-                                    badge.textContent = 'Approved';
-                                    badge.className = 'status-badge clearance-approved';
-                                }
-                            } else {
-                                console.error('Could not resolve user ID for', eid);
-                            }
-                        } catch (e) {
-                            console.error('Error approving clearance for', checkbox.getAttribute('data-id'), ':', e);
-                        }
-                    });
-
-                    Promise.all(approvalPromises).then(() => fetchFaculty());
-                    
-                    showToastNotification(`✓ Successfully approved clearance for ${selectedCount} faculty`, 'success');
+                    bulkSignatoryAction('Approved', `Approved by Program Head`);
                 },
                 'success'
             );
+        }
+
+        async function bulkSignatoryAction(action, remarks, reasonId = null) {
+            const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
+            const userIds = [];
+            for (const checkbox of selectedCheckboxes) {
+                const employeeNumber = checkbox.getAttribute('data-id');
+                const userId = await resolveUserIdFromEmployeeNumber(employeeNumber);
+                if (userId) {
+                    userIds.push(userId);
+                }
+            }
+
+            if (userIds.length === 0) {
+                showToastNotification('Could not identify users for this action.', 'error');
+                return;
+            }
+
+            const payload = {
+                applicant_user_ids: userIds,
+                action: action,
+                designation_name: 'Program Head',
+                remarks: remarks
+            };
+            if (reasonId) payload.reason_id = reasonId;
+
+            // This is a new generic function you can create or adapt from `approveSelected`
+            await sendBulkAction(payload);
         }
 
         function rejectSelected() {
@@ -535,7 +567,7 @@ handleFacultyManagementPageRequest();
             const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.getAttribute('data-id'));
             
             // Open rejection remarks modal for bulk rejection
-            openRejectionRemarksModal(null, null, 'faculty', true, selectedIds);
+            openRejectionRemarksModal(null, null, 'Bulk Action', true, selectedIds);
         }
 
         // Individual faculty actions - Program Head as Signatory
@@ -837,9 +869,14 @@ handleFacultyManagementPageRequest();
             // Get faculty name from the table row
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
+            const schoolTerm = document.getElementById('schoolTermFilter').value || '';
             
             // Open the clearance progress modal
-            openClearanceProgressModal(facultyId, 'faculty', facultyName);
+            openClearanceProgressModal(facultyId, 'faculty', facultyName, schoolTerm);
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
         function createFacultyRow(faculty) {
@@ -854,13 +891,14 @@ handleFacultyManagementPageRequest();
             let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
             let rejectBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
             let approveTitle = 'Approve Clearance';
+            let checkboxDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
             let rejectTitle = faculty.clearance_status === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Clearance';
             if (!canPerformActions) {
                 approveTitle = rejectTitle = '<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a faculty signatory."; ?>';
             }
             
             tr.innerHTML = `
-                <td class="checkbox-column"><input type="checkbox" class="faculty-checkbox" data-id="${faculty.id}"></td>
+                <td class="checkbox-column"><input type="checkbox" class="faculty-checkbox" data-id="${faculty.id}" ${checkboxDisabled ? 'disabled' : ''}></td>
                 <td data-label="Employee Number:">${faculty.id}</td>
                 <td data-label="Name:">${escapeHtml(faculty.name)}</td>
                 <td data-label="Employment Status:"><span class="status-badge employment-${(faculty.employment_status || '').toLowerCase().replace(/ /g, '-')}">${escapeHtml(faculty.employment_status || 'N/A')}</span></td>
@@ -900,6 +938,72 @@ handleFacultyManagementPageRequest();
             facultyList.forEach(faculty => {
                 const row = createFacultyRow(faculty);
                 tbody.appendChild(row);
+            });
+            // Ensure action buttons and checkboxes reflect current permission state
+            updateFacultyActionButtonsState();
+        }
+
+        // Explicitly enable/disable faculty action controls based on centralized permission
+        function updateFacultyActionButtonsState() {
+            const bulkActionSelectors = [
+                '.export-btn',
+                '.bulk-selection-filters-btn',
+                '.bulk-controls .btn-success',
+                '.bulk-buttons button',
+                '.clear-selection-btn',
+                '.selection-counter-pill'
+            ];
+
+            const canAct = typeof window.CAN_TAKE_ACTION !== 'undefined' ? window.CAN_TAKE_ACTION : !!canPerformActions;
+            
+            // Disable/enable bulk controls based on permission
+            bulkActionSelectors.forEach(sel => {
+                document.querySelectorAll(sel).forEach(btn => {
+                    try {
+                        btn.disabled = !canAct;
+                        if (!canAct) {
+                            btn.classList.add('disabled');
+                            btn.title = 'You do not have permission to take action on this page.';
+                        } else {
+                            btn.classList.remove('disabled');
+                            // Clear the permission-denied title when enabled
+                            if (btn.title === 'You do not have permission to take action on this page.') {
+                                btn.title = '';
+                            }
+                        }
+                    } catch (e) { /* ignore */ }
+                });
+            });
+
+            // Disable/enable faculty row checkboxes and select-all based on permission
+            document.querySelectorAll('#facultyTableBody .faculty-checkbox').forEach(cb => cb.disabled = !canAct);
+            const selectAll = document.getElementById('selectAllCheckbox');
+            if (selectAll) selectAll.disabled = !canAct;
+
+            // Row-level button disabling based on individual clearance status
+            // Approve/Reject buttons should only be enabled for Pending/Rejected statuses (actionable)
+            const rows = document.querySelectorAll('#facultyTableBody tr');
+            rows.forEach(row => {
+                const clearanceBadge = row.querySelector('.status-badge[class*="clearance-"]');
+                const clearanceStatus = clearanceBadge ? clearanceBadge.textContent.trim() : 'Unapplied';
+                
+                // Only Pending and Rejected are actionable
+                const isActionable = ['Pending', 'Rejected'].includes(clearanceStatus);
+                
+                // Disable individual row action buttons if not actionable
+                const rowActionButtons = row.querySelectorAll('.action-buttons button');
+                rowActionButtons.forEach(btn => {
+                    const btnClass = btn.className;
+                    // Approve and Reject buttons should be disabled if not actionable
+                    if ((btnClass.includes('approve-btn') || btnClass.includes('reject-btn')) && !isActionable) {
+                        btn.disabled = true;
+                        btn.classList.add('disabled');
+                    } else if (btnClass.includes('approve-btn') || btnClass.includes('reject-btn')) {
+                        btn.disabled = !canAct; // Enable/disable based on permission if actionable
+                        if (!canAct) btn.classList.add('disabled');
+                        else btn.classList.remove('disabled');
+                    }
+                });
             });
         }
 
@@ -1363,6 +1467,8 @@ handleFacultyManagementPageRequest();
             ]);
 
             await setDefaultSchoolTerm();
+            // Refresh permission from centralized API before rendering faculty list
+            await fetchCanTakeActionFaculty();
             fetchFaculty();
             
             // Add event listeners for checkboxes
@@ -1483,25 +1589,20 @@ handleFacultyManagementPageRequest();
             }
             
             if (currentRejectionData.isBulk) {
-                // server-side records
-                try {
-                    for (const id of currentRejectionData.targetIds) {
-                        const uid = await resolveUserIdFromEmployeeNumber(id);
-                        if (uid) { 
-                            await sendSignatoryAction(uid, 'Rejected', additionalRemarks, reasonId); 
-                            const row = document.querySelector(`.faculty-checkbox[data-id="${id}"]`).closest('tr');
-                            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-approved');
-                            if (clearanceBadge) {
-                                clearanceBadge.textContent = 'Rejected';
-                                clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-completed');
-                                clearanceBadge.classList.add('clearance-rejected');
-                            }
-                        }
-                    }
-                } catch (e) {}
-                
-                showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} faculty with remarks`, 'success');
-                fetchFaculty();
+                const employeeNumbers = currentRejectionData.targetIds;
+                const userIds = [];
+                for (const eid of employeeNumbers) {
+                    const uid = await resolveUserIdFromEmployeeNumber(eid);
+                    if (uid) userIds.push(uid);
+                }
+
+                if (userIds.length === 0) {
+                    showToastNotification('Could not identify users to reject.', 'error');
+                    closeRejectionRemarksModal();
+                    return;
+                }
+
+                await bulkSignatoryAction('Rejected', additionalRemarks, reasonId);
             } else {
                 try {
                     const result = await sendSignatoryAction(currentRejectionData.targetId, 'Rejected', additionalRemarks, reasonId);
@@ -1518,6 +1619,29 @@ handleFacultyManagementPageRequest();
             
             // Close modal
             closeRejectionRemarksModal();
+        }
+
+        async function sendBulkAction(payload) {
+            try {
+                const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showToastNotification(`Successfully performed action for ${result.affected_rows} faculty.`, 'success');
+                } else {
+                    throw new Error(result.message || 'Bulk action failed.');
+                }
+            } catch (error) {
+                console.error('Bulk action error:', error);
+                showToastNotification(error.message, 'error');
+            } finally {
+                if (currentRejectionData.isBulk) closeRejectionRemarksModal();
+                fetchFaculty(); // Refresh the entire table
+            }
         }
 
         // Helpers for backend calls
@@ -1635,6 +1759,102 @@ handleFacultyManagementPageRequest();
             return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
     </script>
+    <script src="../../assets/js/alerts.js"></script>
+    
+    <!-- Bulk Selection Filters Modal -->
+    <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
+        <div class="modal-window bulk-selection-modal">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-filter"></i> Bulk Selection Filters</h3>
+                <button class="modal-close" onclick="closeBulkSelectionModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content-area">
+                <div class="filter-sections">
+                    <!-- Employment Status Section -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Employment Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterFullTime" value="full-time">
+                                <span class="checkmark"></span>
+                                with "Full Time"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterPartTime" value="part-time">
+                                <span class="checkmark"></span>
+                                with "Part Time"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterPartTimeFullLoad" value="part-time-full-load">
+                                <span class="checkmark"></span>
+                                with "Part Time - Full Load"
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Account Status Section -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Account Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterActive" value="active">
+                                <span class="checkmark"></span>
+                                with "active"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterInactive" value="inactive">
+                                <span class="checkmark"></span>
+                                with "inactive"
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterResigned" value="resigned">
+                                <span class="checkmark"></span>
+                                with "resigned"
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Clearance Status Section (Signatory Perspective) -->
+                    <div class="form-group">
+                        <label class="filter-section-label">Clearance Status:</label>
+                        <div class="checkbox-group">
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterPending" value="pending">
+                                <span class="checkmark"></span>
+                                with "pending" (for my approval)
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterApproved" value="approved">
+                                <span class="checkmark"></span>
+                                with "approved" (by me)
+                            </label>
+                            <label class="custom-checkbox">
+                                <input type="checkbox" id="filterRejected" value="rejected">
+                                <span class="checkmark"></span>
+                                with "rejected" (by me)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-action-secondary" onclick="closeBulkSelectionModal()">Cancel</button>
+                <button class="modal-action-primary" onclick="applyBulkSelection()">
+                    <i class="fas fa-check"></i> Select All
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Include Faculty Batch Update Modal -->
+    <?php include '../../Modals/FacultyBatchUpdateModal.php'; ?>
+    
+    <!-- Include Export Modal -->
+    <?php include '../../Modals/ExportModal.php'; ?>
+</body>
+</html>
     <script src="../../assets/js/alerts.js"></script>
     
     <!-- Bulk Selection Filters Modal -->
