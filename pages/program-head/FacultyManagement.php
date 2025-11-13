@@ -18,7 +18,7 @@ handleFacultyManagementPageRequest();
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
     <style>
         /* Disabled button styling for signatory actions */
         .btn-icon:disabled {

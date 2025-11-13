@@ -8,7 +8,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard - Online Clearance System</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/css/components.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <?php
@@ -217,56 +218,7 @@
                     </div>
 
                     <!-- Notifications Panel -->
-                    <div class="notifications-section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-bell"></i> Notifications & Alerts</h3>
-                        </div>
-                        <div class="notifications-list">
-                            <div class="notification-item warning">
-                                <div class="notification-icon">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <h4>Deadline Reminder</h4>
-                                    <p>Library clearance due in 3 days</p>
-                                    <span class="notification-time">2 hours ago</span>
-                                </div>
-                            </div>
-                            
-                            <div class="notification-item info">
-                                <div class="notification-icon">
-                                    <i class="fas fa-info-circle"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <h4>Academic Calendar Updated</h4>
-                                    <p>New schedule for 2028 semester</p>
-                                    <span class="notification-time">1 day ago</span>
-                                </div>
-                            </div>
-                            
-                            <div class="notification-item success">
-                                <div class="notification-icon">
-                                    <i class="fas fa-check-circle"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <h4>Medical Clearance Approved</h4>
-                                    <p>Approved by Health Services</p>
-                                    <span class="notification-time">2 days ago</span>
-                                </div>
-                            </div>
-                            
-                            <div class="notification-item info">
-                                <div class="notification-icon">
-                                    <i class="fas fa-bullhorn"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <h4>System Maintenance</h4>
-                                    <p>Scheduled maintenance on Dec 20</p>
-                                    <span class="notification-time">3 days ago</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <?php include '../../includes/components/notifications.php'; ?>
                 </div>
             </div>
         </div>

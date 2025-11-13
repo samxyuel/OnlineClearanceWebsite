@@ -15,7 +15,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
     <style>
         /* Responsive visibility for tab pills vs dropdown (mobile-first) */
         .tab-banner-wrapper .tab-nav { display: none; }

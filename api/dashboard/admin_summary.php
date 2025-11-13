@@ -83,6 +83,15 @@ try {
     ");
     $totalUsers = $totalUsersStmt->fetch(PDO::FETCH_ASSOC);
 
+    // 3a. Get active clearances count (clearance forms that are in progress or not started)
+    $activeClearancesStmt = $pdo->query("
+        SELECT COUNT(*) as active_clearances
+        FROM clearance_forms
+        WHERE clearance_form_progress IN ('In Progress', 'Not Started')
+    ");
+    $activeClearances = $activeClearancesStmt->fetch(PDO::FETCH_ASSOC);
+    $totalUsers['active_clearances'] = (int)$activeClearances['active_clearances'];
+
     // 4. Get recent activity (last 10 activities)
     $recentActivityStmt = $pdo->query("
         SELECT 

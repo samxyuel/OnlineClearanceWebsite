@@ -125,7 +125,11 @@
             loginResult.style.display = 'none';
             
             try {
-                const response = await fetch('../../api/auth/login.php', {
+                // Use absolute path to avoid any path resolution issues
+                const apiUrl = window.location.origin + '/OnlineClearanceWebsite/api/auth/login.php';
+                console.log('Fetching from:', apiUrl);
+                
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -133,21 +137,30 @@
                     body: JSON.stringify({ username, password })
                 });
                 
-                const result = await response.json();
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
+                const text = await response.text();
+                console.log('Raw response:', text);
+                
+                const result = JSON.parse(text);
                 
                 if (result.success) {
+                    // Extract user data (API returns it under result.data.user)
+                    const user = result.data?.user || result.user;
+                    
                     // Login successful
                     loginResult.className = 'alert alert-success';
                     loginResult.innerHTML = `
                         <h4>Login Successful!</h4>
-                        <p>Welcome back, ${result.user.first_name} ${result.user.last_name}!</p>
+                        <p>Welcome back, ${user.first_name} ${user.last_name}!</p>
                         <p>Redirecting to dashboard...</p>
                     `;
                     loginResult.style.display = 'block';
                     
                     // Redirect based on user role
                     setTimeout(() => {
-                        const role = result.user.role_name.toLowerCase();
+                        const role = user.role_name.toLowerCase();
                         if (role === 'admin') {
                             window.location.href = '../../pages/admin/dashboard.php';
                         } else if (role === 'school administrator') {

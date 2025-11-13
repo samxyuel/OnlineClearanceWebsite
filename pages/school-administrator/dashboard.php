@@ -11,7 +11,8 @@
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/css/components.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <!-- Header -->
@@ -91,7 +92,7 @@
                             <i class="fas fa-users"></i>
                         </div>
                         <div class="stat-content">
-                            <h3>1,234</h3>
+                            <h3 id="totalStudentsStat">0</h3>
                             <p>Total Students</p>
                         </div>
                     </div>
@@ -100,7 +101,7 @@
                             <i class="fas fa-chalkboard-teacher"></i>
                         </div>
                         <div class="stat-content">
-                            <h3>89</h3>
+                            <h3 id="totalFacultyStat">0</h3>
                             <p>Total Faculty</p>
                         </div>
                     </div>
@@ -109,7 +110,7 @@
                             <i class="fas fa-check-circle"></i>
                         </div>
                         <div class="stat-content">
-                            <h3>1,156</h3>
+                            <h3 id="studentClearancesStat">0</h3>
                             <p>Student Clearances</p>
                         </div>
                     </div>
@@ -118,7 +119,7 @@
                             <i class="fas fa-chalkboard-teacher"></i>
                         </div>
                         <div class="stat-content">
-                            <h3>76</h3>
+                            <h3 id="facultyClearancesStat">0</h3>
                             <p>Faculty Clearances</p>
                         </div>
                     </div>
@@ -127,60 +128,20 @@
                             <i class="fas fa-clock"></i>
                         </div>
                         <div class="stat-content">
-                            <h3>78</h3>
+                            <h3 id="pendingSignaturesStat">0</h3>
                             <p>Pending Signatures</p>
                         </div>
                     </div>
                 </div>
 
 
-                <!-- Recent Activity -->
-                <div class="management-section">
-                    <div class="section-header">
-                        <h3><i class="fas fa-history"></i> Recent Activity</h3>
-                    </div>
-                    <div class="activity-list">
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="fas fa-check-circle"></i>
-                            </div>
-                            <div class="activity-content">
-                                <h4>Student Clearance Approved</h4>
-                                <p>Zinzu Chan Lee's clearance was approved</p>
-                                <span class="activity-time">5 minutes ago</span>
-                            </div>
-                        </div>
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="fas fa-times-circle"></i>
-                            </div>
-                            <div class="activity-content">
-                                <h4>Faculty Clearance Rejected</h4>
-                                <p>Dr. Ana Rodriguez's clearance was rejected - missing requirements</p>
-                                <span class="activity-time">15 minutes ago</span>
-                            </div>
-                        </div>
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="fas fa-user-edit"></i>
-                            </div>
-                            <div class="activity-content">
-                                <h4>Student Record Updated</h4>
-                                <p>Carlos Rodriguez's information was modified</p>
-                                <span class="activity-time">1 hour ago</span>
-                            </div>
-                        </div>
-                        <div class="activity-item">
-                            <div class="activity-icon">
-                                <i class="fas fa-file-export"></i>
-                            </div>
-                            <div class="activity-content">
-                                <h4>School Report Exported</h4>
-                                <p>Monthly school-wide clearance report was generated</p>
-                                <span class="activity-time">2 hours ago</span>
-                            </div>
-                        </div>
-                    </div>
+                <!-- Content Grid -->
+                <div class="content-grid">
+                    <!-- Recent Activity Section -->
+                    <?php include '../../includes/components/recent-activity.php'; ?>
+
+                    <!-- Notifications Panel -->
+                    <?php include '../../includes/components/notifications.php'; ?>
                 </div>
 
             </div>
@@ -288,27 +249,43 @@
             }
         }
 
+        // Update School Statistics Dashboard
+        function updateSchoolStats(data) {
+            // Update Total Students
+            const totalStudentsEl = document.getElementById('totalStudentsStat');
+            if (totalStudentsEl) {
+                totalStudentsEl.textContent = (data.total_students || 0).toLocaleString();
+            }
+            
+            // Update Total Faculty
+            const totalFacultyEl = document.getElementById('totalFacultyStat');
+            if (totalFacultyEl) {
+                totalFacultyEl.textContent = (data.total_faculty || 0).toLocaleString();
+            }
+            
+            // Update Student Clearances
+            const studentClearancesEl = document.getElementById('studentClearancesStat');
+            if (studentClearancesEl && data.completed_clearances) {
+                studentClearancesEl.textContent = (data.completed_clearances.student || 0).toLocaleString();
+            }
+            
+            // Update Faculty Clearances
+            const facultyClearancesEl = document.getElementById('facultyClearancesStat');
+            if (facultyClearancesEl && data.completed_clearances) {
+                facultyClearancesEl.textContent = (data.completed_clearances.faculty || 0).toLocaleString();
+            }
+            
+            // Update Pending Signatures
+            const pendingSignaturesEl = document.getElementById('pendingSignaturesStat');
+            if (pendingSignaturesEl) {
+                pendingSignaturesEl.textContent = (data.pending_signatures || 0).toLocaleString();
+            }
+        }
+
         // Update statistics display
         function updateStatisticsDisplay(data) {
             // Update School Statistics Dashboard
-            if (data.total_students !== undefined) {
-                const totalStudentsEl = document.querySelector('.stats-dashboard .stat-card:nth-child(1) h3');
-                if (totalStudentsEl) totalStudentsEl.textContent = data.total_students.toLocaleString();
-            }
-            if (data.total_faculty !== undefined) {
-                const totalFacultyEl = document.querySelector('.stats-dashboard .stat-card:nth-child(2) h3');
-                if (totalFacultyEl) totalFacultyEl.textContent = data.total_faculty.toLocaleString();
-            }
-            if (data.completed_clearances) {
-                const studentClearancesEl = document.querySelector('.stats-dashboard .stat-card:nth-child(3) h3');
-                const facultyClearancesEl = document.querySelector('.stats-dashboard .stat-card:nth-child(4) h3');
-                if (studentClearancesEl) studentClearancesEl.textContent = data.completed_clearances.student?.toLocaleString() || '0';
-                if (facultyClearancesEl) facultyClearancesEl.textContent = data.completed_clearances.faculty?.toLocaleString() || '0';
-            }
-            if (data.pending_signatures !== undefined) {
-                const pendingSignaturesEl = document.querySelector('.stats-dashboard .stat-card:nth-child(5) h3');
-                if (pendingSignaturesEl) pendingSignaturesEl.textContent = data.pending_signatures.toLocaleString();
-            }
+            updateSchoolStats(data);
 
             // Update sector statistics
             if (data.sector_stats) {

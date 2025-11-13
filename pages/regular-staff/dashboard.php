@@ -11,7 +11,8 @@
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/css/components.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <!-- Header -->
@@ -123,53 +124,13 @@
                         </div>
 
 
-                        <!-- Recent Activity -->
-                        <div class="management-section">
-                            <div class="section-header">
-                                <h3><i class="fas fa-history"></i> Recent Activity</h3>
-                            </div>
-                            <div class="activity-list">
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-check-circle"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>Student Clearance Approved</h4>
-                                        <p>Zinzu Chan Lee's clearance was approved</p>
-                                        <span class="activity-time">5 minutes ago</span>
-                                    </div>
-                                </div>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-times-circle"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>Faculty Clearance Rejected</h4>
-                                        <p>Dr. Ana Rodriguez's clearance was rejected - missing requirements</p>
-                                        <span class="activity-time">15 minutes ago</span>
-                                    </div>
-                                </div>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-file-export"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>Report Exported</h4>
-                                        <p>Monthly clearance signing report was generated</p>
-                                        <span class="activity-time">2 hours ago</span>
-                                    </div>
-                                </div>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-signature"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>Bulk Approval</h4>
-                                        <p>Approved 15 student clearances in batch</p>
-                                        <span class="activity-time">3 hours ago</span>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Content Grid -->
+                        <div class="content-grid">
+                            <!-- Recent Activity Section -->
+                            <?php include '../../includes/components/recent-activity.php'; ?>
+
+                            <!-- Notifications Panel -->
+                            <?php include '../../includes/components/notifications.php'; ?>
                         </div>
 
                     </div>
@@ -322,17 +283,50 @@
                 
                 // Update sector status display
                 if (sectorResult.success) {
-                    updateSectorStatusDisplay(sectorResult.data);
+                    updateSectorStatusDisplay(sectorResult.periods_by_sector || {});
                 }
 
                 // Update dashboard statistics
                 if (summaryResult.success) {
                     updateStatisticsDisplay(summaryResult.data);
+                } else {
+                    // Use fallback data if API fails
+                    updateStatisticsDisplay({
+                        signing_stats: {
+                            total_signed: 0,
+                            approved: 0,
+                            rejected: 0
+                        },
+                        pending_clearances: {
+                            total: 0
+                        },
+                        sector_stats: {
+                            college: { applied: 0, completed: 0 },
+                            shs: { applied: 0, completed: 0 },
+                            faculty: { applied: 0, completed: 0 }
+                        }
+                    });
                 }
 
             } catch (error) {
                 console.error('Error loading dashboard data:', error);
                 showToast('An error occurred while loading dashboard data.', 'error');
+                // Use fallback data on error
+                updateStatisticsDisplay({
+                    signing_stats: {
+                        total_signed: 0,
+                        approved: 0,
+                        rejected: 0
+                    },
+                    pending_clearances: {
+                        total: 0
+                    },
+                    sector_stats: {
+                        college: { applied: 0, completed: 0 },
+                        shs: { applied: 0, completed: 0 },
+                        faculty: { applied: 0, completed: 0 }
+                    }
+                });
             }
         }
 
@@ -363,19 +357,27 @@
         }
 
         // Update sector status display
-        function updateSectorStatusDisplay(sectorData) {
+        function updateSectorStatusDisplay(periodsBySector) {
             const sectors = [
-                { id: 'college-status', name: 'College' },
-                { id: 'shs-status', name: 'Senior High School' },
-                { id: 'faculty-status', name: 'Faculty' }
+                { key: 'College', id: 'college-status' },
+                { key: 'Senior High School', id: 'shs-status' },
+                { key: 'Faculty', id: 'faculty-status' }
             ];
-
+            
             sectors.forEach(sector => {
                 const statusElement = document.getElementById(sector.id);
-                if (statusElement && sectorData[sector.name.toLowerCase().replace(' ', '_')]) {
-                    const sectorInfo = sectorData[sector.name.toLowerCase().replace(' ', '_')];
-                    statusElement.textContent = sectorInfo.status || 'Not Started';
-                    statusElement.className = `sector-status status-${(sectorInfo.status || 'not-started').toLowerCase().replace(' ', '-')}`;
+                if (!statusElement) return;
+                
+                const sectorPeriods = periodsBySector[sector.key];
+                
+                if (sectorPeriods && sectorPeriods.length > 0) {
+                    const latestPeriod = sectorPeriods[0];
+                    const status = latestPeriod.status || 'Not Started';
+                    statusElement.textContent = status;
+                    statusElement.className = `sector-status status-${status.toLowerCase().replace(/\s+/g, '-')}`;
+                } else {
+                    statusElement.textContent = 'Not Started';
+                    statusElement.className = 'sector-status status-not-started';
                 }
             });
         }
@@ -383,40 +385,76 @@
         // Update statistics display
         function updateStatisticsDisplay(data) {
             // Update Staff Statistics Dashboard
-            if (data.signing_stats) {
-                const totalSignedEl = document.getElementById('totalSigned');
-                const totalApprovedEl = document.getElementById('totalApproved');
-                const totalRejectedEl = document.getElementById('totalRejected');
-                const totalPendingEl = document.getElementById('totalPending');
+            const totalSignedEl = document.getElementById('totalSigned');
+            const totalApprovedEl = document.getElementById('totalApproved');
+            const totalRejectedEl = document.getElementById('totalRejected');
+            const totalPendingEl = document.getElementById('totalPending');
 
-                if (totalSignedEl) totalSignedEl.textContent = data.signing_stats.total_signed?.toLocaleString() || '0';
-                if (totalApprovedEl) totalApprovedEl.textContent = data.signing_stats.approved?.toLocaleString() || '0';
-                if (totalRejectedEl) totalRejectedEl.textContent = data.signing_stats.rejected?.toLocaleString() || '0';
-                if (totalPendingEl) totalPendingEl.textContent = data.pending_clearances?.total?.toLocaleString() || '0';
+            // Update Total Signed
+            if (totalSignedEl) {
+                const totalSigned = data.signing_stats?.total_signed || 0;
+                totalSignedEl.textContent = totalSigned.toLocaleString();
+            }
+
+            // Update Approved
+            if (totalApprovedEl) {
+                const approved = data.signing_stats?.approved || 0;
+                totalApprovedEl.textContent = approved.toLocaleString();
+            }
+
+            // Update Rejected
+            if (totalRejectedEl) {
+                const rejected = data.signing_stats?.rejected || 0;
+                totalRejectedEl.textContent = rejected.toLocaleString();
+            }
+
+            // Update Pending
+            if (totalPendingEl) {
+                const pending = data.pending_clearances?.total || 0;
+                totalPendingEl.textContent = pending.toLocaleString();
             }
 
             // Update sector statistics
-            if (data.sector_stats) {
-                const collegeStatsEl = document.getElementById('college-stats');
-                const shsStatsEl = document.getElementById('shs-stats');
-                const facultyStatsEl = document.getElementById('faculty-stats');
+            const collegeStatsEl = document.getElementById('college-stats');
+            const shsStatsEl = document.getElementById('shs-stats');
+            const facultyStatsEl = document.getElementById('faculty-stats');
 
-                if (collegeStatsEl && data.sector_stats.college) {
+            // Update College stats
+            if (collegeStatsEl) {
+                if (data.sector_stats?.college) {
                     const college = data.sector_stats.college;
-                    const collegePercentage = college.applied > 0 ? Math.round((college.completed / college.applied) * 100) : 0;
-                    collegeStatsEl.textContent = `College: ${college.applied} applied, ${college.completed} completed (${collegePercentage}%)`;
+                    const applied = college.applied || 0;
+                    const completed = college.completed || 0;
+                    const percentage = applied > 0 ? Math.round((completed / applied) * 100) : 0;
+                    collegeStatsEl.textContent = `College: ${applied} applied, ${completed} completed (${percentage}%)`;
+                } else {
+                    collegeStatsEl.textContent = 'College: 0 applied, 0 completed (0%)';
                 }
+            }
 
-                if (shsStatsEl && data.sector_stats.shs) {
+            // Update SHS stats
+            if (shsStatsEl) {
+                if (data.sector_stats?.shs) {
                     const shs = data.sector_stats.shs;
-                    const shsPercentage = shs.applied > 0 ? Math.round((shs.completed / shs.applied) * 100) : 0;
-                    shsStatsEl.textContent = `Senior High School: ${shs.applied} applied, ${shs.completed} completed (${shsPercentage}%)`;
+                    const applied = shs.applied || 0;
+                    const completed = shs.completed || 0;
+                    const percentage = applied > 0 ? Math.round((completed / applied) * 100) : 0;
+                    shsStatsEl.textContent = `Senior High School: ${applied} applied, ${completed} completed (${percentage}%)`;
+                } else {
+                    shsStatsEl.textContent = 'Senior High School: 0 applied, 0 completed (0%)';
                 }
+            }
 
-                if (facultyStatsEl && data.sector_stats.faculty) {
+            // Update Faculty stats
+            if (facultyStatsEl) {
+                if (data.sector_stats?.faculty) {
                     const faculty = data.sector_stats.faculty;
-                    const facultyPercentage = faculty.applied > 0 ? Math.round((faculty.completed / faculty.applied) * 100) : 0;
-                    facultyStatsEl.textContent = `Faculty: ${faculty.applied} applied, ${faculty.completed} completed (${facultyPercentage}%)`;
+                    const applied = faculty.applied || 0;
+                    const completed = faculty.completed || 0;
+                    const percentage = applied > 0 ? Math.round((completed / applied) * 100) : 0;
+                    facultyStatsEl.textContent = `Faculty: ${applied} applied, ${completed} completed (${percentage}%)`;
+                } else {
+                    facultyStatsEl.textContent = 'Faculty: 0 applied, 0 completed (0%)';
                 }
             }
         }
