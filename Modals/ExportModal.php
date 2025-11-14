@@ -17,7 +17,7 @@ $currentUserId = $currentUser['user_id'] ?? null;
     <!-- Modal Header -->
     <div class="modal-header">
       <h2 class="modal-title">📊 Export Reports</h2>
-      <div class="modal-supporting-text">Select format, period, report, and scope based on your role.</div>
+      <div class="modal-supporting-text">Select period, report, and scope based on your role. Reports are exported as PDF.</div>
     </div>
     
     <!-- Content Area -->
@@ -26,7 +26,18 @@ $currentUserId = $currentUser['user_id'] ?? null;
         <input type="hidden" id="currentRole" value="<?php echo htmlspecialchars($currentRoleName); ?>">
         <input type="hidden" id="currentUserId" value="<?php echo htmlspecialchars((string)$currentUserId); ?>">
         
-        <!-- File Format Section -->
+        <!-- File Format Section - PDF Only (Excel formats commented out for future implementation) -->
+        <div class="export-section" id="sectionFormat">
+          <h3 class="section-title">📄 Export Format</h3>
+          <div class="format-indicator" style="padding: 12px; background-color: var(--very-light-off-white, #f8f9fa); border-radius: 6px; border: 1px solid var(--light-blue-gray, #e0e0e0);">
+            <span style="display: flex; align-items: center; gap: 8px; color: var(--deep-navy-blue, #1a1a2e); font-weight: 500;">
+              <span>📄</span>
+              <span>Reports will be exported as <strong>PDF (.pdf)</strong> format</span>
+            </span>
+          </div>
+        </div>
+        
+        <!-- File Format Selection (Commented out for future implementation)
         <div class="export-section" id="sectionFormat">
           <h3 class="section-title">📄 File Format</h3>
           <div class="radio-group">
@@ -47,6 +58,7 @@ $currentUserId = $currentUser['user_id'] ?? null;
             </label>
           </div>
         </div>
+        -->
         
         <!-- Clearance Period -->
         <div class="export-section" id="sectionPeriod">
@@ -333,6 +345,7 @@ function shouldShowProgramSection(selectedSectorName) {
 }
 
 // Hierarchical helpers and export button gating
+// Note: sectionFormat is always enabled (PDF only for now)
 const SECTION_ORDER = ['sectionFormat','sectionPeriod','sectionReport','sectionSector','sectionDepartment','sectionProgram','sectionOptions'];
 
 function setSectionEnabled(sectionId, enabled) {
@@ -346,8 +359,9 @@ function setSectionEnabled(sectionId, enabled) {
   
   el.classList.toggle('section-disabled', !enabled);
   el.querySelectorAll('select, input, button').forEach(ctrl => {
+    // sectionFormat is always enabled (PDF only indicator, no interactive controls)
     if (sectionId === 'sectionFormat') { 
-      ctrl.disabled = false; 
+      // No controls to disable in format indicator
       return; 
     }
     const wasDisabled = ctrl.disabled;
@@ -611,14 +625,16 @@ function validateExportForm() {
     }
   };
   
-  const fileFormat = document.querySelector('input[name="fileFormat"]:checked')?.value;
+  // File format is always PDF (commented out for future implementation)
+  // const fileFormat = document.querySelector('input[name="fileFormat"]:checked')?.value;
   const periodId = document.getElementById('periodSelect').value;
   const reportType = document.getElementById('reportType').value;
   const sector = document.getElementById('sectorSelect').value;
   const deptId = document.getElementById('departmentSelect').value;
   const fileName = document.getElementById('exportFileName').value.trim();
 
-  if (!fileFormat) { notify('Please select a file format', 'error'); return false; }
+  // File format validation removed - always PDF
+  // if (!fileFormat) { notify('Please select a file format', 'error'); return false; }
   if (!periodId) { notify('Please select a clearance period', 'error'); return false; }
   if (!reportType) { notify('Please select a report type', 'error'); return false; }
   if (!sector) { notify('Please select a sector', 'error'); return false; }
@@ -662,6 +678,7 @@ window.openExportModal = async function() {
   console.log('[ExportModal] Sectors will be loaded when report type is selected');
 
   // Initialize hierarchical states
+  // sectionFormat is always enabled (PDF indicator only, no controls to enable/disable)
   setSectionEnabled('sectionFormat', true);
   setSectionEnabled('sectionPeriod', true);
   setSectionEnabled('sectionReport', false);
@@ -893,6 +910,8 @@ window.submitExportForm = async function() {
   try {
     const fd = new FormData(form);
     fd.append('role', normalizeRole(document.getElementById('currentRole')?.value));
+    // Always use PDF format (commented out for future implementation)
+    fd.append('fileFormat', 'pdf');
     // Encode selected clearance period (school_year | semester_name)
     const selectedPeriod = document.getElementById('periodSelect').value;
     if (selectedPeriod && selectedPeriod.includes('|')) {
@@ -964,7 +983,8 @@ window.submitExportForm = async function() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const match = /filename\s*=\s*([^;]+)/i.exec(disp);
-    const suggested = match ? match[1].replace(/\"/g,'').trim() : `${document.getElementById('exportFileName').value || computeDefaultFilename()}.${document.querySelector('input[name="fileFormat"]:checked')?.value || 'pdf'}`;
+    // Always use PDF extension (file format selection commented out for future implementation)
+    const suggested = match ? match[1].replace(/\"/g,'').trim() : `${document.getElementById('exportFileName').value || computeDefaultFilename()}.pdf`;
     a.href = url; 
     a.download = suggested; 
     document.body.appendChild(a); 

@@ -1,4 +1,23 @@
 <?php
+/**
+ * ============================================================================
+ * OLD APPROACH: DOCX Template to PDF Conversion
+ * ============================================================================
+ * 
+ * This file has been REPLACED by ClearanceFormPDFGenerator.php
+ * which uses programmatic PDF generation (similar to ReportGenerator approach).
+ * 
+ * This file is kept for backup/reference purposes only.
+ * The new approach is faster, more maintainable, and doesn't require DOCX templates.
+ * 
+ * To use the old approach, uncomment this file and comment out the new generator
+ * in api/clearance/export_report.php
+ * 
+ * ============================================================================
+ */
+
+// COMMENTED OUT - Using new ClearanceFormPDFGenerator instead
+/*
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\Settings;
 use PhpOffice\PhpWord\TemplateProcessor;
@@ -294,3 +313,4 @@ function generateClearanceTemplatePDF($templateData, $signatories, $schoolTempla
         throw new Exception("Final PDF not created.");
     }
 }
+*/
