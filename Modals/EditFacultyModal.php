@@ -2,7 +2,7 @@
 <link rel="stylesheet" href="../../assets/css/modals.css">
 <div class="modal-overlay edit-faculty-modal-overlay" id="editFacultyModal">
   <div class="modal-window">
-    <button class="modal-close" onclick="closeEditFacultyModal()">&times;</button>
+    <button class="modal-close" onclick="window.closeEditFacultyModal && window.closeEditFacultyModal()">&times;</button>
     <h2 class="modal-title">✏️ Edit Faculty Information</h2>
     <div class="modal-supporting-text">Update faculty information and account settings.</div>
     <div class="modal-content-area">
@@ -58,16 +58,18 @@
             <button type="button" class="modal-action-secondary" onclick="resetFacultyPassword()" style="flex: 1;">
               <i class="fas fa-key"></i> Reset Password
             </button>
+            <!--
             <button type="button" class="modal-action-secondary" onclick="sendPasswordEmail()" style="flex: 1;">
               <i class="fas fa-envelope"></i> Send Email
             </button>
+            -->
           </div>
         </div>
       </form>
     </div>
     <div class="modal-actions">
-      <button class="modal-action-secondary" onclick="closeEditFacultyModal()">Cancel</button>
-      <button class="modal-action-primary" onclick="submitEditFacultyForm()" id="editSubmitBtn">Update Faculty</button>
+      <button class="modal-action-secondary" onclick="window.closeEditFacultyModal && window.closeEditFacultyModal()">Cancel</button>
+      <button class="modal-action-primary" onclick="window.submitEditFacultyForm && window.submitEditFacultyForm()" id="editSubmitBtn">Update Faculty</button>
     </div>
   </div>
 </div>
@@ -132,64 +134,78 @@
   
 
   
-  function populateEditForm(facultyId) {
-    // In a real application, you would fetch faculty data from the server
-    // For now, we'll use sample data based on the faculty ID
-         const sampleData = {
-       'EMP001': {
-         employeeNumber: 'EMP001',
-         employmentStatus: 'full-time',
-        lastName: 'Santos',
-        firstName: 'Maria',
-        middleName: 'Garcia',
-        email: 'maria.santos@example.com',
-        contactNumber: '+63 912 345 6789',
-        accountStatus: 'active'
-      },
-             'EMP002': {
-         employeeNumber: 'EMP002',
-         employmentStatus: 'part-time',
-        lastName: 'Dela Cruz',
-        firstName: 'Juan',
-        middleName: 'Santos',
-        email: 'juan.delacruz@example.com',
-        contactNumber: '+63 923 456 7890',
-        accountStatus: 'active'
-      },
-             'EMP003': {
-         employeeNumber: 'EMP003',
-         employmentStatus: 'contract',
-        lastName: 'Rodriguez',
-        firstName: 'Ana',
-        middleName: 'Lopez',
-        email: 'ana.rodriguez@example.com',
-        contactNumber: '+63 934 567 8901',
-        accountStatus: 'inactive'
-      },
-             'EMP004': {
-         employeeNumber: 'EMP004',
-         employmentStatus: 'full-time',
-        lastName: 'Mendoza',
-        firstName: 'Carlos',
-        middleName: 'Reyes',
-        email: 'carlos.mendoza@example.com',
-        contactNumber: '+63 945 678 9012',
-        accountStatus: 'resigned'
-      }
-    };
+  // Load faculty data for editing
+  async function populateEditFacultyForm(employeeNumber) {
+    const form = document.getElementById('editFacultyForm');
+    const submitBtn = document.getElementById('editSubmitBtn');
     
-    const facultyData = sampleData[facultyId] || sampleData['EMP001'];
+    if (form) form.classList.add('loading');
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Loading...';
+    }
+
+    try {
+      // Fetch faculty data from the API using search parameter (employee_number is searched in the API)
+      // The API searches in employee_number field, so we can use search parameter
+      const response = await fetch(`../../api/users/facultyList.php?search=${encodeURIComponent(employeeNumber)}&limit=1`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+
+      if (data.success && data.faculty && data.faculty.length > 0) {
+        const faculty = data.faculty[0]; // Get first result
     
          // Populate form fields
-     document.getElementById('editFacultyId').value = facultyId;
-     document.getElementById('editEmployeeNumber').value = facultyData.employeeNumber;
-     document.getElementById('editEmploymentStatus').value = facultyData.employmentStatus;
-    document.getElementById('editLastName').value = facultyData.lastName;
-    document.getElementById('editFirstName').value = facultyData.firstName;
-    document.getElementById('editMiddleName').value = facultyData.middleName;
-    document.getElementById('editEmail').value = facultyData.email;
-    document.getElementById('editContactNumber').value = facultyData.contactNumber;
-    document.getElementById('editAccountStatus').value = facultyData.accountStatus;
+        const formEl = document.getElementById('editFacultyForm');
+        if (formEl) formEl.dataset.userId = faculty.user_id; // Store user_id for password reset
+        
+        document.getElementById('editFacultyId').value = employeeNumber;
+        document.getElementById('editEmployeeNumber').value = faculty.employee_number || employeeNumber;
+        
+        // Normalize employment status (API might return different format)
+        let employmentStatus = (faculty.employment_status || '').toLowerCase().replace(/\s+/g, '-');
+        // Map common variations
+        if (employmentStatus === 'part-time-full-load') {
+          employmentStatus = 'part-time-full-load';
+        } else if (employmentStatus.includes('part-time')) {
+          employmentStatus = 'part-time';
+        } else if (employmentStatus.includes('full-time') || employmentStatus === 'fulltime') {
+          employmentStatus = 'full-time';
+        }
+        document.getElementById('editEmploymentStatus').value = employmentStatus;
+        
+        document.getElementById('editLastName').value = faculty.last_name || '';
+        document.getElementById('editFirstName').value = faculty.first_name || '';
+        document.getElementById('editMiddleName').value = faculty.middle_name || '';
+        document.getElementById('editEmail').value = faculty.email || '';
+        document.getElementById('editContactNumber').value = faculty.contact_number || '';
+        document.getElementById('editAccountStatus').value = faculty.account_status || 'active';
+      } else {
+        throw new Error(data.message || 'Faculty not found');
+      }
+    } catch (error) {
+      console.error('Error loading faculty data:', error);
+      if (typeof showToast === 'function') {
+        showToast(`Error loading faculty data: ${error.message}`, 'error');
+      } else if (typeof showToastNotification === 'function') {
+        showToastNotification(`Error loading faculty data: ${error.message}`, 'error');
+      } else {
+        alert(`Error loading faculty data: ${error.message}`);
+      }
+      window.closeEditFacultyModal();
+    } finally {
+      if (form) form.classList.remove('loading');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Update Faculty';
+      }
+    }
   }
   
 
@@ -266,24 +282,32 @@
   }
   
   // Make functions globally accessible
-  window.openEditFacultyModal = function(facultyId) {
+  window.openEditFacultyModal = function(employeeNumber) {
     const modal = document.getElementById('editFacultyModal');
+    if (!modal) {
+      console.error('EditFacultyModal not found in DOM');
+      return;
+    }
+    
     modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
 
-    // Remember which faculty is being edited for follow-up actions
-    const form = document.getElementById('editFacultyForm');
-    form.dataset.userId = facultyId;
-
-    // Populate form with faculty data
-    populateEditForm(facultyId);
+    // Populate form with faculty data (will set user_id in the form dataset)
+    populateEditFacultyForm(employeeNumber);
   };
   
   window.closeEditFacultyModal = function() {
     const modal = document.getElementById('editFacultyModal');
+    if (!modal) {
+      return;
+    }
+    
     modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
     
     // Reset form
-    document.getElementById('editFacultyForm').reset();
+    const form = document.getElementById('editFacultyForm');
+    if (form) form.reset();
     
     // Clear error messages
     const errorDivs = modal.querySelectorAll('.field-error');
@@ -298,17 +322,69 @@
   
   window.submitEditFacultyForm = function() {
     if (!validateEditFacultyForm()) {
-      showToastNotification('Please correct the errors in the form', 'error');
+      const errorMsg = 'Please correct the errors in the form';
+      if (typeof showToast === 'function') {
+        showToast(errorMsg, 'error');
+      } else if (typeof showToastNotification === 'function') {
+        showToastNotification(errorMsg, 'error');
+      }
       return;
     }
     
-    // Simulate form submission
-    showToastNotification('Faculty information updated successfully!', 'success');
-    window.closeEditFacultyModal();
+    const submitBtn = document.getElementById('editSubmitBtn');
+    const form = document.getElementById('editFacultyForm');
     
-    // In a real application, you would submit the form data to the server
-    // const form = document.getElementById('editFacultyForm');
-    // form.submit();
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Updating...';
+    form.classList.add('modal-loading');
+    
+    // Use FormData for proper form submission
+    const formData = new FormData(form);
+    
+    fetch(form.dataset.endpoint, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success' || data.success) {
+        const message = data.message || 'Faculty updated successfully!';
+        if (typeof showToast === 'function') {
+          showToast(message, 'success');
+        } else if (typeof showToastNotification === 'function') {
+          showToastNotification(message, 'success');
+        }
+        window.closeEditFacultyModal();
+        // Refresh resigned faculty list if available
+        if (typeof loadResignedFacultyList === 'function') {
+          loadResignedFacultyList();
+        }
+      } else {
+        const errorMsg = data.message || 'Error updating faculty';
+        if (typeof showToast === 'function') {
+          showToast(errorMsg, 'error');
+        } else if (typeof showToastNotification === 'function') {
+          showToastNotification(errorMsg, 'error');
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      const errorMsg = 'Something went wrong!';
+      if (typeof showToast === 'function') {
+        showToast(errorMsg, 'error');
+      } else if (typeof showToastNotification === 'function') {
+        showToastNotification(errorMsg, 'error');
+      }
+    })
+    .finally(() => {
+      // Reset button state
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Update Faculty';
+      form.classList.remove('modal-loading');
+    });
   };
   
   window.sendPasswordEmail = function() {

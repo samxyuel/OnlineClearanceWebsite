@@ -57,7 +57,7 @@ $activity_types = getActivityTypes();
     
     <!-- CSS Files -->
     <link rel="stylesheet" href="../../assets/css/styles.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
+    <!-- <link rel="stylesheet" href="../../assets/css/activity-tracker.css"> -->
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     
@@ -75,6 +75,7 @@ $activity_types = getActivityTypes();
     <?php include '../../includes/components/sidebar.php'; ?>
 
     <!-- Main Content -->
+    <?php /* ?>
     <main class="main-content audit-trail-page">
         <div class="content-wrapper">
             <!-- Page Header -->
@@ -574,5 +575,6 @@ $activity_types = getActivityTypes();
             }
         }, 300000);
     </script>
+    <?php */ ?>
 </body>
 </html>

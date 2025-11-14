@@ -163,13 +163,15 @@
 
 
                 <!-- Content Grid -->
+                <!--
                 <div class="content-grid">
                     <!-- Recent Activity Section -->
-                    <?php include '../../includes/components/recent-activity.php'; ?>
+                    <?php /* include '../../includes/components/recent-activity.php'; */ ?>
 
                     <!-- Notifications Panel -->
-                    <?php include '../../includes/components/notifications.php'; ?>
+                    <?php /* include '../../includes/components/notifications.php'; */ ?>
                 </div>
+                -->
             </div>
         </div>
     </main>
@@ -217,9 +219,6 @@
             // Update Main Action Button
             updateMainActionButton(data);
 
-            // Update Recent Activity
-            updateRecentActivity(data.recent_activity);
-
             // Update User Information Indicators
             updateUserInfoIndicators(data);
 
@@ -255,6 +254,7 @@
         }
     }
 
+    /*
     function updateRecentActivity(activities) {
         const timeline = document.getElementById('activityTimeline');
         if (!activities || activities.length === 0) {
@@ -292,6 +292,7 @@
             `;
         }).join('');
     }
+    */
 
     function updateUserInfoIndicators(data) {
         // Update Department

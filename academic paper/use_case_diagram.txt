@@ -19,7 +19,6 @@ ADMIN
 - Login to System
 - Manage Academic Years
 - Manage Semesters
-- Create Clearance Periods
 - Start Clearance Periods
 - Close Clearance Periods
 - Manage User Accounts
@@ -28,16 +27,15 @@ ADMIN
 - Create Staff Accounts
 - Update User Information
 - Delete User Accounts
+- Batch Actions
 - Assign Signatories
 - Manage Departments
 - Manage Programs
 - Manage Designations
-- View Audit Trail
-- Generate Reports
-- Export Data
+- Export Clearance Form Progress Report
 - Import Student Data
 - Import Faculty Data
-- Manage System Settings
+- View Clearance Form Progress
 - View Dashboard Summary
 
 SCHOOL ADMINISTRATOR
@@ -50,10 +48,16 @@ SCHOOL ADMINISTRATOR
 - Update Staff Information
 - Update Faculty Information
 - Update Student Information
+- Approve Clearance Requests
+- Reject Clearance Requests
+- Add Rejection Comments
+- Batch Signatory Action
+- View Clearance Form Progress
 - View Clearance Status
 - Generate Reports
-- Export Data
-- View Audit Logs
+- Export Clearance Form Progress Report
+- Export Clearance Applicant Status Report
+
 
 PROGRAM HEAD
 ------------
@@ -63,12 +67,15 @@ PROGRAM HEAD
 - Manage Department Faculty
 - Update Student Information
 - Update Faculty Information
-- View Clearance Forms
+- Batch Actions
+- View Clearance Form Progress
 - Approve Clearance Requests
 - Reject Clearance Requests
 - Add Rejection Comments
+- Batch Signatory Action
 - View Clearance Status
 - Generate Department Reports
+- Export Clearance Applicant Status Report
 
 REGULAR STAFF
 -------------
@@ -79,9 +86,10 @@ REGULAR STAFF
 - Approve Clearance Requests
 - Reject Clearance Requests
 - Add Rejection Comments
-- Batch Approve Clearances
+- Batch Signatory Action
 - View Clearance Status
-- Search Clearance Forms
+- View Clearance Form Progress
+- Export Clearance Applicant Status Report
 
 STUDENT
 -------

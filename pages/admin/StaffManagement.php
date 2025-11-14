@@ -14,7 +14,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
+    <!-- <link rel="stylesheet" href="../../assets/css/activity-tracker.css"> -->
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
     <style>
         /* Responsive visibility for tab pills vs dropdown (mobile-first) */
@@ -111,9 +111,11 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                     <!-- <button class="btn btn-secondary import-btn" onclick="openStaffImportModal()">
                         <i class="fas fa-file-import"></i> Import Staff
                     </button> -->
+                    <!--
                     <button class="btn btn-secondary export-btn" onclick="openStaffExportModal()">
                         <i class="fas fa-file-export"></i> Export Staff
                     </button>
+                    -->
                 </div>
             </div>
 
@@ -158,7 +160,8 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 </div>
             </div>
 
-            <!-- Coverage Strip: Program Head coverage per sector -->
+            <!-- 
+            Coverage Strip: Program Head coverage per sector
             <div class="coverage-strip" id="coverageStrip" style="margin:12px 0 16px 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
                 <div style="font-weight:600; color: var(--deep-navy-blue);"><i class="fas fa-clipboard-check"></i> PH Coverage:</div>
                 <div class="coverage-item" data-sector="College" style="background:#f8fafc; border:1px solid #e1e5e9; border-radius:8px; padding:8px 12px;">
@@ -174,6 +177,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                     <button class="btn btn-sm btn-outline-primary" style="margin-left:8px;" onclick="openUnassigned('Faculty')">Unassigned</button>
                 </div>
             </div>
+            -->
 
             <!-- Tabs (consistent with FacultyManagement) -->
             <div class="tab-banner-wrapper" style="margin-bottom: 12px;">
@@ -238,9 +242,11 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     </div>
     
     <!-- RIGHT SIDE: Activity Tracker -->
-    <div class="dashboard-sidebar">
-        <?php include '../../includes/components/activity-tracker.php'; ?>
-    </div>
+             <!--
+             <div class="dashboard-sidebar">
+                        <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
+                </div>
+                -->
 </div>
 </div>
 </main>
@@ -261,7 +267,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     <script src="../../assets/js/alerts.js"></script>
     
     <!-- Include Activity Tracker JavaScript -->
-    <script src="../../assets/js/activity-tracker.js"></script>
+    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
     
     <script>
         // Live staff data – start empty; cards appear only after real registration or fetch
@@ -801,6 +807,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
             }
         }
         
+        /*
         // Initialize Activity Tracker when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
@@ -808,6 +815,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 console.log('Activity Tracker initialized');
             }
         });
+        */
 
         // Coverage & Unassigned drawer logic
         async function loadCoverage(){
@@ -1016,6 +1024,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     </script>
     
     <!-- Include Audit Functions -->
-    <?php include '../../includes/functions/audit_functions.php'; ?>
+    <?php /* include '../../includes/functions/audit_functions.php'; */ ?>
 </body>
 </html> 

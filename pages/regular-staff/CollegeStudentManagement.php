@@ -378,10 +378,11 @@ try {
                     </div>
                 </div>
                 
-                <!-- RIGHT SIDE: Activity Tracker -->
+                <!--
                 <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
+                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
                 </div>
+                -->
             </div>
         </div>
     </main>
@@ -496,8 +497,8 @@ try {
         </div>
     </div>
 
-    <script src="../../assets/js/activity-tracker.js"></script>
-    <?php include '../../includes/functions/audit_functions.php'; ?>
+    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
+    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
     <script>
         // --- State Management ---
         let currentPage = 1;
@@ -1179,9 +1180,11 @@ try {
                 }
             });
 
+            /*
             // Initialize Activity Tracker
             window.sidebarHandledByPage = true;
             window.activityTrackerInstance = new ActivityTracker();
+            */
 
             // --- New Initializer Logic ---
             // Wait for all filters to be populated before setting defaults and loading data.

@@ -325,10 +325,11 @@ handleFacultyManagementPageRequest();
                     </div> <!-- closes content-wrapper -->
                 </div> <!-- closes dashboard-main -->
                 
-                <!-- Activity Tracker Sidebar -->
+                <!--
                 <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div> <!-- closes dashboard-sidebar -->
+                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
+                </div>
+                -->
             </div> <!-- closes dashboard-layout -->
         </div> <!-- closes main-content -->
     </main>
@@ -371,12 +372,12 @@ handleFacultyManagementPageRequest();
         </div>
     </div>
 
-    <script src="../../assets/js/activity-tracker.js"></script>
+    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
     
     <!-- Include Clearance Button Manager -->
     <script src="../../assets/js/clearance-button-manager.js"></script>
     
-    <?php include '../../includes/functions/audit_functions.php'; ?>
+    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
 
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     <script>

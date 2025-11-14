@@ -354,10 +354,11 @@ try {
                     </div>
                 </div>
                 
-                <!-- Activity Tracker Sidebar -->
+                <!--
                 <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
+                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
                 </div>
+                -->
             </div>
         </div>
     </main>
@@ -1842,12 +1843,14 @@ try {
                 tableWrapper.addEventListener('scroll', handleTableScroll);
             }
             
+            /*
             // Initialize Activity Tracker
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
                 window.activityTrackerInstance = new ActivityTracker({
                     userRole: 'Program Head'
                 });
             }
+            */
             
             // 1. Load user-specific data first (profile, departments, etc.)
             loadProgramHeadProfile().then(() => {
@@ -2166,7 +2169,7 @@ try {
     
     <!-- Include Alert System JavaScript -->
     <script src="../../assets/js/alerts.js"></script>
-    <script src="../../assets/js/activity-tracker.js"></script>
-    <?php include '../../includes/functions/audit_functions.php'; ?>
+    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
+    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
 </body>
 </html>

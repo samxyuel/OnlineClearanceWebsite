@@ -181,11 +181,13 @@ handleFacultyManagementPageRequest();
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
+                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
+                            <?php */ ?>
                         </div>
 
                         <!-- Tab Banner Wrapper -->
@@ -355,10 +357,11 @@ handleFacultyManagementPageRequest();
                     </div>
                 </div>
 
-                <!-- RIGHT SIDE: Activity Tracker -->
+                <!--
                 <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
+                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
                 </div>
+                -->
             </div>
         </div>
     </main>
@@ -519,6 +522,7 @@ handleFacultyManagementPageRequest();
         </div>
     </div>
 
+    <?php /* Signatory Override interface temporarily disabled ?>
     <!-- Signatory Override Modal -->
     <div id="signatoryOverrideModal" class="modal-overlay" style="display: none;">
         <div class="modal-window override-modal">
@@ -636,10 +640,11 @@ handleFacultyManagementPageRequest();
             <!-- Dynamic content will be populated -->
         </div>
     </div>
+    <?php */ ?>
 
-    <script src="../../assets/js/activity-tracker.js"></script>
+    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
     <script src="../../assets/js/clearance-button-manager.js"></script>
-    <?php include '../../includes/functions/audit_functions.php'; ?>
+    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
     <script>
         let currentPage = 1;
         let entriesPerPage = 20;

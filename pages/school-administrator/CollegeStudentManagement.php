@@ -88,11 +88,13 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
+                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
+                            <?php */ ?>
                         </div>
 
                         <!-- Tab Banner Wrapper -->
@@ -277,10 +279,11 @@ if (session_status() == PHP_SESSION_NONE) {
                     </div>
                 </div>
 
-                <!-- RIGHT SIDE: Activity Tracker -->
+                <!--
                 <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
+                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
                 </div>
+                -->
             </div>
         </div>
     </main>
@@ -428,6 +431,7 @@ if (session_status() == PHP_SESSION_NONE) {
         </div>
     </div>
 
+    <?php /* Signatory Override interface temporarily disabled ?>
     <!-- Signatory Override Modal -->
     <div id="signatoryOverrideModal" class="modal-overlay" style="display: none;">
         <div class="modal-window override-modal">
@@ -546,6 +550,7 @@ if (session_status() == PHP_SESSION_NONE) {
             <!-- Dynamic content will be populated -->
         </div>
     </div>
+    <?php */ ?>
 
     <script>
         // Select all functionality
@@ -1763,10 +1768,10 @@ if (session_status() == PHP_SESSION_NONE) {
         }
     </script>
     <script src="../../assets/js/alerts.js"></script>
-    <script src="../../assets/js/activity-tracker.js"></script>
+    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
     
     <!-- Include Audit Functions -->
-    <?php include '../../includes/functions/audit_functions.php'; ?>
+    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
     
     <!-- Initialize Activity Tracker -->
     <script>
@@ -2471,10 +2476,12 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         document.addEventListener('DOMContentLoaded', async function() {
+            /*
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized for School Administrator Student Management');
             }
+            */
 
             // 1. Load the rest of the filter options.
             await Promise.all([

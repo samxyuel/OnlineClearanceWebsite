@@ -15,7 +15,7 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
+    <!-- <link rel="stylesheet" href="../../assets/css/activity-tracker.css"> -->
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -92,11 +92,13 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
+                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
+                            <?php */ ?>
                         </div>
 
                         <!-- Search and Filters Section -->
@@ -837,9 +839,11 @@ if (session_status() == PHP_SESSION_NONE) {
                 </div>
 
                 <!-- RIGHT SIDE: Activity Tracker -->
+                <!--
                 <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
+                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
                 </div>
+                -->
             </div>
         </div>
     </main>
@@ -905,6 +909,7 @@ if (session_status() == PHP_SESSION_NONE) {
         </div>
     </div>
 
+    <?php /* Signatory Override interface temporarily disabled ?>
     <!-- Signatory Override Modal -->
     <div id="signatoryOverrideModal" class="modal-overlay" style="display: none;">
         <div class="modal-window override-modal">
@@ -1023,6 +1028,7 @@ if (session_status() == PHP_SESSION_NONE) {
             <!-- Dynamic content will be populated -->
         </div>
     </div>
+    <?php */ ?>
 
     <script>
         // Toggle sidebar
@@ -2355,9 +2361,10 @@ if (session_status() == PHP_SESSION_NONE) {
     <script src="../../assets/js/alerts.js"></script>
     
     <!-- Include Activity Tracker JavaScript -->
-    <script src="../../assets/js/activity-tracker.js"></script>
+    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
     
     <!-- Initialize Activity Tracker -->
+    <!--
     <script>
         // Initialize Activity Tracker when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
@@ -2367,8 +2374,9 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         });
     </script>
+    -->
     
     <!-- Include Audit Functions -->
-    <?php include '../../includes/functions/audit_functions.php'; ?>
+    <?php /* include '../../includes/functions/audit_functions.php'; */ ?>
 </body>
 </html> 

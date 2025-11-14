@@ -13,7 +13,7 @@ ob_start();
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
+    <!-- <link rel="stylesheet" href="../../assets/css/activity-tracker.css"> -->
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -88,11 +88,13 @@ ob_start();
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
+                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
+                            <?php */ ?>
                         </div>
 
                         <!-- Tabs + Current Period Wrapper -->
@@ -406,9 +408,11 @@ ob_start();
                 </div>
 
                 <!-- RIGHT SIDE: Activity Tracker -->
+                <!--
                 <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
+                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
                 </div>
+                -->
             </div>
         </div>
     </main>
@@ -515,6 +519,7 @@ ob_start();
     </div>
 
 
+    <?php /* Signatory Override interface temporarily disabled ?>
     <!-- Signatory Override Modal -->
     <div id="signatoryOverrideModal" class="modal-overlay" style="display: none;">
         <div class="modal-window override-modal">
@@ -632,6 +637,7 @@ ob_start();
             <!-- Dynamic content will be populated -->
         </div>
     </div>
+    <?php */ ?>
 
     <script>
         // Toggle sidebar
@@ -1864,11 +1870,13 @@ ob_start();
             // load faculty table
             refreshFacultyTable();
 
+            /*
             // Initialize Activity Tracker
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized');
             }
+            */
 
             // Add event listeners for checkboxes
             document.addEventListener('change', function(e) {
@@ -2335,7 +2343,7 @@ ob_start();
     <script src="../../assets/js/alerts.js"></script>
     
     <!-- Include Activity Tracker JavaScript -->
-    <script src="../../assets/js/activity-tracker.js"></script>
+    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
     
     <!-- Include Clearance Button Manager -->
     <script src="../../assets/js/clearance-button-manager.js"></script>

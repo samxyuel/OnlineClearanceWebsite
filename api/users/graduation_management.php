@@ -71,17 +71,24 @@ try {
         $sector = $_GET['sector'] ?? '';
         $departmentId = $_GET['department_id'] ?? '';
         $programId = $_GET['program_id'] ?? '';
-        $yearLevel = $_GET['year_level'] ?? '4th Year'; // Default to 4th Year for graduation eligibility
+        $yearLevel = $_GET['year_level'] ?? ''; // Optional - only used for eligible students
+        $accountStatus = $_GET['account_status'] ?? 'active'; // Default to 'active' for eligible students, 'graduated' for graduated list
         $includeFilters = isset($_GET['include_filters']);
 
         // Build where conditions
         // Note: enrollment_status column doesn't exist in students table
         // We filter by account_status in users table instead
         $whereConditions = [
-            "u.account_status = 'active'",
-            "s.year_level = ?"
+            "u.account_status = ?"
         ];
-        $params = [$yearLevel];
+        $params = [$accountStatus];
+        
+        // Only filter by year_level if provided (for eligible students modal)
+        // For graduated students list, we want all graduated students regardless of year level
+        if ($yearLevel) {
+            $whereConditions[] = "s.year_level = ?";
+            $params[] = $yearLevel;
+        }
 
         // Add sector filter
         if ($sector) {
@@ -111,7 +118,7 @@ try {
         $whereClause = "WHERE " . implode(" AND ", $whereConditions);
 
         // Debug: Log the query and parameters
-        error_log("Graduation Management Query - Year Level: {$yearLevel}, Sector: {$sector}");
+        error_log("Graduation Management Query - Account Status: {$accountStatus}, Year Level: {$yearLevel}, Sector: {$sector}");
         error_log("Where Clause: {$whereClause}");
         error_log("Params: " . print_r($params, true));
 
@@ -185,17 +192,17 @@ try {
         }
         
         if (count($students) === 0) {
-            // Check what year levels actually exist for this sector
+            // Check what year levels actually exist for this sector and account status
             $checkYearLevels = $pdo->prepare("
                 SELECT DISTINCT s.year_level, COUNT(*) as count
                 FROM students s
                 JOIN users u ON s.user_id = u.user_id
-                WHERE s.sector = ? AND u.account_status = 'active'
+                WHERE s.sector = ? AND u.account_status = ?
                 GROUP BY s.year_level
             ");
-            $checkYearLevels->execute([$sector]);
+            $checkYearLevels->execute([$sector, $accountStatus]);
             $existingYearLevels = $checkYearLevels->fetchAll(PDO::FETCH_ASSOC);
-            error_log("Existing year levels for {$sector}: " . print_r($existingYearLevels, true));
+            error_log("Existing year levels for {$sector} with account_status={$accountStatus}: " . print_r($existingYearLevels, true));
         }
 
         $filtersAvailable = [
@@ -255,21 +262,24 @@ try {
             }, $yearStmt->fetchAll(PDO::FETCH_ASSOC));
         }
 
-        // Get statistics
-        $statsSql = "
-            SELECT 
-                COUNT(*) as total_eligible,
-                COUNT(CASE WHEN u.account_status = 'active' THEN 1 END) as active,
-                COUNT(CASE WHEN u.account_status = 'graduated' THEN 1 END) as graduated,
-                COUNT(CASE WHEN s.sector = 'College' THEN 1 END) as college_count,
-                COUNT(CASE WHEN s.sector = 'Senior High School' THEN 1 END) as shs_count
-            FROM students s
-            JOIN users u ON s.user_id = u.user_id
-            WHERE s.year_level = ? AND u.account_status = 'active'
-        ";
-        $statsStmt = $pdo->prepare($statsSql);
-        $statsStmt->execute([$yearLevel]);
-        $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
+        // Get statistics (only for eligible students, not for graduated list)
+        $stats = null;
+        if ($accountStatus === 'active' && $yearLevel) {
+            $statsSql = "
+                SELECT 
+                    COUNT(*) as total_eligible,
+                    COUNT(CASE WHEN u.account_status = 'active' THEN 1 END) as active,
+                    COUNT(CASE WHEN u.account_status = 'graduated' THEN 1 END) as graduated,
+                    COUNT(CASE WHEN s.sector = 'College' THEN 1 END) as college_count,
+                    COUNT(CASE WHEN s.sector = 'Senior High School' THEN 1 END) as shs_count
+                FROM students s
+                JOIN users u ON s.user_id = u.user_id
+                WHERE s.year_level = ? AND u.account_status = 'active'
+            ";
+            $statsStmt = $pdo->prepare($statsSql);
+            $statsStmt->execute([$yearLevel]);
+            $stats = $statsStmt->fetch(PDO::FETCH_ASSOC);
+        }
 
         send_json_response(true, [
             'students' => $students,

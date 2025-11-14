@@ -407,9 +407,11 @@ try {
                 </div>
                 
                 <!-- Activity Tracker Sidebar -->
+                <!--
                 <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
+                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
                 </div>
+                -->
             </div>
         </div>
     </main>
@@ -1176,11 +1178,13 @@ try {
                 tableWrapper.addEventListener('scroll', handleTableScroll);
             }
             
+            /*
             // Initialize Activity Tracker
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized for Program Head Student Management');
             }
+            */
         });
 
         // Add event listeners for student checkboxes
@@ -1377,7 +1381,7 @@ try {
     
     <!-- Include Alert System JavaScript -->
     <script src="../../assets/js/alerts.js"></script>
-    <script src="../../assets/js/activity-tracker.js"></script>
-    <?php include '../../includes/functions/audit_functions.php'; ?>
+    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
+    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
 </body>
 </html>
