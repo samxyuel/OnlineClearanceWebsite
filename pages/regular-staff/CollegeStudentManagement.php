@@ -15,28 +15,53 @@ $userId = (int)$auth->getUserId();
 try {
     $pdo = Database::getInstance()->getConnection();
 
-    // 1. Get the staff member's designation ID
-    $staffDesignationStmt = $pdo->prepare("SELECT designation_id FROM staff WHERE user_id = ? AND is_active = 1");
-    $staffDesignationStmt->execute([$userId]);
-    $designationId = $staffDesignationStmt->fetchColumn();
+    // 1. Get all of the staff member's active designations from both staff table and assignments table.
+    $designationsStmt = $pdo->prepare("
+        (SELECT s.designation_id, d.designation_name
+         FROM staff s
+         JOIN designations d ON s.designation_id = d.designation_id
+         WHERE s.user_id = ? AND s.is_active = 1 AND d.is_active = 1 AND s.designation_id IS NOT NULL)
+        UNION
+        (SELECT uda.designation_id, d.designation_name
+         FROM user_designation_assignments uda
+         JOIN designations d ON uda.designation_id = d.designation_id
+         WHERE uda.user_id = ? AND uda.is_active = 1 AND d.is_active = 1)
+    ");
+    $designationsStmt->execute([$userId, $userId]);
+    $userDesignations = $designationsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Check permission flags (for conditional UI behavior)
+    // Check permission flags
     $hasActivePeriod = (int)$pdo->query("SELECT COUNT(*) FROM clearance_periods WHERE status = 'Ongoing' AND sector = 'College'")->fetchColumn() > 0;
 
-    $hasStudentSignatoryAccess = false;
-    if ($designationId) {
-        // 2. Check if this designation is assigned to sign for 'College' students
-        $studentSignatoryCheck = $pdo->prepare("SELECT COUNT(*) FROM sector_signatory_assignments WHERE designation_id = ? AND clearance_type = 'College' AND is_active = 1");
-        $studentSignatoryCheck->execute([$designationId]);
-        $hasStudentSignatoryAccess = (int)$studentSignatoryCheck->fetchColumn() > 0;
+    $userSignatoryDesignations = [];
+    if (!empty($userDesignations)) {
+        // 2. Check which of these designations are assigned to sign for 'College' students
+        $placeholders = implode(',', array_fill(0, count($userDesignations), '?'));
+        $studentSignatoryCheck = $pdo->prepare("
+            SELECT DISTINCT designation_id 
+            FROM sector_signatory_assignments 
+            WHERE designation_id IN ($placeholders) AND clearance_type = 'College' AND is_active = 1
+        ");
+        $designationIds = array_column($userDesignations, 'designation_id');
+        $studentSignatoryCheck->execute($designationIds);
+        $validSignatoryIds = $studentSignatoryCheck->fetchAll(PDO::FETCH_COLUMN);
+
+        // Filter the user's designations to only those valid for this sector
+        foreach ($userDesignations as $designation) {
+            if (in_array($designation['designation_id'], $validSignatoryIds)) {
+                $userSignatoryDesignations[] = $designation;
+            }
+        }
     }
     
+    $hasStudentSignatoryAccess = !empty($userSignatoryDesignations);
     $canPerformSignatoryActions = $hasActivePeriod && $hasStudentSignatoryAccess;
 
     // Store permission flags for use in the page
     $GLOBALS['hasActivePeriod'] = $hasActivePeriod;
     $GLOBALS['hasStudentSignatoryAccess'] = $hasStudentSignatoryAccess;
     $GLOBALS['canPerformSignatoryActions'] = $canPerformSignatoryActions;
+    $GLOBALS['userSignatoryDesignations'] = $userSignatoryDesignations; // Make designations available to the page
     
 } catch (Throwable $e) {
     header('HTTP/1.1 500 Internal Server Error'); 
@@ -155,6 +180,28 @@ try {
                             <div class="department-scope-info">
                                 <i class="fas fa-user-shield"></i>                                
                                 <span id="positionInfo">Loading position...</span>
+                            </div>
+
+                            <!-- Role Selector for Multi-Designation Users -->
+                            <div class="role-selector-container">
+                                <i class="fas fa-user-tag"></i>
+                                <label for="roleSelector">Viewing as:</label>
+                                <?php 
+                                $signatoryDesignations = $GLOBALS['userSignatoryDesignations'];
+                                if (count($signatoryDesignations) > 1): ?>
+                                    <select id="roleSelector" class="filter-select" onchange="handleRoleChange()">
+                                        <?php foreach ($signatoryDesignations as $designation): ?>
+                                            <option value="<?php echo htmlspecialchars($designation['designation_name']); ?>">
+                                                <?php echo htmlspecialchars($designation['designation_name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                <?php elseif (count($signatoryDesignations) === 1): ?>
+                                    <span class="single-role-display"><?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?></span>
+                                    <input type="hidden" id="roleSelector" value="<?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?>">
+                                <?php else: ?>
+                                    <span class="single-role-display">No active signatory roles</span>
+                                <?php endif; ?>
                             </div>
 
                             <!-- Permission Status Alerts -->
@@ -505,7 +552,18 @@ try {
         let entriesPerPage = 20;
         let currentSearch = '';
         let currentFilters = {};
-        let CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'Staff'; ?>';
+        // This will be dynamically updated by the role selector
+        let CURRENT_STAFF_POSITION = '<?php echo !empty($GLOBALS['userSignatoryDesignations']) ? addslashes($GLOBALS['userSignatoryDesignations'][0]['designation_name']) : 'Staff'; ?>';
+
+        // Handle role changes by re-applying all filters, which triggers a fetch
+        function handleRoleChange() {
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+                console.log("Role changed to:", CURRENT_STAFF_POSITION);
+                applyFilters(); // Re-fetch data from server with the new role
+            }
+        }
 
         // Select all functionality
         function toggleSelectAll(checked) {
@@ -818,8 +876,7 @@ try {
                     try {
                         const uid = await resolveUserIdFromStudentNumber(studentId);
                         if (uid) {                            
-                            // Corrected: Pass remarks in the 4th argument, not concatenated with the designation.
-                            const result = await sendSignatoryAction(uid, 'Approved', 'Approved by ' + CURRENT_STAFF_POSITION);
+                            const result = await sendSignatoryAction(uid, 'Approved', `Approved by ${CURRENT_STAFF_POSITION}`);
                             if (result.success) {
                                 showToastNotification('Student clearance approved successfully', 'success');
                                 fetchStudents(); // Refresh the table to update button states
@@ -886,6 +943,7 @@ try {
             const accountStatus = document.getElementById('accountStatusFilter').value;
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value;
+            const roleFilter = document.getElementById('roleSelector').value;
 
             const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
 
@@ -894,6 +952,11 @@ try {
             url.searchParams.append('sector', 'College'); 
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
+
+            // Append role filter
+            if (roleFilter) {
+                url.searchParams.append('designation_filter', roleFilter);
+            }
 
             // Optional filters
             if (search) url.searchParams.append('search', search);
@@ -1117,15 +1180,15 @@ try {
                 
                 if (positionElement) {
                     if (data.success && data.designation_name) {
-                        positionElement.textContent = `Position: ${data.designation_name} - Clearance Signatory`;
-                        CURRENT_STAFF_POSITION = data.designation_name; // Update the global variable
+                        // This function should only display the primary designation, not overwrite the selected role.
+                        positionElement.textContent = `Primary Role: ${data.designation_name}`;
                     } else {
-                        positionElement.textContent = 'Position: Staff - Clearance Signatory';
+                        positionElement.textContent = 'Primary Role: Not Set';
                     }
                 }
             } catch (error) {
                 console.error('Error loading staff position:', error);
-                document.getElementById('positionInfo').textContent = 'Position: Staff - Clearance Signatory';
+                document.getElementById('positionInfo').textContent = 'Primary Role: Error';
             }
         }
 
@@ -1195,6 +1258,15 @@ try {
                 loadAccountStatuses(),
                 loadStaffPosition()
             ]);
+
+            // --- FIX for Race Condition ---
+            // After all async operations, definitively set the CURRENT_STAFF_POSITION 
+            // from the role selector's current value to ensure it's correct on initial load.
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+                console.log("Initial role set to:", CURRENT_STAFF_POSITION);
+            }
 
             await setDefaultSchoolTerm();
             fetchStudents();
@@ -1390,45 +1462,20 @@ try {
         }
         
         async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null){
-            // Fetch the current staff's actual designation from the API to ensure accuracy.
-            let currentDesignation = CURRENT_STAFF_POSITION; // Fallback
-            try {
-                const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
-                const desigData = await desigResponse.json();
-                if (desigData.success && desigData.designation_name) { 
-                    currentDesignation = desigData.designation_name; 
-                }
-            } catch (e) { console.warn("Could not fetch designation, using fallback."); }
-
             const payload = { 
                 applicant_user_id: applicantUserId, 
-                designation_name: currentDesignation, 
+                designation_name: CURRENT_STAFF_POSITION, // Use the role selected in the dropdown
                 action: action 
             };
             if (remarks && remarks.length) payload.remarks = remarks;
             if (reasonId) payload.reason_id = reasonId;
+
 
             const response = await fetch('../../api/clearance/signatory_action.php', {
                 method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
             });
             return await response.json();
         }
-
-        // This function seems to be a duplicate and can be removed. The one above is more robust.
-        /* async function sendSignatoryAction(applicantUserId, designationName, action, remarks, reasonId = null){
-            const payload = { 
-                applicant_user_id: applicantUserId, 
-                designation_name: designationName, 
-                action: action 
-            };
-            if (remarks && remarks.length) payload.remarks = remarks;
-            if (reasonId) payload.reason_id = reasonId;
-
-            const response = await fetch('../../api/clearance/signatory_action.php', {
-                method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
-            });
-            return await response.json();
-        } */
 
         // Load current clearance period for banner
         async function loadCurrentPeriod() {

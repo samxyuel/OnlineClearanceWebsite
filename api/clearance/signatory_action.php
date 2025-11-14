@@ -142,10 +142,21 @@ try {
     } else {
         // For other designations, perform a two-step check:
         // 1. Verify the acting user actually holds the designation they claim to be.
-        $userHasDesigStmt = $pdo->prepare("SELECT 1 FROM staff WHERE user_id = ? AND designation_id = ? AND is_active = 1 LIMIT 1");
-        $userHasDesigStmt->execute([$actingUserId, $designationId]);
+        // This now checks both the primary designation in `staff` and additional assignments in `user_designation_assignments`.
+        $userHasDesigStmt = $pdo->prepare("
+            SELECT 1 FROM (
+                (SELECT designation_id FROM staff WHERE user_id = :user_id_1 AND is_active = 1 AND designation_id IS NOT NULL)
+                UNION
+                (SELECT designation_id FROM user_designation_assignments WHERE user_id = :user_id_2 AND is_active = 1)
+            ) AS user_designations
+            WHERE designation_id = :designation_id
+            LIMIT 1
+        ");
+        $userHasDesigStmt->execute([':user_id_1' => $actingUserId, ':user_id_2' => $actingUserId, ':designation_id' => $designationId]);
+
         if (!$userHasDesigStmt->fetchColumn()) {
-            http_response_code(403); echo json_encode(['success'=>false,'message'=>'Your account does not hold the specified designation.']); exit;
+            $actingDesignationName = $designationName ?? "ID " . $designationId;
+            http_response_code(403); echo json_encode(['success'=>false,'message'=>"Not Allowed to sign as " . htmlspecialchars($actingDesignationName)]); exit;
         }
 
         // 2. Verify that this designation is assigned to sign for the applicant's clearance type.

@@ -8,47 +8,6 @@ created_at	timestamp NOT NULL DEFAULT current_timestamp()
 updated_at	timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 
 
-audit_logs
-Column Name	Data Type/Details
-log_id	int(11) NOT NULL (Primary Key)
-user_id	int(11) DEFAULT NULL
-action	varchar(255) NOT NULL (e.g., "User Login", "Clearance Approved")
-entity_type	varchar(50) DEFAULT NULL (e.g., "User", "Clearance")
-entity_id	int(11) DEFAULT NULL
-old_values	longtext (Previous state of the record)
-new_values	longtext (New state of the record)
-ip_address	varchar(45) DEFAULT NULL
-user_agent	text DEFAULT NULL
-created_at	timestamp NOT NULL DEFAULT current_timestamp()
-
-
-bulk_operations
-Column Name	Data Type/Details
-operation_id	int(11) NOT NULL (Primary Key)
-user_id	int(11) DEFAULT NULL (User who initiated the operation)
-operation_type	varchar(50) NOT NULL (e.g., "Bulk Approve")
-target_count	int(11) NOT NULL
-success_count	int(11) DEFAULT 0
-failure_count	int(11) DEFAULT 0
-operation_data	longtext (Details of the operation)
-status	enum('In Progress','Completed','Failed','Cancelled') DEFAULT 'In Progress'
-progress_percentage	decimal(5,2) DEFAULT 0.00
-started_at	timestamp NOT NULL DEFAULT current_timestamp()
-completed_at	timestamp NULL DEFAULT NULL
-error_message	text DEFAULT NULL
-
-
-clearance_applications
-Column Name	Data Type/Details
-application_id	int(11) NOT NULL (Primary Key) AUTO_INCREMENT
-user_id	int(11) NOT NULL
-period_id	int(11) NOT NULL
-status	enum('pending','approved','rejected') DEFAULT 'pending'
-applied_at	timestamp NOT NULL DEFAULT current_timestamp()
-completed_at	timestamp NULL DEFAULT NULL
-updated_at	timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-
-
 clearance_forms
 Column Name	Data Type/Details
 clearance_form_id	varchar(20) NOT NULL (Primary Key, Format: CF-YYYY-XXXXX)
@@ -168,15 +127,6 @@ is_active	tinyint(1) DEFAULT 1
 created_at	timestamp NOT NULL DEFAULT current_timestamp()
 
 
-rejection_remarks
-Column Name	Data Type/Details
-remark_id	int(11) NOT NULL (Primary Key)
-signatory_id	int(11) DEFAULT NULL
-reason_id	int(11) DEFAULT NULL
-additional_remarks	text DEFAULT NULL
-created_at	timestamp NOT NULL DEFAULT current_timestamp()
-
-
 roles
 Column Name	Data Type/Details
 role_id	int(11) NOT NULL (Primary Key)
@@ -278,19 +228,6 @@ created_at	timestamp NOT NULL DEFAULT current_timestamp()
 updated_at	timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 
 
-system_settings
-Column Name	Data Type/Details
-setting_id int(11) NOT NULL (Primary Key)
-setting_key	varchar(100) NOT NULL (e.g., "clearance_period_duration", "max_bulk_operation_size"	)
-setting_value	text DEFAULT NULL (Value of the setting)
-setting_type enum('string','integer','boolean','json','decimal') DEFAULT string
-description	text DEFAULT NULL (Human-readable description)
-is_editable tinyint(1) DEFAULT 1 (	Whether admins can change this setting)
-category varchar(50) DEFAULT NULL (Grouping for settings (security, performance, features))
-updated_at	timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-updated_by	int(11) DEFAULT NULL (User who last modified this setting)
-
-
 users
 Column Name	Data Type/Details
 user_id	int(11) NOT NULL (Primary Key)
@@ -308,17 +245,6 @@ created_at	timestamp NOT NULL DEFAULT current_timestamp()
 updated_at	timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 
 
-users_backup_before_sync
-Column Name	Data Type/Details
-user_id	int(11) NOT NULL (Primary Key)
-username	varchar(50) NOT NULL
-password	varchar(255) NOT NULL
-first_name	varchar(50) NOT NULL
-last_name	varchar(50) NOT NULL
-user_type	varchar(7) NOT NULL
-employee_number	varchar(8) NOT NULL
-
-
 user_activities
 Column Name	Data Type/Details
 activity_id int(11) NOT NULL (Primary Key)
@@ -328,6 +254,25 @@ activity_details NULL DEFAULT NULL (Additional activity information)
 ip_address varchar(45) NULL DEFAULT NULL
 user_agent text NULL DEFAULT NULL
 created_at timestamp NOT NULL DEFAULT current_timestamp()
+
+
+user_department_assignments
+Column Name	Data Type/Details
+department_assignment_id int(11) NOT NULL (Primary Key) AUTO_INCREMENT
+user_id int(11) NOT NULL
+department_id int(11) NOT NULL
+sector_id int(11) NULL (For sector-wide assignments)
+is_primary tinyint(1) DEFAULT 0 (Primary department assignment)
+is_active tinyint(1) DEFAULT 1
+
+
+user_designation_assignments
+Column Name	Data Type/Details
+designation_assignment_id int(11) NOT NULL (Primary Key) AUTO_INCREMENT
+user_id int(11) NOT NULL
+designation_id int(11) NOT NULL
+is_primary tinyint(1) DEFAULT 0 (Primary designation assignment)
+is_active tinyint(1) DEFAULT 1
 
 
 user_roles

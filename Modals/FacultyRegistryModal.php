@@ -42,6 +42,27 @@
           <label for="contactNumber">Contact Number</label>
           <input type="text" id="contactNumber" name="contactNumber" placeholder="e.g., +63 912 345 6789">
         </div>
+
+        <!-- Multi-Department Assignment Section -->
+        <div class="form-section-divider">
+          <hr>
+          <span class="divider-text">Department Assignments (Optional)</span>
+        </div>
+        <div class="form-group">
+          <label>Additional Departments</label>
+          <small class="form-help">Select additional departments for this faculty member</small>
+          <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+            <select id="additionalDepartmentSelect" style="flex: 1; padding: 6px;">
+              <option value="">Select a department...</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addAdditionalDepartment()">
+              <i class="fas fa-plus"></i> Add
+            </button>
+          </div>
+          <div id="departmentsList" style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <!-- Additional departments will appear as chips here -->
+          </div>
+        </div>
       </form>
     </div>
     <div class="modal-actions">
@@ -54,6 +75,84 @@
 <?php include __DIR__ . '/GeneratedCredentialsModal.php'; ?>
 
 <script>
+  // Store additional departments for faculty registration
+  window.additionalDepartments = [];
+
+  // Add additional department
+  window.addAdditionalDepartment = function() {
+    const sel = document.getElementById('additionalDepartmentSelect');
+    if (!sel) return;
+    const val = sel.value;
+    const text = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+
+    if (!val) {
+      showToastNotification('Please select a department', 'error');
+      return;
+    }
+
+    const deptId = parseInt(val, 10);
+    if (isNaN(deptId)) {
+      showToastNotification('Invalid department selected', 'error');
+      return;
+    }
+
+    // Prevent duplicates
+    if (window.additionalDepartments.some(d => d.department_id === deptId)) {
+      showToastNotification('This department is already added', 'warning');
+      return;
+    }
+
+    window.additionalDepartments.push({ department_id: deptId, department_name: text });
+    sel.value = '';
+    renderAdditionalDepartments();
+  };
+
+  // Remove additional department
+  window.removeAdditionalDepartment = function(departmentName) {
+    window.additionalDepartments = window.additionalDepartments.filter(d => (d.department_name || '') !== departmentName);
+    renderAdditionalDepartments();
+  };
+
+  // Render additional departments as chips
+  function renderAdditionalDepartments() {
+    const container = document.getElementById('departmentsList');
+    if (!container) return;
+
+    container.innerHTML = window.additionalDepartments.map(d => `
+      <span class="chip" style="padding: 6px 12px; background: #e9ecef; border-radius: 20px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+        ${d.department_name}
+        <button type="button" onclick="removeAdditionalDepartment('${d.department_name.replace(/'/g, "\\'")}')" style="background: none; border: none; cursor: pointer; color: #dc3545; font-size: 16px; padding: 0;">
+          ×
+        </button>
+      </span>
+    `).join('');
+  }
+
+  // Populate department select on modal open
+  function populateAdditionalDepartmentSelect() {
+    const sel = document.getElementById('additionalDepartmentSelect');
+    if (!sel) return;
+    const url = '../../api/departments/list.php?limit=500';
+    fetch(url, { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => {
+        if (!data || data.success !== true) return;
+        sel.innerHTML = '';
+        const ph = document.createElement('option');
+        ph.value = '';
+        ph.text = 'Select a department...';
+        sel.appendChild(ph);
+        (data.departments || []).forEach(d => {
+          const o = document.createElement('option');
+          o.value = d.department_id;
+          o.text = d.department_name;
+          sel.appendChild(o);
+        });
+        sel.selectedIndex = 0;
+      })
+      .catch(() => {});
+  }
+
   // Form validation and submission
   function validateFacultyForm() {
     const requiredFields = ['employeeNumber', 'employmentStatus', 'lastName', 'firstName'];
@@ -118,12 +217,13 @@
     return emailRegex.test(email);
   }
   
-
-  
   // Make functions globally accessible
   window.openFacultyRegistrationModal = function() {
     const modal = document.getElementById('facultyRegistrationModal');
     modal.style.display = 'flex';
+    window.additionalDepartments = [];
+    document.getElementById('departmentsList').innerHTML = '';
+    populateAdditionalDepartmentSelect();
   };
   
   window.closeFacultyRegistrationModal = function() {
@@ -132,6 +232,9 @@
     
     // Reset form
     document.getElementById('facultyRegistrationForm').reset();
+    window.additionalDepartments = [];
+    const deptList = document.getElementById('departmentsList');
+    if (deptList) deptList.innerHTML = '';
     
     // Clear error messages
     const errorDivs = modal.querySelectorAll('.field-error');
@@ -202,6 +305,11 @@
       password: credentialData.password,
       department_id: 50 // Automatically assign to General Education department
     };
+
+    // Add additional departments if any
+    if (window.additionalDepartments && window.additionalDepartments.length > 0) {
+      data['assignedDepartments'] = window.additionalDepartments.map(d => d.department_id);
+    }
 
     const confirmBtn = document.getElementById('credentialModalConfirmBtn');
     if(confirmBtn) confirmBtn.disabled = true;

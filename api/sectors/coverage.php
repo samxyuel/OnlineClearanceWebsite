@@ -48,11 +48,11 @@ try {
     
     $sql = "SELECT s.sector_id, s.sector_name,
                    COUNT(DISTINCT d.department_id) as total_departments,
-                   COUNT(DISTINCT sda.department_id) as assigned_departments,
-                   COUNT(DISTINCT sda.staff_id) as assigned_program_heads
+                   COUNT(DISTINCT uda.department_id) as assigned_departments,
+                   COUNT(DISTINCT uda.user_id) as assigned_program_heads
             FROM sectors s
             LEFT JOIN departments d ON s.sector_id = d.sector_id AND d.is_active = 1
-            LEFT JOIN staff_department_assignments sda ON d.department_id = sda.department_id AND sda.is_active = 1
+            LEFT JOIN user_department_assignments uda ON d.department_id = uda.department_id AND uda.is_active = 1
             $sectorWhere
             GROUP BY s.sector_id, s.sector_name
             ORDER BY s.sector_name";
@@ -81,15 +81,14 @@ try {
         
         if ($includeAssignments) {
             // Get Program Head assignments for this sector
-            $assignmentsSql = "SELECT sda.assignment_id, sda.staff_id, sda.department_id, sda.is_primary,
+            $assignmentsSql = "SELECT uda.user_id, uda.department_id, uda.is_primary,
                                       u.first_name, u.last_name, u.username,
                                       d.department_name, d.department_code
-                               FROM staff_department_assignments sda
-                               JOIN staff s ON sda.staff_id = s.employee_number
-                               JOIN users u ON s.user_id = u.user_id
-                               JOIN departments d ON sda.department_id = d.department_id
-                               WHERE sda.sector_id = :sector_id AND sda.is_active = 1
-                               ORDER BY sda.is_primary DESC, u.last_name ASC, d.department_name ASC";
+                               FROM user_department_assignments uda
+                               JOIN users u ON uda.user_id = u.user_id
+                               JOIN departments d ON uda.department_id = d.department_id
+                               WHERE d.sector_id = :sector_id AND uda.is_active = 1
+                               ORDER BY uda.is_primary DESC, u.last_name ASC, d.department_name ASC";
             
             $assignmentsStmt = $pdo->prepare($assignmentsSql);
             $assignmentsStmt->execute([':sector_id' => $sector['sector_id']]);
@@ -98,10 +97,10 @@ try {
             // Group assignments by Program Head
             $programHeads = [];
             foreach ($assignments as $assignment) {
-                $staffId = $assignment['staff_id'];
-                if (!isset($programHeads[$staffId])) {
-                    $programHeads[$staffId] = [
-                        'staff_id' => $staffId,
+                $userId = $assignment['user_id'];
+                if (!isset($programHeads[$userId])) {
+                    $programHeads[$userId] = [
+                        'user_id' => $userId,
                         'name' => trim($assignment['first_name'] . ' ' . $assignment['last_name']),
                         'username' => $assignment['username'],
                         'departments' => [],
@@ -116,10 +115,10 @@ try {
                     'is_primary' => (bool)$assignment['is_primary']
                 ];
                 
-                $programHeads[$staffId]['departments'][] = $dept;
+                $programHeads[$userId]['departments'][] = $dept;
                 
                 if ($assignment['is_primary']) {
-                    $programHeads[$staffId]['primary_department'] = $dept;
+                    $programHeads[$userId]['primary_department'] = $dept;
                 }
             }
             
@@ -128,8 +127,8 @@ try {
             // Get unassigned departments
             $unassignedSql = "SELECT d.department_id, d.department_name, d.department_code
                               FROM departments d
-                              LEFT JOIN staff_department_assignments sda ON d.department_id = sda.department_id AND sda.is_active = 1
-                              WHERE d.sector_id = :sector_id AND d.is_active = 1 AND sda.department_id IS NULL
+                              LEFT JOIN user_department_assignments uda ON d.department_id = uda.department_id AND uda.is_active = 1
+                              WHERE d.sector_id = :sector_id AND d.is_active = 1 AND uda.department_id IS NULL
                               ORDER BY d.department_name";
             
             $unassignedStmt = $pdo->prepare($unassignedSql);

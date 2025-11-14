@@ -1025,14 +1025,17 @@ ob_start();
         // Individual faculty actions
         async function populateEditFormLive(empId){
             try{
-                const res = await fetch(`../../api/users/facultyList.php?employee_number=${encodeURIComponent(empId)}`,{credentials:'include'});
+                const res = await fetch(`../../api/users/facultyList.php?search=${encodeURIComponent(empId)}`,{credentials:'include'});
                 const data = await res.json();
-                if(!data.success){showToastNotification(data.message||'Failed to load faculty','error');return;}
-                const f = data.faculty;
+                if(!data.success || !data.faculty || data.faculty.length === 0){
+                    showToastNotification(data.message||'Failed to load faculty data.','error');
+                    return;
+                }
+                const f = data.faculty[0];
                 document.getElementById('editFacultyForm').dataset.userId = f.user_id; // Store user_id
                 document.getElementById('editFacultyId').value = empId;
                 document.getElementById('editEmployeeNumber').value = empId;
-                document.getElementById('editEmploymentStatus').value = f.employment_status.toLowerCase().replace(/ /g,'-');
+                document.getElementById('editEmploymentStatus').value = (f.employment_status || '').toLowerCase().replace(/ /g,'-');
                 document.getElementById('editLastName').value = f.last_name;
                 document.getElementById('editFirstName').value = f.first_name;
                 document.getElementById('editMiddleName').value = f.middle_name||'';

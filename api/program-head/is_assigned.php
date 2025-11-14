@@ -26,32 +26,46 @@ if (!$clearanceType) {
 }
 
 try {
-    // 1. Get staff info from Auth context (designation_id, department_id)
-    $staffStmt = $pdo->prepare("SELECT designation_id, department_id FROM staff WHERE user_id = ? AND is_active = 1 LIMIT 1");
+    // 1. Get the user's primary designation and all assigned department IDs
+    $staffStmt = $pdo->prepare("
+        SELECT s.designation_id 
+        FROM staff s 
+        WHERE s.user_id = ? AND s.is_active = 1 
+        LIMIT 1
+    ");
     $staffStmt->execute([$userId]);
-    $staff = $staffStmt->fetch(PDO::FETCH_ASSOC);
+    $designationId = $staffStmt->fetchColumn();
 
-    if (!$staff) {
-        error_log("is_assigned_debug: no staff row for user_id={$userId}");
-        echo json_encode(["success" => true, "can_take_action" => false, "debug" => ["reason" => "no_staff"]]);
+    $isPhDesignation = ($designationId === 8); // 8 is typically 'Program Head'
+
+    if (!$isPhDesignation) {
+        echo json_encode(["success" => true, "can_take_action" => false, "debug" => ["reason" => "not_a_program_head"]]);
         exit;
     }
 
-    $designationId = isset($staff['designation_id']) ? (int)$staff['designation_id'] : null;
-    $departmentId = isset($staff['department_id']) ? (int)$staff['department_id'] : null;
+    // Get all department types the Program Head is assigned to
+    $deptStmt = $pdo->prepare("
+        SELECT DISTINCT d.department_type 
+        FROM user_department_assignments uda
+        JOIN departments d ON uda.department_id = d.department_id
+        WHERE uda.user_id = ? AND uda.is_active = 1
+    ");
+    $deptStmt->execute([$userId]);
+    $assignedDeptTypes = $deptStmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    // Normalize for comparison
+    $assignedDeptTypesNormalized = array_map('strtolower', array_map('trim', $assignedDeptTypes));
+    $clearanceTypeNormalized = strtolower(trim($clearanceType));
 
-    // 2. Get department_type
-    $deptType = null;
-    if ($departmentId) {
-        $dstmt = $pdo->prepare("SELECT department_type FROM departments WHERE department_id = ? LIMIT 1");
-        $dstmt->execute([$departmentId]);
-        $deptType = $dstmt->fetchColumn();
+    // 2. Check if the requested clearance type is within the user's scope
+    $hasDepartmentScope = in_array($clearanceTypeNormalized, $assignedDeptTypesNormalized);
+
+    // If the clearance type is 'Faculty', a program head of a 'College' department should have scope.
+    if ($clearanceTypeNormalized === 'faculty' && in_array('college', $assignedDeptTypesNormalized)) {
+        $hasDepartmentScope = true;
     }
 
     // 3. Check if Program Head is enabled for this clearance_type via sector_clearance_settings
-    $deptTypeNormalized = $deptType ? strtolower(trim($deptType)) : '';
-    $clearanceTypeNormalized = strtolower(trim($clearanceType));
-
     $includePhSetting = 0;
     $settingStmt = $pdo->prepare("SELECT include_program_head FROM sector_clearance_settings WHERE clearance_type = ? LIMIT 1");
     $settingStmt->execute([$clearanceType]);
@@ -60,22 +74,19 @@ try {
         $includePhSetting = (int)$settingRow['include_program_head'];
     }
 
-    // Permission: 
-    // - Designation is Program Head (designation_id = 8, based on the schema pattern)
-    // - Staff's department_type matches the requested clearance_type
-    // - sector_clearance_settings.include_program_head = 1 for this clearance_type
-    $isPhDesignation = ($designationId === 8); // Program Head designation
-    $canTakeAction = ($isPhDesignation && ($deptTypeNormalized === $clearanceTypeNormalized) && ($includePhSetting === 1));
+    // Final permission check
+    $canTakeAction = $hasDepartmentScope && ($includePhSetting === 1);
 
-    // Log debug info to error log for tracing
-    error_log('is_assigned_debug: user_id=' . $userId . ' clearance_type=' . $clearanceType . ' staff=' . json_encode($staff) . ' deptType=' . $deptType . ' designationId=' . $designationId . ' isPhDesignation=' . ($isPhDesignation ? '1' : '0') . ' deptTypeMatch=' . ($deptTypeNormalized === $clearanceTypeNormalized ? '1' : '0') . ' includePhSetting=' . $includePhSetting . ' canTakeAction=' . ($canTakeAction ? '1' : '0'));
+    // Log debug info
+    error_log('is_assigned_debug: user_id=' . $userId . ' clearance_type=' . $clearanceType . ' designationId=' . $designationId . ' assigned_dept_types=' . json_encode($assignedDeptTypes) . ' has_scope=' . ($hasDepartmentScope ? '1' : '0') . ' includePhSetting=' . $includePhSetting . ' canTakeAction=' . ($canTakeAction ? '1' : '0'));
 
     echo json_encode([
         "success" => true,
-        "can_take_action" => (bool)$canTakeAction,
+        "can_take_action" => $canTakeAction,
         "debug" => [
-            "staff" => $staff,
-            "department_type" => $deptType,
+            "assigned_department_types" => $assignedDeptTypes,
+            "requested_clearance_type" => $clearanceType,
+            "has_department_scope" => $hasDepartmentScope,
             "include_program_head_setting" => $includePhSetting
         ]
     ]);
