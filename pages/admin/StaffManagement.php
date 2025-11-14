@@ -660,10 +660,14 @@ $adminName = 'Admin User'; // Temporary admin name for testing
 
         // Modal functions
         function openStaffRegistrationModal() {
-            const modal = document.querySelector('.staff-registration-modal-overlay');
-            if (modal) {
-                modal.style.display = 'flex';
-                document.body.classList.add('modal-open');
+            if (typeof openStaffRegistrationModalWithInit === 'function') {
+                openStaffRegistrationModalWithInit();
+            } else {
+                const modal = document.querySelector('.staff-registration-modal-overlay');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    document.body.classList.add('modal-open');
+                }
             }
         }
 
@@ -675,81 +679,44 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 if (modal) {
                     // Set form values
                     document.getElementById('editStaffForm').dataset.userId = staff.user_id;
-                    document.getElementById('editEmployeeId').value = staff.id;
                     
-                    // Parse name into separate fields
-                    const nameParts = (staff.name || '').split(' ');
-                    const firstName = nameParts[0] || '';
-                    const lastName = nameParts[nameParts.length - 1] || '';
-                    const middleName = nameParts.slice(1, -1).join(' ') || '';
+                    // Transform staff data to match the format expected by populateEditStaffForm
+                    const staffDataForForm = {
+                        employee_number: staff.id,
+                        user_id: staff.user_id,
+                        first_name: staff.name ? staff.name.split(' ')[0] : '',
+                        last_name: staff.name ? staff.name.split(' ').slice(-1)[0] : '',
+                        middle_name: staff.name ? staff.name.split(' ').slice(1, -1).join(' ') : '',
+                        designation: staff.position || '',
+                        staff_position: staff.position || '',
+                        email: staff.email || '',
+                        contact_number: staff.contact || '',
+                        staff_status: staff.status || '',
+                        is_also_faculty: staff.is_also_faculty || false,
+                        employment_status: staff.employment_status || '',
+                        faculty_employment_status: staff.faculty_employment_status || '',
+                        departments: staff.departments || [],
+                        id: staff.user_id
+                    };
                     
-                    document.getElementById('editFirstName').value = firstName;
-                    document.getElementById('editLastName').value = lastName;
-                    document.getElementById('editMiddleName').value = middleName;
-                    document.getElementById('editStaffEmail').value = staff.email || '';
-                    document.getElementById('editStaffContact').value = staff.contact || ''; 
-                    // staff.status is account status (active/inactive), the essential/optional dropdown was removed.
-                    
-                    // Handle position logic - check if it's a standard position
-                    const standardPositions = [
-                        'Guidance', 'Disciplinary Officer', 'Clinic', 'Librarian',
-                        'Alumni Placement Officer', 'Student\'s Affairs Officer', 'Registrar',
-                        'Cashier', 'Program Head', 'PAMO', 'MIS/IT', 'Petty Cash Custodian',
-                        'Building Administrator', 'Accountant', 'Academic Head', 'School Administrator', 'HR'
-                    ];
-                    
-                    if (standardPositions.includes(staff.position)) {
-                        document.getElementById('editStaffPosition').value = staff.position;
-                        document.getElementById('editCustomPosition').value = '';
+                    // Use the modal's populateEditStaffForm function if available
+                    if (typeof populateEditStaffForm === 'function') {
+                        populateEditStaffForm(staffDataForForm);
                     } else {
-                        document.getElementById('editStaffPosition').value = '';
-                        document.getElementById('editCustomPosition').value = staff.position;
+                        // Fallback: manual population
+                        document.getElementById('editEmployeeId').value = staff.id;
+                        const nameParts = (staff.name || '').split(' ');
+                        const firstName = nameParts[0] || '';
+                        const lastName = nameParts[nameParts.length - 1] || '';
+                        const middleName = nameParts.slice(1, -1).join(' ') || '';
+                        
+                        document.getElementById('editFirstName').value = firstName;
+                        document.getElementById('editLastName').value = lastName;
+                        document.getElementById('editMiddleName').value = middleName;
+                        document.getElementById('editStaffEmail').value = staff.email || '';
+                        document.getElementById('editStaffContact').value = staff.contact || '';
                     }
                     
-                    // Handle faculty section
-                    // A Program Head is always a faculty member.
-                    const isProgramHead = (staff.position || '').toLowerCase() === 'program head';
-                    const isAlsoFaculty = staff.is_also_faculty || isProgramHead;
-
-                    document.getElementById('editIsAlsoFaculty').checked = isAlsoFaculty;
-                    if (isAlsoFaculty) {
-                        document.getElementById('editFacultyEmploymentStatus').value = staff.employment_status || '';
-                        document.getElementById('editFacultyEmployeeNumber').value = staff.id;
-                    }
-                    
-                    // Trigger form updates
-                    if (typeof toggleEditFacultySection === 'function') {
-                        toggleEditFacultySection();
-                    }
-                    if (typeof toggleEditProgramHeadAssignment === 'function') {
-                        toggleEditProgramHeadAssignment();
-                    }
-
-                    // If it's a Program Head, populate department assignments
-                    if (isProgramHead && typeof loadExistingAssignments === 'function') {
-                        loadExistingAssignments(staff);
-                    }
-                    
-                    // Dynamically populate the Program Head sector dropdown
-                    const sectorSelect = document.getElementById('editProgramHeadCategory');
-                    if (sectorSelect) {
-                        sectorSelect.innerHTML = '<option value="">Loading sectors...</option>';
-                        try {
-                            const response = await fetch('../../api/sectors/list.php', { credentials: 'include' });
-                            const data = await response.json();
-                            if (data.success && data.sectors) {
-                                sectorSelect.innerHTML = '<option value="">Select Sector</option>';
-                                data.sectors.forEach(sector => {
-                                    const option = new Option(sector.sector_name, sector.sector_name);
-                                    sectorSelect.add(option);
-                                });
-                            }
-                        } catch (error) {
-                            console.error('Failed to load sectors for edit modal:', error);
-                            sectorSelect.innerHTML = '<option value="">Error loading sectors</option>';
-                        }
-                    }
-
                     modal.style.display = 'flex';
                     document.body.classList.add('modal-open');
                 }

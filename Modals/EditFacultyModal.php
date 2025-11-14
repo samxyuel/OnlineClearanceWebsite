@@ -52,6 +52,28 @@
             <option value="resigned">Resigned</option>
           </select>
         </div>
+
+        <!-- Multi-Department Assignment Section -->
+        <div class="form-section-divider">
+          <hr>
+          <span class="divider-text">Department Assignments (Optional)</span>
+        </div>
+        <div class="form-group">
+          <label>Additional Departments</label>
+          <small class="form-help">Select additional departments for this faculty member</small>
+          <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+            <select id="editAdditionalDepartmentSelect" style="flex: 1; padding: 6px;">
+              <option value="">Select a department...</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEditAdditionalDepartment()">
+              <i class="fas fa-plus"></i> Add
+            </button>
+          </div>
+          <div id="editDepartmentsList" style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <!-- Additional departments will appear as chips here -->
+          </div>
+        </div>
+
         <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--light-blue-gray);">
           <label style="color: var(--deep-navy-blue); font-weight: 600;">Password Management</label>
           <div style="display: flex; gap: 10px; margin-top: 10px;">
@@ -266,6 +288,7 @@
   }
   
   // Make functions globally accessible
+  
   window.openEditFacultyModal = function(facultyId) {
     const modal = document.getElementById('editFacultyModal');
     modal.style.display = 'flex';
@@ -276,14 +299,22 @@
 
     // Populate form with faculty data
     populateEditForm(facultyId);
-  };
-  
-  window.closeEditFacultyModal = function() {
+    
+    // Initialize department select and fetch existing assignments
+    window.editAdditionalDepartments = [];
+    populateEditDepartmentSelect();
+    fetchEditDepartmentAssignments(facultyId);
+  };  window.closeEditFacultyModal = function() {
     const modal = document.getElementById('editFacultyModal');
     modal.style.display = 'none';
     
     // Reset form
     document.getElementById('editFacultyForm').reset();
+    
+    // Clear additional departments
+    window.editAdditionalDepartments = [];
+    const deptList = document.getElementById('editDepartmentsList');
+    if (deptList) deptList.innerHTML = '';
     
     // Clear error messages
     const errorDivs = modal.querySelectorAll('.field-error');
@@ -302,13 +333,46 @@
       return;
     }
     
-    // Simulate form submission
-    showToastNotification('Faculty information updated successfully!', 'success');
-    window.closeEditFacultyModal();
-    
-    // In a real application, you would submit the form data to the server
-    // const form = document.getElementById('editFacultyForm');
-    // form.submit();
+    const form = document.getElementById('editFacultyForm');
+    const data = {
+      employee_number: document.getElementById('editEmployeeNumber').value.trim(),
+      employment_status: document.getElementById('editEmploymentStatus').value,
+      email: document.getElementById('editEmail').value.trim(),
+      contact_number: document.getElementById('editContactNumber').value.trim(),
+      account_status: document.getElementById('editAccountStatus').value
+    };
+
+    // Add additional departments if any
+    if (window.editAdditionalDepartments && window.editAdditionalDepartments.length > 0) {
+      data['assignedDepartments'] = window.editAdditionalDepartments.map(d => d.department_id);
+    }
+
+    const submitBtn = document.getElementById('editSubmitBtn');
+    if (submitBtn) submitBtn.disabled = true;
+
+    fetch('../../api/users/update_faculty.php', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success) {
+        showToastNotification('Faculty information updated successfully!', 'success');
+        window.closeEditFacultyModal();
+        // Notify parent page of update
+        document.dispatchEvent(new CustomEvent('faculty-updated', { detail: { employee_number: data.employee_number } }));
+      } else {
+        showToastNotification(res.message || 'Error updating faculty', 'error');
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      showToastNotification('Network error', 'error');
+      if (submitBtn) submitBtn.disabled = false;
+    });
   };
   
   window.sendPasswordEmail = function() {
@@ -322,6 +386,112 @@
           password += charset.charAt(Math.floor(Math.random() * n));
       }
       return password;
+  }
+
+  // Store additional departments for edit form
+  window.editAdditionalDepartments = [];
+
+  // Add additional department in edit form
+  window.addEditAdditionalDepartment = function() {
+    const sel = document.getElementById('editAdditionalDepartmentSelect');
+    if (!sel) return;
+    const val = sel.value;
+    const text = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+
+    if (!val) {
+      showToastNotification('Please select a department', 'error');
+      return;
+    }
+
+    const deptId = parseInt(val, 10);
+    if (isNaN(deptId)) {
+      showToastNotification('Invalid department selected', 'error');
+      return;
+    }
+
+    // Prevent duplicates
+    if (window.editAdditionalDepartments.some(d => d.department_id === deptId)) {
+      showToastNotification('This department is already added', 'warning');
+      return;
+    }
+
+    window.editAdditionalDepartments.push({ department_id: deptId, department_name: text });
+    sel.value = '';
+    renderEditAdditionalDepartments();
+  };
+
+  // Remove additional department from edit form
+  window.removeEditAdditionalDepartment = function(departmentName) {
+    window.editAdditionalDepartments = window.editAdditionalDepartments.filter(d => (d.department_name || '') !== departmentName);
+    renderEditAdditionalDepartments();
+  };
+
+  // Render additional departments as chips in edit form
+  function renderEditAdditionalDepartments() {
+    const container = document.getElementById('editDepartmentsList');
+    if (!container) return;
+
+    container.innerHTML = window.editAdditionalDepartments.map(d => `
+      <span class="chip" style="padding: 6px 12px; background: #e9ecef; border-radius: 20px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+        ${d.department_name}
+        <button type="button" onclick="removeEditAdditionalDepartment('${d.department_name.replace(/'/g, "\\'")}')" style="background: none; border: none; cursor: pointer; color: #dc3545; font-size: 16px; padding: 0;">
+          ×
+        </button>
+      </span>
+    `).join('');
+  }
+
+  // Populate edit department select on modal open
+  function populateEditDepartmentSelect() {
+    const sel = document.getElementById('editAdditionalDepartmentSelect');
+    if (!sel) return;
+    const url = '../../api/departments/list.php?limit=500';
+    fetch(url, { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => {
+        if (!data || data.success !== true) return;
+        sel.innerHTML = '';
+        const ph = document.createElement('option');
+        ph.value = '';
+        ph.text = 'Select a department...';
+        sel.appendChild(ph);
+        (data.departments || []).forEach(d => {
+          const o = document.createElement('option');
+          o.value = d.department_id;
+          o.text = d.department_name;
+          sel.appendChild(o);
+        });
+        sel.selectedIndex = 0;
+      })
+      .catch(() => {});
+  }
+
+  // Fetch existing department assignments for a faculty and populate editAdditionalDepartments
+  async function fetchEditDepartmentAssignments(userId) {
+    try {
+      const url = `../../api/faculty/department_assignments.php?user_id=${encodeURIComponent(userId)}`;
+      console.log(`Fetching department assignments from: ${url}`);
+      const res = await fetch(url, { credentials: 'include' });
+      const data = await res.json();
+      console.log('Department assignments response:', data);
+      
+      if (data && data.success === true && Array.isArray(data.departments)) {
+        console.log('Setting editAdditionalDepartments:', data.departments);
+        window.editAdditionalDepartments = data.departments.map(d => ({
+          department_id: parseInt(d.department_id, 10),
+          department_name: d.department_name
+        }));
+        renderEditAdditionalDepartments();
+      } else {
+        console.warn('API response not successful or no departments array:', data);
+        window.editAdditionalDepartments = window.editAdditionalDepartments || [];
+        renderEditAdditionalDepartments();
+      }
+    } catch (err) {
+      console.error('Error fetching department assignments:', err);
+      window.editAdditionalDepartments = window.editAdditionalDepartments || [];
+      renderEditAdditionalDepartments();
+    }
   }
 
   // Add event listeners

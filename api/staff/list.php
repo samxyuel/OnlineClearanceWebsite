@@ -36,6 +36,27 @@ try {
     $db  = Database::getInstance();
     $pdo = $db->getConnection();
 
+    // Re-enable authentication to identify the user and their role
+    if (!$auth->isLoggedIn()) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Authentication required']);
+        exit;
+    }
+    $currentUserId = $auth->getUserId();
+    $userRole = $auth->getRoleName(); // Assuming Auth class can provide the role name
+
+    $programHeadDepts = [];
+    if ($userRole === 'Program Head') {
+        $stmt = $pdo->prepare("SELECT department_id FROM user_department_assignments WHERE user_id = ?");
+        $stmt->execute([$currentUserId]);
+        $programHeadDepts = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($programHeadDepts)) {
+            // A program head with no departments sees no one.
+            echo json_encode(['success'=> true, 'page' => $page, 'limit' => $limit, 'total' => 0, 'staff' => []]);
+            exit;
+        }
+    }
+
     // Build where clauses
     $where = ['s.is_active = 1', "s.employee_number REGEXP '^LCA[0-9]{4}[A-Z]$'"];
     $params = [];
@@ -49,30 +70,40 @@ try {
         $params[':q3'] = "%$q%";
         $params[':q4'] = "%$q%";
     }
+
+    // If the user is a Program Head, filter staff list to their departments
+    if (!empty($programHeadDepts)) {
+        $placeholders = implode(',', array_fill(0, count($programHeadDepts), '?'));
+        $where[] = "s.user_id IN (SELECT DISTINCT uda.user_id FROM user_department_assignments uda WHERE uda.department_id IN ($placeholders))";
+        $params = array_merge($params, $programHeadDepts);
+    }
+
     $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
+    // Corrected table name to user_department_assignments
     $sql = "SELECT s.user_id, s.employee_number, u.first_name, u.last_name, u.username, u.email, u.contact_number,
                    s.department_id as staff_department_id, 
-                   reg_dept.department_name as staff_department_name, /* Direct department name for non-PH */
+                   reg_dept.department_name as staff_department_name,
                    d.designation_id, d.designation_name, s.staff_category, s.employment_status, s.is_active,
-                   GROUP_CONCAT(DISTINCT sda_dept.department_name ORDER BY sda_dept.department_name SEPARATOR '|') as assigned_departments,
-                   GROUP_CONCAT(DISTINCT sda_dept.department_id ORDER BY sda_dept.department_id SEPARATOR '|') as assigned_department_ids,
-                   GROUP_CONCAT(DISTINCT sda_sec.sector_name ORDER BY sda_sec.sector_name SEPARATOR '|') as assigned_sectors,
-                   GROUP_CONCAT(DISTINCT sda_sec.sector_id ORDER BY sda_sec.sector_id SEPARATOR '|') as assigned_sector_ids,
-                   GROUP_CONCAT(DISTINCT sda.is_primary ORDER BY sda_dept.department_name SEPARATOR '|') as is_primary_flags
+                   GROUP_CONCAT(DISTINCT uda_dept.department_name ORDER BY uda_dept.department_name SEPARATOR '|') as assigned_departments,
+                   GROUP_CONCAT(DISTINCT uda_dept.department_id ORDER BY uda_dept.department_id SEPARATOR '|') as assigned_department_ids,
+                   GROUP_CONCAT(DISTINCT uda.is_primary ORDER BY uda_dept.department_name SEPARATOR '|') as is_primary_flags
             FROM staff s
             JOIN users u ON u.user_id = s.user_id
             LEFT JOIN designations d ON d.designation_id = s.designation_id
-            LEFT JOIN staff_department_assignments sda ON s.user_id = sda.staff_id AND sda.is_active = 1
-            LEFT JOIN departments sda_dept ON sda.department_id = sda_dept.department_id
-            LEFT JOIN sectors sda_sec ON sda.sector_id = sda_sec.sector_id
+            LEFT JOIN user_department_assignments uda ON s.user_id = uda.user_id AND uda.is_active = 1
+            LEFT JOIN departments uda_dept ON uda.department_id = uda_dept.department_id
             LEFT JOIN departments reg_dept ON s.department_id = reg_dept.department_id
             $whereSql
             GROUP BY s.user_id
             ORDER BY u.last_name ASC, u.first_name ASC
             LIMIT :limit OFFSET :offset";
+    
     $stmt = $pdo->prepare($sql);
-    foreach ($params as $k=>$v) { $stmt->bindValue($k, $v, PDO::PARAM_STR); }
+    $paramIndex = 1;
+    foreach ($params as $value) {
+        $stmt->bindValue($paramIndex++, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
     $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
     $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
     $stmt->execute();
@@ -83,12 +114,12 @@ try {
                  FROM staff s
                  JOIN users u ON u.user_id = s.user_id
                  LEFT JOIN designations d ON d.designation_id = s.designation_id
-                 LEFT JOIN staff_department_assignments sda ON s.user_id = sda.staff_id AND sda.is_active = 1
-                 LEFT JOIN departments sda_dept ON sda.department_id = sda_dept.department_id
-                 LEFT JOIN sectors sda_sec ON sda.sector_id = sda_sec.sector_id
                  $whereSql";
     $cntStmt = $pdo->prepare($countSql);
-    foreach ($params as $k=>$v) { $cntStmt->bindValue($k, $v, PDO::PARAM_STR); }
+    $paramIndex = 1;
+    foreach ($params as $value) {
+        $cntStmt->bindValue($paramIndex++, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
     $cntStmt->execute();
     $cnt = $cntStmt->fetchColumn();
 
@@ -109,12 +140,10 @@ try {
             'employment_status' => $row['employment_status'],
             'is_active' => $row['is_active'],
             'department_id' => $row['staff_department_id'], 
-            'department_name' => $row['staff_department_name'], // For non-PH staff
+            'department_name' => $row['staff_department_name'],
             'departments' => [],
-            'sectors' => []
         ];
         
-        // Parse departments
         if (!empty($row['assigned_departments'])) {
             $deptNames = explode('|', $row['assigned_departments']);
             $deptIds = explode('|', $row['assigned_department_ids']);
@@ -126,21 +155,6 @@ try {
                         'id' => $deptIds[$i] ?? null,
                         'name' => $deptNames[$i],
                         'is_primary' => ($isPrimaryFlags[$i] ?? '0') === '1'
-                    ];
-                }
-            }
-        }
-        
-        // Parse sectors
-        if (!empty($row['assigned_sectors'])) {
-            $sectorNames = explode('|', $row['assigned_sectors']);
-            $sectorIds = explode('|', $row['assigned_sector_ids']);
-            
-            for ($i = 0; $i < count($sectorNames); $i++) {
-                if (!empty($sectorNames[$i])) {
-                    $processedRow['sectors'][] = [
-                        'id' => $sectorIds[$i] ?? null,
-                        'name' => $sectorNames[$i]
                     ];
                 }
             }

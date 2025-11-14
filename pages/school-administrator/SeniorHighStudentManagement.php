@@ -644,14 +644,13 @@ if (session_status() == PHP_SESSION_NONE) {
                 'Cancel',
                 async () => {
                     const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
-                    const userIds = [];
-                    for (const checkbox of selectedCheckboxes) {
-                        const studentNumber = checkbox.getAttribute('data-id');
-                        const userId = await resolveUserIdFromStudentNumber(studentNumber);
-                        if (userId) userIds.push(userId);
-                    }
+                    const userIds = await Promise.all(Array.from(selectedCheckboxes).map(async checkbox => {
+                        const row = checkbox.closest('tr');
+                        return row ? row.getAttribute('data-user-id') : null;
+                    }));
+                    const validUserIds = userIds.filter(id => id !== null);
 
-                    if (userIds.length === 0) {
+                    if (validUserIds.length === 0) {
                         showToastNotification('Could not identify users to approve.', 'error');
                         return;
                     }
@@ -662,10 +661,10 @@ if (session_status() == PHP_SESSION_NONE) {
                             headers: { 'Content-Type': 'application/json' },
                             credentials: 'include',
                             body: JSON.stringify({
-                                applicant_user_ids: userIds,
+                                applicant_user_ids: validUserIds,
                                 action: 'Approved',
-                                designation_name: CURRENT_STAFF_POSITION,
-                                remarks: `Approved by ${CURRENT_STAFF_POSITION}`
+                                designation_name: 'School Administrator',
+                                remarks: `Approved by School Administrator`
                             })
                         });
                         const result = await response.json();
@@ -678,22 +677,29 @@ if (session_status() == PHP_SESSION_NONE) {
                         console.error('Bulk approval error:', error);
                         showToastNotification(error.message, 'error');
                     } finally {
-                        loadStudentsData();
+                        loadStudentsData(); // Refresh the entire table
                     }
                 },
                 'success'
             );
         }
 
-        function rejectSelected() {
+        async function rejectSelected() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
                 showToastNotification('Please select students to reject clearance', 'warning');
                 return;
             }
+
+            // Get selected student IDs
             const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
-            const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.getAttribute('data-id'));
-            openRejectionRemarksModal(null, null, 'student', true, selectedIds);
+            const userIds = await Promise.all(Array.from(selectedCheckboxes).map(async checkbox => {
+                const row = checkbox.closest('tr');
+                return row ? row.getAttribute('data-user-id') : null;
+            }));
+            const validUserIds = userIds.filter(id => id !== null);
+
+            openRejectionRemarksModal(null, null, 'student', true, validUserIds);
         }
 
         function markGraduated() {
@@ -794,13 +800,9 @@ if (session_status() == PHP_SESSION_NONE) {
 
         async function approveStudentClearance(studentId) {
             const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
+            if (!row) return;
             const studentName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-rejected');
-            
-            if (!clearanceBadge) {
-                showToastNotification('No clearance to approve', 'warning');
-                return;
-            }
+            const userId = row.getAttribute('data-user-id');
             
             showConfirmationModal(
                 'Approve Student Clearance',
@@ -808,31 +810,31 @@ if (session_status() == PHP_SESSION_NONE) {
                 'Approve',
                 'Cancel',
                 async () => {
-                    clearanceBadge.textContent = 'Completed';
-                    clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-rejected');
-                    clearanceBadge.classList.add('clearance-completed');
                     try {
-                        const uid = await resolveUserIdFromStudentNumber(studentId);
-                        if (uid) { await sendSignatoryAction(uid, 'School Administrator', 'Approved'); }
-                    } catch (e) {}
-                    showToastNotification('Student clearance approved successfully', 'success');
+                        const result = await sendSignatoryAction(userId, 'School Administrator', 'Approved', 'Approved by School Administrator');
+                        if (result.success) {
+                            showToastNotification('Student clearance approved successfully', 'success');
+                            loadStudentsData(); // Refresh data to show the change
+                        } else {
+                            showToastNotification('Failed to approve: ' + (result.message || 'Unknown error'), 'error');
+                        }
+                    } catch (e) {
+                        console.error("Error during individual approval:", e);
+                        showToastNotification('An error occurred during approval.', 'error');
+                    }
                 },
                 'success'
             );
         }
 
-        function rejectStudentClearance(studentId) {
+        async function rejectStudentClearance(studentId) {
             const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
+            if (!row) return;
+            const userId = row.getAttribute('data-user-id');
             const studentName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-completed');
-            
-            if (!clearanceBadge) {
-                showToastNotification('No clearance to reject', 'warning');
-                return;
-            }
             
             // Open rejection remarks modal instead of confirmation
-            openRejectionRemarksModal(studentId, studentName, 'student', false);
+            openRejectionRemarksModal(userId, studentName, 'student', false);
         }
 
         function applyFilters() {
@@ -1204,10 +1206,10 @@ if (session_status() == PHP_SESSION_NONE) {
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.user_id}')" title="Edit Student">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="btn-icon approve-btn" onclick="approveSignatory('${student.user_id}')" title="Approve Signatory" ${!isActionable ? 'disabled' : ''}>
+                        <button class="btn-icon approve-btn" onclick="approveStudentClearance('${student.id}')" title="Approve Signatory" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-check"></i>
                         </button>
-                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
+                        <button class="btn-icon reject-btn" onclick="rejectStudentClearance('${student.id}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -1642,145 +1644,55 @@ if (session_status() == PHP_SESSION_NONE) {
         async function submitRejection() {
             const reasonSelect = document.getElementById('rejectionReason');
             const remarksTextarea = document.getElementById('additionalRemarks');
-            
-            // Get rejection data
-            const rejectionReason = reasonSelect.value;
+            const reasonId = reasonSelect.value;
             const additionalRemarks = remarksTextarea.value.trim();
             
-            // Demo: Show rejection summary
-            let rejectionSummary = '';
             if (currentRejectionData.isBulk) {
-                rejectionSummary = `Rejected ${currentRejectionData.targetIds.length} ${currentRejectionData.targetType === 'student' ? 'students' : 'faculty'}`;
-            } else {
-                rejectionSummary = `Rejected ${currentRejectionData.targetName}`;
-            }
-            
-            if (rejectionReason) {
-                const reasonText = reasonSelect.options[reasonSelect.selectedIndex].text;
-                rejectionSummary += `\nReason: ${reasonText}`;
-            }
-            
-            if (additionalRemarks) {
-                rejectionSummary += `\nAdditional Remarks: ${additionalRemarks}`;
-            }
-            
-            // Demo: Update UI and show success message
-            if (currentRejectionData.isBulk) {
-                // Check if we're in signatory override mode
-                const isOverrideMode = document.getElementById('overrideSessionInterface').style.display !== 'none';
-                
-                if (isOverrideMode) {
-                    // Update override clearance items
-                    currentRejectionData.targetIds.forEach(id => {
-                        const clearanceItem = document.querySelector(`.override-checkbox[data-id="${id}"]`);
-                        if (clearanceItem) {
-                            const clearanceItemRow = clearanceItem.closest('.clearance-item');
-                            if (clearanceItemRow) {
-                                const statusBadge = clearanceItemRow.querySelector('.status-badge');
-                                if (statusBadge) {
-                                    statusBadge.textContent = 'Rejected';
-                                    statusBadge.classList.remove('clearance-pending', 'clearance-in-progress');
-                                    statusBadge.classList.add('clearance-rejected');
-                                }
-                            }
-                        }
-                    });
-                    
-                    // Uncheck all override checkboxes
-                    document.getElementById('overrideSelectAll').checked = false;
-                    currentRejectionData.targetIds.forEach(id => {
-                        const checkbox = document.querySelector(`.override-checkbox[data-id="${id}"]`);
-                        if (checkbox) checkbox.checked = false;
-                    });
-                    updateOverrideBulkButtons();
-                    
-                    try {
-                        for (const id of currentRejectionData.targetIds) {
-                            const uid = await resolveUserIdFromStudentNumber(id);
-                            if (uid) { await sendSignatoryAction(uid, 'School Administrator', 'Rejected', additionalRemarks); }
-                        }
-                    } catch (e) {}
-                    showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} students with remarks`, 'success');
-                } else {
-                    // Update regular student table
-                    currentRejectionData.targetIds.forEach(id => {
-                        const row = document.querySelector(`.student-checkbox[data-id="${id}"]`);
-                        if (row) {
-                            const tableRow = row.closest('tr');
-                            if (tableRow) {
-                                const clearanceBadge = tableRow.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-completed');
-                                if (clearanceBadge) {
-                                    clearanceBadge.textContent = 'Rejected';
-                                    clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-completed');
-                                    clearanceBadge.classList.add('clearance-rejected');
-                                }
-                            }
-                        }
-                    });
-                    
-                    // Uncheck all checkboxes
-                    document.getElementById('selectAll').checked = false;
-                    currentRejectionData.targetIds.forEach(id => {
-                        const checkbox = document.querySelector(`.student-checkbox[data-id="${id}"]`);
-                        if (checkbox) checkbox.checked = false;
-                    });
-                    updateBulkButtons();
-                    
-                    showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} students with remarks`, 'success');
+                const userIds = currentRejectionData.targetIds;
+                if (userIds.length === 0) {
+                    showToastNotification('Could not identify users to reject.', 'error');
+                    closeRejectionRemarksModal();
+                    return;
                 }
+
+                try {
+                    const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            applicant_user_ids: userIds,
+                            action: 'Rejected',
+                            designation_name: 'School Administrator',
+                            remarks: additionalRemarks,
+                            reason_id: reasonId
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        showToastNotification(`Successfully rejected clearance for ${result.affected_rows} students.`, 'success');
+                        loadStudentsData();
+                    } else { throw new Error(result.message || 'Bulk rejection failed.'); }
+                } catch (error) { showToastNotification(error.message, 'error'); }
             } else {
-                // Check if we're in signatory override mode
-                const isOverrideMode = document.getElementById('overrideSessionInterface').style.display !== 'none';
-                
-                if (isOverrideMode) {
-                    // Update override clearance item
-                    const clearanceItem = document.querySelector(`.override-checkbox[data-id="${currentRejectionData.targetId}"]`);
-                    if (clearanceItem) {
-                        const clearanceItemRow = clearanceItem.closest('.clearance-item');
-                        if (clearanceItemRow) {
-                            const statusBadge = clearanceItemRow.querySelector('.status-badge');
-                            if (statusBadge) {
-                                statusBadge.textContent = 'Rejected';
-                                statusBadge.classList.remove('clearance-pending', 'clearance-in-progress');
-                                statusBadge.classList.add('clearance-rejected');
-                            }
-                        }
+                // Individual rejection
+                try {
+                    // The targetId is now the user_id
+                    const result = await sendSignatoryAction(currentRejectionData.targetId, 'School Administrator', 'Rejected', additionalRemarks, reasonId);
+                    if (result.success) {
+                        showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName}`, 'success');
+                        loadStudentsData(); // Refresh data
+                    } else {
+                        showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
                     }
-                    
-                    try {
-                        const uid = await resolveUserIdFromStudentNumber(currentRejectionData.targetId);
-                        if (uid) { await sendSignatoryAction(uid, 'School Administrator', 'Rejected', additionalRemarks); }
-                    } catch (e) {}
-                    showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
-                } else {
-                    // Update regular student table
-                    const row = document.querySelector(`.student-checkbox[data-id="${currentRejectionData.targetId}"]`);
-                    if (row) {
-                        const tableRow = row.closest('tr');
-                        if (tableRow) {
-                            const clearanceBadge = tableRow.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-completed');
-                            if (clearanceBadge) {
-                                clearanceBadge.textContent = 'Rejected';
-                                clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-completed');
-                                clearanceBadge.classList.add('clearance-rejected');
-                            }
-                        }
-                    }
-                    
-                    showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
+                } catch (e) {
+                    console.error("Error during individual rejection:", e);
+                    showToastNotification('An error occurred during rejection.', 'error');
                 }
             }
             
             // Close modal
             closeRejectionRemarksModal();
-            
-            // Demo: Log rejection data (in real implementation, this would be sent to server)
-            console.log('Rejection Data:', {
-                target: currentRejectionData,
-                reason: rejectionReason,
-                additionalRemarks: additionalRemarks,
-                timestamp: new Date().toISOString()
-            });
         }
 
         async function resolveUserIdFromStudentNumber(studentNumber){
@@ -1792,10 +1704,12 @@ if (session_status() == PHP_SESSION_NONE) {
                 return match ? match.user_id : null;
             }catch(e){ return null; }
         }
-        async function sendSignatoryAction(applicantUserId, designationName, action, remarks){
+        async function sendSignatoryAction(applicantUserId, designationName, action, remarks, reasonId = null){
             const payload = { applicant_user_id: applicantUserId, designation_name: designationName, action: action };
             if (remarks && remarks.length) payload.remarks = remarks;
-            await fetch('../../api/clearance/signatory_action.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)}).then(r=>r.json()).catch(()=>null);
+            if (reasonId) payload.reason_id = reasonId;
+            const response = await fetch('../../api/clearance/signatory_action.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)});
+            return await response.json();
         }
     </script>
     <script src="../../assets/js/alerts.js"></script>
@@ -2150,142 +2064,6 @@ if (session_status() == PHP_SESSION_NONE) {
             url.searchParams.append('type', 'departments');
             url.searchParams.append('sector', 'Senior High School');
             await populateFilter('departmentFilter', url, 'All Departments');
-        }
-
-        // Signatory Action Functions
-        async function approveSignatory(userId, clearanceFormId, signatoryId) {
-            try {
-                const response = await fetch('../../api/clearance/apply_signatory.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        operation: 'approve',
-                        target_user_id: userId,
-                        signatory_id: signatoryId,
-                        clearance_form_id: clearanceFormId,
-                        remarks: 'Approved by School Administrator'
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showToastNotification('Signatory approved successfully', 'success');
-                    updateSignatoryActionUI(userId, 'Approved');
-                } else {
-                    showToastNotification('Failed to approve signatory: ' + result.message, 'error');
-                }
-            } catch (error) {
-                console.error('Error approving signatory:', error);
-                showToastNotification('Error approving signatory: ' + error.message, 'error');
-            }
-        }
-
-        async function rejectSignatory(userId, clearanceFormId, signatoryId) {
-            openRejectionModal(userId, clearanceFormId, signatoryId);
-        }
-
-        function openRejectionModal(userId, clearanceFormId, signatoryId) {
-            window.pendingRejection = {
-                userId: userId,
-                clearanceFormId: clearanceFormId,
-                signatoryId: signatoryId
-            };
-            
-            showConfirmationModal(
-                'Reject Signatory',
-                'Please provide a reason for rejection:',
-                'Reject',
-                'Cancel',
-                () => {
-                    const remarks = prompt('Please provide rejection remarks:');
-                    if (remarks !== null) {
-                        submitRejection(remarks);
-                    }
-                },
-                'danger'
-            );
-        }
-
-        async function submitRejection(remarks) {
-            if (!window.pendingRejection) return;
-            
-            const { userId, clearanceFormId, signatoryId } = window.pendingRejection;
-            
-            try {
-                const response = await fetch('../../api/clearance/apply_signatory.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        operation: 'reject',
-                        target_user_id: userId,
-                        signatory_id: signatoryId,
-                        clearance_form_id: clearanceFormId,
-                        remarks: remarks
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showToastNotification('Signatory rejected successfully', 'success');
-                    updateSignatoryActionUI(userId, 'Rejected');
-                } else {
-                    showToastNotification('Failed to reject signatory: ' + result.message, 'error');
-                }
-            } catch (error) {
-                console.error('Error rejecting signatory:', error);
-                showToastNotification('Error rejecting signatory: ' + error.message, 'error');
-            } finally {
-                window.pendingRejection = null;
-            }
-        }
-
-        function updateSignatoryActionUI(userId, action) {
-            // Find the row for this user and update the signatory action buttons and status
-            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
-            if (!row) return;
-            
-            // Update the Clearance Status column (8th column)
-            const statusCell = row.children[7]; // Clearance Status column
-            if (statusCell) {
-                const statusBadge = statusCell.querySelector('.status-badge');
-                if (statusBadge) {
-                    if (action === 'Approved') {
-                        statusBadge.textContent = 'Approved';
-                        statusBadge.className = 'status-badge clearance-approved';
-                    } else if (action === 'Rejected') {
-                        statusBadge.textContent = 'Rejected';
-                        statusBadge.className = 'status-badge clearance-rejected';
-                    }
-                }
-            }
-            
-            // Update the action buttons in the Actions column (9th column)
-            const actionCell = row.children[8]; // Actions column
-            if (actionCell) {
-                const approveBtn = actionCell.querySelector('.approve-btn');
-                const rejectBtn = actionCell.querySelector('.reject-btn');
-                
-                if (approveBtn && rejectBtn) {
-                    if (action === 'Approved') {
-                        approveBtn.disabled = true;
-                        approveBtn.classList.add('approved');
-                        rejectBtn.disabled = true;
-                    } else if (action === 'Rejected') {
-                        approveBtn.disabled = false;
-                        approveBtn.title = 'Re-approve Signatory';
-                        rejectBtn.disabled = true;
-                        rejectBtn.classList.add('rejected');
-                    }
-                }
-            }
         }
 
         // Check if current user is signatory for this sector
