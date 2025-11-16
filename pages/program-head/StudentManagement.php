@@ -407,11 +407,9 @@ try {
                 </div>
                 
                 <!-- Activity Tracker Sidebar -->
-                <!--
                 <div class="dashboard-sidebar">
-                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
                 </div>
-                -->
             </div>
         </div>
     </main>
@@ -752,13 +750,11 @@ try {
                     selectedRows.forEach(checkbox => {
                         const row = checkbox.closest('tr');
                         const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-                        const toggleBtn = row.querySelector('.status-toggle-btn');
                         
                         if (statusBadge) {
                             statusBadge.textContent = 'Graduated';
                             statusBadge.classList.remove('account-active', 'account-inactive');
                             statusBadge.classList.add('account-graduated');
-                            toggleBtn.style.display = 'none';
                         }
                     });
                     
@@ -1178,13 +1174,11 @@ try {
                 tableWrapper.addEventListener('scroll', handleTableScroll);
             }
             
-            /*
             // Initialize Activity Tracker
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized for Program Head Student Management');
             }
-            */
         });
 
         // Add event listeners for student checkboxes
@@ -1381,7 +1375,7 @@ try {
     
     <!-- Include Alert System JavaScript -->
     <script src="../../assets/js/alerts.js"></script>
-    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
-    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
+    <script src="../../assets/js/activity-tracker.js"></script>
+    <?php include '../../includes/functions/audit_functions.php'; ?>
 </body>
 </html>

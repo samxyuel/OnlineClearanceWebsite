@@ -156,28 +156,6 @@ handleFacultyManagementPageRequest();
                                 <i class="fas fa-user-shield"></i>
                                 <span id="staffPositionInfo">Loading position...</span>
                             </div>
-
-                            <!-- Role Selector for Multi-Designation Users -->
-                            <div class="role-selector-container">
-                                <i class="fas fa-user-tag"></i>
-                                <label for="roleSelector">Viewing as:</label>
-                                <?php 
-                                $signatoryDesignations = $GLOBALS['userSignatoryDesignations'];
-                                if (count($signatoryDesignations) > 1): ?>
-                                    <select id="roleSelector" class="filter-select" onchange="handleRoleChange()">
-                                        <?php foreach ($signatoryDesignations as $designation): ?>
-                                            <option value="<?php echo htmlspecialchars($designation['designation_name']); ?>">
-                                                <?php echo htmlspecialchars($designation['designation_name']); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                <?php elseif (count($signatoryDesignations) === 1): ?>
-                                    <span class="single-role-display"><?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?></span>
-                                    <input type="hidden" id="roleSelector" value="<?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?>">
-                                <?php else: ?>
-                                    <span class="single-role-display">No active signatory roles</span>
-                                <?php endif; ?>
-                            </div>
                             
                             <!-- Permission Status Alerts -->
                             <?php if (!$GLOBALS['hasActivePeriod']): ?>
@@ -251,24 +229,8 @@ handleFacultyManagementPageRequest();
                             </div>
                         </div>
                         
-                        <!-- Tabs + Current Period Wrapper -->
+                        <!-- Current Period Wrapper -->
                         <div class="tab-banner-wrapper">
-                            <!-- Tab Navigation for quick status views -->
-                            <div class="tab-nav" id="studentTabNav">
-                                <button class="tab-pill active" data-status="" onclick="switchStudentTab(this)">Overall</button>
-                                <button class="tab-pill" data-status="active" onclick="switchStudentTab(this)">Active</button>
-                                <button class="tab-pill" data-status="inactive" onclick="switchStudentTab(this)">Inactive</button>
-                                <button class="tab-pill" data-status="graduated" onclick="switchStudentTab(this)">Graduated</button>
-                            </div>
-                            <!-- Mobile dropdown alternative -->
-                            <div class="tab-nav-mobile" id="studentTabSelectWrapper">
-                                <select id="studentTabSelect" class="tab-select" onchange="handleTabSelectChange(this)">
-                                    <option value="" selected>Overall</option>
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                    <option value="graduated">Graduated</option>
-                                </select>
-                            </div>
                             <!-- Current Period Banner -->
                             <span class="academic-year-semester">
                                 <i class="fas fa-calendar-check"></i> 
@@ -410,11 +372,10 @@ handleFacultyManagementPageRequest();
                     </div>
                 </div>
                 
-                <!--
+                <!-- RIGHT SIDE: Activity Tracker -->
                 <div class="dashboard-sidebar">
-                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
                 </div>
-                -->
             </div>
         </div>
     </main>
@@ -457,12 +418,12 @@ handleFacultyManagementPageRequest();
         </div>
     </div>
 
-    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
+    <script src="../../assets/js/activity-tracker.js"></script>
     
     <!-- Include Clearance Button Manager -->
     <script src="../../assets/js/clearance-button-manager.js"></script>
     
-    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
+    <?php include '../../includes/functions/audit_functions.php'; ?>
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     <script>
         let currentPage = 1;
@@ -471,18 +432,8 @@ handleFacultyManagementPageRequest();
         let currentFilters = {};
         let totalEntries = 0;
 
-        let CURRENT_STAFF_POSITION = '<?php echo !empty($GLOBALS['userSignatoryDesignations']) ? addslashes($GLOBALS['userSignatoryDesignations'][0]['designation_name']) : 'Staff'; ?>';
+        let CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'Staff'; ?>';
         let canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
-
-        // Handle role changes by re-applying all filters, which triggers a fetch
-        function handleRoleChange() {
-            const roleSelector = document.getElementById('roleSelector');
-            if (roleSelector) {
-                CURRENT_STAFF_POSITION = roleSelector.value;
-                console.log("Role changed to:", CURRENT_STAFF_POSITION);
-                applyFilters(); // Re-fetch data from server with the new role
-            }
-        }
         
         // Toggle sidebar
         function toggleSidebar() {
@@ -625,7 +576,6 @@ handleFacultyManagementPageRequest();
             const employmentStatus = document.getElementById('employmentStatusFilter').value;
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value;
-            const roleFilter = document.getElementById('roleSelector').value;
 
             const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
 
@@ -633,11 +583,6 @@ handleFacultyManagementPageRequest();
             url.searchParams.append('type', 'faculty');
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
-
-            // Append role filter
-            if (roleFilter) {
-                url.searchParams.append('designation_filter', roleFilter);
-            }
 
             // Optional filters
             if (search) url.searchParams.append('search', search);
@@ -853,15 +798,21 @@ handleFacultyManagementPageRequest();
                 
                 if (data.success) {
                     console.log('Current staff position:', data.designation_name);
-                                        
+                    
+                    // Update the global variable
+                    CURRENT_STAFF_POSITION = data.designation_name;
+                    
                     // Update the position info in the header
                     const positionInfo = document.getElementById('staffPositionInfo');
                     if (positionInfo) {
-                        // This function should only display the primary designation, not overwrite the selected role.
-                        positionInfo.textContent = `Primary Role: ${data.designation_name}`;
+                        // Update the global variable
+                        CURRENT_STAFF_POSITION = data.designation_name;
+                        
+                        positionInfo.textContent = `Position: ${data.designation_name}`;
                     }
                 } else {
                     console.error('Failed to load staff designation:', data.message);
+                    
                     const positionInfo = document.getElementById('staffPositionInfo');
                     if (positionInfo) {
                         positionInfo.textContent = 'Position: Unknown';
@@ -922,62 +873,7 @@ handleFacultyManagementPageRequest();
             await populateFilter('accountStatusFilter', url.toString(), 'All Account Statuses');
         }
 
-        // Tab navigation functions
-        function switchFacultyTab(button) {
-            const status = button.getAttribute('data-status');
-            window.currentTabStatus = status;
-            
-            // Update tab appearance
-            document.querySelectorAll('.tab-pill').forEach(pill => {
-                pill.classList.remove('active');
-            });
-            button.classList.add('active');
-            
-            // Update mobile select
-            const mobileSelect = document.getElementById('facultyTabSelect');
-            if (mobileSelect) {
-                mobileSelect.value = status;
-            }
-            
-            // Apply tab filter
-            applyTabFilter(status);
-        }
 
-        function handleTabSelectChange(select) {
-            const status = select.value;
-            window.currentTabStatus = status;
-            
-            // Update tab pills
-            document.querySelectorAll('.tab-pill').forEach(pill => {
-                pill.classList.remove('active');
-                if (pill.getAttribute('data-status') === status) {
-                    pill.classList.add('active');
-                }
-            });
-            
-            // Apply tab filter
-            applyTabFilter(status);
-        }
-
-        function applyTabFilter(status) {
-            const tableRows = document.querySelectorAll('#facultyTableBody tr');
-            
-            tableRows.forEach(row => {
-                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
-                
-                if (!status || status === '') {
-                    // Show all rows
-                    row.style.display = '';
-                } else {
-                    // Filter by status
-                    if (accountBadge && accountBadge.classList.contains(`account-${status}`)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                }
-            });
-        }
 
         // Bulk selection functions
         function openBulkSelectionModal() {
@@ -1357,11 +1253,9 @@ handleFacultyManagementPageRequest();
                 }
             });
 
-            /*
             // Initialize Activity Tracker
             window.sidebarHandledByPage = true;
             window.activityTrackerInstance = new ActivityTracker();
-            */
             
             loadCurrentStaffDesignation();
             loadCurrentPeriod();
@@ -1374,15 +1268,7 @@ handleFacultyManagementPageRequest();
             loadEmploymentStatuses(),
             loadRejectionReasons()
             ])
-            
-            // --- FIX for Race Condition ---
-            // After all async operations, definitively set the CURRENT_STAFF_POSITION 
-            // from the role selector's current value to ensure it's correct on initial load.
-            const roleSelector = document.getElementById('roleSelector');
-            if (roleSelector) {
-                CURRENT_STAFF_POSITION = roleSelector.value;
-                console.log("Initial role set to:", CURRENT_STAFF_POSITION);
-            }
+
             await setDefaultSchoolTerm();
             fetchFaculty();
             
@@ -1614,15 +1500,24 @@ handleFacultyManagementPageRequest();
             }catch(e){ return null; }
         }
         async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null) {
+            // Fetch the current staff's actual designation from the API to ensure accuracy.
+            let designationName = CURRENT_STAFF_POSITION; // Fallback
+            try {
+                const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
+                const desigData = await desigResponse.json();
+                if (desigData.success) {
+                    designationName = desigData.designation_name;
+                }
+            } catch (e) { /* Ignore error, use fallback */ }
+
             const payload = { 
                 applicant_user_id: applicantUserId, 
                 action: action,
-                designation_name: CURRENT_STAFF_POSITION // Use the role selected in the dropdown
+                designation_name: designationName
             };
             if (remarks && remarks.length) payload.remarks = remarks;
             if (reasonId) payload.reason_id = reasonId;
 
-            console.log("Sending signatory action with payload:", payload); // For debugging
             const response = await fetch('../../api/clearance/signatory_action.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)});
             return await response.json();
         }

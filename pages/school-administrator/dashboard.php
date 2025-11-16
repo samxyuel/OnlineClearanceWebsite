@@ -136,32 +136,29 @@
 
 
                 <!-- Content Grid -->
-                <!--
                 <div class="content-grid">
                     <!-- Recent Activity Section -->
-                    <?php /* include '../../includes/components/recent-activity.php'; */ ?>
+                    <?php include '../../includes/components/recent-activity.php'; ?>
 
                     <!-- Notifications Panel -->
-                    <?php /* include '../../includes/components/notifications.php'; */ ?>
+                    <?php include '../../includes/components/notifications.php'; ?>
                 </div>
-                -->
 
             </div>
         </div>
         
         <!-- RIGHT SIDE: Activity Tracker -->
-        <!--
         <div class="dashboard-sidebar">
-            <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
+            <?php include '../../includes/components/activity-tracker.php'; ?>
         </div>
-        -->
     </main>
 
     <!-- Scripts -->
     <script src="../../assets/js/alerts.js"></script>
-    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
+    <script src="../../assets/js/activity-tracker.js"></script>
     
-    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
+    <!-- Include Audit Functions -->
+    <?php include '../../includes/functions/audit_functions.php'; ?>
     
     <script>
         // Load dashboard data
@@ -379,13 +376,11 @@
             // Load dynamic content
             loadDashboardData();
             
-            /*
             // Initialize Activity Tracker with singleton pattern
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized for School Administrator Dashboard');
             }
-            */
         });
     </script>
 </body>

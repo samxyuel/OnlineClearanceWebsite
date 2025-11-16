@@ -13,7 +13,7 @@ ob_start();
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <!-- <link rel="stylesheet" href="../../assets/css/activity-tracker.css"> -->
+    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -88,33 +88,15 @@ ob_start();
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
-                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
-                            <?php */ ?>
                         </div>
 
-                        <!-- Tabs + Current Period Wrapper -->
+                        <!-- Current Period Wrapper -->
                         <div class="tab-banner-wrapper">
-                            <!-- Tab Navigation for quick status views -->
-                            <div class="tab-nav" id="facultyTabNav">
-                                <button class="tab-pill active" data-status="" onclick="switchFacultyTab(this)">Overall</button>
-                                <button class="tab-pill" data-status="active" onclick="switchFacultyTab(this)">Active</button>
-                                <button class="tab-pill" data-status="inactive" onclick="switchFacultyTab(this)">Inactive</button>
-                                <button class="tab-pill" data-status="resigned" onclick="switchFacultyTab(this)">Resigned</button>
-                            </div>
-                            <!-- Mobile dropdown alternative -->
-                            <div class="tab-nav-mobile" id="facultyTabSelectWrapper">
-                                <select id="facultyTabSelect" class="tab-select" onchange="handleTabSelectChange(this)">
-                                    <option value="" selected>Overall</option>
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                    <option value="resigned">Resigned</option>
-                                </select>
-                            </div>
                             <!-- Current Period Banner -->
                             <span class="academic-year-semester">
                                 <i class="fas fa-calendar-check"></i> 
@@ -241,9 +223,6 @@ ob_start();
                                                         <button class="btn-icon edit-btn" onclick="editFaculty('LCA123P')" title="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </button>
-                                                        <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                            <i class="fas fa-toggle-on"></i>
-                                                        </button>
                                                         <button class="btn-icon delete-btn" onclick="deleteFaculty('LCA123P')" title="Delete">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
@@ -264,9 +243,6 @@ ob_start();
                                                         </button>
                                                         <button class="btn-icon edit-btn" onclick="editFaculty('MTH456A')" title="Edit">
                                                             <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                            <i class="fas fa-toggle-on"></i>
                                                         </button>
                                                         <button class="btn-icon delete-btn" onclick="deleteFaculty('MTH456A')" title="Delete">
                                                             <i class="fas fa-trash"></i>
@@ -289,9 +265,6 @@ ob_start();
                                                         <button class="btn-icon edit-btn" onclick="editFaculty('ENG789B')" title="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </button>
-                                                        <button class="btn-icon status-toggle-btn inactive" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                            <i class="fas fa-toggle-off"></i>
-                                                        </button>
                                                         <button class="btn-icon delete-btn" onclick="deleteFaculty('ENG789B')" title="Delete">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
@@ -312,9 +285,6 @@ ob_start();
                                                         </button>
                                                         <button class="btn-icon edit-btn" onclick="editFaculty('CSC321D')" title="Edit">
                                                             <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn-icon status-toggle-btn resigned" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                            <i class="fas fa-user-slash"></i>
                                                         </button>
                                                         <button class="btn-icon delete-btn" onclick="deleteFaculty('CSC321D')" title="Delete">
                                                             <i class="fas fa-trash"></i>
@@ -337,9 +307,6 @@ ob_start();
                                                         <button class="btn-icon edit-btn" onclick="editFaculty('BIO654E')" title="Edit">
                                                             <i class="fas fa-edit"></i>
                                                         </button>
-                                                        <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                            <i class="fas fa-toggle-on"></i>
-                                                        </button>
                                                         <button class="btn-icon delete-btn" onclick="deleteFaculty('BIO654E')" title="Delete">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
@@ -360,9 +327,6 @@ ob_start();
                                                         </button>
                                                         <button class="btn-icon edit-btn" onclick="editFaculty('PHY987F')" title="Edit">
                                                             <i class="fas fa-edit"></i>
-                                                        </button>
-                                                        <button class="btn-icon status-toggle-btn active" onclick="toggleFacultyStatus(this)" title="Toggle Status">
-                                                            <i class="fas fa-toggle-on"></i>
                                                         </button>
                                                         <button class="btn-icon delete-btn" onclick="deleteFaculty('PHY987F')" title="Delete">
                                                             <i class="fas fa-trash"></i>
@@ -408,11 +372,9 @@ ob_start();
                 </div>
 
                 <!-- RIGHT SIDE: Activity Tracker -->
-                <!--
                 <div class="dashboard-sidebar">
-                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
                 </div>
-                -->
             </div>
         </div>
     </main>
@@ -519,7 +481,6 @@ ob_start();
     </div>
 
 
-    <?php /* Signatory Override interface temporarily disabled ?>
     <!-- Signatory Override Modal -->
     <div id="signatoryOverrideModal" class="modal-overlay" style="display: none;">
         <div class="modal-window override-modal">
@@ -637,7 +598,6 @@ ob_start();
             <!-- Dynamic content will be populated -->
         </div>
     </div>
-    <?php */ ?>
 
     <script>
         // Toggle sidebar
@@ -816,15 +776,10 @@ ob_start();
                     selectedRows.forEach(checkbox => {
                         const row = checkbox.closest('tr');
                         const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
-                        const toggleBtn = row.querySelector('.status-toggle-btn');
                         
                         statusBadge.textContent = 'Active';
                         statusBadge.classList.remove('account-inactive', 'account-resigned');
                         statusBadge.classList.add('account-active');
-                        toggleBtn.classList.remove('inactive', 'resigned');
-                        toggleBtn.classList.add('active');
-                        toggleBtn.querySelector('i').classList.remove('fa-toggle-off', 'fa-user-slash');
-                        toggleBtn.querySelector('i').classList.add('fa-toggle-on');
                     });
                     
                     // Update statistics
@@ -853,15 +808,10 @@ ob_start();
                     selectedRows.forEach(checkbox => {
                         const row = checkbox.closest('tr');
                         const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
-                        const toggleBtn = row.querySelector('.status-toggle-btn');
                         
                         statusBadge.textContent = 'Inactive';
                         statusBadge.classList.remove('account-active', 'account-resigned');
                         statusBadge.classList.add('account-inactive');
-                        toggleBtn.classList.remove('active', 'resigned');
-                        toggleBtn.classList.add('inactive');
-                        toggleBtn.querySelector('i').classList.remove('fa-toggle-on', 'fa-user-slash');
-                        toggleBtn.querySelector('i').classList.add('fa-toggle-off');
                     });
                     
                     // Update statistics
@@ -890,17 +840,11 @@ ob_start();
                     selectedRows.forEach(checkbox => {
                         const row = checkbox.closest('tr');
                         const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
-                        const toggleBtn = row.querySelector('.status-toggle-btn');
                         
                         if (statusBadge) {
                             statusBadge.textContent = 'Resigned';
                             statusBadge.classList.remove('account-active', 'account-inactive');
                             statusBadge.classList.add('account-resigned');
-                            
-                            toggleBtn.classList.remove('active', 'inactive');
-                            toggleBtn.classList.add('resigned');
-                            toggleBtn.querySelector('i').classList.remove('fa-toggle-on', 'fa-toggle-off');
-                            toggleBtn.querySelector('i').classList.add('fa-user-slash');
                         }
                     });
                     
@@ -1025,17 +969,14 @@ ob_start();
         // Individual faculty actions
         async function populateEditFormLive(empId){
             try{
-                const res = await fetch(`../../api/users/facultyList.php?search=${encodeURIComponent(empId)}`,{credentials:'include'});
+                const res = await fetch(`../../api/users/facultyList.php?employee_number=${encodeURIComponent(empId)}`,{credentials:'include'});
                 const data = await res.json();
-                if(!data.success || !data.faculty || data.faculty.length === 0){
-                    showToastNotification(data.message||'Failed to load faculty data.','error');
-                    return;
-                }
-                const f = data.faculty[0];
+                if(!data.success){showToastNotification(data.message||'Failed to load faculty','error');return;}
+                const f = data.faculty;
                 document.getElementById('editFacultyForm').dataset.userId = f.user_id; // Store user_id
                 document.getElementById('editFacultyId').value = empId;
                 document.getElementById('editEmployeeNumber').value = empId;
-                document.getElementById('editEmploymentStatus').value = (f.employment_status || '').toLowerCase().replace(/ /g,'-');
+                document.getElementById('editEmploymentStatus').value = f.employment_status.toLowerCase().replace(/ /g,'-');
                 document.getElementById('editLastName').value = f.last_name;
                 document.getElementById('editFirstName').value = f.first_name;
                 document.getElementById('editMiddleName').value = f.middle_name||'';
@@ -1078,60 +1019,6 @@ ob_start();
             .finally(()=>{btn.disabled=false;btn.textContent='Update Faculty';});
         }
 
-        function toggleFacultyStatus(button) {
-            const row = button.closest('tr');
-            const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
-            const facultyId = row.querySelector('.faculty-checkbox').getAttribute('data-id');
-            
-            const currentActive = statusBadge.classList.contains('account-active');
-            const newStatus = currentActive ? 'inactive' : 'active';
-
-            const confirmTitle = currentActive ? 'Deactivate Faculty' : 'Activate Faculty';
-            const confirmMsg   = `Are you sure you want to ${newStatus} ${facultyId}?`;
-
-            showConfirmationModal(
-                confirmTitle,
-                confirmMsg,
-                currentActive ? 'Deactivate' : 'Activate',
-                'Cancel',
-                () => {
-                    // call backend
-                    fetch('../../api/users/update_faculty.php',{
-                        method:'POST',
-                        credentials:'include',
-                        headers:{'Content-Type':'application/json'},
-                        body:JSON.stringify({employee_number:facultyId,status:newStatus})
-                    })
-                    .then(r=>r.json())
-                    .then(res=>{
-                        if(!res.success){ throw new Error(res.message||'Update failed'); }
-
-                        // update UI
-                        if(currentActive){
-                            statusBadge.textContent='Inactive';
-                            statusBadge.classList.remove('account-active');
-                            statusBadge.classList.add('account-inactive');
-                            button.classList.remove('active');
-                            button.classList.add('inactive');
-                            button.querySelector('i').classList.remove('fa-toggle-on');
-                            button.querySelector('i').classList.add('fa-toggle-off');
-                            showToastNotification('Faculty deactivated successfully','success');
-                        }else{
-                            statusBadge.textContent='Active';
-                            statusBadge.classList.remove('account-inactive');
-                            statusBadge.classList.add('account-active');
-                            button.classList.remove('inactive');
-                            button.classList.add('active');
-                            button.querySelector('i').classList.remove('fa-toggle-off');
-                            button.querySelector('i').classList.add('fa-toggle-on');
-                            showToastNotification('Faculty activated successfully','success');
-                        }
-                    })
-                    .catch(err=>{console.error(err);showToastNotification(err.message||'Network error','error');});
-                },
-                currentActive ? 'warning' : 'info'
-            );
-        }
 
         function deleteFaculty(facultyId) {
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
@@ -1266,7 +1153,6 @@ ob_start();
                                 <td class="action-buttons"><div class="action-buttons">
                                         <button class=\"btn-icon view-progress-btn\" onclick=\"viewClearanceProgress('${f.employee_number}')\" title=\"View Clearance Progress\"><i class=\"fas fa-tasks\"></i></button>
                                         <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
-                                        <button class="btn-icon status-toggle-btn ${accountStatus==='active'?'active':'inactive'}" onclick="toggleFacultyStatus(this)" title="Toggle Status"><i class="fas ${accountStatus==='active'?'fa-toggle-on':'fa-toggle-off'}"></i></button>
                                         <button class=\"btn-icon delete-btn\" onclick=\"deleteFaculty('${f.employee_number}')\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>
                                    </div></td>`;
 
@@ -1873,13 +1759,11 @@ ob_start();
             // load faculty table
             refreshFacultyTable();
 
-            /*
             // Initialize Activity Tracker
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized');
             }
-            */
 
             // Add event listeners for checkboxes
             document.addEventListener('change', function(e) {
@@ -1973,109 +1857,6 @@ ob_start();
             }
         });
         
-        // Tab switch helper: shows confirmation, clears selections/filters, then switches
-        function switchFacultyTab(btn){
-            const newTabStatus = btn.getAttribute('data-status');
-            const currentTabStatus = window.currentTabStatus || '';
-            
-            // If switching to the same tab, do nothing
-            if (newTabStatus === currentTabStatus) {
-                return;
-            }
-            
-            // Check if there are any active selections or filters
-            const hasSelections = getSelectedCount() > 0;
-            const hasFilters = hasActiveFilters();
-            
-            if (hasSelections || hasFilters) {
-                // Show confirmation dialog
-                showConfirmationModal(
-                    'Switch Tab',
-                    'Switching tabs will clear your current selection and bulk selection filters. Continue?',
-                    'Continue',
-                    'Cancel',
-                    () => {
-                        // User confirmed - proceed with tab switch
-                        performTabSwitch(btn, newTabStatus);
-                    },
-                    'warning'
-                );
-            } else {
-                // No selections or filters - switch immediately
-                performTabSwitch(btn, newTabStatus);
-            }
-        }
-        
-        function performTabSwitch(btn, newTabStatus) {
-            // Update tab UI
-            document.querySelectorAll('#facultyTabNav .tab-pill').forEach(p=>p.classList.remove('active'));
-            btn.classList.add('active');
-            window.currentTabStatus = newTabStatus;
-            
-            // Clear all selections and filters
-            clearAllSelectionsAndFilters();
-            
-            // Apply filters for new tab context
-            applyFilters();
-            
-            // Show confirmation message
-            showToastNotification('Selection and filters cleared for new tab view', 'info');
-        }
-
-        // track currently selected account-status cohort from tab nav
-        window.currentTabStatus = '';
-
-        // dropdown handler for mobile tab select
-        function handleTabSelectChange(sel){
-            const newTabStatus = sel.value;
-            const currentTabStatus = window.currentTabStatus || '';
-            
-            // If switching to the same tab, do nothing
-            if (newTabStatus === currentTabStatus) {
-                return;
-            }
-            
-            // Check if there are any active selections or filters
-            const hasSelections = getSelectedCount() > 0;
-            const hasFilters = hasActiveFilters();
-            
-            if (hasSelections || hasFilters) {
-                // Show confirmation dialog
-                showConfirmationModal(
-                    'Switch Tab',
-                    'Switching tabs will clear your current selection and bulk selection filters. Continue?',
-                    'Continue',
-                    'Cancel',
-                    () => {
-                        // User confirmed - proceed with tab switch
-                        performMobileTabSwitch(sel, newTabStatus);
-                    },
-                    'warning'
-                );
-            } else {
-                // No selections or filters - switch immediately
-                performMobileTabSwitch(sel, newTabStatus);
-            }
-        }
-        
-        function performMobileTabSwitch(sel, newTabStatus) {
-            // Update tab state
-            window.currentTabStatus = newTabStatus;
-            
-            // Sync pill active state for when user switches back to desktop
-            document.querySelectorAll('#facultyTabNav .tab-pill').forEach(btn=>{
-                btn.classList.toggle('active', btn.getAttribute('data-status')===newTabStatus);
-            });
-            
-            // Clear all selections and filters
-            clearAllSelectionsAndFilters();
-            
-            // Apply filters for new tab context
-            applyFilters();
-            
-            // Show confirmation message
-            showToastNotification('Selection and filters cleared for new tab view', 'info');
-        }
 
         // Bulk Selection Modal Functions
         function openBulkSelectionModal() {
@@ -2085,9 +1866,6 @@ ob_start();
             
             // Reset all checkboxes
             resetBulkSelectionFilters();
-            
-            // Apply tab-based restrictions
-            applyTabBasedRestrictions();
         }
 
         function closeBulkSelectionModal() {
@@ -2109,29 +1887,6 @@ ob_start();
             document.getElementById('filterComplete').checked = false;
         }
 
-        function applyTabBasedRestrictions() {
-            const currentTab = window.currentTabStatus || '';
-            const activeCheckbox = document.getElementById('filterActive');
-            const inactiveCheckbox = document.getElementById('filterInactive');
-            
-            // Reset all checkboxes to enabled state first
-            activeCheckbox.disabled = false;
-            inactiveCheckbox.disabled = false;
-            activeCheckbox.parentElement.classList.remove('disabled');
-            inactiveCheckbox.parentElement.classList.remove('disabled');
-            
-            // Apply tab-based restrictions
-            if (currentTab === 'active') {
-                // In Active tab, disable "inactive" checkbox
-                inactiveCheckbox.disabled = true;
-                inactiveCheckbox.parentElement.classList.add('disabled');
-            } else if (currentTab === 'inactive') {
-                // In Inactive tab, disable "active" checkbox
-                activeCheckbox.disabled = true;
-                activeCheckbox.parentElement.classList.add('disabled');
-            }
-            // Overall tab has no restrictions
-        }
 
         function applyBulkSelection() {
             const selectedFilters = getSelectedFilters();
@@ -2346,7 +2101,7 @@ ob_start();
     <script src="../../assets/js/alerts.js"></script>
     
     <!-- Include Activity Tracker JavaScript -->
-    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
+    <script src="../../assets/js/activity-tracker.js"></script>
     
     <!-- Include Clearance Button Manager -->
     <script src="../../assets/js/clearance-button-manager.js"></script>

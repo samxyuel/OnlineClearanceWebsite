@@ -126,13 +126,13 @@ $sidebarLinks = [
         'top' => [
             ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/admin/dashboard.php'],
         //    ['icon' => 'fas fa-user-graduate', 'text' => 'Manage Students', 'link' => '../../pages/admin/StudentManagement.php'],
-            ['icon' => 'fas fa-university', 'text' => 'College Management', 'link' => '../../pages/admin/CollegeStudentManagement.php'],
-            ['icon' => 'fas fa-graduation-cap', 'text' => 'SHS Management', 'link' => '../../pages/admin/SeniorHighStudentManagement.php'],
+            ['icon' => 'fas fa-university', 'text' => 'Manage College Students', 'link' => '../../pages/admin/CollegeStudentManagement.php'],
+            ['icon' => 'fas fa-graduation-cap', 'text' => 'Manage Senior High School Students', 'link' => '../../pages/admin/SeniorHighStudentManagement.php'],
             ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Manage Faculty', 'link' => '../../pages/admin/FacultyManagement.php'],
-            ['icon' => 'fas fa-users', 'text' => 'Manage Staff', 'link' => '../../pages/admin/StaffManagement.php'],
-            ['icon' => 'fas fa-file-alt', 'text' => 'Clearance Management', 'link' => '../../pages/admin/ClearanceManagement.php'],
-            ['icon' => 'fas fa-book', 'text' => 'Manage Courses', 'link' => '../../pages/admin/CourseManagement.php'],
-            ['icon' => 'fas fa-comment-dots', 'text' => 'Feedback', 'link' => '../../pages/admin/feedback.php'],
+            ['icon' => 'fas fa-users', 'text' => 'Staff Management', 'link' => '../../pages/admin/StaffManagement.php'],
+            ['icon' => 'fas fa-file-alt', 'text' => 'Academic Year and Sector Management', 'link' => '../../pages/admin/ClearanceManagement.php'],
+            ['icon' => 'fas fa-book', 'text' => 'Departments Management', 'link' => '../../pages/admin/CourseManagement.php'],
+            // ['icon' => 'fas fa-comment-dots', 'text' => 'Feedback', 'link' => '../../pages/admin/feedback.php'],
             // ['icon' => 'fas fa-user-plus', 'text' => 'Create Users', 'link' => '../../pages/admin/create-users.php'],
             ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
@@ -147,10 +147,10 @@ $sidebarLinks = [
         'top' => [
             ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/school-administrator/dashboard.php'],
         //    ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/school-administrator/StudentManagement.php'],
-            ['icon' => 'fas fa-university', 'text' => 'College Student Management', 'link' => '../../pages/school-administrator/CollegeStudentManagement.php'],
-            ['icon' => 'fas fa-graduation-cap', 'text' => 'Senior High School Student Management', 'link' => '../../pages/school-administrator/SeniorHighStudentManagement.php'],
-            ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Faculty Management', 'link' => '../../pages/school-administrator/FacultyManagement.php'],
-            ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
+            ['icon' => 'fas fa-university', 'text' => 'Manage College Students', 'link' => '../../pages/school-administrator/CollegeStudentManagement.php'],
+            ['icon' => 'fas fa-graduation-cap', 'text' => 'Manage Senior High School Students', 'link' => '../../pages/school-administrator/SeniorHighStudentManagement.php'],
+            ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Manage Faculty', 'link' => '../../pages/school-administrator/FacultyManagement.php'],
+            // ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
         'bottom' => [
             ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
@@ -163,11 +163,11 @@ $sidebarLinks = [
         'top' => [
             ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/program-head/dashboard.php'],
         //    ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/program-head/StudentManagement.php'],
-            ['icon' => 'fas fa-university', 'text' => 'College Student Management', 'link' => '../../pages/program-head/CollegeStudentManagement.php'],
-            ['icon' => 'fas fa-graduation-cap', 'text' => 'Senior High School Student Management', 'link' => '../../pages/program-head/SeniorHighStudentManagement.php'],
-            ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Faculty Management', 'link' => '../../pages/program-head/FacultyManagement.php'],
+            ['icon' => 'fas fa-university', 'text' => 'Manage College Students', 'link' => '../../pages/program-head/CollegeStudentManagement.php'],
+            ['icon' => 'fas fa-graduation-cap', 'text' => 'Manage Senior High School Students', 'link' => '../../pages/program-head/SeniorHighStudentManagement.php'],
+            ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Manage Faculty', 'link' => '../../pages/program-head/FacultyManagement.php'],
             
-            ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
+            // ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
         'bottom' => [
             ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
@@ -180,10 +180,10 @@ $sidebarLinks = [
         'top' => [
             ['icon' => 'fas fa-home', 'text' => 'Dashboard', 'link' => '../../pages/regular-staff/dashboard.php'],
         //    ['icon' => 'fas fa-user-graduate', 'text' => 'Student Management', 'link' => '../../pages/regular-staff/StudentManagement.php'],
-            ['icon' => 'fas fa-university', 'text' => 'College Student Management', 'link' => '../../pages/regular-staff/CollegeStudentManagement.php'],
-            ['icon' => 'fas fa-graduation-cap', 'text' => 'Senior High School Student Management', 'link' => '../../pages/regular-staff/SeniorHighStudentManagement.php'],
-            ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Faculty Management', 'link' => '../../pages/regular-staff/FacultyManagement.php'],
-            ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
+            ['icon' => 'fas fa-university', 'text' => 'Manage College Students', 'link' => '../../pages/regular-staff/CollegeStudentManagement.php'],
+            ['icon' => 'fas fa-graduation-cap', 'text' => 'Manage Senior High School Students', 'link' => '../../pages/regular-staff/SeniorHighStudentManagement.php'],
+            ['icon' => 'fas fa-chalkboard-teacher', 'text' => 'Manage Faculty', 'link' => '../../pages/regular-staff/FacultyManagement.php'],
+            // ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
         'bottom' => [
             ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],

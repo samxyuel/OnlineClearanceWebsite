@@ -123,15 +123,13 @@
 
 
                         <!-- Content Grid -->
-                        <!--
                         <div class="content-grid">
                             <!-- Recent Activity Section -->
-                            <?php /* include '../../includes/components/recent-activity.php'; */ ?>
+                            <?php include '../../includes/components/recent-activity.php'; ?>
 
                             <!-- Notifications Panel -->
-                            <?php /* include '../../includes/components/notifications.php'; */ ?>
+                            <?php include '../../includes/components/notifications.php'; ?>
                         </div>
-                        -->
 
                         <!-- Department Overview -->
                         <div class="management-section">
@@ -156,19 +154,18 @@
                     </div>
                 </div>
                 
-                <!--
+                <!-- Activity Tracker Sidebar -->
                 <div class="dashboard-sidebar">
-                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
                 </div>
-                -->
             </div>
         </div>
     </main>
 
     <!-- Scripts -->
     <script src="../../assets/js/alerts.js"></script>
-    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
-    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
+    <script src="../../assets/js/activity-tracker.js"></script>
+    <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
         function viewPendingClearances() {
             showToast('Opening pending clearances...', 'info');
@@ -445,13 +442,11 @@
             // Load dynamic content
             loadDashboardData();
 
-            /*
             // Initialize Activity Tracker
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized for Program Head Dashboard');
             }
-            */
         });
     </script>
 </body>

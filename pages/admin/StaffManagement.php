@@ -14,7 +14,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
-    <!-- <link rel="stylesheet" href="../../assets/css/activity-tracker.css"> -->
+    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
     <style>
         /* Responsive visibility for tab pills vs dropdown (mobile-first) */
@@ -51,15 +51,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
 
                         
 
-                        <!-- Unassigned Drawer -->
-                        <div id="unassignedDrawer" style="display:none; position:fixed; right:0; top:0; height:100vh; width:380px; background:#fff; border-left:1px solid #e1e5e9; box-shadow:-4px 0 12px rgba(0,0,0,0.06); z-index:1000;">
-                            <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid #e1e5e9;">
-                                <div style="font-weight:700; color:var(--deep-navy-blue)"><i class="fas fa-exclamation-circle"></i> Unassigned Departments</div>
-                                <button class="btn btn-sm btn-outline" onclick="closeUnassigned()"><i class="fas fa-times"></i></button>
-                            </div>
-                            <div style="padding:12px 16px; color:#666" id="unassignedSectorLabel">Sector: -</div>
-                            <div id="unassignedList" style="padding:8px 16px; overflow:auto; height: calc(100vh - 110px);"></div>
-                        </div>
 
             <!-- Statistics Dashboard -->
             <div class="stats-dashboard">
@@ -111,11 +102,9 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                     <!-- <button class="btn btn-secondary import-btn" onclick="openStaffImportModal()">
                         <i class="fas fa-file-import"></i> Import Staff
                     </button> -->
-                    <!--
                     <button class="btn btn-secondary export-btn" onclick="openStaffExportModal()">
                         <i class="fas fa-file-export"></i> Export Staff
                     </button>
-                    -->
                 </div>
             </div>
 
@@ -160,24 +149,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 </div>
             </div>
 
-            <!-- 
-            Coverage Strip: Program Head coverage per sector
-            <div class="coverage-strip" id="coverageStrip" style="margin:12px 0 16px 0; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
-                <div style="font-weight:600; color: var(--deep-navy-blue);"><i class="fas fa-clipboard-check"></i> PH Coverage:</div>
-                <div class="coverage-item" data-sector="College" style="background:#f8fafc; border:1px solid #e1e5e9; border-radius:8px; padding:8px 12px;">
-                    College: <span class="val" id="covCollege">-</span>
-                    <button class="btn btn-sm btn-outline-primary" style="margin-left:8px;" onclick="openUnassigned('College')">Unassigned</button>
-                </div>
-                <div class="coverage-item" data-sector="Senior High School" style="background:#f8fafc; border:1px solid #e1e5e9; border-radius:8px; padding:8px 12px;">
-                    Senior High School: <span class="val" id="covSHS">-</span>
-                    <button class="btn btn-sm btn-outline-primary" style="margin-left:8px;" onclick="openUnassigned('Senior High School')">Unassigned</button>
-                </div>
-                <div class="coverage-item" data-sector="Faculty" style="background:#f8fafc; border:1px solid #e1e5e9; border-radius:8px; padding:8px 12px;">
-                    Faculty: <span class="val" id="covFaculty">-</span>
-                    <button class="btn btn-sm btn-outline-primary" style="margin-left:8px;" onclick="openUnassigned('Faculty')">Unassigned</button>
-                </div>
-            </div>
-            -->
 
             <!-- Tabs (consistent with FacultyManagement) -->
             <div class="tab-banner-wrapper" style="margin-bottom: 12px;">
@@ -242,11 +213,9 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     </div>
     
     <!-- RIGHT SIDE: Activity Tracker -->
-             <!--
-             <div class="dashboard-sidebar">
-                        <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
-                </div>
-                -->
+    <div class="dashboard-sidebar">
+        <?php include '../../includes/components/activity-tracker.php'; ?>
+    </div>
 </div>
 </div>
 </main>
@@ -267,7 +236,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     <script src="../../assets/js/alerts.js"></script>
     
     <!-- Include Activity Tracker JavaScript -->
-    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
+    <script src="../../assets/js/activity-tracker.js"></script>
     
     <script>
         // Live staff data – start empty; cards appear only after real registration or fetch
@@ -277,22 +246,12 @@ $adminName = 'Admin User'; // Temporary admin name for testing
         const cardsPerPage = 8;
         let filteredData = [...staffData];
 
-        // Helper function to get sector ID by name
-        function getSectorIdByName(sectorName) {
-            const sectorMap = {
-                'College': 1,
-                'Senior High School': 2,
-                'Faculty': 3
-            };
-            return sectorMap[sectorName] || null;
-        }
 
         // Initialize the page
         document.addEventListener('DOMContentLoaded', async function() {
             try { await loadStaffFromApi(); } catch (e) { console.warn('loadStaffFromApi failed', e); }
             renderStaffCards();
             updatePagination();
-            loadCoverage();
         });
 
         async function loadStaffFromApi(){
@@ -349,7 +308,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
             currentPage = 1;
             renderStaffCards();
             updatePagination();
-            loadCoverage();
             showToastNotification('Staff registered. Card added.', 'success');
         });
 
@@ -666,14 +624,10 @@ $adminName = 'Admin User'; // Temporary admin name for testing
 
         // Modal functions
         function openStaffRegistrationModal() {
-            if (typeof openStaffRegistrationModalWithInit === 'function') {
-                openStaffRegistrationModalWithInit();
-            } else {
-                const modal = document.querySelector('.staff-registration-modal-overlay');
-                if (modal) {
-                    modal.style.display = 'flex';
-                    document.body.classList.add('modal-open');
-                }
+            const modal = document.querySelector('.staff-registration-modal-overlay');
+            if (modal) {
+                modal.style.display = 'flex';
+                document.body.classList.add('modal-open');
             }
         }
 
@@ -685,44 +639,81 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 if (modal) {
                     // Set form values
                     document.getElementById('editStaffForm').dataset.userId = staff.user_id;
+                    document.getElementById('editEmployeeId').value = staff.id;
                     
-                    // Transform staff data to match the format expected by populateEditStaffForm
-                    const staffDataForForm = {
-                        employee_number: staff.id,
-                        user_id: staff.user_id,
-                        first_name: staff.name ? staff.name.split(' ')[0] : '',
-                        last_name: staff.name ? staff.name.split(' ').slice(-1)[0] : '',
-                        middle_name: staff.name ? staff.name.split(' ').slice(1, -1).join(' ') : '',
-                        designation: staff.position || '',
-                        staff_position: staff.position || '',
-                        email: staff.email || '',
-                        contact_number: staff.contact || '',
-                        staff_status: staff.status || '',
-                        is_also_faculty: staff.is_also_faculty || false,
-                        employment_status: staff.employment_status || '',
-                        faculty_employment_status: staff.faculty_employment_status || '',
-                        departments: staff.departments || [],
-                        id: staff.user_id
-                    };
+                    // Parse name into separate fields
+                    const nameParts = (staff.name || '').split(' ');
+                    const firstName = nameParts[0] || '';
+                    const lastName = nameParts[nameParts.length - 1] || '';
+                    const middleName = nameParts.slice(1, -1).join(' ') || '';
                     
-                    // Use the modal's populateEditStaffForm function if available
-                    if (typeof populateEditStaffForm === 'function') {
-                        populateEditStaffForm(staffDataForForm);
+                    document.getElementById('editFirstName').value = firstName;
+                    document.getElementById('editLastName').value = lastName;
+                    document.getElementById('editMiddleName').value = middleName;
+                    document.getElementById('editStaffEmail').value = staff.email || '';
+                    document.getElementById('editStaffContact').value = staff.contact || ''; 
+                    // staff.status is account status (active/inactive), the essential/optional dropdown was removed.
+                    
+                    // Handle position logic - check if it's a standard position
+                    const standardPositions = [
+                        'Guidance', 'Disciplinary Officer', 'Clinic', 'Librarian',
+                        'Alumni Placement Officer', 'Student\'s Affairs Officer', 'Registrar',
+                        'Cashier', 'Program Head', 'PAMO', 'MIS/IT', 'Petty Cash Custodian',
+                        'Building Administrator', 'Accountant', 'Academic Head', 'School Administrator', 'HR'
+                    ];
+                    
+                    if (standardPositions.includes(staff.position)) {
+                        document.getElementById('editStaffPosition').value = staff.position;
+                        document.getElementById('editCustomPosition').value = '';
                     } else {
-                        // Fallback: manual population
-                        document.getElementById('editEmployeeId').value = staff.id;
-                        const nameParts = (staff.name || '').split(' ');
-                        const firstName = nameParts[0] || '';
-                        const lastName = nameParts[nameParts.length - 1] || '';
-                        const middleName = nameParts.slice(1, -1).join(' ') || '';
-                        
-                        document.getElementById('editFirstName').value = firstName;
-                        document.getElementById('editLastName').value = lastName;
-                        document.getElementById('editMiddleName').value = middleName;
-                        document.getElementById('editStaffEmail').value = staff.email || '';
-                        document.getElementById('editStaffContact').value = staff.contact || '';
+                        document.getElementById('editStaffPosition').value = '';
+                        document.getElementById('editCustomPosition').value = staff.position;
                     }
                     
+                    // Handle faculty section
+                    // A Program Head is always a faculty member.
+                    const isProgramHead = (staff.position || '').toLowerCase() === 'program head';
+                    const isAlsoFaculty = staff.is_also_faculty || isProgramHead;
+
+                    document.getElementById('editIsAlsoFaculty').checked = isAlsoFaculty;
+                    if (isAlsoFaculty) {
+                        document.getElementById('editFacultyEmploymentStatus').value = staff.employment_status || '';
+                        document.getElementById('editFacultyEmployeeNumber').value = staff.id;
+                    }
+                    
+                    // Trigger form updates
+                    if (typeof toggleEditFacultySection === 'function') {
+                        toggleEditFacultySection();
+                    }
+                    if (typeof toggleEditProgramHeadAssignment === 'function') {
+                        toggleEditProgramHeadAssignment();
+                    }
+
+                    // If it's a Program Head, populate department assignments
+                    if (isProgramHead && typeof loadExistingAssignments === 'function') {
+                        loadExistingAssignments(staff);
+                    }
+                    
+                    // Dynamically populate the Program Head sector dropdown
+                    const sectorSelect = document.getElementById('editProgramHeadCategory');
+                    if (sectorSelect) {
+                        sectorSelect.innerHTML = '<option value="">Loading sectors...</option>';
+                        try {
+                            const response = await fetch('../../api/sectors/list.php', { credentials: 'include' });
+                            const data = await response.json();
+                            if (data.success && data.sectors) {
+                                sectorSelect.innerHTML = '<option value="">Select Sector</option>';
+                                data.sectors.forEach(sector => {
+                                    const option = new Option(sector.sector_name, sector.sector_name);
+                                    sectorSelect.add(option);
+                                });
+                            }
+                        } catch (error) {
+                            console.error('Failed to load sectors for edit modal:', error);
+                            sectorSelect.innerHTML = '<option value="">Error loading sectors</option>';
+                        }
+                    }
+
                     modal.style.display = 'flex';
                     document.body.classList.add('modal-open');
                 }
@@ -774,7 +765,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
             }
         }
         
-        /*
         // Initialize Activity Tracker when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
@@ -782,215 +772,10 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 console.log('Activity Tracker initialized');
             }
         });
-        */
 
-        // Coverage & Unassigned drawer logic
-        async function loadCoverage(){
-            try{
-                const r = await fetch('../../api/sectors/coverage.php?include_assignments=true', { credentials: 'include' });
-                const data = await r.json();
-                if (!data || data.success !== true) return;
-                
-                const sectors = data.sectors || [];
-                const sectorMap = {};
-                sectors.forEach(sector => {
-                    sectorMap[sector.sector_name] = sector;
-                });
-                
-                const mk = (sectorName) => {
-                    const sector = sectorMap[sectorName];
-                    if (!sector) return '0/0 (0 unassigned)';
-                    return `${sector.assigned_departments}/${sector.total_departments} (${sector.unassigned_departments} unassigned)`;
-                };
-                
-                const elC = document.getElementById('covCollege');
-                const elS = document.getElementById('covSHS');
-                const elF = document.getElementById('covFaculty');
-                if (elC) elC.textContent = mk('College');
-                if (elS) elS.textContent = mk('Senior High School');
-                if (elF) elF.textContent = mk('Faculty');
-                
-                // Store sector data globally for use in unassigned drawer
-                window.sectorCoverageData = sectorMap;
-            }catch(e){ console.warn('coverage load failed', e); }
-        }
-
-        async function openUnassigned(sector){
-            const drawer = document.getElementById('unassignedDrawer');
-            const label = document.getElementById('unassignedSectorLabel');
-            const list = document.getElementById('unassignedList');
-            if (!drawer || !label || !list) return;
-            label.textContent = `Sector: ${sector}`;
-            list.innerHTML = '<div style="color:#6c757d">Loading...</div>';
-            drawer.style.display = 'block';
-            try{
-                // Get sector ID from sector name
-                const sectorId = getSectorIdByName(sector);
-                const r = await fetch(`../../api/sectors/coverage.php?sector_id=${sectorId}&include_assignments=true`, { credentials: 'include' });
-                const data = await r.json();
-                list.innerHTML = '';
-                if (!data || data.success !== true) { list.innerHTML = '<div style="color:#dc3545">Failed to load</div>'; return; }
-                
-                const sectorData = data.sectors && data.sectors[0];
-                if (!sectorData) { list.innerHTML = '<div style="color:#dc3545">Sector not found</div>'; return; }
-                
-                const unassignedDepts = sectorData.unassigned_departments || [];
-                if (unassignedDepts.length === 0) { 
-                    list.innerHTML = '<div style="color:#6c757d">No unassigned departments</div>'; 
-                    return; 
-                }
-                
-                // Get available Program Heads for this sector
-                const programHeads = staffData.filter(staff => 
-                    staff.staff_category === 'Program Head' && 
-                    staff.sectors && 
-                    staff.sectors.some(s => s.name === sector)
-                );
-                
-                unassignedDepts.forEach(dept => {
-                    const item = document.createElement('div');
-                    item.style.cssText = 'border:1px solid #e1e5e9;border-radius:8px;padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;';
-                    
-                    const assignButton = programHeads.length > 0 ? 
-                        `<button class="btn btn-sm btn-outline-primary" onclick="showAssignDepartmentModal('${dept.department_id}', '${dept.department_name}', '${sector}')">
-                            <i class="fas fa-plus"></i> Assign
-                        </button>` : 
-                        '<span style="color:#6c757d;font-size:12px;">No Program Heads available</span>';
-                    
-                    item.innerHTML = `
-                        <div>
-                            <div style="font-weight:600;">${dept.department_name}</div>
-                            <div style="font-size:12px;color:#6c757d;">${dept.department_code || ''}</div>
-                        </div>
-                        ${assignButton}
-                    `;
-                    list.appendChild(item);
-                });
-            }catch(e){ 
-                console.error('Failed to load unassigned departments:', e);
-                list.innerHTML = '<div style="color:#dc3545">Failed to load</div>'; 
-            }
-        }
-        function closeUnassigned(){
-            const drawer = document.getElementById('unassignedDrawer');
-            if (drawer) drawer.style.display = 'none';
-        }
-
-        // Department Assignment Modal
-        function showAssignDepartmentModal(departmentId, departmentName, sector) {
-            const programHeads = staffData.filter(staff => 
-                staff.staff_category === 'Program Head' && 
-                staff.sectors && 
-                staff.sectors.some(s => s.name === sector)
-            );
-            
-            if (programHeads.length === 0) {
-                showToastNotification('No Program Heads available for this sector', 'warning');
-                return;
-            }
-            
-            const options = programHeads.map(ph => 
-                `<option value="${ph.id}">${ph.name} (${ph.id})</option>`
-            ).join('');
-            
-            const modalHtml = `
-                <div class="modal-overlay" id="assignDepartmentModal" style="display: flex;">
-                    <div class="modal-content" style="max-width: 500px;">
-                        <div class="modal-header">
-                            <h3><i class="fas fa-plus"></i> Assign Department</h3>
-                            <button class="modal-close" onclick="closeAssignDepartmentModal()">&times;</button>
-                        </div>
-                        <div class="modal-body">
-                            <div style="margin-bottom: 16px;">
-                                <strong>Department:</strong> ${departmentName}<br>
-                                <strong>Sector:</strong> ${sector}
-                            </div>
-                            <div class="form-group">
-                                <label for="assignProgramHead">Select Program Head:</label>
-                                <select id="assignProgramHead" class="form-control">
-                                    <option value="">Choose a Program Head...</option>
-                                    ${options}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="setAsPrimary"> Set as Primary Department
-                                </label>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button class="btn btn-secondary" onclick="closeAssignDepartmentModal()">Cancel</button>
-                            <button class="btn btn-primary" onclick="assignDepartment('${departmentId}', '${departmentName}', '${sector}')">
-                                <i class="fas fa-plus"></i> Assign
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            // Remove existing modal if any
-            const existingModal = document.getElementById('assignDepartmentModal');
-            if (existingModal) existingModal.remove();
-            
-            // Add modal to body
-            document.body.insertAdjacentHTML('beforeend', modalHtml);
-            document.body.classList.add('modal-open');
-        }
-
-        function closeAssignDepartmentModal() {
-            const modal = document.getElementById('assignDepartmentModal');
-            if (modal) {
-                modal.remove();
-                document.body.classList.remove('modal-open');
-            }
-        }
-
-        async function assignDepartment(departmentId, departmentName, sector) {
-            const programHeadId = document.getElementById('assignProgramHead').value;
-            const setAsPrimary = document.getElementById('setAsPrimary').checked;
-            
-            if (!programHeadId) {
-                showToastNotification('Please select a Program Head', 'warning');
-                return;
-            }
-            
-            try {
-                const response = await fetch('../../api/staff/assignments.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        staff_id: programHeadId,
-                        department_id: parseInt(departmentId),
-                        sector_id: getSectorIdByName(sector),
-                        is_primary: setAsPrimary
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    showToastNotification(`Department assigned to Program Head successfully`, 'success');
-                    closeAssignDepartmentModal();
-                    
-                    // Refresh data
-                    await loadStaffFromApi();
-                    renderStaffCards();
-                    loadCoverage();
-                    
-                    // Refresh unassigned drawer
-                    openUnassigned(sector);
-                } else {
-                    showToastNotification(data.message || 'Failed to assign department', 'error');
-                }
-            } catch (error) {
-                console.error('Error assigning department:', error);
-                showToastNotification('Failed to assign department', 'error');
-            }
-        }
     </script>
     
     <!-- Include Audit Functions -->
-    <?php /* include '../../includes/functions/audit_functions.php'; */ ?>
+    <?php include '../../includes/functions/audit_functions.php'; ?>
 </body>
 </html> 

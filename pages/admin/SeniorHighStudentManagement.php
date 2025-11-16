@@ -15,7 +15,7 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <!-- <link rel="stylesheet" href="../../assets/css/activity-tracker.css"> -->
+    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -92,33 +92,15 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
-                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
-                            <?php */ ?>
                         </div>
 
-                        <!-- Tabs + Current Period Wrapper -->
+                        <!-- Current Period Wrapper -->
                         <div class="tab-banner-wrapper">
-                            <!-- Tab Navigation for quick status views -->
-                            <div class="tab-nav" id="studentTabNav">
-                                <button class="tab-pill active" data-status="" onclick="switchStudentTab(this)">Overall</button>
-                                <button class="tab-pill" data-status="active" onclick="switchStudentTab(this)">Active</button>
-                                <button class="tab-pill" data-status="inactive" onclick="switchStudentTab(this)">Inactive</button>
-                                <button class="tab-pill" data-status="graduated" onclick="switchStudentTab(this)">Graduated</button>
-                            </div>
-                            <!-- Mobile dropdown alternative -->
-                            <div class="tab-nav-mobile" id="studentTabSelectWrapper">
-                                <select id="studentTabSelect" class="tab-select" onchange="handleTabSelectChange(this)">
-                                    <option value="" selected>Overall</option>
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                    <option value="graduated">Graduated</option>
-                                </select>
-                            </div>
                             <!-- Current Period Banner -->
                             <span class="academic-year-semester">
                                 <i class="fas fa-calendar-check"></i> 
@@ -254,9 +236,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288336')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288336')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -280,9 +259,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288337')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288337')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -305,9 +281,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288338')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn inactive" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-off"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288338')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -352,11 +325,9 @@ if (session_status() == PHP_SESSION_NONE) {
                 </div>
 
                 <!-- RIGHT SIDE: Activity Tracker -->
-                <!--
                 <div class="dashboard-sidebar">
-                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
                 </div>
-                -->
             </div>
         </div>
     </main>
@@ -640,127 +611,6 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         // Change period
-        // Tab Navigation Functions
-        function switchStudentTab(btn){
-            const newTabStatus = btn.getAttribute('data-status');
-            const currentTabStatus = window.currentTabStatus || '';
-            
-            // If switching to the same tab, do nothing
-            if (newTabStatus === currentTabStatus) {
-                return;
-            }
-            
-            // Check if there are any active selections or filters
-            const hasSelections = getSelectedCount() > 0;
-            const hasFilters = hasActiveFilters();
-            
-            if (hasSelections || hasFilters) {
-                // Show confirmation dialog
-                showConfirmationModal(
-                    'Switch Tab',
-                    'Switching tabs will clear your current selection and bulk selection filters. Continue?',
-                    'Continue',
-                    'Cancel',
-                    () => {
-                        // User confirmed - proceed with tab switch
-                        performTabSwitch(btn, newTabStatus);
-                    },
-                    'warning'
-                );
-            } else {
-                // No selections or filters - switch immediately
-                performTabSwitch(btn, newTabStatus);
-            }
-        }
-        
-        function performTabSwitch(btn, newTabStatus) {
-            // Update tab UI
-            document.querySelectorAll('#studentTabNav .tab-pill').forEach(p=>p.classList.remove('active'));
-            btn.classList.add('active');
-            window.currentTabStatus = newTabStatus;
-            
-            // Clear all selections and filters
-            clearAllSelectionsAndFilters();
-            
-            // Apply filters for new tab context
-            applyTabFilter();
-            
-            // Show confirmation message
-            showToastNotification('Selection and filters cleared for new tab view', 'info');
-        }
-
-        // track currently selected account-status cohort from tab nav
-        window.currentTabStatus = '';
-
-        // dropdown handler for mobile tab select
-        function handleTabSelectChange(sel){
-            const newTabStatus = sel.value;
-            const currentTabStatus = window.currentTabStatus || '';
-            
-            // If switching to the same tab, do nothing
-            if (newTabStatus === currentTabStatus) {
-                return;
-            }
-            
-            // Check if there are any active selections or filters
-            const hasSelections = getSelectedCount() > 0;
-            const hasFilters = hasActiveFilters();
-            
-            if (hasSelections || hasFilters) {
-                // Show confirmation dialog
-                showConfirmationModal(
-                    'Switch Tab',
-                    'Switching tabs will clear your current selection and bulk selection filters. Continue?',
-                    'Continue',
-                    'Cancel',
-                    () => {
-                        // User confirmed - proceed with tab switch
-                        performMobileTabSwitch(sel, newTabStatus);
-                    },
-                    'warning'
-                );
-            } else {
-                // No selections or filters - switch immediately
-                performMobileTabSwitch(sel, newTabStatus);
-            }
-        }
-        
-        function performMobileTabSwitch(sel, newTabStatus) {
-            // Update tab state
-            window.currentTabStatus = newTabStatus;
-            
-            // Sync pill active state for when user switches back to desktop
-            document.querySelectorAll('#studentTabNav .tab-pill').forEach(btn=>{
-                btn.classList.toggle('active', btn.getAttribute('data-status')===newTabStatus);
-            });
-            
-            // Clear all selections and filters
-            clearAllSelectionsAndFilters();
-            
-            // Apply filters for new tab context
-            applyTabFilter();
-            
-            // Show confirmation message
-            showToastNotification('Selection and filters cleared for new tab view', 'info');
-        }
-
-        // Apply tab-based filter
-        function applyTabFilter() {
-            const currentStatus = window.currentTabStatus || '';
-            
-            // Update account status filter based on current tab
-            const accountStatusFilter = document.getElementById('accountStatusFilter');
-            if (accountStatusFilter) {
-                if (currentStatus === '') {
-                    accountStatusFilter.value = ''; // Show all
-                } else {
-                    accountStatusFilter.value = currentStatus;
-                }
-            }
-            
-            // Apply filters to show the filtered results
-            applyFilters();
-        }
 
         // Helper function to check if there are any active filters
         function hasActiveFilters() {
@@ -1236,13 +1086,11 @@ if (session_status() == PHP_SESSION_NONE) {
                 });
             }
             
-        /*
-        // Initialize Activity Tracker
-        if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-            window.activityTrackerInstance = new ActivityTracker();
-            console.log('Activity Tracker initialized for Senior High Student Management');
-        }
-        */
+            // Initialize Activity Tracker
+            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
+                window.activityTrackerInstance = new ActivityTracker();
+                console.log('Activity Tracker initialized for Senior High Student Management');
+            }
             
             // Initialize current period banner
             updateCurrentPeriodBanner();
@@ -1433,12 +1281,12 @@ if (session_status() == PHP_SESSION_NONE) {
     <script src="../../assets/js/alerts.js"></script>
     
     <!-- Include Activity Tracker JavaScript -->
-    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
+    <script src="../../assets/js/activity-tracker.js"></script>
     
     <!-- Include Clearance Button Manager -->
     <script src="../../assets/js/clearance-button-manager.js"></script>
     
     <!-- Include Audit Functions -->
-    <?php /* include '../../includes/functions/audit_functions.php'; */ ?>
+    <?php include '../../includes/functions/audit_functions.php'; ?>
 </body>
 </html>

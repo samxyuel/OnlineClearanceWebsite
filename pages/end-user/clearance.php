@@ -135,10 +135,12 @@
                                     <span class="detail-value" id="overallStatusText">Loading...</span>
                                 </div>
                             </div>
+                            <!--
                             <div class="form-extra-meta">
-                                <span class="meta-item"><strong>Sector:</strong> <?php echo $user_sector; ?></span>
-                                <span class="meta-item"><strong>Account:</strong> <?php echo $first_name . ' ' . $last_name; ?></span>
+                                <span class="meta-item"><strong>Sector:</strong>  ?php echo $user_sector; ?></span>
+                                <span class="meta-item"><strong>Account:</strong>  ?php echo $first_name . ' ' . $last_name; ?></span>
                             </div>
+                            -->
                         </div>
                     </div>
                 </div>

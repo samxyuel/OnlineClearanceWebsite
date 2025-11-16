@@ -15,7 +15,7 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <!-- <link rel="stylesheet" href="../../assets/css/activity-tracker.css"> -->
+    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/css/sector-clearance.css">
     <link rel="stylesheet" href="../../assets/css/grace-period-monitoring.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
@@ -139,14 +139,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <div class="sector-status">
                                             <span class="status-badge" id="statistics-status-badge">Live</span>
                                         </div>
-                                    </div>
-                                    <div class="sector-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="refreshStatistics()">
-                                            <i class="fas fa-sync-alt"></i> Refresh
-                                        </button>
-                                        <button class="btn btn-sm btn-primary" onclick="openExportModal()">
-                                            <i class="fas fa-file-export"></i> Export
-                                        </button>
                                     </div>
                                 </div>
                                 
@@ -413,12 +405,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                 </div>
                             </div>
 
-                                        <!-- Export Button -->
-                                        <div class="export-section">
-                                            <button class="btn btn-primary export-btn" onclick="openExportModal()">
-                                                <i class="fas fa-file-export"></i> Export Clearance Data
-                                            </button>
-                                        </div>
                                     </div>
                                     <!-- End of .sector-clearance-management -->
                                 </section>
@@ -658,11 +644,9 @@ if (session_status() == PHP_SESSION_NONE) {
                     <!-- End of .content-wrapper -->
                 </div>
                 <!-- End of .dashboard-main -->
-                <!--
                 <div class="dashboard-sidebar">
-                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
                 </div>
-                -->
             </div>
             <!-- End of .dashboard-layout -->
         </div>
@@ -670,7 +654,6 @@ if (session_status() == PHP_SESSION_NONE) {
     </main>
 
     <!-- Include Modals -->
-    <?php include '../../Modals/ClearanceExportModal.php'; ?>
     <?php include '../../Modals/AddSignatoryModal.php'; ?>
     <?php include '../../Modals/AddSchoolYearModal.php'; ?>
 
@@ -685,11 +668,11 @@ if (session_status() == PHP_SESSION_NONE) {
     <?php include '../../Modals/EditStudentModal.php'; ?>
 
     <!-- Scripts -->
-    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
+    <script src="../../assets/js/activity-tracker.js"></script>
     <script src="../../assets/js/grace-period-manager.js"></script>
     
     <!-- Include Audit Functions -->
-    <?php /* include '../../includes/functions/audit_functions.php'; */ ?>
+    <?php include '../../includes/functions/audit_functions.php'; ?>
     
     <script>
         // Clearance Management Functions
@@ -4396,9 +4379,6 @@ function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
             }
         }
 
-        function openExportModal() {
-            openClearanceExportModal();
-        }
 
         // Graduation and Retention Modal Functions
         // Note: These are wrapper functions that call the window functions from the modals
@@ -4442,13 +4422,11 @@ function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
                 accordion.style.display = 'block';
             });
             
-            /*
             // Initialize Activity Tracker (only if not already initialized)
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized');
             }
-            */
             
             // Test if modal HTML is loaded
             const modal = document.querySelector('.signatory-settings-modal-overlay');

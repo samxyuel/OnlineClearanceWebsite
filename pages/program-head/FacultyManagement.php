@@ -325,11 +325,10 @@ handleFacultyManagementPageRequest();
                     </div> <!-- closes content-wrapper -->
                 </div> <!-- closes dashboard-main -->
                 
-                <!--
+                <!-- Activity Tracker Sidebar -->
                 <div class="dashboard-sidebar">
-                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
-                </div>
-                -->
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
+                </div> <!-- closes dashboard-sidebar -->
             </div> <!-- closes dashboard-layout -->
         </div> <!-- closes main-content -->
     </main>
@@ -372,12 +371,12 @@ handleFacultyManagementPageRequest();
         </div>
     </div>
 
-    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
+    <script src="../../assets/js/activity-tracker.js"></script>
     
     <!-- Include Clearance Button Manager -->
     <script src="../../assets/js/clearance-button-manager.js"></script>
     
-    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
+    <?php include '../../includes/functions/audit_functions.php'; ?>
 
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     <script>
@@ -1027,63 +1026,6 @@ handleFacultyManagementPageRequest();
             document.getElementById('activeFaculty').textContent = stats.active || 0;
             document.getElementById('inactiveFaculty').textContent = stats.inactive || 0;
             document.getElementById('resignedFaculty').textContent = stats.resigned || 0;
-        }
-
-        // Tab navigation functions
-        function switchFacultyTab(button) {
-            const status = button.getAttribute('data-status');
-            window.currentTabStatus = status;
-            
-            // Update tab appearance
-            document.querySelectorAll('.tab-pill').forEach(pill => {
-                pill.classList.remove('active');
-            });
-            button.classList.add('active');
-            
-            // Update mobile select
-            const mobileSelect = document.getElementById('facultyTabSelect');
-            if (mobileSelect) {
-                mobileSelect.value = status;
-            }
-            
-            // Apply tab filter
-            applyTabFilter(status);
-        }
-
-        function handleTabSelectChange(select) {
-            const status = select.value;
-            window.currentTabStatus = status;
-            
-            // Update tab pills
-            document.querySelectorAll('.tab-pill').forEach(pill => {
-                pill.classList.remove('active');
-                if (pill.getAttribute('data-status') === status) {
-                    pill.classList.add('active');
-                }
-            });
-            
-            // Apply tab filter
-            applyTabFilter(status);
-        }
-
-        function applyTabFilter(status) {
-            const tableRows = document.querySelectorAll('#facultyTableBody tr');
-            
-            tableRows.forEach(row => {
-                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
-                
-                if (!status || status === '') {
-                    // Show all rows
-                    row.style.display = '';
-                } else {
-                    // Filter by status
-                    if (accountBadge && accountBadge.classList.contains(`account-${status}`)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                }
-            });
         }
 
         // Bulk selection functions

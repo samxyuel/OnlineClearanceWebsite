@@ -8,6 +8,8 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../vendor/setasign/fpdf/fpdf.php';
 
+use DateTime;
+use DateTimeZone;
 use setasign\Fpdi\Fpdi;
 
 // Also include FPDF class directly for fallback
@@ -346,87 +348,83 @@ class ClearanceFormPDFGenerator {
         $fullName = trim($lastName . ($lastName && $firstName ? ', ' : '') . $firstName . ($middleName ? ' ' . substr($middleName, 0, 1) . '.' : ''));
         
         if ($actualUserType === 'student') {
-            // 2-column, 3-row layout without borders
-            $colWidth = ($width - 5) / 2; // Two columns with 5mm spacing
-            $rowHeight = 4;
+            // 2-column, 3-row layout without borders (with wrapping)
             $colSpacing = 5;
+            $colWidth = ($width - $colSpacing) / 2;
+            $labelWidth = 30;
+            $lineHeight = 4;
             
-            // Row 1: Name (col 1), Student No (col 2)
-            $row1Y = $currentY;
-            $pdf->SetXY($startX, $row1Y);
-            $pdf->Cell(30, $rowHeight, 'Name:', 0, 0, 'L');
-            $pdf->SetXY($startX + 30, $row1Y);
-            $pdf->Cell($colWidth - 30, $rowHeight, $fullName, 0, 0, 'L');
+            $rows = [
+                [
+                    ['label' => 'Name:', 'value' => $fullName],
+                    ['label' => 'Student No:', 'value' => $data['user']['username'] ?? 'N/A'],
+                ],
+                [
+                    ['label' => 'Program:', 'value' => $data['user_details']['program_name'] ?? 'N/A'],
+                    ['label' => 'Year Level:', 'value' => $data['user_details']['year_level'] ?? 'N/A'],
+                ],
+                [
+                    ['label' => 'Section:', 'value' => $data['user_details']['section'] ?? 'N/A'],
+                    null,
+                ],
+            ];
             
-            $pdf->SetXY($startX + $colWidth + $colSpacing, $row1Y);
-            $pdf->Cell(30, $rowHeight, 'Student No:', 0, 0, 'L');
-            $studentNo = $data['user']['username'] ?? 'N/A';
-            $pdf->SetXY($startX + $colWidth + $colSpacing + 30, $row1Y);
-            $pdf->Cell($colWidth - 30, $rowHeight, $studentNo, 0, 0, 'L');
-            
-            // Row 2: Program (col 1), Year Level (col 2)
-            $row2Y = $currentY + $rowHeight;
-            $pdf->SetXY($startX, $row2Y);
-            $pdf->Cell(30, $rowHeight, 'Program:', 0, 0, 'L');
-            $program = $data['user_details']['program_name'] ?? 'N/A';
-            $pdf->SetXY($startX + 30, $row2Y);
-            $pdf->Cell($colWidth - 30, $rowHeight, $program, 0, 0, 'L');
-            
-            $pdf->SetXY($startX + $colWidth + $colSpacing, $row2Y);
-            $pdf->Cell(30, $rowHeight, 'Year Level:', 0, 0, 'L');
-            $yearLevel = $data['user_details']['year_level'] ?? 'N/A';
-            $pdf->SetXY($startX + $colWidth + $colSpacing + 30, $row2Y);
-            $pdf->Cell($colWidth - 30, $rowHeight, $yearLevel, 0, 0, 'L');
-            
-            // Row 3: Section (col 1), empty (col 2)
-            $row3Y = $currentY + ($rowHeight * 2);
-            $pdf->SetXY($startX, $row3Y);
-            $pdf->Cell(30, $rowHeight, 'Section:', 0, 0, 'L');
-            $section = $data['user_details']['section'] ?? 'N/A';
-            $pdf->SetXY($startX + 30, $row3Y);
-            $pdf->Cell($colWidth - 30, $rowHeight, $section, 0, 0, 'L');
-            
-            $currentY = $row3Y + $rowHeight;
+            foreach ($rows as $row) {
+                $rowY = $currentY;
+                $maxHeight = 0;
+                $colX = $startX;
+                
+                foreach ($row as $column) {
+                    if ($column === null) {
+                        $colX += $colWidth + $colSpacing;
+                        continue;
+                    }
+                    
+                    $height = $this->drawInfoColumn(
+                        $pdf,
+                        $colX,
+                        $rowY,
+                        $labelWidth,
+                        $colWidth - $labelWidth,
+                        $column['label'],
+                        $column['value'],
+                        $lineHeight
+                    );
+                    
+                    $maxHeight = max($maxHeight, $height);
+                    $colX += $colWidth + $colSpacing;
+                }
+                
+                $currentY = $rowY + $maxHeight + 1;
+            }
         } else {
-            // Faculty - keep original single column layout
+            // Faculty - single column layout with wrapping
             $labelWidth = 35;
-            $valueX = $startX + $labelWidth;
             $valueWidth = $width - $labelWidth;
+            $lineHeight = 4;
             
-            // Name
-            $pdf->SetXY($startX, $currentY);
-            $pdf->Cell($labelWidth, 4, 'Name:', 0, 0, 'L');
-            $pdf->SetXY($valueX, $currentY);
-            $pdf->Cell($valueWidth, 4, $fullName, 0, 1, 'L');
+            $facultyFields = [
+                ['label' => 'Name:', 'value' => $fullName],
+                ['label' => 'Employee Number:', 'value' => $data['user_details']['employee_number'] ?? 'N/A'],
+                ['label' => 'Department:', 'value' => $data['user_details']['department_name'] ?? 'N/A'],
+                ['label' => 'Employment Status:', 'value' => $data['user_details']['employment_status'] ?? 'N/A'],
+            ];
             
-            $currentY += 4;
-            
-            // Employee Number
-            $idValue = $data['user_details']['employee_number'] ?? 'N/A';
-            $pdf->SetXY($startX, $currentY);
-            $pdf->Cell($labelWidth, 4, 'Employee Number:', 0, 0, 'L');
-            $pdf->SetXY($valueX, $currentY);
-            $pdf->Cell($valueWidth, 4, $idValue, 0, 1, 'L');
-            
-            $currentY += 4;
-            
-            // Department
-            $department = $data['user_details']['department_name'] ?? 'N/A';
-            $pdf->SetXY($startX, $currentY);
-            $pdf->Cell($labelWidth, 4, 'Department:', 0, 0, 'L');
-            $pdf->SetXY($valueX, $currentY);
-            $pdf->Cell($valueWidth, 4, $department, 0, 1, 'L');
-            
-            $currentY += 4;
-            
-            // Employment Status
-            $empStatus = $data['user_details']['employment_status'] ?? 'N/A';
-            $pdf->SetXY($startX, $currentY);
-            $pdf->Cell($labelWidth, 4, 'Employment Status:', 0, 0, 'L');
-            $pdf->SetXY($valueX, $currentY);
-            $pdf->Cell($valueWidth, 4, $empStatus, 0, 1, 'L');
-            
-            $currentY += 4;
+            foreach ($facultyFields as $field) {
+                $rowY = $currentY;
+                $height = $this->drawInfoColumn(
+                    $pdf,
+                    $startX,
+                    $rowY,
+                    $labelWidth,
+                    $valueWidth,
+                    $field['label'],
+                    $field['value'],
+                    $lineHeight
+                );
+                
+                $currentY = $rowY + $height + 1;
+            }
         }
         
         // Horizontal line
@@ -681,6 +679,42 @@ class ClearanceFormPDFGenerator {
             default:
                 return ucfirst($status);
         }
+    }
+
+    /**
+     * Draw a label/value column with wrapped text and return the consumed height.
+     */
+    private function drawInfoColumn($pdf, $x, $y, $labelWidth, $valueWidth, $label, $value, $lineHeight = 4) {
+        $pdf->SetXY($x, $y);
+        $pdf->Cell($labelWidth, $lineHeight, $label, 0, 0, 'L');
+        
+        $pdf->SetXY($x + $labelWidth, $y);
+        $valueHeight = $this->renderWrappedText($pdf, $valueWidth, $lineHeight, $value);
+        
+        return max($lineHeight, $valueHeight);
+    }
+    
+    /**
+     * Render wrapped text using MultiCell and return the height used.
+     */
+    private function renderWrappedText($pdf, $width, $lineHeight, $text) {
+        $text = ($text === null || $text === '') ? 'N/A' : $text;
+        
+        $startX = $pdf->GetX();
+        $startY = $pdf->GetY();
+        
+        $pdf->MultiCell($width, $lineHeight, $text, 0, 'L');
+        $endY = $pdf->GetY();
+        $height = $endY - $startY;
+        
+        if ($height <= 0) {
+            $height = $lineHeight;
+        }
+        
+        // Reset position to the right of the rendered text so subsequent columns continue correctly
+        $pdf->SetXY($startX + $width, $startY);
+        
+        return $height;
     }
 }
 

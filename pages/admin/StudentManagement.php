@@ -15,7 +15,7 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <!-- <link rel="stylesheet" href="../../assets/css/activity-tracker.css"> -->
+    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -92,13 +92,11 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
-                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
-                            <?php */ ?>
                         </div>
 
                         <!-- Search and Filters Section -->
@@ -243,9 +241,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288322')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288322')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -268,9 +263,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288323')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn inactive" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-off"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288323')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -295,9 +287,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288324')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288324')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -320,9 +309,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288325')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn inactive" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-off"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288325')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -347,9 +333,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288326')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288326')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -372,9 +355,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288327')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn graduated" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-graduation-cap"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288327')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -399,9 +379,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288328')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288328')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -424,9 +401,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288329')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288329')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -451,9 +425,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288330')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288330')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -476,9 +447,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288331')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288331')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -503,9 +471,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288332')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288332')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -528,9 +493,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288333')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288333')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -555,9 +517,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288334')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn inactive" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-off"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288334')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -580,9 +539,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288335')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288335')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -607,9 +563,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288336')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288336')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -632,9 +585,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288337')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288337')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -659,9 +609,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288338')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn inactive" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-off"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288338')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -684,9 +631,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288339')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288339')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -711,9 +655,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288340')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288340')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -736,9 +677,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288325')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288325')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -763,9 +701,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288326')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288326')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -788,9 +723,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288327')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn graduated" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-graduation-cap"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288327')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -839,11 +771,9 @@ if (session_status() == PHP_SESSION_NONE) {
                 </div>
 
                 <!-- RIGHT SIDE: Activity Tracker -->
-                <!--
                 <div class="dashboard-sidebar">
-                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
                 </div>
-                -->
             </div>
         </div>
     </main>
@@ -909,7 +839,6 @@ if (session_status() == PHP_SESSION_NONE) {
         </div>
     </div>
 
-    <?php /* Signatory Override interface temporarily disabled ?>
     <!-- Signatory Override Modal -->
     <div id="signatoryOverrideModal" class="modal-overlay" style="display: none;">
         <div class="modal-window override-modal">
@@ -1028,7 +957,6 @@ if (session_status() == PHP_SESSION_NONE) {
             <!-- Dynamic content will be populated -->
         </div>
     </div>
-    <?php */ ?>
 
     <script>
         // Toggle sidebar
@@ -1133,15 +1061,10 @@ if (session_status() == PHP_SESSION_NONE) {
                      selectedRows.forEach(checkbox => {
                          const row = checkbox.closest('tr');
                          const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-                         const toggleBtn = row.querySelector('.status-toggle-btn');
                         
                         statusBadge.textContent = 'Active';
                         statusBadge.classList.remove('account-inactive');
                         statusBadge.classList.add('account-active');
-                        toggleBtn.classList.remove('inactive');
-                        toggleBtn.classList.add('active');
-                        toggleBtn.querySelector('i').classList.remove('fa-toggle-off');
-                        toggleBtn.querySelector('i').classList.add('fa-toggle-on');
                     });
                     
                     // Update statistics
@@ -1170,15 +1093,10 @@ if (session_status() == PHP_SESSION_NONE) {
                      selectedRows.forEach(checkbox => {
                          const row = checkbox.closest('tr');
                          const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-                         const toggleBtn = row.querySelector('.status-toggle-btn');
                         
                         statusBadge.textContent = 'Inactive';
                         statusBadge.classList.remove('account-active');
                         statusBadge.classList.add('account-inactive');
-                        toggleBtn.classList.remove('active');
-                        toggleBtn.classList.add('inactive');
-                        toggleBtn.querySelector('i').classList.remove('fa-toggle-on');
-                        toggleBtn.querySelector('i').classList.add('fa-toggle-off');
                     });
                     
                     // Update statistics
@@ -1217,59 +1135,6 @@ if (session_status() == PHP_SESSION_NONE) {
             );
         }
 
-        // Individual Status Toggle with Confirmation
-        function toggleStudentStatus(button) {
-            const row = button.closest('tr');
-            const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-            
-            if (!statusBadge) {
-                console.error('Status badge not found');
-                showToastNotification('Error: Could not find status badge', 'error');
-                return;
-            }
-            
-            const studentName = row.querySelector('td:nth-child(3)').textContent;
-            const currentStatus = statusBadge.textContent;
-            const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
-            
-            showConfirmationModal(
-                'Change Student Status',
-                `Change ${studentName}'s status from ${currentStatus} to ${newStatus}?`,
-                'Confirm',
-                'Cancel',
-                () => {
-                    if (currentStatus === 'Active') {
-                        // Change to Inactive
-                        statusBadge.textContent = 'Inactive';
-                        statusBadge.classList.remove('account-active');
-                        statusBadge.classList.add('account-inactive');
-                        button.classList.remove('active');
-                        button.classList.add('inactive');
-                        button.querySelector('i').classList.remove('fa-toggle-on');
-                        button.querySelector('i').classList.add('fa-toggle-off');
-                        
-                        // Update statistics
-                        updateStatistics('deactivate');
-                    } else {
-                        // Change to Active
-                        statusBadge.textContent = 'Active';
-                        statusBadge.classList.remove('account-inactive');
-                        statusBadge.classList.add('account-active');
-                        button.classList.remove('inactive');
-                        button.classList.add('active');
-                        button.querySelector('i').classList.remove('fa-toggle-off');
-                        button.querySelector('i').classList.add('fa-toggle-on');
-                        
-                        // Update statistics
-                        updateStatistics('activate');
-                    }
-                    
-                    // Show confirmation
-                    showToastNotification(`${studentName} is now ${newStatus}`, 'success');
-                },
-                'warning'
-            );
-        }
 
         // Individual Delete with Confirmation
         function deleteStudent(studentId) {
@@ -1373,14 +1238,11 @@ if (session_status() == PHP_SESSION_NONE) {
                     selectedRows.forEach(checkbox => {
                         const row = checkbox.closest('tr');
                         const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-                        const toggleBtn = row.querySelector('.status-toggle-btn');
                         
                         if (statusBadge) {
                             statusBadge.textContent = 'Graduated';
                             statusBadge.classList.remove('account-active', 'account-inactive');
                             statusBadge.classList.add('account-graduated');
-                            
-                            toggleBtn.style.display = 'none'; // Hide toggle for graduated students
                         }
                     });
                     
@@ -2361,10 +2223,9 @@ if (session_status() == PHP_SESSION_NONE) {
     <script src="../../assets/js/alerts.js"></script>
     
     <!-- Include Activity Tracker JavaScript -->
-    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
+    <script src="../../assets/js/activity-tracker.js"></script>
     
     <!-- Initialize Activity Tracker -->
-    <!--
     <script>
         // Initialize Activity Tracker when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
@@ -2374,9 +2235,8 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         });
     </script>
-    -->
     
     <!-- Include Audit Functions -->
-    <?php /* include '../../includes/functions/audit_functions.php'; */ ?>
+    <?php include '../../includes/functions/audit_functions.php'; ?>
 </body>
 </html> 

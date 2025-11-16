@@ -25,79 +25,59 @@ try {
     $rn = strtolower((string)$rs->fetchColumn());
     // Allow Admin or Program Head access
     if ($rn === 'program head' || $rn === 'admin') { $roleOk = true; }
-        // Get all sector assignments for this user as a Program Head
-        $sectorStmt = $pdo->prepare("
-            SELECT DISTINCT s.sector_name
-            FROM user_department_assignments uda
-            JOIN departments d ON uda.department_id = d.department_id
-            JOIN sectors s ON d.sector_id = s.sector_id
-            JOIN user_designation_assignments udaa ON uda.user_id = udaa.user_id
-            JOIN designations des ON udaa.designation_id = des.designation_id
-            WHERE uda.user_id = ? 
-              AND des.designation_name = 'Program Head' 
-              AND uda.is_active = 1 
-              AND udaa.is_active = 1
-        ");
 
-        $sectorStmt->execute([$userId]);
-        $assignedSectors = $sectorStmt->fetchAll(PDO::FETCH_COLUMN);
+    // Check student-sector assignment - COMMENTED OUT TO ALLOW ALL PROGRAM HEADS ACCESS
+    $sql = "SELECT COUNT(*) FROM signatory_assignments sa
+            JOIN designations des ON sa.designation_id=des.designation_id
+            JOIN departments d ON sa.department_id=d.department_id
+            JOIN sectors s ON d.sector_id=s.sector_id
+            WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name IN ('College','Senior High School')";
+    $st = $pdo->prepare($sql);
+    $st->execute([$userId]);
+    $hasStudentSector = ((int)$st->fetchColumn()) > 0;
 
-        $hasStudentSector = !empty(array_intersect($assignedSectors, ['College', 'Senior High School']));
-        $hasFacultySector = in_array('Faculty', $assignedSectors);
-        $isOnlyFaculty = $hasFacultySector && !$hasStudentSector;
-
-        if (!$roleOk) {
-            // If the user is not a Program Head or Admin, they have no access.
-            // Redirect faculty-only Program Heads to the faculty management page.
-            if ($isOnlyFaculty) {
-                header('Location: ../../pages/program-head/FacultyManagement.php');
-            } else {
-                header('Location: ../../pages/auth/login.php'); // Or a generic dashboard
-            }
-            exit;
+    if (!$roleOk) {
+        // If PH has faculty only, redirect to PH FacultyManagement; else to PH dashboard
+        $sf = $pdo->prepare("SELECT COUNT(*) FROM signatory_assignments sa JOIN designations des ON sa.designation_id=des.designation_id JOIN departments d ON sa.department_id=d.department_id JOIN sectors s ON d.sector_id=s.sector_id WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name='Faculty'");
+        $sf->execute([$userId]);
+        $hasFacultySector = ((int)$sf->fetchColumn()) > 0;
+        if ($hasFacultySector) {
+            header('Location: ../../pages/program-head/FacultyManagement.php');
+        } else {
+            header('Location: ../../pages/program-head/dashboard.php');
         }
-
-        // If the user IS a Program Head but has no student-related sectors, they can't be here.
-        if (!$hasStudentSector) {
-            // If they have a faculty sector, send them there. Otherwise, to the dashboard.
-            if ($hasFacultySector) {
-                header('Location: ../../pages/program-head/FacultyManagement.php');
-            } else {
-                header('Location: ../../pages/program-head/dashboard.php');
-            }
-            exit;
-        }
+        exit;
+    }
 
     $deptStmt = $pdo->prepare("
-        SELECT uda.department_id
-        FROM user_department_assignments uda
-        JOIN user_designation_assignments udaa ON uda.user_id = udaa.user_id
-        JOIN designations d ON udaa.designation_id = d.designation_id
-        WHERE uda.user_id = ? AND d.designation_name = 'Program Head' AND uda.is_active = 1 AND udaa.is_active = 1
+    SELECT COALESCE(
+        (SELECT sa.department_id
+         FROM signatory_assignments sa
+         JOIN designations des ON sa.designation_id = des.designation_id
+         WHERE sa.user_id = ? AND sa.is_active = 1 AND des.designation_name = 'Program Head'
+         LIMIT 1),
+        (SELECT s.department_id
+         FROM staff s
+         WHERE s.user_id = ? AND s.designation_id = 8 AND s.is_active = 1
+         LIMIT 1)
+        ) AS department_id
     ");
-    $deptStmt->execute([$userId]);
-    $departmentIds = $deptStmt->fetchAll(PDO::FETCH_COLUMN);
+    $deptStmt->execute([$userId, $userId]);
+    $departmentId = $deptStmt->fetchColumn();
 
     // Debug log for department ID query
     error_log("DEPARTMENT_ID_DEBUG: Query executed with userId = $userId");
-    error_log("DEPARTMENT_ID_DEBUG: Resulting departmentIds = " . json_encode($departmentIds));
+    error_log("DEPARTMENT_ID_DEBUG: Resulting departmentId = " . json_encode($departmentId));
 
-    if (empty($departmentIds)) {
+    if (!$departmentId) {
         throw new Exception('No department assigned to this Program Head.');
     }
-
-    // For pages that need a single department context, we can use the first one.
-    // However, for data fetching, we should use the array $departmentIds.
-    $departmentId = $departmentIds[0]; // Use the first department ID for context, if needed.
-
 
     $canTakeAction = $hasStudentSector; // Only true if user is an active signatory for this sector/department
 
 } catch (Throwable $e) {
-    error_log('Access Denied Error in CollegeStudentManagement.php: ' . $e->getMessage());
-    error_log('Stack Trace: ' . $e->getTraceAsString());
     header('HTTP/1.1 403 Forbidden');
-    echo 'Access denied. Check server logs for details.';
+    echo 'Access denied.';
     exit;
 }
 ?>
@@ -194,30 +174,6 @@ try {
                         
                         <!-- Tab Banner Wrapper -->
                         <div class="tab-banner-wrapper">
-                            <!-- Tab Navigation for quick status views -->
-                            <div class="tab-nav" id="studentTabNav">
-                                <button class="tab-pill active" data-status="" onclick="switchStudentTab(this)">
-                                    Overall
-                                </button>
-                                <button class="tab-pill" data-status="active" onclick="switchStudentTab(this)">
-                                    Active
-                                </button>
-                                <button class="tab-pill" data-status="inactive" onclick="switchStudentTab(this)">
-                                    Inactive
-                                </button>
-                                <button class="tab-pill" data-status="graduated" onclick="switchStudentTab(this)">
-                                    Graduated
-                                </button>
-                            </div>
-                            <!-- Mobile dropdown alternative -->
-                            <div class="tab-nav-mobile" id="studentTabSelectWrapper">
-                                <select id="studentTabSelect" class="tab-select" onchange="handleTabSelectChange(this)">
-                                    <option value="" selected>Overall</option>
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                    <option value="graduated">Graduated</option>
-                                </select>
-                            </div>
                             <!-- Current Period Banner -->
                             <span class="academic-year-semester">
                                 <i class="fas fa-calendar-check"></i> 
@@ -374,20 +330,17 @@ try {
                     </div>
                 </div>
                 
-                <!--
+                <!-- Activity Tracker Sidebar -->
                 <div class="dashboard-sidebar">
-                    <?php /* include '../../includes/components/activity-tracker.php'; */ ?>
+                    <?php include '../../includes/components/activity-tracker.php'; ?>
                 </div>
-                -->
             </div>
         </div>
     </main>
 
     <script>
         // Make the department ID available to JavaScript
-        const DEPARTMENT_IDS = <?php echo json_encode($departmentIds); ?>;
-        // For backwards compatibility, if a single ID is needed, use the first one.
-        const DEPARTMENT_ID = DEPARTMENT_IDS.length > 0 ? DEPARTMENT_IDS[0] : null;
+        const DEPARTMENT_ID = <?php echo json_encode($departmentId); ?>;
         // Default until we query the central assignment API
         window.CAN_TAKE_ACTION = false;
 
@@ -779,7 +732,7 @@ try {
             );
         }
 
-        async function rejectStudent(button) {
+        function rejectStudent(button) {
             const row = button.closest('tr');
             const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-approved');
             
@@ -796,32 +749,12 @@ try {
                 showToastNotification(`${studentName}'s clearance is already rejected`, 'info');
                 return;
             }
-
-            let existingRemarks = '';
-            let existingReasonId = '';
-            const signatoryId = row.getAttribute('data-signatory-id');
-
-            try {
-                const response = await fetch(`../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`, { credentials: 'include' });
-                const data = await response.json();
-                if (data.success && data.details) {
-                    existingRemarks = data.details.additional_remarks || '';
-                    existingReasonId = data.details.reason_id || '';
-                }
-            } catch (error) {
-                console.error("Error fetching rejection details:", error);
-                showToastNotification('Could not load existing rejection details.', 'error');
-            }
-        
-            console.log('Opening rejection modal for', studentName);
-            console.log('Existing reason ID:', existingReasonId);
-            console.log('Existing remarks:', existingRemarks);
             
             // Get student ID from the checkbox
             const userId = row.getAttribute('data-user-id');
             
             // Open rejection remarks modal for individual rejection
-            openRejectionRemarksModal(userId, studentName, 'student', false, [], existingRemarks, existingReasonId);
+            openRejectionRemarksModal(userId, clearanceFormId, signatoryId, studentName);
         }
 
         // Individual Delete with Confirmation
@@ -873,13 +806,11 @@ try {
                     selectedRows.forEach(checkbox => {
                         const row = checkbox.closest('tr');
                         const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-                        const toggleBtn = row.querySelector('.status-toggle-btn');
                         
                         if (statusBadge) {
                             statusBadge.textContent = 'Graduated';
                             statusBadge.classList.remove('account-active', 'account-inactive');
                             statusBadge.classList.add('account-graduated');
-                            toggleBtn.style.display = 'none';
                         }
                     });
                     
@@ -1201,66 +1132,6 @@ try {
             }
         }
 
-        // Tab navigation functions
-        function switchStudentTab(button) {
-            const status = button.getAttribute('data-status');
-            window.currentTabStatus = status;
-            
-            // Update tab appearance
-            document.querySelectorAll('.tab-pill').forEach(pill => {
-                pill.classList.remove('active');
-            });
-            button.classList.add('active');
-            
-            // Update mobile select
-            const mobileSelect = document.getElementById('studentTabSelect');
-            if (mobileSelect) {
-                mobileSelect.value = status;
-            }
-            
-            // Apply tab filter
-            applyTabFilter(status);
-        }
-
-        function handleTabSelectChange(select) {
-            const status = select.value;
-            window.currentTabStatus = status;
-            
-            // Update tab pills
-            document.querySelectorAll('.tab-pill').forEach(pill => {
-                pill.classList.remove('active');
-                if (pill.getAttribute('data-status') === status) {
-                    pill.classList.add('active');
-                }
-            });
-            
-            // Apply tab filter
-            applyTabFilter(status);
-        }
-
-        function applyTabFilter(status) {
-            const tableRows = document.querySelectorAll('#studentsTableBody tr');
-            
-            tableRows.forEach(row => {
-                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-graduated');
-                
-                if (!status || status === '') {
-                    // Show all rows
-                    row.style.display = '';
-                } else {
-                    // Filter by status
-                    if (accountBadge && accountBadge.classList.contains(`account-${status}`)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                }
-            });
-            
-            // Update pagination
-            updateFilteredEntries();
-        }
-
         // Bulk selection functions
         function openBulkSelectionModal() {
             const modal = document.getElementById('bulkSelectionModal');
@@ -1497,7 +1368,7 @@ try {
             url.searchParams.append('sector', 'College');
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
-            url.searchParams.append('department_ids', DEPARTMENT_IDS.join(',')); // Pass comma-separated IDs
+            url.searchParams.append('department_id', DEPARTMENT_ID); // Pass the department_id
 
             if (search) url.searchParams.append('search', search);
             if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
@@ -1703,7 +1574,7 @@ try {
                         <button class="btn-icon approve-btn" onclick="approveSignatory('${student.user_id}')" title="Approve Signatory" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-check"></i>
                         </button>
-                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(student.signatory_id)}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
+                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}', '${student.clearance_form_id}', '${student.signatory_id}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-times"></i>
                         </button>
                         <button class="btn-icon delete-btn" onclick="deleteStudent('${student.id}')" title="Delete Student">
@@ -1885,14 +1756,12 @@ try {
                 tableWrapper.addEventListener('scroll', handleTableScroll);
             }
             
-            /*
             // Initialize Activity Tracker
             if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
                 window.activityTrackerInstance = new ActivityTracker({
                     userRole: 'Program Head'
                 });
             }
-            */
             
             // 1. Load user-specific data first (profile, departments, etc.)
             loadProgramHeadProfile().then(() => {
@@ -2127,41 +1996,31 @@ try {
 
         // Signatory Action Functions
         async function approveSignatory(targetUserId, clearanceFormId, signatoryId) {
-            const row = document.querySelector(`tr[data-user-id="${targetUserId}"]`);
-            const studentName = row ? row.cells[2].textContent : 'this student';
+            try {
+                const response = await fetch('../../api/clearance/signatory_action.php', {
+                    method: 'POST', // Corrected to POST
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        applicant_user_id: targetUserId,
+                        action: 'Approved',
+                        remarks: 'Approved by Program Head',
+                        designation_name: 'Program Head' // Add designation for routing
+                    })
+                });
 
-            showConfirmationModal(
-                'Approve Clearance',
-                `Are you sure you want to approve clearance for ${studentName}?`,
-                'Approve',
-                'Cancel',
-                async () => {
-                    try {
-                        const response = await fetch('../../api/clearance/signatory_action.php', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
-                            body: JSON.stringify({
-                                applicant_user_id: targetUserId,
-                                action: 'Approved',
-                                remarks: 'Approved by Program Head',
-                                designation_name: 'Program Head'
-                            })
-                        });
-                        const result = await response.json();
-                        if (result.success) {
-                            showToastNotification(`Clearance for ${studentName} has been approved.`, 'success');
-                            loadStudentsData(); // Refresh data to show updated status
-                        } else {
-                            showToastNotification('Failed to approve: ' + result.message, 'error');
-                        }
-                    } catch (error) {
-                        console.error('Error approving signatory:', error);
-                        showToastNotification('An error occurred during approval.', 'error');
-                    }
-                },
-                'success'
-            );
+                const result = await response.json();
+
+                if (result.success) {
+                    showToastNotification('Signatory approved successfully', 'success');
+                    updateSignatoryActionUI(targetUserId, 'Approved');
+                } else {
+                    showToastNotification('Failed to approve signatory: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error approving signatory:', error);
+                showToastNotification('Error approving signatory: ' + error.message, 'error');
+            }
         }
 
         async function rejectSignatory(targetUserId, clearanceFormId, signatoryId) {
@@ -2221,7 +2080,7 @@ try {
     
     <!-- Include Alert System JavaScript -->
     <script src="../../assets/js/alerts.js"></script>
-    <!-- <script src="../../assets/js/activity-tracker.js"></script> -->
-    <!-- <?php // include '../../includes/functions/audit_functions.php'; ?> -->
+    <script src="../../assets/js/activity-tracker.js"></script>
+    <?php include '../../includes/functions/audit_functions.php'; ?>
 </body>
 </html>
