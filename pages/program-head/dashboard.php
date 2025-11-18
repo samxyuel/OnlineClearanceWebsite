@@ -11,7 +11,8 @@
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/css/components.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <!-- Header -->
@@ -101,15 +102,6 @@
                                 </div>
                             </div>
                             <div class="stat-card">
-                                <div class="stat-icon">
-                                    <i class="fas fa-chalkboard-teacher"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h3>28</h3>
-                                    <p>Total Faculty</p>
-                                </div>
-                            </div>
-                            <div class="stat-card">
                                 <div class="stat-icon active">
                                     <i class="fas fa-chalkboard-teacher"></i>
                                 </div>
@@ -130,53 +122,13 @@
                         </div>
 
 
-                        <!-- Recent Activity -->
-                        <div class="management-section">
-                            <div class="section-header">
-                                <h3><i class="fas fa-history"></i> Recent Activity</h3>
-                            </div>
-                            <div class="activity-list">
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-check-circle"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>Clearance Approved</h4>
-                                        <p>Zinzu Chan Lee's clearance was approved</p>
-                                        <span class="activity-time">5 minutes ago</span>
-                                    </div>
-                                </div>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-times-circle"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>Clearance Rejected</h4>
-                                        <p>John Doe's clearance was rejected - missing requirements</p>
-                                        <span class="activity-time">15 minutes ago</span>
-                                    </div>
-                                </div>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-user-plus"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>New Student Registered</h4>
-                                        <p>Carlos Rodriguez registered for clearance</p>
-                                        <span class="activity-time">1 hour ago</span>
-                                    </div>
-                                </div>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-file-export"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>Report Exported</h4>
-                                        <p>Weekly clearance report was generated</p>
-                                        <span class="activity-time">2 hours ago</span>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Content Grid -->
+                        <div class="content-grid">
+                            <!-- Recent Activity Section -->
+                            <?php include '../../includes/components/recent-activity.php'; ?>
+
+                            <!-- Notifications Panel -->
+                            <?php include '../../includes/components/notifications.php'; ?>
                         </div>
 
                         <!-- Department Overview -->
@@ -398,15 +350,20 @@
         // Update statistics display
         function updateStatisticsDisplay(data) {
             // Update Department Statistics Dashboard
-            if (data.total_students !== undefined) {
-                document.getElementById('totalStudentsStat').textContent = data.total_students.toLocaleString();
+            const totalStudentsEl = document.getElementById('totalStudentsStat');
+            if (totalStudentsEl) {
+                totalStudentsEl.textContent = (data.total_students || 0).toLocaleString();
             }
-            if (data.total_faculty !== undefined) {
-                document.getElementById('totalFacultyStat').textContent = data.total_faculty.toLocaleString();
+            
+            const totalFacultyEl = document.getElementById('totalFacultyStat');
+            if (totalFacultyEl) {
+                totalFacultyEl.textContent = (data.total_faculty || 0).toLocaleString();
             }
-            if (data.pending_signatures) {
-                const totalPending = (data.pending_signatures.student || 0) + (data.pending_signatures.faculty || 0);
-                document.getElementById('pendingSignaturesStat').textContent = totalPending.toLocaleString();
+            
+            const pendingSignaturesEl = document.getElementById('pendingSignaturesStat');
+            if (pendingSignaturesEl) {
+                const totalPending = (data.pending_signatures?.student || 0) + (data.pending_signatures?.faculty || 0);
+                pendingSignaturesEl.textContent = totalPending.toLocaleString();
             }
 
             // Update sector statistics

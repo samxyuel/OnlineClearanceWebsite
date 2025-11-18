@@ -770,12 +770,12 @@ class ReportGenerator {
                 'Total Rejected:' => $summary['TotalRejected'] ?? 0,
             ];
         } else {
-            $items = [
-                'Total Forms:' => $summary['TotalForms'] ?? 0,
-                'Total Unapplied:' => $summary['TotalUnapplied'] ?? 0,
-                'Total In Progress:' => $summary['TotalInProgress'] ?? 0,
-                'Total Completed:' => $summary['TotalCompleted'] ?? 0,
-            ];
+        $items = [
+            'Total Forms:' => $summary['TotalForms'] ?? 0,
+            'Total Unapplied:' => $summary['TotalUnapplied'] ?? 0,
+            'Total In Progress:' => $summary['TotalInProgress'] ?? 0,
+            'Total Completed:' => $summary['TotalCompleted'] ?? 0,
+        ];
         }
         
         foreach ($items as $label => $value) {
@@ -1027,7 +1027,9 @@ class ReportGenerator {
         $pdf->SetXY(15, $footerY);
         $pdf->Cell(60, 4, 'Date Generated:', 0, 0, 'L');
         $pdf->SetXY(15, $footerY + 4);
-        $dateGenerated = date('Y-m-d H:i:s');
+        // Use Asia/Manila timezone for Date Generated
+        $dateTime = new DateTime('now', new DateTimeZone('Asia/Manila'));
+        $dateGenerated = $dateTime->format('Y-m-d H:i:s');
         $pdf->Cell(60, 4, $dateGenerated, 0, 0, 'L');
         
         // Center column: Page X of X

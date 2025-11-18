@@ -27,12 +27,10 @@ if (empty($username) || empty($password)) {
 $auth = new Auth();
 $result = $auth->authenticate($username, $password);
 
-if ($result['success']) {
-    http_response_code(200);
-    echo json_encode($result);
-} else {
-    http_response_code(401);
-    echo json_encode($result);
-}
+// Always return 200 OK - use JSON body to indicate success/failure
+// This prevents browser from showing red errors for business logic failures
+// HTTP error codes (401, 404, 500) should be reserved for actual HTTP errors
+http_response_code(200);
+echo json_encode($result);
 ?>
 

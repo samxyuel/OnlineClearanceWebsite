@@ -1,0 +1,24 @@
+[2025-11-12 18:55:39] ERROR: Test error message
+Context: {
+    "error_code": "TEST_ERROR"
+}
+--------------------------------------------------------------------------------
+[2025-11-12 18:55:39] ERROR: Test resource not found
+Context: {
+    "exception": "App\\Exceptions\\NotFoundException",
+    "file": "C:\\xampp\\htdocs\\OnlineClearanceWebsite\\test_error_handling.php",
+    "line": 105,
+    "trace": "#0 {main}",
+    "resource_id": 999,
+    "request": {
+        "method": "UNKNOWN",
+        "uri": "UNKNOWN",
+        "ip": "UNKNOWN"
+    }
+}
+--------------------------------------------------------------------------------
+[2025-11-12 18:55:39] ERROR: Database connection failed
+Context: {
+    "host": "localhost"
+}
+--------------------------------------------------------------------------------

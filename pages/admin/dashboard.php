@@ -10,7 +10,8 @@
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/css/components.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <?php
@@ -100,7 +101,7 @@
                                 <i class="fas fa-users"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>1,234</h3>
+                                <h3 id="totalStudentsStat">0</h3>
                                 <p>Total Students</p>
                             </div>
                         </div>
@@ -109,7 +110,7 @@
                                 <i class="fas fa-chalkboard-teacher"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>89</h3>
+                                <h3 id="totalFacultyStat">0</h3>
                                 <p>Total Faculty</p>
                             </div>
                         </div>
@@ -118,7 +119,7 @@
                                 <i class="fas fa-user-cog"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>26</h3>
+                                <h3 id="totalStaffStat">0</h3>
                                 <p>Total Staff</p>
                             </div>
                         </div>
@@ -127,7 +128,7 @@
                                 <i class="fas fa-clipboard-check"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>57</h3>
+                                <h3 id="activeClearancesStat">0</h3>
                                 <p>Active Clearances</p>
                             </div>
                         </div>
@@ -135,53 +136,7 @@
 
 
                     <!-- Recent Activity -->
-                    <div class="management-section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-history"></i> Recent Activity</h3>
-                        </div>
-                        <div class="activity-list">
-                            <div class="activity-item">
-                                <div class="activity-icon">
-                                    <i class="fas fa-user-plus"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <h4>New Student Registration</h4>
-                                    <p>John Smith registered for clearance</p>
-                                    <span class="activity-time">2 minutes ago</span>
-                                </div>
-                            </div>
-                            <div class="activity-item">
-                                <div class="activity-icon">
-                                    <i class="fas fa-check-circle"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <h4>Clearance Completed</h4>
-                                    <p>Maria Garcia completed her clearance</p>
-                                    <span class="activity-time">15 minutes ago</span>
-                                </div>
-                            </div>
-                            <div class="activity-item">
-                                <div class="activity-icon">
-                                    <i class="fas fa-pause-circle"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <h4>Term Deactivated</h4>
-                                    <p>2024-2025 Term 1 was deactivated</p>
-                                    <span class="activity-time">1 hour ago</span>
-                                </div>
-                            </div>
-                            <div class="activity-item">
-                                <div class="activity-icon">
-                                    <i class="fas fa-user-edit"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <h4>Staff Updated</h4>
-                                    <p>Dr. Emily Brown's information was updated</p>
-                                    <span class="activity-time">2 hours ago</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <?php include '../../includes/components/recent-activity.php'; ?>
                 </div>
                 </div>
                 
@@ -299,6 +254,7 @@
                 
                 if (data.success) {
                     updateStatisticsDisplay(data.data);
+                    updateQuickStats(data.data);
                 }
             } catch (error) {
                 console.error('Error loading statistics:', error);
@@ -307,6 +263,14 @@
                     college: { applied: 0, completed: 0 },
                     shs: { applied: 0, completed: 0 },
                     faculty: { applied: 0, completed: 0 }
+                });
+                updateQuickStats({
+                    total_users: {
+                        total_students: 0,
+                        total_faculty: 0,
+                        total_staff: 0,
+                        active_clearances: 0
+                    }
                 });
             }
         }
@@ -333,6 +297,35 @@
             const facultyRate = facultyApplied > 0 ? Math.round((facultyCompleted / facultyApplied) * 100) : 0;
             document.getElementById('faculty-stats').textContent = 
                 `Faculty: ${facultyApplied} applied, ${facultyCompleted} completed (${facultyRate}%)`;
+        }
+        
+        // Update Quick Stats Dashboard
+        function updateQuickStats(data) {
+            const totalUsers = data.total_users || {};
+            
+            // Update Total Students
+            const totalStudentsEl = document.getElementById('totalStudentsStat');
+            if (totalStudentsEl) {
+                totalStudentsEl.textContent = (totalUsers.total_students || 0).toLocaleString();
+            }
+            
+            // Update Total Faculty
+            const totalFacultyEl = document.getElementById('totalFacultyStat');
+            if (totalFacultyEl) {
+                totalFacultyEl.textContent = (totalUsers.total_faculty || 0).toLocaleString();
+            }
+            
+            // Update Total Staff
+            const totalStaffEl = document.getElementById('totalStaffStat');
+            if (totalStaffEl) {
+                totalStaffEl.textContent = (totalUsers.total_staff || 0).toLocaleString();
+            }
+            
+            // Update Active Clearances
+            const activeClearancesEl = document.getElementById('activeClearancesStat');
+            if (activeClearancesEl) {
+                activeClearancesEl.textContent = (totalUsers.active_clearances || 0).toLocaleString();
+            }
         }
         
         // Toggle term status (activate or end)

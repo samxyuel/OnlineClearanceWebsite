@@ -18,7 +18,7 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/css/sector-clearance.css">
     <link rel="stylesheet" href="../../assets/css/grace-period-monitoring.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <!-- Header -->
@@ -139,14 +139,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <div class="sector-status">
                                             <span class="status-badge" id="statistics-status-badge">Live</span>
                                         </div>
-                                    </div>
-                                    <div class="sector-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="refreshStatistics()">
-                                            <i class="fas fa-sync-alt"></i> Refresh
-                                        </button>
-                                        <button class="btn btn-sm btn-primary" onclick="openExportModal()">
-                                            <i class="fas fa-file-export"></i> Export
-                                        </button>
                                     </div>
                                 </div>
                                 
@@ -413,12 +405,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                 </div>
                             </div>
 
-                                        <!-- Export Button -->
-                                        <div class="export-section">
-                                            <button class="btn btn-primary export-btn" onclick="openExportModal()">
-                                                <i class="fas fa-file-export"></i> Export Clearance Data
-                                            </button>
-                                        </div>
                                     </div>
                                     <!-- End of .sector-clearance-management -->
                                 </section>
@@ -668,7 +654,6 @@ if (session_status() == PHP_SESSION_NONE) {
     </main>
 
     <!-- Include Modals -->
-    <?php include '../../Modals/ClearanceExportModal.php'; ?>
     <?php include '../../Modals/AddSignatoryModal.php'; ?>
     <?php include '../../Modals/AddSchoolYearModal.php'; ?>
 
@@ -680,6 +665,7 @@ if (session_status() == PHP_SESSION_NONE) {
     <?php include '../../Modals/EligibleForGraduationModal.php'; ?>
     <?php include '../../Modals/ResignedFacultySelection.php'; ?>
     <?php include '../../Modals/EditFacultyModal.php'; ?>
+    <?php include '../../Modals/EditStudentModal.php'; ?>
 
     <!-- Scripts -->
     <script src="../../assets/js/activity-tracker.js"></script>
@@ -906,12 +892,15 @@ if (session_status() == PHP_SESSION_NONE) {
             try {
                 const params = new URLSearchParams();
                 params.append('sector', graduatedStudentsState[sector].label);
-                params.append('account_status', 'graduated');
+                params.append('account_status', 'graduated'); // Fetch all graduated students
                 const filters = graduatedStudentsState[sector].filters;
                 if (filters.department) params.append('department_id', filters.department);
                 if (filters.program) params.append('program_id', filters.program);
-                const defaultYearLevel = sector === 'shs' ? '2nd Year' : '4th Year';
-                params.append('year_level', filters.yearLevel || defaultYearLevel);
+                // Don't filter by year_level for graduated students - we want ALL graduated students
+                // Only add year_level filter if user explicitly selected one
+                if (filters.yearLevel) {
+                    params.append('year_level', filters.yearLevel);
+                }
                 const pagination = graduatedStudentsState[sector].pagination || { page: 1, limit: 10 };
                 params.append('page', pagination.page);
                 params.append('limit', pagination.limit);
@@ -4390,9 +4379,6 @@ function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
             }
         }
 
-        function openExportModal() {
-            openClearanceExportModal();
-        }
 
         // Graduation and Retention Modal Functions
         // Note: These are wrapper functions that call the window functions from the modals

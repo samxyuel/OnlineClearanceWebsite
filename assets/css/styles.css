@@ -12,6 +12,8 @@
   --light-muted-blue: #eef3ff;
   --soft-slate-gray: #5f6b7a;
   --dark-primary: #1c3faa;
+  /* login result message color */
+  --yellow-light: #fdfca3;
   /* Collapsed sidebar rail width used across layout to avoid clipping at high zoom */
   --collapsed-sidebar-width: 100px;
 }
@@ -250,23 +252,34 @@ body {
 }
 
 /* Login Page Styles */
+/* NOTE: Login page does not use a page header/navbar - card is centered in full viewport */
 .login-container {
-  /* Account for fixed header height to truly center the card in viewport */
-  min-height: calc(100vh - 92px);
-  margin-top: 92px;
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 40px 20px;
+  /* Composite background: image under semi-transparent golden tint */
+  background-image: linear-gradient(
+      rgba(1, 151, 251, 0.448),
+      rgba(1, 151, 251, 0.448)
+    ),
+    url("../images/bg-login.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 .login-card {
   background-color: white;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  padding: 40px;
+  padding: 2.5rem;
   width: 100%;
   max-width: 400px;
+  display: flex;
+  flex-direction: column;
 }
 
 .login-header {
@@ -288,7 +301,19 @@ body {
   margin: 0;
 }
 
+.login-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .login-form .form-group {
+  margin-bottom: 20px;
+}
+
+/* Extra spacing for login button group (since Remember Me is not used) */
+.login-form .login-button-group {
+  margin-top: 10px;
   margin-bottom: 20px;
 }
 
@@ -327,6 +352,16 @@ body {
 .forgot-link:hover {
   color: var(--deep-navy-blue);
   text-decoration: underline;
+}
+
+/* Login Footer */
+.login-footer {
+  padding-top: 20px;
+  border-top: 1px solid var(--light-blue-gray);
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--soft-slate-gray);
+  flex-shrink: 0;
 }
 
 /* Checkbox Styles */
@@ -2064,9 +2099,12 @@ body {
     font-size: 14px;
   }
 
+  .login-container {
+    padding: 30px 15px;
+  }
+
   .login-card {
     padding: 30px 20px;
-    margin: 20px;
   }
 
   .login-logo h2 {
@@ -2326,13 +2364,18 @@ body {
 /* Mobile phones */
 @media (max-width: 480px) {
   .login-container {
-    padding: 10px;
+    padding: 20px 15px;
   }
 
   .login-card {
-    padding: 25px 15px;
-    margin: 10px;
+    padding: 30px 25px;
     border-radius: 8px;
+  }
+
+  .login-footer {
+    margin-top: 25px;
+    padding-top: 15px;
+    font-size: 0.7rem;
   }
 
   .login-logo h2 {
@@ -2365,6 +2408,10 @@ body {
 
 /* Very small phones */
 @media (max-width: 320px) {
+  .login-container {
+    padding: 15px 10px;
+  }
+
   .login-card {
     padding: 20px 10px;
   }
@@ -2376,17 +2423,28 @@ body {
   .login-header h3 {
     font-size: 0.8rem;
   }
+
+  .login-footer {
+    margin-top: 20px;
+    padding-top: 12px;
+    font-size: 0.65rem;
+  }
 }
 
 /* Landscape orientation for mobile */
 @media (max-width: 768px) and (orientation: landscape) {
   .login-container {
-    padding: 10px;
+    padding: 20px 10px;
   }
 
   .login-card {
     max-width: 350px;
     padding: 25px 20px;
+  }
+
+  .login-footer {
+    margin-top: 20px;
+    padding-top: 15px;
   }
 }
 /* Alert System - Now externalized to assets/css/alerts.css */
@@ -10499,7 +10557,8 @@ body {
 .tab-banner-wrapper {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* justify-content: space-between; nung kinomment out yung tab nav */
+  justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 8px;

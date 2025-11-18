@@ -9,7 +9,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Online Clearance System</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/css/components.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <?php
@@ -164,102 +165,10 @@
                 <!-- Content Grid -->
                 <div class="content-grid">
                     <!-- Recent Activity Section -->
-                    <div class="recent-activity-section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-history"></i> Recent Activity</h3>
-                        </div>
-                        <div class="activity-timeline" id="activityTimeline">
-                            <!-- Dynamic activity items will be loaded here -->
-                            <div class="activity-item pending">
-                                <div class="activity-marker"></div>
-                                <div class="activity-content">
-                                    <h4><?php echo ucfirst($user_type); ?> Clearance Application Submitted</h4>
-                                    <p>Application submitted for 2027-2028 1st Semester</p>
-                                    <span class="activity-date">Dec 15, 2024</span>
-                                </div>
-                            </div>
-                            
-                            <div class="activity-item pending">
-                                <div class="activity-marker"></div>
-                                <div class="activity-content">
-                                    <h4>Waiting for Approval</h4>
-                                    <p><?php echo $user_type === 'faculty' ? 'Department Head' : 'Signatory'; ?> clearance pending approval</p>
-                                    <span class="activity-date">Dec 14, 2024</span>
-                                </div>
-                            </div>
-                            
-                            <div class="activity-item completed">
-                                <div class="activity-marker"></div>
-                                <div class="activity-content">
-                                    <h4>Library Clearance Completed</h4>
-                                    <p>All library requirements fulfilled</p>
-                                    <span class="activity-date">Dec 13, 2024</span>
-                                </div>
-                            </div>
-                            
-                            <div class="activity-item completed">
-                                <div class="activity-marker"></div>
-                                <div class="activity-content">
-                                    <h4>Financial Clearance Submitted</h4>
-                                    <p>Payment verification submitted</p>
-                                    <span class="activity-date">Dec 12, 2024</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <?php include '../../includes/components/recent-activity.php'; ?>
 
                     <!-- Notifications Panel -->
-                    <div class="notifications-section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-bell"></i> Notifications & Alerts</h3>
-                        </div>
-                        <div class="notifications-list" id="notificationsList">
-                            <!-- Dynamic notifications will be loaded here -->
-                            <div class="notification-item warning">
-                                <div class="notification-icon">
-                                    <i class="fas fa-exclamation-triangle"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <h4>Deadline Reminder</h4>
-                                    <p><?php echo ucfirst($user_type); ?> clearance due in 3 days</p>
-                                    <span class="notification-time">2 hours ago</span>
-                                </div>
-                            </div>
-                            
-                            <div class="notification-item info">
-                                <div class="notification-icon">
-                                    <i class="fas fa-info-circle"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <h4>Academic Calendar Updated</h4>
-                                    <p>New schedule for 2028 semester</p>
-                                    <span class="notification-time">1 day ago</span>
-                                </div>
-                            </div>
-                            
-                            <div class="notification-item success">
-                                <div class="notification-icon">
-                                    <i class="fas fa-check-circle"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <h4>Medical Clearance Approved</h4>
-                                    <p>Approved by Health Services</p>
-                                    <span class="notification-time">2 days ago</span>
-                                </div>
-                            </div>
-                            
-                            <div class="notification-item info">
-                                <div class="notification-icon">
-                                    <i class="fas fa-bullhorn"></i>
-                                </div>
-                                <div class="notification-content">
-                                    <h4><?php echo $user_type === 'faculty' ? 'Faculty Meeting' : 'System Maintenance'; ?></h4>
-                                    <p><?php echo $user_type === 'faculty' ? 'Department meeting on Dec 20' : 'Scheduled maintenance on Dec 20'; ?></p>
-                                    <span class="notification-time">3 days ago</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <?php include '../../includes/components/notifications.php'; ?>
                 </div>
             </div>
         </div>

@@ -1,0 +1,312 @@
+ONLINE CLEARANCE SYSTEM - USE CASE DIAGRAM
+===========================================
+
+ACTORS
+------
+- Admin
+- School Administrator
+- Program Head
+- Regular Staff
+- Student
+- Faculty
+- System
+
+USE CASES BY ACTOR
+==================
+
+ADMIN
+-----
+- Login to System
+- Manage Academic Years
+- Manage Semesters
+- Start Clearance Periods
+- Close Clearance Periods
+- Manage User Accounts
+- Create Student Accounts
+- Create Faculty Accounts
+- Create Staff Accounts
+- Update User Information
+- Delete User Accounts
+- Batch Actions
+- Assign Signatories
+- Manage Departments
+- Manage Programs
+- Manage Designations
+- Export Clearance Form Progress Report
+- Import Student Data
+- Import Faculty Data
+- View Clearance Form Progress
+- View Dashboard Summary
+
+SCHOOL ADMINISTRATOR
+--------------------
+- Login to System
+- View Dashboard Summary
+- Manage Staff Accounts
+- Manage Faculty Accounts
+- Manage Student Accounts
+- Update Staff Information
+- Update Faculty Information
+- Update Student Information
+- Approve Clearance Requests
+- Reject Clearance Requests
+- Add Rejection Comments
+- Batch Signatory Action
+- View Clearance Form Progress
+- View Clearance Status
+- Generate Reports
+- Export Clearance Form Progress Report
+- Export Clearance Applicant Status Report
+
+
+PROGRAM HEAD
+------------
+- Login to System
+- View Dashboard Summary
+- Manage Department Students
+- Manage Department Faculty
+- Update Student Information
+- Update Faculty Information
+- Batch Actions
+- View Clearance Form Progress
+- Approve Clearance Requests
+- Reject Clearance Requests
+- Add Rejection Comments
+- Batch Signatory Action
+- View Clearance Status
+- Generate Department Reports
+- Export Clearance Applicant Status Report
+
+REGULAR STAFF
+-------------
+- Login to System
+- View Dashboard Summary
+- View Assigned Clearance Forms
+- Review Clearance Details
+- Approve Clearance Requests
+- Reject Clearance Requests
+- Add Rejection Comments
+- Batch Signatory Action
+- View Clearance Status
+- View Clearance Form Progress
+- Export Clearance Applicant Status Report
+
+STUDENT
+-------
+- Login to System
+- View Dashboard
+- View Active Clearance Periods
+- Apply for Clearance
+- View Clearance Status
+- Track Signatory Approvals
+- View Clearance Progress
+- Print Clearance Form
+- View Personal Information
+- Update Personal Information
+
+FACULTY
+-------
+- Login to System
+- View Dashboard
+- View Active Clearance Periods
+- Apply for Clearance
+- View Clearance Status
+- Track Signatory Approvals
+- View Clearance Progress
+- Print Clearance Form
+- View Personal Information
+- Update Personal Information
+
+SYSTEM
+------
+- Authenticate Users
+- Manage Sessions
+- Create Clearance Forms
+- Assign Signatories
+- Update Clearance Status
+- Generate Form IDs
+- Log User Activities
+- Validate Data
+- Send Notifications
+- Generate PDF Documents
+- Process Data Imports
+
+USE CASE RELATIONSHIPS
+======================
+
+INCLUDE RELATIONSHIPS
+---------------------
+- Login to System includes Authenticate Users
+- Apply for Clearance includes Create Clearance Forms
+- Approve Clearance Requests includes Update Clearance Status
+- Reject Clearance Requests includes Update Clearance Status
+- Print Clearance Form includes Generate PDF Documents
+- Import Student Data includes Validate Data
+- Import Faculty Data includes Validate Data
+- Generate Reports includes Export Data
+
+EXTEND RELATIONSHIPS
+--------------------
+- View Clearance Status extends Send Notifications
+- Approve Clearance Requests extends Log User Activities
+- Reject Clearance Requests extends Log User Activities
+- Create User Accounts extends Log User Activities
+- Update User Information extends Log User Activities
+
+USE CASE DESCRIPTIONS
+=====================
+
+Login to System
+---------------
+Primary Actor: All Users
+Preconditions: User has valid account
+Main Flow:
+1. User enters username and password
+2. System validates credentials
+3. System creates session
+4. System redirects to role-specific dashboard
+Postconditions: User is logged in and can access system features
+
+Apply for Clearance
+-------------------
+Primary Actor: Student, Faculty
+Preconditions: Active clearance period exists, user is eligible
+Main Flow:
+1. User views active clearance periods
+2. User clicks Apply for Clearance
+3. System creates clearance form
+4. System creates signatory entries
+5. System updates form status to In Progress
+Postconditions: Clearance form is created and pending signatory approval
+
+Approve Clearance Requests
+--------------------------
+Primary Actor: Program Head, Regular Staff
+Preconditions: Clearance form exists and is assigned to signatory
+Main Flow:
+1. Signatory views assigned clearance forms
+2. Signatory reviews form details
+3. Signatory clicks Approve
+4. System updates signatory action to Approved
+5. System updates clearance form progress
+6. System notifies user of approval
+Postconditions: Signatory approval is recorded, form progress is updated
+
+Reject Clearance Requests
+-------------------------
+Primary Actor: Program Head, Regular Staff
+Preconditions: Clearance form exists and is assigned to signatory
+Main Flow:
+1. Signatory views assigned clearance forms
+2. Signatory reviews form details
+3. Signatory clicks Reject
+4. Signatory selects rejection reason
+5. Signatory adds comments
+6. System updates signatory action to Rejected
+7. System updates clearance form progress
+8. System notifies user of rejection
+Postconditions: Signatory rejection is recorded with reason, form progress is updated
+
+Create Clearance Periods
+------------------------
+Primary Actor: Admin
+Preconditions: Academic year and semester exist
+Main Flow:
+1. Admin selects academic year and semester
+2. Admin selects sector
+3. Admin sets period dates
+4. Admin clicks Create Period
+5. System creates clearance period
+Postconditions: Clearance period is created and available for activation
+
+Start Clearance Periods
+-----------------------
+Primary Actor: Admin
+Preconditions: Clearance period exists and is not started
+Main Flow:
+1. Admin views clearance periods
+2. Admin selects period to start
+3. Admin clicks Start Period
+4. System creates clearance forms for eligible users
+5. System creates signatory entries for each form
+6. System updates period status to Ongoing
+Postconditions: Clearance period is active, forms are created for eligible users
+
+Manage User Accounts
+--------------------
+Primary Actor: Admin, School Administrator
+Preconditions: User has appropriate permissions
+Main Flow:
+1. Administrator views user management page
+2. Administrator selects user type
+3. Administrator creates, updates, or deletes user
+4. System validates user data
+5. System saves changes
+6. System logs action
+Postconditions: User account is created, updated, or deleted
+
+Generate Reports
+----------------
+Primary Actor: Admin, School Administrator, Program Head, Regular Staff
+Preconditions: User has report access permissions
+Main Flow:
+1. User selects report type
+2. User selects parameters and filters
+3. User selects file format
+4. System queries database
+5. System generates report file
+6. System provides download link
+Postconditions: Report file is generated and available for download
+
+Import Student Data
+-------------------
+Primary Actor: Admin
+Preconditions: User has import permissions
+Main Flow:
+1. Admin selects import type
+2. Admin uploads data file
+3. System validates file format
+4. System validates data structure
+5. System creates user accounts
+6. System creates student records
+7. System returns import summary
+Postconditions: Student accounts and records are created
+
+Import Faculty Data
+-------------------
+Primary Actor: Admin
+Preconditions: User has import permissions
+Main Flow:
+1. Admin selects import type
+2. Admin uploads data file
+3. System validates file format
+4. System validates data structure
+5. System creates user accounts
+6. System creates faculty records
+7. System returns import summary
+Postconditions: Faculty accounts and records are created
+
+View Clearance Status
+---------------------
+Primary Actor: Student, Faculty
+Preconditions: User has clearance form
+Main Flow:
+1. User views clearance page
+2. System displays clearance form details
+3. System displays signatory statuses
+4. System displays progress percentage
+5. System updates status in real time
+Postconditions: User views current clearance status
+
+Print Clearance Form
+--------------------
+Primary Actor: Student, Faculty
+Preconditions: All signatories have approved clearance
+Main Flow:
+1. User views completed clearance form
+2. User clicks Print Form
+3. System validates all approvals
+4. System generates PDF document
+5. System provides download link
+Postconditions: PDF clearance form is generated and available for download
+

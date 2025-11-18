@@ -1,0 +1,487 @@
+TABLE: academic_years
+  COLUMNS:
+    `academic_year_id` int(11) NOT NULL
+    `year` varchar(9) NOT NULL COMMENT 'Format: 2024-2025'
+    `is_active` tinyint(1) DEFAULT 0 COMMENT 'Only one can be active at a time'
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`academic_year_id`)
+    ADD UNIQUE KEY `year` (`year`)
+    ADD KEY `idx_academic_years_active` (`is_active`)
+    ADD KEY `idx_academic_years_year` (`year`)
+  CONSTRAINTS:
+
+TABLE: active_clearance_periods
+  COLUMNS:
+    `period_id` int(11)
+    `clearance_form_id` varchar(20) NOT NULL COMMENT 'Format: CF-YYYY-XXXXX'
+    `user_id` int(11) DEFAULT NULL
+    `academic_year_id` int(11) DEFAULT NULL
+    `semester_id` int(11) DEFAULT NULL
+    `clearance_type` enum('College','Senior High School','Faculty') NOT NULL
+    `clearance_form_progress` enum('unapplied','in-progress','complete') NOT NULL DEFAULT 'unapplied' COMMENT 'Clearance Form Progress: unapplied, in-progress, complete'
+    `applied_at` timestamp NULL DEFAULT NULL COMMENT 'When user first applied'
+    `completed_at` timestamp NULL DEFAULT NULL COMMENT 'When all signatories approved'
+    `rejected_at` timestamp NULL DEFAULT NULL COMMENT 'When any signatory rejected'
+    `grace_period_ends` timestamp NULL DEFAULT NULL COMMENT 'End of grace period for final status update'
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+  CONSTRAINTS:
+
+TABLE: clearance_periods
+  COLUMNS:
+    `period_id` int(11) NOT NULL
+    `academic_year_id` int(11) DEFAULT NULL
+    `semester_id` int(11) DEFAULT NULL
+    `sector` enum('College','Senior High School','Faculty') NOT NULL DEFAULT 'College'
+    `period_name` varchar(100) DEFAULT NULL COMMENT 'Auto-generated: "2024-2025 1st Semester"'
+    `start_date` date NOT NULL
+    `end_date` date NOT NULL
+    `ended_at` datetime DEFAULT NULL
+    `is_active` tinyint(1) DEFAULT 0 COMMENT 'Only one can be active at a time'
+    `status` enum('Not Started','Ongoing','Paused','Closed') NOT NULL DEFAULT 'Not Started'
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`period_id`)
+    ADD KEY `semester_id` (`semester_id`)
+    ADD KEY `idx_clearance_periods_active` (`is_active`)
+    ADD KEY `idx_clearance_periods_dates` (`start_date`
+    ADD KEY `idx_clearance_periods_sector` (`sector`)
+    ADD KEY `idx_clearance_periods_academic_semester` (`academic_year_id`
+    ADD KEY `idx_clearance_periods_sector_status` (`sector`
+  CONSTRAINTS:
+    ADD CONSTRAINT `clearance_periods_ibfk_1` FOREIGN KEY (`academic_year_id`) REFERENCES `academic_years` (`academic_year_id`) ON DELETE CASCADE
+    ADD CONSTRAINT `clearance_periods_ibfk_2` FOREIGN KEY (`semester_id`) REFERENCES `semesters` (`semester_id`) ON DELETE CASCADE
+
+TABLE: clearance_requirements
+  COLUMNS:
+    `requirement_id` int(11) NOT NULL
+    `clearance_type` enum('College','Senior High School','Faculty') NOT NULL
+    `designation_id` int(11) NOT NULL COMMENT 'Which signatory is required'
+    `is_required` tinyint(1) DEFAULT 1
+    `order_sequence` int(11) DEFAULT 0 COMMENT 'Order of appearance in clearance form'
+    `is_department_specific` tinyint(1) DEFAULT 0 COMMENT 'TRUE for Program Head'
+    `applies_to_departments` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Array of department IDs for Program Head' CHECK (json_valid(`applies_to_departments`))
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`requirement_id`)
+    ADD KEY `designation_id` (`designation_id`)
+    ADD KEY `idx_clearance_requirements_type` (`clearance_type`)
+    ADD KEY `idx_clearance_requirements_order` (`order_sequence`)
+    ADD KEY `idx_clearance_requirements_department_specific` (`is_department_specific`)
+  CONSTRAINTS:
+    ADD CONSTRAINT `clearance_requirements_ibfk_1` FOREIGN KEY (`designation_id`) REFERENCES `designations` (`designation_id`) ON DELETE CASCADE
+
+TABLE: clearance_signatories
+  COLUMNS:
+    `signatory_id` int(11) NOT NULL
+    `clearance_form_id` varchar(20) DEFAULT NULL
+    `designation_id` int(11) DEFAULT NULL
+    `actual_user_id` int(11) DEFAULT NULL COMMENT 'Staff member who actually signed (for override)'
+    `action` enum('Unapplied','Pending','Approved','Rejected') DEFAULT 'Unapplied'
+    `remarks` text DEFAULT NULL COMMENT 'General remarks'
+    `reason_id` int(11) DEFAULT NULL COMMENT 'Predefined rejection reason'
+    `additional_remarks` text DEFAULT NULL COMMENT 'Additional details for rejection'
+    `date_signed` timestamp NULL DEFAULT NULL COMMENT 'When action was taken'
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`signatory_id`)
+    ADD KEY `idx_clearance_signatories_form` (`clearance_form_id`)
+    ADD KEY `idx_clearance_signatories_designation` (`designation_id`)
+    ADD KEY `idx_clearance_signatories_action` (`action`)
+    ADD KEY `idx_clearance_signatories_date` (`date_signed`)
+    ADD KEY `idx_clearance_signatories_form_designation` (`clearance_form_id`
+    ADD KEY `clearance_signatories_ibfk_3` (`actual_user_id`)
+    ADD KEY `idx_clearance_signatories_form_action` (`clearance_form_id`
+    ADD KEY `FK_SignatoryRejectionReason` (`reason_id`)
+  CONSTRAINTS:
+    ADD CONSTRAINT `FK_SignatoryRejectionReason` FOREIGN KEY (`reason_id`) REFERENCES `rejection_reasons` (`reason_id`)
+    ADD CONSTRAINT `clearance_signatories_ibfk_1` FOREIGN KEY (`clearance_form_id`) REFERENCES `clearance_forms` (`clearance_form_id`) ON DELETE CASCADE ON UPDATE CASCADE
+    ADD CONSTRAINT `clearance_signatories_ibfk_2` FOREIGN KEY (`designation_id`) REFERENCES `designations` (`designation_id`) ON DELETE CASCADE
+    ADD CONSTRAINT `clearance_signatories_ibfk_3` FOREIGN KEY (`actual_user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
+
+TABLE: departments
+  COLUMNS:
+    `department_id` int(11) NOT NULL
+    `department_name` varchar(100) NOT NULL
+    `department_code` varchar(10) DEFAULT NULL
+    `department_type` enum('College','Senior High School','Faculty') DEFAULT NULL
+    `is_active` tinyint(1) DEFAULT 1
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+    `sector_id` int(11) DEFAULT NULL
+  INDEXES:
+    ADD PRIMARY KEY (`department_id`)
+    ADD UNIQUE KEY `department_code` (`department_code`)
+    ADD UNIQUE KEY `uq_department_sector` (`department_name`
+    ADD KEY `idx_departments_type` (`department_type`)
+    ADD KEY `idx_departments_active` (`is_active`)
+    ADD KEY `idx_sector_id` (`sector_id`)
+  CONSTRAINTS:
+    ADD CONSTRAINT `fk_departments_sector_id` FOREIGN KEY (`sector_id`) REFERENCES `sectors` (`sector_id`) ON DELETE SET NULL ON UPDATE CASCADE
+
+TABLE: designations
+  COLUMNS:
+    `designation_id` int(11) NOT NULL
+    `designation_name` varchar(100) NOT NULL COMMENT 'Registrar, Cashier, Librarian, etc.'
+    `description` text DEFAULT NULL
+    `is_active` tinyint(1) DEFAULT 1
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`designation_id`)
+    ADD KEY `idx_designations_active` (`is_active`)
+  CONSTRAINTS:
+
+TABLE: faculty
+  COLUMNS:
+    `employee_number` varchar(8) NOT NULL COMMENT 'Employee ID format: LCA123P'
+    `user_id` int(11) DEFAULT NULL
+    `employment_status` enum('Full Time','Part Time','Part Time - Full Load') NOT NULL
+    `department_id` int(11) DEFAULT NULL
+    `sector` enum('College','Senior High School','Faculty') NOT NULL DEFAULT 'Faculty'
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+    `permission_id` int(11) NOT NULL
+    `permission_name` varchar(100) NOT NULL
+    `description` text DEFAULT NULL
+    `category` varchar(50) DEFAULT NULL COMMENT 'user_management, clearance_management, reporting, etc.'
+    `is_active` tinyint(1) DEFAULT 1
+  INDEXES:
+    ADD PRIMARY KEY (`employee_number`)
+    ADD UNIQUE KEY `user_id` (`user_id`)
+    ADD KEY `idx_faculty_department` (`department_id`)
+    ADD KEY `idx_faculty_status` (`employment_status`)
+    ADD KEY `idx_faculty_department_status` (`department_id`
+    ADD KEY `idx_faculty_sector` (`sector`)
+  CONSTRAINTS:
+    ADD CONSTRAINT `faculty_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
+    ADD CONSTRAINT `faculty_ibfk_2` FOREIGN KEY (`department_id`) REFERENCES `departments` (`department_id`) ON DELETE CASCADE
+
+TABLE: programs
+  COLUMNS:
+    `program_id` int(11) NOT NULL
+    `program_name` varchar(100) NOT NULL
+    `program_code` varchar(10) DEFAULT NULL
+    `description` text DEFAULT NULL
+    `department_id` int(11) DEFAULT NULL
+    `is_active` tinyint(1) DEFAULT 1
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`program_id`)
+    ADD UNIQUE KEY `program_code` (`program_code`)
+    ADD KEY `idx_programs_department` (`department_id`)
+    ADD KEY `idx_programs_active` (`is_active`)
+  CONSTRAINTS:
+    ADD CONSTRAINT `programs_ibfk_1` FOREIGN KEY (`department_id`) REFERENCES `departments` (`department_id`) ON DELETE CASCADE
+
+TABLE: password_reset_attempts
+  COLUMNS:
+    `attempt_id` int(11) NOT NULL
+    `username` varchar(50) NOT NULL COMMENT 'Username (student/employee number) attempting reset'
+    `failed_attempts` int(11) NOT NULL DEFAULT 0 COMMENT 'Count of failed attempts'
+    `last_failed_attempt` timestamp NULL DEFAULT NULL COMMENT 'Timestamp of last failed attempt'
+    `locked_until` timestamp NULL DEFAULT NULL COMMENT 'Timestamp when lockout expires (NULL if not locked)'
+    `ip_address` varchar(45) DEFAULT NULL COMMENT 'IP address of the attempt'
+    `user_agent` text DEFAULT NULL COMMENT 'User agent string'
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`attempt_id`)
+    ADD UNIQUE KEY `unique_username_reset_attempts` (`username`)
+    ADD KEY `idx_password_reset_attempts_username` (`username`)
+    ADD KEY `idx_password_reset_attempts_locked` (`locked_until`)
+    ADD KEY `idx_password_reset_attempts_last_failed` (`last_failed_attempt`)
+  CONSTRAINTS:
+
+TABLE: rejection_reasons
+  COLUMNS:
+    `reason_id` int(11) NOT NULL
+    `reason_name` varchar(100) NOT NULL
+    `reason_category` enum('student','faculty','both') NOT NULL
+    `is_active` tinyint(1) DEFAULT 1
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`reason_id`)
+    ADD KEY `idx_rejection_reasons_category` (`reason_category`)
+    ADD KEY `idx_rejection_reasons_active` (`is_active`)
+  CONSTRAINTS:
+
+TABLE: roles
+  COLUMNS:
+    `role_id` int(11) NOT NULL
+    `role_name` varchar(50) NOT NULL COMMENT 'Admin, Staff, Student, Faculty'
+    `description` text DEFAULT NULL
+    `is_active` tinyint(1) DEFAULT 1
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`role_id`)
+    ADD UNIQUE KEY `role_name` (`role_name`)
+    ADD KEY `idx_roles_name` (`role_name`)
+    ADD KEY `idx_roles_active` (`is_active`)
+  CONSTRAINTS:
+
+TABLE: role_permissions
+  COLUMNS:
+    `role_id` int(11) NOT NULL
+    `permission_id` int(11) NOT NULL
+    `granted_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `granted_by` int(11) DEFAULT NULL COMMENT 'Admin who granted this permission'
+  INDEXES:
+    ADD PRIMARY KEY (`role_id`
+    ADD KEY `permission_id` (`permission_id`)
+    ADD KEY `granted_by` (`granted_by`)
+  CONSTRAINTS:
+    ADD CONSTRAINT `role_permissions_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`role_id`) ON DELETE CASCADE
+    ADD CONSTRAINT `role_permissions_ibfk_2` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`permission_id`) ON DELETE CASCADE
+    ADD CONSTRAINT `role_permissions_ibfk_3` FOREIGN KEY (`granted_by`) REFERENCES `users` (`user_id`) ON DELETE SET NULL
+
+TABLE: scope_settings
+  COLUMNS:
+    `clearance_type` varchar(16) NOT NULL
+    `include_program_head` tinyint(1) NOT NULL DEFAULT 0
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+    `required_first_enabled` tinyint(1) DEFAULT 0
+    `required_first_designation_id` int(11) DEFAULT NULL
+    `required_last_enabled` tinyint(1) DEFAULT 0
+    `required_last_designation_id` int(11) DEFAULT NULL
+  INDEXES:
+    ADD PRIMARY KEY (`clearance_type`)
+    ADD KEY `fk_scope_settings_first_designation` (`required_first_designation_id`)
+    ADD KEY `fk_scope_settings_last_designation` (`required_last_designation_id`)
+    ADD KEY `idx_required_first` (`required_first_enabled`
+    ADD KEY `idx_required_last` (`required_last_enabled`
+  CONSTRAINTS:
+    ADD CONSTRAINT `fk_scope_settings_first_designation` FOREIGN KEY (`required_first_designation_id`) REFERENCES `designations` (`designation_id`) ON DELETE SET NULL ON UPDATE CASCADE
+    ADD CONSTRAINT `fk_scope_settings_last_designation` FOREIGN KEY (`required_last_designation_id`) REFERENCES `designations` (`designation_id`) ON DELETE SET NULL ON UPDATE CASCADE
+
+TABLE: sectors
+  COLUMNS:
+    `sector_id` int(11) NOT NULL
+    `sector_name` varchar(100) NOT NULL
+    `created_at` datetime DEFAULT current_timestamp()
+    `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`sector_id`)
+    ADD UNIQUE KEY `sector_name` (`sector_name`)
+  CONSTRAINTS:
+
+TABLE: sector_clearance_settings
+  COLUMNS:
+    `setting_id` int(11) NOT NULL
+    `clearance_type` enum('College','Senior High School','Faculty') NOT NULL
+    `include_program_head` tinyint(1) DEFAULT 0 COMMENT 'TRUE if Program Heads should be auto-assigned'
+    `required_first_enabled` tinyint(1) DEFAULT 0 COMMENT 'TRUE if required first signatory is enabled'
+    `required_first_designation_id` int(11) DEFAULT NULL COMMENT 'Designation that must sign first'
+    `required_last_enabled` tinyint(1) DEFAULT 0 COMMENT 'TRUE if required last signatory is enabled'
+    `required_last_designation_id` int(11) DEFAULT NULL COMMENT 'Designation that must sign last'
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`setting_id`)
+    ADD UNIQUE KEY `unique_sector_setting` (`clearance_type`)
+    ADD KEY `idx_sector_settings_type` (`clearance_type`)
+    ADD KEY `sector_clearance_settings_ibfk_1` (`required_first_designation_id`)
+    ADD KEY `sector_clearance_settings_ibfk_2` (`required_last_designation_id`)
+  CONSTRAINTS:
+    ADD CONSTRAINT `sector_clearance_settings_ibfk_1` FOREIGN KEY (`required_first_designation_id`) REFERENCES `designations` (`designation_id`) ON DELETE SET NULL
+    ADD CONSTRAINT `sector_clearance_settings_ibfk_2` FOREIGN KEY (`required_last_designation_id`) REFERENCES `designations` (`designation_id`) ON DELETE SET NULL
+
+TABLE: sector_signatory_assignments
+  COLUMNS:
+    `assignment_id` int(11) NOT NULL
+    `clearance_type` enum('College','Senior High School','Faculty') NOT NULL
+    `user_id` int(11) NOT NULL COMMENT 'Staff member assigned as signatory'
+    `designation_id` int(11) NOT NULL COMMENT 'Designation/position of the signatory'
+    `is_program_head` tinyint(1) DEFAULT 0 COMMENT 'TRUE if this is a Program Head assignment'
+    `department_id` int(11) DEFAULT NULL COMMENT 'Specific department for Program Head (NULL for general staff)'
+    `is_required_first` tinyint(1) DEFAULT 0 COMMENT 'TRUE if this signatory must sign first'
+    `is_required_last` tinyint(1) DEFAULT 0 COMMENT 'TRUE if this signatory must sign last'
+    `is_active` tinyint(1) DEFAULT 1 COMMENT 'FALSE to temporarily disable assignment'
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`assignment_id`)
+    ADD KEY `idx_sector_assignments_type` (`clearance_type`)
+    ADD KEY `idx_sector_assignments_user` (`user_id`)
+    ADD KEY `idx_sector_assignments_designation` (`designation_id`)
+    ADD KEY `idx_sector_assignments_department` (`department_id`)
+    ADD KEY `idx_sector_assignments_program_head` (`is_program_head`)
+    ADD KEY `idx_sector_assignments_active` (`is_active`)
+    ADD KEY `idx_sector_user_designation` (`clearance_type`
+    ADD KEY `idx_sector_program_head_dept` (`clearance_type`
+  CONSTRAINTS:
+    ADD CONSTRAINT `sector_signatory_assignments_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+    ADD CONSTRAINT `sector_signatory_assignments_ibfk_2` FOREIGN KEY (`designation_id`) REFERENCES `designations` (`designation_id`) ON DELETE CASCADE
+    ADD CONSTRAINT `sector_signatory_assignments_ibfk_3` FOREIGN KEY (`department_id`) REFERENCES `departments` (`department_id`) ON DELETE CASCADE
+
+TABLE: semesters
+  COLUMNS:
+    `semester_id` int(11) NOT NULL
+    `semester_name` enum('1st','2nd','Summer') NOT NULL
+    `academic_year_id` int(11) DEFAULT NULL
+    `is_active` tinyint(1) DEFAULT 0 COMMENT 'Only one can be active at a time'
+    `is_generation` tinyint(1) DEFAULT 0 COMMENT 'Active for clearance generation'
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`semester_id`)
+    ADD KEY `idx_semesters_active` (`is_active`)
+    ADD KEY `idx_semesters_generation` (`is_generation`)
+    ADD KEY `idx_semesters_academic_year` (`academic_year_id`)
+  CONSTRAINTS:
+    ADD CONSTRAINT `semesters_ibfk_1` FOREIGN KEY (`academic_year_id`) REFERENCES `academic_years` (`academic_year_id`) ON DELETE CASCADE
+
+TABLE: staff
+  COLUMNS:
+    `employee_number` varchar(8) NOT NULL COMMENT 'Employee Number format: LCAXXXXP'
+    `user_id` int(11) DEFAULT NULL
+    `designation_id` int(11) DEFAULT NULL
+    `staff_category` enum('Regular Staff','Program Head','School Administrator') NOT NULL
+    `department_id` int(11) DEFAULT NULL COMMENT 'For program heads and department-specific staff'
+    `employment_status` enum('Full Time','Part Time','Part Time - Full Load') DEFAULT NULL COMMENT 'For faculty-staff dual roles'
+    `is_active` tinyint(1) DEFAULT 1
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+    `student_id` varchar(11) NOT NULL COMMENT 'Student number format: 02000288322'
+    `user_id` int(11) DEFAULT NULL
+    `program_id` int(11) DEFAULT NULL
+    `department_id` int(11) DEFAULT NULL
+    `sector` enum('College','Senior High School') DEFAULT NULL
+    `section` varchar(20) DEFAULT NULL COMMENT 'e.g., "4/1-1", "3/1-2"'
+    `year_level` enum('1st Year','2nd Year','3rd Year','4th Year') DEFAULT NULL
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+    `retain_year_level_next_year` tinyint(1) DEFAULT 0
+    `retain_year_level_for_next_year` tinyint(1) DEFAULT 0
+  INDEXES:
+    ADD PRIMARY KEY (`employee_number`)
+    ADD UNIQUE KEY `uq_staff_emp` (`employee_number`)
+    ADD UNIQUE KEY `user_id` (`user_id`)
+    ADD KEY `idx_staff_designation` (`designation_id`)
+    ADD KEY `idx_staff_category` (`staff_category`)
+    ADD KEY `idx_staff_department` (`department_id`)
+    ADD KEY `idx_staff_active` (`is_active`)
+    ADD KEY `idx_staff_category_department` (`staff_category`
+  CONSTRAINTS:
+    ADD CONSTRAINT `staff_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+    ADD CONSTRAINT `staff_ibfk_2` FOREIGN KEY (`designation_id`) REFERENCES `designations` (`designation_id`) ON DELETE CASCADE
+    ADD CONSTRAINT `staff_ibfk_3` FOREIGN KEY (`department_id`) REFERENCES `departments` (`department_id`) ON DELETE CASCADE
+
+TABLE: users
+  COLUMNS:
+    `user_id` int(11) NOT NULL
+    `username` varchar(50) NOT NULL COMMENT 'Student number for students, Employee ID for staff/faculty'
+    `password` varchar(255) NOT NULL COMMENT 'Hashed password'
+    `email` varchar(255) DEFAULT NULL
+    `first_name` varchar(50) NOT NULL
+    `last_name` varchar(50) NOT NULL
+    `middle_name` varchar(50) DEFAULT NULL
+    `contact_number` varchar(20) DEFAULT NULL
+    `account_status` enum('active','inactive','graduated','resigned') DEFAULT 'active'
+    `can_apply` tinyint(1) NOT NULL DEFAULT 1
+    `last_login` timestamp NULL DEFAULT NULL
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`user_id`)
+    ADD UNIQUE KEY `username` (`username`)
+    ADD UNIQUE KEY `email` (`email`)
+    ADD KEY `idx_users_username` (`username`)
+    ADD KEY `idx_users_email` (`email`)
+    ADD KEY `idx_users_status` (`account_status`)
+    ADD KEY `idx_users_last_login` (`last_login`)
+  CONSTRAINTS:
+
+TABLE: user_activities
+  COLUMNS:
+    `activity_id` int(11) NOT NULL
+    `user_id` int(11) DEFAULT NULL
+    `activity_type` varchar(50) NOT NULL COMMENT 'e.g., "Login", "Clearance Apply", "Profile Update"'
+    `activity_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Additional activity information' CHECK (json_valid(`activity_details`))
+    `ip_address` varchar(45) DEFAULT NULL
+    `user_agent` text DEFAULT NULL
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`activity_id`)
+    ADD KEY `idx_user_activities_user` (`user_id`)
+    ADD KEY `idx_user_activities_type` (`activity_type`)
+    ADD KEY `idx_user_activities_created` (`created_at`)
+    ADD KEY `idx_user_activities_user_created` (`user_id`
+  CONSTRAINTS:
+    ADD CONSTRAINT `user_activities_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
+
+TABLE: user_department_assignments
+  COLUMNS:
+    `department_assignment_id` int(11) NOT NULL
+    `user_id` int(11) NOT NULL
+    `department_id` int(11) NOT NULL
+    `sector_id` int(11) DEFAULT NULL COMMENT 'For sector-wide assignments'
+    `is_primary` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Primary department assignment'
+    `is_active` tinyint(1) NOT NULL DEFAULT 1
+  INDEXES:
+    ADD PRIMARY KEY (`department_assignment_id`)
+    ADD UNIQUE KEY `unique_staff_department` (`user_id`
+    ADD KEY `idx_staff_assignments` (`user_id`
+    ADD KEY `idx_department_assignments` (`department_id`
+    ADD KEY `idx_sector_assignments` (`sector_id`
+  CONSTRAINTS:
+    ADD CONSTRAINT `fk_UDepA_department` FOREIGN KEY (`department_id`) REFERENCES `departments` (`department_id`) ON DELETE CASCADE ON UPDATE CASCADE
+    ADD CONSTRAINT `fk_UDepA_sector` FOREIGN KEY (`sector_id`) REFERENCES `sectors` (`sector_id`) ON DELETE CASCADE ON UPDATE CASCADE
+    ADD CONSTRAINT `fk_UDepA_users` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
+
+TABLE: user_designation_assignments
+  COLUMNS:
+    `designation_assignment_id` int(11) NOT NULL
+    `user_id` int(11) NOT NULL
+    `designation_id` int(11) NOT NULL
+    `is_primary` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Primary Designation Assignment'
+    `is_active` tinyint(1) NOT NULL DEFAULT 1
+  INDEXES:
+    ADD PRIMARY KEY (`designation_assignment_id`)
+    ADD KEY `fk_UDesA_users` (`user_id`)
+    ADD KEY `fk_UDesA_` (`designation_id`)
+  CONSTRAINTS:
+    ADD CONSTRAINT `fk_UDesA_` FOREIGN KEY (`designation_id`) REFERENCES `designations` (`designation_id`) ON DELETE CASCADE ON UPDATE CASCADE
+    ADD CONSTRAINT `fk_UDesA_users` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
+
+TABLE: user_roles
+  COLUMNS:
+    `user_id` int(11) NOT NULL
+    `role_id` int(11) NOT NULL
+    `assigned_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `assigned_by` int(11) DEFAULT NULL COMMENT 'Admin who assigned this role'
+    `is_primary` tinyint(1) DEFAULT 0 COMMENT 'Primary role for the user'
+  INDEXES:
+    ADD PRIMARY KEY (`user_id`
+    ADD KEY `role_id` (`role_id`)
+    ADD KEY `assigned_by` (`assigned_by`)
+    ADD KEY `idx_user_roles_primary` (`user_id`
+  CONSTRAINTS:
+    ADD CONSTRAINT `user_roles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+    ADD CONSTRAINT `user_roles_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `roles` (`role_id`) ON DELETE CASCADE
+    ADD CONSTRAINT `user_roles_ibfk_3` FOREIGN KEY (`assigned_by`) REFERENCES `users` (`user_id`) ON DELETE SET NULL
+
+TABLE: user_security_questions
+  COLUMNS:
+    `security_question_id` int(11) NOT NULL
+    `user_id` int(11) NOT NULL COMMENT 'Reference to users table'
+    `question_1` varchar(100) NOT NULL COMMENT 'Question key (e.g., mother_maiden_name)'
+    `answer_1` varchar(255) NOT NULL COMMENT 'Hashed answer using password_hash()'
+    `question_2` varchar(100) NOT NULL COMMENT 'Question key (e.g., birth_city)'
+    `answer_2` varchar(255) NOT NULL COMMENT 'Hashed answer using password_hash()'
+    `question_3` varchar(100) NOT NULL COMMENT 'Question key (e.g., first_pet)'
+    `answer_3` varchar(255) NOT NULL COMMENT 'Hashed answer using password_hash()'
+    `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+    `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  INDEXES:
+    ADD PRIMARY KEY (`security_question_id`)
+    ADD UNIQUE KEY `unique_user_security_questions` (`user_id`)
+    ADD KEY `idx_user_security_questions_user` (`user_id`)
+  CONSTRAINTS:
+    ADD CONSTRAINT `user_security_questions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE ON UPDATE CASCADE
+

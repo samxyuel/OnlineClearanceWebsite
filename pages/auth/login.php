@@ -46,7 +46,7 @@
     </style>
 </head>
 <body>
-    <!-- Header -->
+    <!-- Header --
     <header class="navbar">
         <div class="container">
             <div class="header-content">
@@ -55,7 +55,7 @@
                 </div>
             </div>
         </div>
-    </header>
+    </header> -->
 
     <!-- Main Content -->
     <main class="login-container">
@@ -86,7 +86,7 @@
                     </label>
                 </div>
                 -->
-                <div class="form-group">
+                <div class="form-group login-button-group">
                     <button type="submit" class="btn btn-primary login-btn" id="loginBtn">
                         <span id="loginBtnText">Login</span>
                         <span id="loginBtnSpinner" style="display: none;">
@@ -95,107 +95,251 @@
                     </button>
                 </div>
                 
-            <!--   
+            <!-- Forgot Password Link -->
                 <div class="form-group text-center">
                     <a href="forgot_password.php" class="forgot-link">Forgot Password?</a>
                 </div>
-            -->
+            
             </form>
 
             <!-- Login Result Messages -->
-            <div id="loginResult" style="display: none;"></div>
+            <div id="loginResult" style="display: none; text-align: left; font-size: 1rem; background-color: var(--yellow-light);
+color: var(--deep-navy-blue); padding: 0.5rem; margin: 1rem; border-radius: 5px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);"></div>
+
+            <!-- Footer -->
+            <div class="login-footer">
+                Powered by goSTI · © 2025
+            </div>
         </div>
     </main>
 
     <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+        // Wait for DOM to be ready and ensure all elements exist
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
             const loginBtn = document.getElementById('loginBtn');
             const loginBtnText = document.getElementById('loginBtnText');
             const loginBtnSpinner = document.getElementById('loginBtnSpinner');
             const loginResult = document.getElementById('loginResult');
-            
-            // Show loading state
-            loginBtn.disabled = true;
-            loginBtnText.style.display = 'none';
-            loginBtnSpinner.style.display = 'inline';
-            loginResult.style.display = 'none';
-            
-            try {
-                const response = await fetch('../../api/auth/login.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username, password })
-                });
+
+            // Validate all required elements exist
+            if (!loginForm || !usernameInput || !passwordInput || !loginBtn || 
+                !loginBtnText || !loginBtnSpinner || !loginResult) {
+                // Silently fail - elements missing, page may not be fully loaded
+                return;
+            }
+
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
                 
-                const result = await response.json();
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value;
                 
-                if (result.success) {
-                    // Login successful
-                    loginResult.className = 'alert alert-success';
-                    loginResult.innerHTML = `
-                        <h4>Login Successful!</h4>
-                        <p>Welcome back, ${result.user.first_name} ${result.user.last_name}!</p>
-                        <p>Redirecting to dashboard...</p>
-                    `;
-                    loginResult.style.display = 'block';
-                    
-                    // Redirect based on user role
-                    setTimeout(() => {
-                        const role = result.user.role_name.toLowerCase();
-                        if (role === 'admin') {
-                            window.location.href = '../../pages/admin/dashboard.php';
-                        } else if (role === 'school administrator') {
-                            window.location.href = '../../pages/school-administrator/dashboard.php';
-                        } else if (role === 'program head') {
-                            window.location.href = '../../pages/program-head/dashboard.php';
-                        } else if (role === 'student') {
-                            // Use unified end-user dashboard for students
-                            window.location.href = '../../pages/end-user/dashboard.php';
-                        } else if (role === 'faculty') {
-                            // Use unified end-user dashboard for faculty
-                            window.location.href = '../../pages/end-user/dashboard.php';
-                        } else if (role === 'regular staff') {
-                            window.location.href = '../../pages/regular-staff/dashboard.php';
-                        } else {
-                            // Fallback for unknown roles
-                            window.location.href = '../../pages/admin/dashboard.php';
-                        }
-                    }, 2000);
-                    
-                } else {
-                    // Login failed
-                    loginResult.className = 'alert alert-danger';
-                    loginResult.innerHTML = `
-                        <h4>Login Failed</h4>
-                        <p>${result.message}</p>
-                    `;
-                    loginResult.style.display = 'block';
-                    
-                    // Reset form
-                    document.getElementById('password').value = '';
-                    document.getElementById('password').focus();
+                // Validate inputs exist
+                if (!username || !password) {
+                    if (loginResult) {
+                        loginResult.className = 'alert alert-warning';
+                        loginResult.innerHTML = `
+                            <h4>Validation Error</h4>
+                            <p>Please enter both username and password.</p>
+                        `;
+                        loginResult.style.display = 'block';
+                    }
+                    return;
                 }
                 
-            } catch (error) {
-                // Network or other error
-                loginResult.className = 'alert alert-danger';
-                loginResult.innerHTML = `
-                    <h4>Connection Error</h4>
-                    <p>Unable to connect to the server. Please try again.</p>
-                `;
-                loginResult.style.display = 'block';
-            } finally {
-                // Reset button state
-                loginBtn.disabled = false;
-                loginBtnText.style.display = 'inline';
-                loginBtnSpinner.style.display = 'none';
-            }
+                // Show loading state safely
+                if (loginBtn) loginBtn.disabled = true;
+                if (loginBtnText) loginBtnText.style.display = 'none';
+                if (loginBtnSpinner) loginBtnSpinner.style.display = 'inline';
+                if (loginResult) loginResult.style.display = 'none';
+                
+                try {
+                    // Use absolute path to avoid any path resolution issues
+                    const apiUrl = window.location.origin + '/OnlineClearanceWebsite/api/auth/login.php';
+                    
+                    // Fetch with proper error handling - handle all HTTP status codes gracefully
+                    let response;
+                    try {
+                        response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ username, password })
+                        });
+                    } catch (fetchError) {
+                        // Network error (no connection, CORS, etc.) - handle silently
+                        if (loginResult) {
+                            loginResult.className = 'alert alert-danger';
+                            loginResult.innerHTML = `
+                                <h4>Connection Error</h4>
+                                <p>Unable to connect to the server. Please check your internet connection and try again.</p>
+                            `;
+                            loginResult.style.display = 'block';
+                        }
+                        return;
+                    }
+                    
+                    // Get response text safely - handle all HTTP status codes (200, 400, 401, 500, etc.)
+                    let responseText = '';
+                    try {
+                        responseText = await response.text();
+                    } catch (textError) {
+                        // Response body read error - handle silently
+                        if (loginResult) {
+                            loginResult.className = 'alert alert-danger';
+                            loginResult.innerHTML = `
+                                <h4>Response Error</h4>
+                                <p>Unable to read server response. Please try again.</p>
+                            `;
+                            loginResult.style.display = 'block';
+                        }
+                        return;
+                    }
+                    
+                    // Handle empty response
+                    if (!responseText || responseText.trim() === '') {
+                        if (loginResult) {
+                            loginResult.className = 'alert alert-danger';
+                            loginResult.innerHTML = `
+                                <h4>Server Error</h4>
+                                <p>Server returned an empty response. Please try again.</p>
+                            `;
+                            loginResult.style.display = 'block';
+                        }
+                        return;
+                    }
+                    
+                    // Parse JSON safely - handle all possible JSON errors
+                    let result = null;
+                    try {
+                        result = JSON.parse(responseText);
+                    } catch (parseError) {
+                        // Invalid JSON response (HTML error page, malformed JSON, etc.) - handle silently
+                        if (loginResult) {
+                            loginResult.className = 'alert alert-danger';
+                            loginResult.innerHTML = `
+                                <h4>Server Error</h4>
+                                <p>Invalid response from server. Please try again later.</p>
+                            `;
+                            loginResult.style.display = 'block';
+                        }
+                        return;
+                    }
+                    
+                    // Validate result structure
+                    if (!result || typeof result !== 'object') {
+                        if (loginResult) {
+                            loginResult.className = 'alert alert-danger';
+                            loginResult.innerHTML = `
+                                <h4>Server Error</h4>
+                                <p>Unexpected response format. Please try again.</p>
+                            `;
+                            loginResult.style.display = 'block';
+                        }
+                        return;
+                    }
+                    
+                    // Handle successful login
+                    if (result.success === true) {
+                        // Extract user data safely
+                        const user = result.data?.user || result.user || {};
+                        
+                        if (loginResult) {
+                            loginResult.className = 'alert alert-success';
+                            loginResult.innerHTML = `
+                                <h4>Login Successful!</h4>
+                                <p>Welcome back, ${user.first_name || ''} ${user.last_name || ''}!</p>
+                                <p>Redirecting to dashboard...</p>
+                            `;
+                            loginResult.style.display = 'block';
+                        }
+                        
+                        // Redirect based on user role - handle safely
+                        setTimeout(function() {
+                            const role = (user.role_name || '').toLowerCase();
+                            let redirectUrl = '../../pages/admin/dashboard.php'; // Default fallback
+                            
+                            if (role === 'admin') {
+                                redirectUrl = '../../pages/admin/dashboard.php';
+                            } else if (role === 'school administrator') {
+                                redirectUrl = '../../pages/school-administrator/dashboard.php';
+                            } else if (role === 'program head') {
+                                redirectUrl = '../../pages/program-head/dashboard.php';
+                            } else if (role === 'student') {
+                                redirectUrl = '../../pages/end-user/dashboard.php';
+                            } else if (role === 'faculty') {
+                                redirectUrl = '../../pages/end-user/dashboard.php';
+                            } else if (role === 'regular staff') {
+                                redirectUrl = '../../pages/regular-staff/dashboard.php';
+                            }
+                            
+                            // Redirect safely
+                            try {
+                                window.location.href = redirectUrl;
+                            } catch (redirectError) {
+                                // Redirect failed - show message
+                                if (loginResult) {
+                                    loginResult.className = 'alert alert-warning';
+                                    loginResult.innerHTML = `
+                                        <h4>Redirect Error</h4>
+                                        <p>Please <a href="${redirectUrl}">click here</a> to continue.</p>
+                                    `;
+                                    loginResult.style.display = 'block';
+                                }
+                            }
+                        }, 2000);
+                        
+                    } else {
+                        // Login failed - handle all failure scenarios gracefully
+                        // The backend should return specific error codes/messages for:
+                        // 1. Account does not exist
+                        // 2. Account exists but is inactive
+                        // 3. Invalid password (when account exists and is active)
+                        
+                        const errorMessage = result.message || 'Login failed. Please try again.';
+                        
+                        if (loginResult) {
+                            loginResult.className = 'alert alert-danger';
+                            loginResult.innerHTML = `
+                                <h4>Login Failed</h4>
+                                <p>${errorMessage}</p>
+                            `;
+                            loginResult.style.display = 'block';
+                        }
+                        
+                        // Reset form safely
+                        if (passwordInput) {
+                            passwordInput.value = '';
+                            try {
+                                passwordInput.focus();
+                            } catch (focusError) {
+                                // Focus failed - ignore silently
+                            }
+                        }
+                    }
+                    
+                } catch (error) {
+                    // Catch any unexpected errors - handle silently
+                    // This should rarely happen due to all the try-catch blocks above
+                    if (loginResult) {
+                        loginResult.className = 'alert alert-danger';
+                        loginResult.innerHTML = `
+                            <h4>Unexpected Error</h4>
+                            <p>An unexpected error occurred. Please try again.</p>
+                        `;
+                        loginResult.style.display = 'block';
+                    }
+                } finally {
+                    // Reset button state safely
+                    if (loginBtn) loginBtn.disabled = false;
+                    if (loginBtnText) loginBtnText.style.display = 'inline';
+                    if (loginBtnSpinner) loginBtnSpinner.style.display = 'none';
+                }
+            });
         });
     </script>
 </body>

@@ -16,7 +16,7 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <!-- Header -->
@@ -99,24 +99,8 @@ if (session_status() == PHP_SESSION_NONE) {
                             </div>
                         </div>
 
-                        <!-- Tabs + Current Period Wrapper -->
+                        <!-- Current Period Wrapper -->
                         <div class="tab-banner-wrapper">
-                            <!-- Tab Navigation for quick status views -->
-                            <div class="tab-nav" id="studentTabNav">
-                                <button class="tab-pill active" data-status="" onclick="switchStudentTab(this)">Overall</button>
-                                <button class="tab-pill" data-status="active" onclick="switchStudentTab(this)">Active</button>
-                                <button class="tab-pill" data-status="inactive" onclick="switchStudentTab(this)">Inactive</button>
-                                <button class="tab-pill" data-status="graduated" onclick="switchStudentTab(this)">Graduated</button>
-                            </div>
-                            <!-- Mobile dropdown alternative -->
-                            <div class="tab-nav-mobile" id="studentTabSelectWrapper">
-                                <select id="studentTabSelect" class="tab-select" onchange="handleTabSelectChange(this)">
-                                    <option value="" selected>Overall</option>
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                    <option value="graduated">Graduated</option>
-                                </select>
-                            </div>
                             <!-- Current Period Banner -->
                             <span class="academic-year-semester">
                                 <i class="fas fa-calendar-check"></i> 
@@ -258,9 +242,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288325')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn inactive" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-off"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288325')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -284,9 +265,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288326')" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn-icon status-toggle-btn active" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-toggle-on"></i>
-                                                    </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288326')" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
@@ -309,9 +287,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                                     </button>
                                                     <button class="btn-icon edit-btn" onclick="editStudent('02000288327')" title="Edit">
                                                         <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon status-toggle-btn graduated" onclick="toggleStudentStatus(this)" title="Toggle Status">
-                                                        <i class="fas fa-graduation-cap"></i>
                                                     </button>
                                                     <button class="btn-icon delete-btn" onclick="deleteStudent('02000288327')" title="Delete">
                                                         <i class="fas fa-trash"></i>
@@ -733,136 +708,6 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         // Change period
-        // Tab Navigation Functions
-        function switchStudentTab(btn){
-            console.log('switchStudentTab function called');
-            const newTabStatus = btn.getAttribute('data-status');
-            const currentTabStatus = window.currentTabStatus || '';
-            
-            console.log('Switching from tab:', currentTabStatus, 'to tab:', newTabStatus);
-            
-            // If switching to the same tab, do nothing
-            if (newTabStatus === currentTabStatus) {
-                console.log('Same tab selected, no action needed');
-                return;
-            }
-            
-            // Check if there are any active selections or filters
-            const hasSelections = getSelectedCount() > 0;
-            const hasFilters = hasActiveFilters();
-            
-            console.log('Has selections:', hasSelections, 'Has filters:', hasFilters);
-            
-            if (hasSelections || hasFilters) {
-                // Show confirmation dialog
-                console.log('Showing confirmation modal for tab switch');
-                showConfirmationModal(
-                    'Switch Tab',
-                    'Switching tabs will clear your current selection and bulk selection filters. Continue?',
-                    'Continue',
-                    'Cancel',
-                    () => {
-                        // User confirmed - proceed with tab switch
-                        console.log('User confirmed tab switch');
-                        performTabSwitch(btn, newTabStatus);
-                    },
-                    'warning'
-                );
-            } else {
-                // No selections or filters - switch immediately
-                console.log('No selections or filters, switching immediately');
-                performTabSwitch(btn, newTabStatus);
-            }
-        }
-        
-        function performTabSwitch(btn, newTabStatus) {
-            // Update tab UI
-            document.querySelectorAll('#studentTabNav .tab-pill').forEach(p=>p.classList.remove('active'));
-            btn.classList.add('active');
-            window.currentTabStatus = newTabStatus;
-            
-            // Clear all selections and filters
-            clearAllSelectionsAndFilters();
-            
-            // Apply filters for new tab context
-            applyTabFilter();
-            
-            // Show confirmation message
-            showToastNotification('Selection and filters cleared for new tab view', 'info');
-        }
-
-        // track currently selected account-status cohort from tab nav
-        window.currentTabStatus = '';
-
-        // dropdown handler for mobile tab select
-        function handleTabSelectChange(sel){
-            const newTabStatus = sel.value;
-            const currentTabStatus = window.currentTabStatus || '';
-            
-            // If switching to the same tab, do nothing
-            if (newTabStatus === currentTabStatus) {
-                return;
-            }
-            
-            // Check if there are any active selections or filters
-            const hasSelections = getSelectedCount() > 0;
-            const hasFilters = hasActiveFilters();
-            
-            if (hasSelections || hasFilters) {
-                // Show confirmation dialog
-                showConfirmationModal(
-                    'Switch Tab',
-                    'Switching tabs will clear your current selection and bulk selection filters. Continue?',
-                    'Continue',
-                    'Cancel',
-                    () => {
-                        // User confirmed - proceed with tab switch
-                        performMobileTabSwitch(sel, newTabStatus);
-                    },
-                    'warning'
-                );
-            } else {
-                // No selections or filters - switch immediately
-                performMobileTabSwitch(sel, newTabStatus);
-            }
-        }
-        
-        function performMobileTabSwitch(sel, newTabStatus) {
-            // Update tab state
-            window.currentTabStatus = newTabStatus;
-            
-            // Sync pill active state for when user switches back to desktop
-            document.querySelectorAll('#studentTabNav .tab-pill').forEach(btn=>{
-                btn.classList.toggle('active', btn.getAttribute('data-status')===newTabStatus);
-            });
-            
-            // Clear all selections and filters
-            clearAllSelectionsAndFilters();
-            
-            // Apply filters for new tab context
-            applyTabFilter();
-            
-            // Show confirmation message
-            showToastNotification('Selection and filters cleared for new tab view', 'info');
-        }
-
-        // Apply tab-based filter
-        function applyTabFilter() {
-            const currentStatus = window.currentTabStatus || '';
-            
-            // Update account status filter based on current tab
-            const accountStatusFilter = document.getElementById('accountStatusFilter');
-            if (accountStatusFilter) {
-                if (currentStatus === '') {
-                    accountStatusFilter.value = ''; // Show all
-                } else {
-                    accountStatusFilter.value = currentStatus;
-                }
-            }
-            
-            // Apply filters to show the filtered results
-            applyFilters();
-        }
 
         // Bulk selection functions
         function toggleSelectAll() {
@@ -1652,59 +1497,6 @@ if (session_status() == PHP_SESSION_NONE) {
                    (accountStatusFilter && accountStatusFilter.value !== '');
         }
 
-        // Individual student status toggle
-        function toggleStudentStatus(button) {
-            const row = button.closest('tr');
-            const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-            
-            if (!statusBadge) {
-                console.error('Status badge not found');
-                showToastNotification('Error: Could not find status badge', 'error');
-                return;
-            }
-            
-            const studentName = row.querySelector('td:nth-child(3)').textContent;
-            const currentStatus = statusBadge.textContent;
-            const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
-            
-            showConfirmationModal(
-                'Change Student Status',
-                `Change ${studentName}'s status from ${currentStatus} to ${newStatus}?`,
-                'Confirm',
-                'Cancel',
-                () => {
-                    if (currentStatus === 'Active') {
-                        // Change to Inactive
-                        statusBadge.textContent = 'Inactive';
-                        statusBadge.classList.remove('account-active');
-                        statusBadge.classList.add('account-inactive');
-                        button.classList.remove('active');
-                        button.classList.add('inactive');
-                        button.querySelector('i').classList.remove('fa-toggle-on');
-                        button.querySelector('i').classList.add('fa-toggle-off');
-                        
-                        // Update statistics
-                        updateStatistics('deactivate');
-                    } else {
-                        // Change to Active
-                        statusBadge.textContent = 'Active';
-                        statusBadge.classList.remove('account-inactive');
-                        statusBadge.classList.add('account-active');
-                        button.classList.remove('inactive');
-                        button.classList.add('active');
-                        button.querySelector('i').classList.remove('fa-toggle-off');
-                        button.querySelector('i').classList.add('fa-toggle-on');
-                        
-                        // Update statistics
-                        updateStatistics('activate');
-                    }
-                    
-                    // Show confirmation
-                    showToastNotification(`${studentName} is now ${newStatus}`, 'success');
-                },
-                'warning'
-            );
-        }
 
         // Update statistics helper function
         function updateStatistics(action) {
@@ -1745,15 +1537,10 @@ if (session_status() == PHP_SESSION_NONE) {
                     selectedRows.forEach(checkbox => {
                         const row = checkbox.closest('tr');
                         const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-                        const toggleBtn = row.querySelector('.status-toggle-btn');
                         
                         statusBadge.textContent = 'Active';
                         statusBadge.classList.remove('account-inactive');
                         statusBadge.classList.add('account-active');
-                        toggleBtn.classList.remove('inactive');
-                        toggleBtn.classList.add('active');
-                        toggleBtn.querySelector('i').classList.remove('fa-toggle-off');
-                        toggleBtn.querySelector('i').classList.add('fa-toggle-on');
                     });
                     
                     // Update statistics
@@ -1782,15 +1569,10 @@ if (session_status() == PHP_SESSION_NONE) {
                     selectedRows.forEach(checkbox => {
                         const row = checkbox.closest('tr');
                         const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-                        const toggleBtn = row.querySelector('.status-toggle-btn');
                         
                         statusBadge.textContent = 'Inactive';
                         statusBadge.classList.remove('account-active');
                         statusBadge.classList.add('account-inactive');
-                        toggleBtn.classList.remove('active');
-                        toggleBtn.classList.add('inactive');
-                        toggleBtn.querySelector('i').classList.remove('fa-toggle-on');
-                        toggleBtn.querySelector('i').classList.add('fa-toggle-off');
                     });
                     
                     // Update statistics
@@ -1912,13 +1694,11 @@ if (session_status() == PHP_SESSION_NONE) {
                 'openAddStudentModal',
                 'triggerImportModal', 
                 'triggerExportModal',
-                'switchStudentTab',
                 'openBulkSelectionModal',
                 'closeBulkSelectionModal',
                 'applyBulkSelection',
                 'clearAllSelections',
                 'updateSelectionCounter',
-                'toggleStudentStatus',
                 'activateSelected',
                 'deactivateSelected',
                 'markGraduated',
@@ -1983,12 +1763,6 @@ if (session_status() == PHP_SESSION_NONE) {
             console.log('✅ openBulkSelectionModal is defined');
         } else {
             console.error('❌ openBulkSelectionModal is NOT defined');
-        }
-        
-        if (typeof switchStudentTab === 'function') {
-            console.log('✅ switchStudentTab is defined');
-        } else {
-            console.error('❌ switchStudentTab is NOT defined');
         }
     </script>
     

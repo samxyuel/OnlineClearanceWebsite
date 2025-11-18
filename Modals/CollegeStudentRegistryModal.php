@@ -198,7 +198,9 @@ async function updateProgramsAndYearLevels() {
         // Populate programs
         data.programs.forEach(program => {
           const option = document.createElement('option');
-          option.value = program.program_id;
+          option.value = program.program_code || program.program_id;
+          option.dataset.programId = program.program_id;
+          option.dataset.departmentId = program.department_id;
           option.textContent = program.program_name;
           programSelect.appendChild(option);
         });
@@ -311,18 +313,18 @@ function submitStudentRegistrationForm() {
 function confirmStudentCreation(credentialData) {
   const form = document.getElementById('studentRegistrationForm');
   const formData = {
-    student_number: form.studentNumber.value.trim(),
-    department_id: form.department.value,
-    program_id: form.program.value,
-    year_level: form.yearLevel.value,
+    studentNumber: form.studentNumber.value.trim(),
+    department: form.department.value,
+    program: form.program.value,
+    yearLevel: form.yearLevel.value,
     section: form.section.value.trim(),
-    first_name: form.firstName.value.trim(),
-    last_name: form.lastName.value.trim(),
-    middle_name: form.middleName.value.trim() || null,
+    firstName: form.firstName.value.trim(),
+    lastName: form.lastName.value.trim(),
+    middleName: form.middleName.value.trim() || null,
     email: form.email.value.trim() || null,
-    phone_number: form.phoneNumber.value.trim() || null,
-    username: credentialData.username,
+    phoneNumber: form.phoneNumber.value.trim() || null,
     password: credentialData.password,
+    confirmPassword: credentialData.password,
     sector: 'college'
   };
 
@@ -356,7 +358,7 @@ function confirmStudentCreation(credentialData) {
         onUserCreated(newUserId, 'College').catch(console.error);
       }
       // notify parent page
-      document.dispatchEvent(new CustomEvent('student-added', { detail: { student_number: formData.student_number } }));
+      document.dispatchEvent(new CustomEvent('student-added', { detail: { student_number: formData.studentNumber } }));
     } else {
       showToastNotification(res.message || 'Error registering student', 'error');
       if(confirmBtn) confirmBtn.disabled = false;

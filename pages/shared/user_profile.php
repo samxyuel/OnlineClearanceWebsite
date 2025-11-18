@@ -105,7 +105,8 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
     <title>My Profile - Online Clearance System</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/user_profile.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/css/modals.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <?php
@@ -444,6 +445,35 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
                 </div>
             </div>
         </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirmation Modal for Clear Security Questions -->
+    <div class="modal-overlay" id="clearSecurityQuestionsModal" style="display: none;">
+        <div class="modal-window modal-warning" style="max-width: 500px;">
+            <button class="modal-close" onclick="closeClearSecurityQuestionsModal()">&times;</button>
+            
+            <div class="modal-header">
+                <h2 class="modal-title">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Clear Security Questions
+                </h2>
+                <div class="modal-supporting-text" id="clearSecurityQuestionsMessage">
+                    Are you sure you want to clear all security questions? This will clear the form but not delete your saved questions. To delete saved questions, you need to save new ones.
+                </div>
+            </div>
+            
+            <div class="modal-content-area">
+                <div class="validation-message warning">
+                    <i class="fas fa-info-circle"></i>
+                    <span>This action will only clear the form fields. Your saved security questions will remain in the database until you save new ones.</span>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="modal-action-secondary" onclick="closeClearSecurityQuestionsModal()">Cancel</button>
+                <button class="modal-action-primary" onclick="confirmClearSecurityQuestions()">Clear All</button>
+            </div>
         </div>
     </div>
 
@@ -836,6 +866,7 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
             initAdminEditing();
             loadProfileData();
             initEditableFields();
+            loadSecurityQuestions(); // Load existing security questions
             
             // Security questions form
             const securityForm = document.querySelector('.security-questions-form');
@@ -882,9 +913,10 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
         }
 
         // Security questions functions - Global scope
-        window.handleSecurityQuestionsSubmit = function() {
+        window.handleSecurityQuestionsSubmit = async function() {
             const form = document.getElementById('security-questions-form');
             const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
             
             // Validate that all questions are different
             const questions = [
@@ -906,33 +938,267 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
             ];
             
             if (answers.some(answer => !answer.trim())) {
-                alert('Please provide answers for all security questions.');
+                alert('Please provide answers for all 3 security questions. You must set up all security questions together.');
                 return;
             }
             
-            // Simulate saving (replace with actual AJAX call)
-            console.log('Saving security questions:', {
-                question1: formData.get('question1'),
-                answer1: formData.get('answer1'),
-                question2: formData.get('question2'),
-                answer2: formData.get('answer2'),
-                question3: formData.get('question3'),
-                answer3: formData.get('answer3')
-            });
+            // Validate that all questions are selected
+            if (questions.some(q => !q || !q.trim())) {
+                alert('Please select all 3 security questions. You must set up all security questions together.');
+                return;
+            }
             
-            showSaveIndicator('Security questions saved successfully!');
+            // Disable submit button
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            }
+            
+            try {
+                const response = await fetch('../../api/users/security_questions.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        questions: questions,
+                        answers: answers
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSaveIndicator('Security questions saved successfully!');
+                    // Don't reset form - keep answers visible
+                    // Reload questions to show updated state (this will update the selected questions)
+                    loadSecurityQuestions();
+                } else {
+                    alert('Error: ' + (result.message || 'Failed to save security questions'));
+                }
+            } catch (error) {
+                console.error('Error saving security questions:', error);
+                alert('An error occurred while saving security questions. Please try again.');
+            } finally {
+                // Re-enable submit button
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Security Questions';
+                }
+            }
         }
-
-        window.clearSecurityQuestions = function() {
-            if (confirm('Are you sure you want to clear all security questions?')) {
-                document.getElementById('security-questions-form').reset();
-                showSaveIndicator('Security questions cleared.');
+        
+        // Load existing security questions
+        async function loadSecurityQuestions() {
+            try {
+                const response = await fetch('../../api/users/security_questions.php', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                const form = document.getElementById('security-questions-form');
+                const question1Select = document.getElementById('question1');
+                const question2Select = document.getElementById('question2');
+                const question3Select = document.getElementById('question3');
+                const answer1Input = document.getElementById('answer1');
+                const answer2Input = document.getElementById('answer2');
+                const answer3Input = document.getElementById('answer3');
+                const submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+                
+                // Check for partial setup
+                if (result.success && result.has_partial) {
+                    // Show warning message
+                    let warningMsg = document.getElementById('partial-setup-warning');
+                    if (!warningMsg) {
+                        warningMsg = document.createElement('div');
+                        warningMsg.id = 'partial-setup-warning';
+                        warningMsg.className = 'validation-message warning';
+                        warningMsg.style.marginBottom = '20px';
+                        warningMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> <strong>Incomplete Setup:</strong> You have ' + result.question_count + ' security question(s) saved. You must complete all 3 security questions together. Please fill in all questions and answers to continue.';
+                        const formContainer = form ? form.parentElement : null;
+                        if (formContainer) {
+                            formContainer.insertBefore(warningMsg, form);
+                        }
+                    }
+                    
+                    // Disable submit button initially (but allow field editing)
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.style.opacity = '0.6';
+                        submitBtn.style.cursor = 'not-allowed';
+                    }
+                    
+                    // Still try to load what exists
+                    if (result.has_questions && result.data) {
+                        const questions = result.data.questions;
+                        if (question1Select && questions[0] && questions[0].key) {
+                            question1Select.value = questions[0].key;
+                            if (answer1Input && questions[0].answer) {
+                                answer1Input.value = questions[0].answer;
+                            }
+                        }
+                        if (question2Select && questions[1] && questions[1].key) {
+                            question2Select.value = questions[1].key;
+                            if (answer2Input && questions[1].answer) {
+                                answer2Input.value = questions[1].answer;
+                            }
+                        }
+                        if (question3Select && questions[2] && questions[2].key) {
+                            question3Select.value = questions[2].key;
+                            if (answer3Input && questions[2].answer) {
+                                answer3Input.value = questions[2].answer;
+                            }
+                        }
+                    }
+                    
+                    // Add event listeners to enable submit button when all fields are filled
+                    function checkFormCompletion() {
+                        const q1 = question1Select ? question1Select.value : '';
+                        const q2 = question2Select ? question2Select.value : '';
+                        const q3 = question3Select ? question3Select.value : '';
+                        const a1 = answer1Input ? answer1Input.value.trim() : '';
+                        const a2 = answer2Input ? answer2Input.value.trim() : '';
+                        const a3 = answer3Input ? answer3Input.value.trim() : '';
+                        
+                        const allFilled = q1 && q2 && q3 && a1 && a2 && a3;
+                        
+                        if (submitBtn) {
+                            if (allFilled) {
+                                submitBtn.disabled = false;
+                                submitBtn.style.opacity = '1';
+                                submitBtn.style.cursor = 'pointer';
+                                if (warningMsg) {
+                                    warningMsg.style.display = 'none';
+                                }
+                            } else {
+                                submitBtn.disabled = true;
+                                submitBtn.style.opacity = '0.6';
+                                submitBtn.style.cursor = 'not-allowed';
+                                if (warningMsg) {
+                                    warningMsg.style.display = 'block';
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Check initial state
+                    checkFormCompletion();
+                    
+                    // Add listeners to all form fields
+                    [question1Select, question2Select, question3Select, answer1Input, answer2Input, answer3Input].forEach(field => {
+                        if (field) {
+                            field.addEventListener('change', checkFormCompletion);
+                            field.addEventListener('input', checkFormCompletion);
+                        }
+                    });
+                } else if (result.success && result.has_questions && result.data) {
+                    // Normal case: all 3 questions are set up
+                    const questions = result.data.questions;
+                    
+                    // Enable form
+                    if (form) {
+                        form.style.opacity = '1';
+                        form.style.pointerEvents = 'auto';
+                        
+                        // Remove warning message if exists
+                        const warningMsg = document.getElementById('partial-setup-warning');
+                        if (warningMsg) {
+                            warningMsg.remove();
+                        }
+                    }
+                    
+                    // Set selected questions and answers
+                    if (question1Select && questions[0]) {
+                        question1Select.value = questions[0].key;
+                        if (answer1Input && questions[0].answer) {
+                            answer1Input.value = questions[0].answer;
+                        }
+                    }
+                    if (question2Select && questions[1]) {
+                        question2Select.value = questions[1].key;
+                        if (answer2Input && questions[1].answer) {
+                            answer2Input.value = questions[1].answer;
+                        }
+                    }
+                    if (question3Select && questions[2]) {
+                        question3Select.value = questions[2].key;
+                        if (answer3Input && questions[2].answer) {
+                            answer3Input.value = questions[2].answer;
+                        }
+                    }
+                } else {
+                    // No questions set up - enable form
+                    if (form) {
+                        form.style.opacity = '1';
+                        form.style.pointerEvents = 'auto';
+                        
+                        // Remove warning message if exists
+                        const warningMsg = document.getElementById('partial-setup-warning');
+                        if (warningMsg) {
+                            warningMsg.remove();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading security questions:', error);
+                // Silently fail - user can still set questions
             }
         }
 
-        window.handlePasswordChange = function() {
+        window.clearSecurityQuestions = function() {
+            openClearSecurityQuestionsModal();
+        }
+        
+        function openClearSecurityQuestionsModal() {
+            const modal = document.getElementById('clearSecurityQuestionsModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                requestAnimationFrame(() => modal.classList.add('active'));
+            }
+        }
+        
+        function closeClearSecurityQuestionsModal() {
+            const modal = document.getElementById('clearSecurityQuestionsModal');
+            if (modal) {
+                modal.classList.remove('active');
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                }, 200);
+            }
+        }
+        
+        function confirmClearSecurityQuestions() {
+            const form = document.getElementById('security-questions-form');
+            if (form) {
+                // Reset the form (clears all selections and answers)
+                form.reset();
+                showSaveIndicator('Security questions form cleared.');
+            }
+            closeClearSecurityQuestionsModal();
+        }
+        
+        // Close modal when clicking outside
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('clearSecurityQuestionsModal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closeClearSecurityQuestionsModal();
+                    }
+                });
+            }
+        });
+
+        window.handlePasswordChange = async function() {
             const form = document.getElementById('password-form');
             const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
             
             const currentPassword = formData.get('current_password');
             const newPassword = formData.get('new_password');
@@ -946,14 +1212,47 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
             
             // Validate password strength
             if (!validatePasswordStrength(newPassword)) {
-                alert('Password does not meet the requirements.');
+                alert('Password does not meet the requirements. Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one number.');
                 return;
             }
             
-            // Simulate password change (replace with actual AJAX call)
-            console.log('Changing password...');
-            showSaveIndicator('Password changed successfully!');
-            form.reset();
+            // Disable submit button
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+            }
+            
+            try {
+                const response = await fetch('../../api/users/password.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSaveIndicator('Password changed successfully!');
+                    form.reset();
+                } else {
+                    alert('Error: ' + (result.message || 'Failed to change password'));
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                alert('An error occurred while changing password. Please try again.');
+            } finally {
+                // Re-enable submit button
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-key"></i> Update Password';
+                }
+            }
         }
 
         window.validatePasswordStrength = function(password) {

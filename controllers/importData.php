@@ -248,9 +248,9 @@ function detectDuplicateFaculty($data, $connection) {
 function getProgramHeadAssignments($connection, $auth) {
     $userId = $auth->getUserId();
     
-    // Get staff employee_number for this user
+    // Get staff employee_number and department_id for this user
     $stmt = $connection->prepare("
-        SELECT s.employee_number 
+        SELECT s.employee_number, s.department_id
         FROM staff s 
         WHERE s.user_id = ? AND s.staff_category = 'Program Head' AND s.is_active = 1
         LIMIT 1
@@ -262,7 +262,7 @@ function getProgramHeadAssignments($connection, $auth) {
         return null; // Not a Program Head
     }
     
-    // Get assigned departments from staff_department_assignments
+    // First, try to get assigned departments from staff_department_assignments (new system)
     $stmt = $connection->prepare("
         SELECT sda.department_id, sda.sector_id, d.department_name, s.sector_name
         FROM staff_department_assignments sda
@@ -272,6 +272,22 @@ function getProgramHeadAssignments($connection, $auth) {
     ");
     $stmt->execute([$staff['employee_number']]);
     $assignments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // If no assignments found in junction table, fallback to staff.department_id (legacy system)
+    if (empty($assignments) && !empty($staff['department_id'])) {
+        $stmt = $connection->prepare("
+            SELECT d.department_id, d.sector_id, d.department_name, s.sector_name
+            FROM departments d
+            JOIN sectors s ON d.sector_id = s.sector_id
+            WHERE d.department_id = ? AND d.is_active = 1
+        ");
+        $stmt->execute([$staff['department_id']]);
+        $legacyDept = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($legacyDept) {
+            $assignments = [$legacyDept];
+        }
+    }
     
     return $assignments;
 }
@@ -303,7 +319,7 @@ function validateDepartmentAccess($connection, $departmentId, $expectedSectorNam
     $userRoleName = $auth->getRoleName();
     if ($userRoleName === 'Program Head') {
         $assignments = getProgramHeadAssignments($connection, $auth);
-        if (!$assignments) {
+        if ($assignments === null || empty($assignments)) {
             throw new Exception('Program Head has no assigned departments');
         }
         
@@ -1329,8 +1345,18 @@ function logImportActivity($type, $total, $imported, $updated, $skipped) {
 // Normalize incoming row keys/values to expected schema for students
 function normalizeStudentRow(array $row): array {
     $normalized = [];
-    // Student number
-    $normalized['student_number'] = trim($row['student_number'] ?? $row['student_id'] ?? $row['student_number'] ?? '');
+    // Student number - handle leading zeros lost by Excel
+    $studentNumber = trim($row['student_number'] ?? $row['student_id'] ?? $row['student_number'] ?? '');
+    // If student number is 10 digits and starts with "2", likely missing leading zero
+    if (preg_match('/^\d{10}$/', $studentNumber) && substr($studentNumber, 0, 1) === '2') {
+        $studentNumber = '0' . $studentNumber; // Pad with leading zero
+    }
+    // Ensure it's exactly 11 digits (pad with zeros if needed, but this shouldn't happen)
+    if (preg_match('/^\d+$/', $studentNumber) && strlen($studentNumber) < 11) {
+        $studentNumber = str_pad($studentNumber, 11, '0', STR_PAD_LEFT);
+    }
+    $normalized['student_number'] = $studentNumber;
+    
     // Names
     $normalized['last_name'] = trim($row['last_name'] ?? ($row['surname'] ?? ''));
     $normalized['first_name'] = trim($row['first_name'] ?? ($row['given_name'] ?? ''));
@@ -1341,12 +1367,75 @@ function normalizeStudentRow(array $row): array {
     $normalized['department'] = isset($row['department']) ? trim($row['department']) : null;
     $normalized['department_id'] = isset($row['department_id']) ? (int)$row['department_id'] : null;
     $normalized['sector'] = isset($row['sector']) ? trim($row['sector']) : null;
-    $normalized['year_level'] = isset($row['year_level']) ? trim($row['year_level']) : null;
+    
+    // Normalize year_level - handle various formats
+    $yearLevel = isset($row['year_level']) ? trim($row['year_level']) : null;
+    if ($yearLevel) {
+        $yearLevel = normalizeYearLevel($yearLevel);
+    }
+    $normalized['year_level'] = $yearLevel;
+    
     $normalized['section'] = isset($row['section']) ? trim($row['section']) : null;
     // Contacts
     $normalized['email'] = isset($row['email']) ? trim($row['email']) : null;
     $normalized['contact_number'] = isset($row['contact_number']) ? trim($row['contact_number']) : (isset($row['phone_number']) ? trim($row['phone_number']) : null);
     return $normalized;
+}
+
+/**
+ * Normalize year level to standard format
+ */
+function normalizeYearLevel($yearLevel) {
+    $yearLevel = trim($yearLevel);
+    $yearLevelLower = strtolower($yearLevel);
+    
+    // Map common variations to standard format
+    $mapping = [
+        // College year levels
+        '1st' => '1st Year',
+        '1st year' => '1st Year',
+        'first year' => '1st Year',
+        'first' => '1st Year',
+        '1' => '1st Year',
+        '2nd' => '2nd Year',
+        '2nd year' => '2nd Year',
+        'second year' => '2nd Year',
+        'second' => '2nd Year',
+        '2' => '2nd Year',
+        '3rd' => '3rd Year',
+        '3rd year' => '3rd Year',
+        'third year' => '3rd Year',
+        'third' => '3rd Year',
+        '3' => '3rd Year',
+        '4th' => '4th Year',
+        '4th year' => '4th Year',
+        'fourth year' => '4th Year',
+        'fourth' => '4th Year',
+        '4' => '4th Year',
+        // SHS year levels
+        'grade 11' => 'Grade 11',
+        'grade11' => 'Grade 11',
+        'g11' => 'Grade 11',
+        '11' => 'Grade 11',
+        'grade 12' => 'Grade 12',
+        'grade12' => 'Grade 12',
+        'g12' => 'Grade 12',
+        '12' => 'Grade 12'
+    ];
+    
+    // Check if exact match exists in mapping
+    if (isset($mapping[$yearLevelLower])) {
+        return $mapping[$yearLevelLower];
+    }
+    
+    // If already in valid format, return as-is
+    $validYearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Grade 11', 'Grade 12'];
+    if (in_array($yearLevel, $validYearLevels)) {
+        return $yearLevel;
+    }
+    
+    // Return original if no match found (validation will catch it)
+    return $yearLevel;
 }
 
 function validateStudentData($data, $connection, $performDeepChecks = true, $selectedDepartmentId = null, $selectedProgramId = null) {
@@ -1363,10 +1452,17 @@ function validateStudentData($data, $connection, $performDeepChecks = true, $sel
             }
         }
         
-        // Validate student_number format (should be 11 digits)
+        // Validate student_number format (should be 11 digits) - handle leading zeros
         if (!empty($row['student_number'])) {
-            if (!preg_match('/^\d{11}$/', $row['student_number'])) {
-                $errors[] = "Row $rowNumber: Invalid student_number format (expected 11 digits)";
+            $studentNumber = $row['student_number'];
+            // If 10 digits starting with "2", likely missing leading zero
+            if (preg_match('/^\d{10}$/', $studentNumber) && substr($studentNumber, 0, 1) === '2') {
+                $studentNumber = '0' . $studentNumber; // Auto-fix
+                $data[$index]['student_number'] = $studentNumber; // Update in data array
+            }
+            // Validate it's exactly 11 digits
+            if (!preg_match('/^\d{11}$/', $studentNumber)) {
+                $errors[] = "Row $rowNumber: Invalid student_number format (expected 11 digits, got " . strlen($studentNumber) . " digits: $studentNumber)";
             }
         }
         
@@ -1375,11 +1471,16 @@ function validateStudentData($data, $connection, $performDeepChecks = true, $sel
             $errors[] = "Row $rowNumber: Invalid email format";
         }
         
-        // Validate year_level if provided
+        // Validate year_level if provided (after normalization)
         if (!empty($row['year_level'])) {
+            // Normalize year level first
+            $normalizedYearLevel = normalizeYearLevel($row['year_level']);
             $validYearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Grade 11', 'Grade 12'];
-            if (!in_array($row['year_level'], $validYearLevels)) {
-                $errors[] = "Row $rowNumber: Invalid year_level. Must be one of: " . implode(', ', $validYearLevels);
+            if (!in_array($normalizedYearLevel, $validYearLevels)) {
+                $errors[] = "Row $rowNumber: Invalid year_level '$row[year_level]'. Must be one of: " . implode(', ', $validYearLevels);
+            } else {
+                // Update data array with normalized value
+                $data[$index]['year_level'] = $normalizedYearLevel;
             }
         }
     }
@@ -1420,9 +1521,16 @@ function buildStudentValidationReport(array $data, PDO $connection, $selectedDep
         if ($lastName === '') { $rowIssues[] = "Missing last_name"; }
         if ($firstName === '') { $rowIssues[] = "Missing first_name"; }
 
-        // Format checks
-        if ($studentNumber !== '' && !preg_match('/^\d{11}$/', $studentNumber)) {
-            $rowIssues[] = "Invalid student_number format (expected 11 digits)";
+        // Format checks - handle leading zeros
+        if ($studentNumber !== '') {
+            // If 10 digits starting with "2", likely missing leading zero
+            if (preg_match('/^\d{10}$/', $studentNumber) && substr($studentNumber, 0, 1) === '2') {
+                $studentNumber = '0' . $studentNumber; // Auto-fix
+            }
+            // Validate it's exactly 11 digits
+            if (!preg_match('/^\d{11}$/', $studentNumber)) {
+                $rowIssues[] = "Invalid student_number format (expected 11 digits, got " . strlen($studentNumber) . " digits)";
+            }
         }
 
         // Duplicate check (within file)

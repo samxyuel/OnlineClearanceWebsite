@@ -1,9 +1,16 @@
 <?php
 // Online Clearance Website - Clearance Report Exporter
 
-// Use the DOCX template to PDF helper
-require_once __DIR__ . '/../../includes/helpers/generateClearanceTemplatePDF.php';
+// Disable error display to prevent corruption of binary files
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
+// NEW: Use programmatic PDF generator (similar to ReportGenerator approach)
+require_once __DIR__ . '/../../includes/classes/ClearanceFormPDFGenerator.php';
 require_once __DIR__ . '/../../includes/config/database.php';
+
+// OLD: DOCX template approach (commented out for backup)
+// require_once __DIR__ . '/../../includes/helpers/generateClearanceTemplatePDF.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -71,44 +78,102 @@ try {
     $sigStmt->execute([$form_id]);
     $signatories = $sigStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $clearance_status = ucfirst(str_replace('-', ' ', $formDetails['clearance_form_progress']));
-
-    // Fetch student-specific details (program, department) if user is a student
-    $studentDetails = null;
-    if ($user_type === 'student') {
-        $studentStmt = $pdo->prepare("
-            SELECT s.year_level, s.section, p.program_name, d.department_name
-            FROM students s
-            LEFT JOIN programs p ON s.program_id = p.program_id
-            LEFT JOIN departments d ON s.department_id = d.department_id
-            WHERE s.user_id = ?
-        ");
-        $studentStmt->execute([$user_id]);
-        $studentDetails = $studentStmt->fetch(PDO::FETCH_ASSOC);
-    }
-
-    // Extract Registrar from signatories
-    $registrarName = 'Registrar'; // default fallback
-    $registrarAction = 'Pending'; // default fallback
-    foreach ($signatories as $s) {
-        if (isset($s['designation_name']) && stripos($s['designation_name'], 'Registrar') !== false) {
-            if (!empty($s['signatory_name'])) {
-                $registrarName = $s['signatory_name'];
-            }
-            $registrarAction = $s['action'] ?? 'Pending';
-            break; // Found the registrar, stop looping
-        }
-    }
-
 } catch (Exception $e) {
     http_response_code(500);
-    // In a real app, log the error instead of echoing it.
+    error_log("Error preparing report: " . $e->getMessage());
     echo "Error preparing report: " . $e->getMessage();
     exit;
 }
 
+// ============================================================================
+// NEW APPROACH: Programmatic PDF Generation (similar to ReportGenerator)
+// ============================================================================
+// Start output buffering to catch any PHP warnings/errors
+ob_start();
+
+try {
+    // Set time limit for PDF generation
+    set_time_limit(120); // 2 minutes
+    
+    // Prepare output file
+    $middleInitial = !empty($user['middle_name']) ? substr($user['middle_name'], 0, 1) . '. ' : '';
+    $fullName = trim($user['first_name'] . ' ' . $middleInitial . $user['last_name']);
+    $outputFile = sys_get_temp_dir() . '/clearance_report_' . $user_id . '_' . time() . '.pdf';
+    
+    // Generate PDF using new ClearanceFormPDFGenerator
+    error_log("--- [NEW] Calling ClearanceFormPDFGenerator ---");
+    error_log("User Type: $user_type, Form ID: $form_id");
+    
+    $generator = new ClearanceFormPDFGenerator($pdo);
+    $generatedFile = $generator->generateClearancePDF($user_type, $form_id, $outputFile);
+    
+    // Check for any output that was generated (this would corrupt binary files)
+    $output = ob_get_clean();
+    if (!empty($output)) {
+        error_log("[export_report.php] ERROR: Unexpected output generated during PDF generation: " . substr($output, 0, 500));
+        if (file_exists($generatedFile)) {
+            @unlink($generatedFile);
+        }
+        throw new Exception('PDF generation produced unexpected output. Check error logs for details.');
+    }
+    
+    if (!file_exists($generatedFile) || filesize($generatedFile) === 0) {
+        throw new Exception("Generated PDF file is empty or missing");
+    }
+    
+    error_log("PDF generated successfully: $generatedFile (" . filesize($generatedFile) . " bytes)");
+    
+} catch (Exception $e) {
+    // Clean up output buffer
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    http_response_code(500);
+    error_log("PDF Generation Error: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    if (isset($outputFile) && file_exists($outputFile)) {
+        @unlink($outputFile);
+    }
+    exit;
+}
+
+// ============================================================================
+// OLD APPROACH: DOCX Template Method (commented out for backup)
+// ============================================================================
+/*
+$clearance_status = ucfirst(str_replace('-', ' ', $formDetails['clearance_form_progress']));
+
+// Fetch student-specific details (program, department) if user is a student
+$studentDetails = null;
+if ($user_type === 'student') {
+    $studentStmt = $pdo->prepare("
+        SELECT s.year_level, s.section, p.program_name, d.department_name
+        FROM students s
+        LEFT JOIN programs p ON s.program_id = p.program_id
+        LEFT JOIN departments d ON s.department_id = d.department_id
+        WHERE s.user_id = ?
+    ");
+    $studentStmt->execute([$user_id]);
+    $studentDetails = $studentStmt->fetch(PDO::FETCH_ASSOC);
+}
+
+// Extract Registrar from signatories
+$registrarName = 'Registrar'; // default fallback
+$registrarAction = 'Pending'; // default fallback
+foreach ($signatories as $s) {
+    if (isset($s['designation_name']) && stripos($s['designation_name'], 'Registrar') !== false) {
+        if (!empty($s['signatory_name'])) {
+            $registrarName = $s['signatory_name'];
+        }
+        $registrarAction = $s['action'] ?? 'Pending';
+        break; // Found the registrar, stop looping
+    }
+}
+
 // 3. Prepare Data for the DOCX Template
-$fullName = trim($user['first_name'] . ' ' . ($user['middle_name'] ? $user['middle_name'][0] . '. ' : '') . $user['last_name']);
+$fullName = trim($user['first_name'] . ' ' . ($user['middle_name'] ? $user['middle_name'][0] . '. ' : '') . $user['last_name']));
 
 $templateData = [
     'FULL_NAME' => $fullName,
@@ -161,16 +226,29 @@ try {
     }
     exit;
 }
+*/
 
 // 6. Send the generated PDF for download
-if (!file_exists($outputFile) || filesize($outputFile) === 0) {
+if (!isset($generatedFile) || !file_exists($generatedFile) || filesize($generatedFile) === 0) {
+    // Clean any output buffers
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
     http_response_code(500); 
-    echo "Error: The generated PDF is empty or could not be created.";
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'The generated PDF is empty or could not be created.']);
     exit;
 }
+
+// Clear any output buffers before sending file to prevent corruption
+while (ob_get_level()) {
+    ob_end_clean();
+}
+
 header('Content-Type: application/pdf');
 header('Content-Disposition: attachment; filename="Clearance_Report_' . str_replace(' ', '_', $fullName) . '.pdf"');
-header('Content-Length: ' . filesize($outputFile));
-readfile($outputFile);
-unlink($outputFile); // Clean up the temporary file
+header('Content-Length: ' . filesize($generatedFile));
+readfile($generatedFile);
+@unlink($generatedFile); // Clean up the temporary file
 exit;

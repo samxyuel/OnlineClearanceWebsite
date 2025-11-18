@@ -1,2 +1,6 @@
-Student Number,Sector,First Name,Middle Name,Last Name,Department,Program,Year Level,Section,
-02000290002,College,Test,College,Two,Information & Communication Technology,BS in Computer Science,2nd Year,1,02/01/2001
+Student Number,Sector,First Name,Middle Name,Last Name,Department,Program,Year Level,Section
+02000290002,College,Test,College,Two,Information & Communication Technology,BS in Computer Science,3rd Year,2
+02000280002,College,Test,xyz,asd,Information & Communication Technology,BS in Computer Science,3rd Year,1
+02000270002,College,Test,zxc,dsa,Information & Communication Technology,BS in Computer Science,2nd year,3
+02000260002,College,Test,vbn,sad,Information & Communication Technology,BS in Computer Science,1st year,4
+02000250002,College,Test,cxz,awd,Information & Communication Technology,BS in Computer Science,3rd Year,1

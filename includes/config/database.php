@@ -1,10 +1,17 @@
 <?php
-// Database configuration for Online Clearance Website
+// Database configuration for Online Clearance Website (local)
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'online_clearance_db');
 define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
+
+// Database configuration for Online Clearance Website (Current, Online)
+//define('DB_HOST', 'mysql-basedata.alwaysdata.net');
+//define('DB_NAME', 'basedata_db');
+//define('DB_USER', 'basedata');
+//define('DB_PASS', 'bawalsqlinjectiondito');
+//define('DB_CHARSET', 'utf8mb4');
 
 // Database connection class
 class Database {

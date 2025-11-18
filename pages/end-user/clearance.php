@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/sector-clearance.css">
     <link rel="stylesheet" href="../../assets/css/clearance-status.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <?php
@@ -135,10 +135,12 @@
                                     <span class="detail-value" id="overallStatusText">Loading...</span>
                                 </div>
                             </div>
+                            <!--
                             <div class="form-extra-meta">
-                                <span class="meta-item"><strong>Sector:</strong> <?php echo $user_sector; ?></span>
-                                <span class="meta-item"><strong>Account:</strong> <?php echo $first_name . ' ' . $last_name; ?></span>
+                                <span class="meta-item"><strong>Sector:</strong>  ?php echo $user_sector; ?></span>
+                                <span class="meta-item"><strong>Account:</strong>  ?php echo $first_name . ' ' . $last_name; ?></span>
                             </div>
+                            -->
                         </div>
                     </div>
                 </div>

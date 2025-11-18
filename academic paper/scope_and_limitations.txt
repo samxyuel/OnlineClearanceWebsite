@@ -1,0 +1,82 @@
+SCOPE AND LIMITATIONS
+
+SCOPE OF THE STUDY
+
+This study develops an online clearance system for STI College Lucena. The system replaces manual clearance processes with a centralized digital platform. It reduces physical interactions, minimizes errors, and improves efficiency across the institution.
+
+The system serves seven user roles: students, faculty members, administrative staff, program heads, school administrators, regular staff, and system administrators. Each role has specific permissions and access levels. Students and faculty track clearance status in real time. Administrative staff manage clearance requests and assignments. System administrators oversee account creation and data management.
+
+The study covers the academic years 2024-2025. It includes proposal, design, development, and implementation phases.
+
+Key features include:
+
+Clearance Tracking Module
+Students and faculty monitor clearance request status in real time. Users see pending requirements and identify which signatories approved or rejected their clearance. The system provides transparency and accountability. Users receive notifications when the website is open, keeping them informed for timely action.
+
+Account Creation Feature
+Administrators create user accounts for students, faculty, and staff. The system requires personal and institutional details such as names, departments, and roles. Role-based account management ensures each user accesses only appropriate functionalities.
+
+Digital Approval Module
+Authorized personnel approve or reject clearance requests digitally. This feature eliminates manual signatures. Signatories review requests in batches, use check-all options for efficiency, and leave comments on unapproved clearances to guide users on resolving issues.
+
+Search and Filter Module
+Users retrieve clearance records based on criteria such as student name, clearance status, or department. Administrators and staff use advanced filters to navigate large datasets. This reduces time spent searching for specific records and simplifies data management.
+
+Print Functionality
+Students and faculty generate printable clearance forms after completing all requirements. This removes the need for physical documentation and streamlines submission. The print option is secured to prevent printing incomplete clearances, maintaining process integrity.
+
+Sector-Based Clearance Management
+The system manages three distinct sectors: College, Senior High School, and Faculty. Each sector operates independently with its own clearance periods, signatory assignments, and workflow requirements. This allows tailored clearance processes for different academic divisions.
+
+Academic Year and Semester Management
+Administrators create and manage academic years and semesters. They activate terms and start clearance periods for each sector. The system tracks clearance periods across multiple academic terms.
+
+Signatory Assignment and Workflow
+Administrators assign signatories to specific sectors and departments. The system supports required first and last signatory configurations. Signatories review clearance forms assigned to their departments or sectors. They approve or reject with comments.
+
+Bulk Data Import
+Administrators import student and faculty data from CSV, Excel, JSON, and XML files. The system validates imported data and supports three import modes: skip existing records, update existing records, or replace all data. This enables efficient bulk account creation.
+
+Reporting and Export
+The system generates reports in PDF and Excel formats. Available reports include Student Clearance Form Progress Report, Faculty Clearance Form Progress Report, Student Clearance Applicant Status Report, and Faculty Clearance Applicant Status Report. Reports are role-based, with different access levels for administrators, school administrators, program heads, and regular staff.
+
+Audit Trail and Activity Tracking
+The system logs all user activities and system changes. Administrators access audit trails to track clearance actions, account modifications, and system events. This provides accountability and supports troubleshooting.
+
+User Management by Role
+Administrators manage users across all roles. School administrators manage staff and faculty. Program heads manage students and faculty within their departments. Regular staff have limited user management access. Each role has appropriate management capabilities.
+
+Graduation and Retention Management
+The system tracks student graduation eligibility and retention status. Administrators manage graduation lists and update student academic status. This supports clearance processes for graduating students and retained students.
+
+This study focuses exclusively on digitizing the clearance process for STI College Lucena. It does not cover other administrative tasks or processes within the institution. The system handles clearance workflows for College students, Senior High School students, and Faculty members. It does not extend to other institutional processes such as enrollment, grading, or financial management.
+
+LIMITATIONS OF THE STUDY
+
+Browser and Platform Constraints
+The system operates only through web browsers. No dedicated mobile application exists for this project. The website adjusts to mobile devices through responsive design, but users may find it less convenient than a standalone mobile app. Administrative features require computer access for account management and bulk data transfers. The system is tested on modern browsers including Chrome, Firefox, Safari, and Edge. Older browser versions may not support all features. Users must use updated browser versions.
+
+Internet Dependency
+The system requires internet access to function. Users with poor or unreliable connectivity cannot access the system. This poses challenges for students or faculty in areas with limited infrastructure. As a browser-based platform, the system prioritizes online functionality to provide real-time access and updates for clearance processes. The system does not support offline functionality or progressive web app features.
+
+Campus-Specific Focus
+The project is tailored exclusively for STI College Lucena's clearance process. It does not include functionality for other campuses or schools. This specificity allows for a focused and customized solution, but it limits scalability and transferability to other institutions. The system meets the unique needs of STI College Lucena and is not intended for use outside this campus.
+
+Technology Stack and Infrastructure Requirements
+The system uses PHP, MySQL, HTML5, CSS3, and JavaScript. It requires a web server environment such as XAMPP, WAMP, or LAMP. All system functionality depends on MySQL database connectivity. Database downtime or connection issues prevent system access. The system does not support database replication, backup automation, or failover mechanisms. Administrators must manually manage database backups and maintenance.
+
+File Format and Data Import Limitations
+Bulk import supports CSV, Excel, JSON, and XML formats. The system does not support other file formats such as Google Sheets direct import, database dumps, or proprietary formats. Export functionality generates PDF and Excel files only. Bulk data import validates required fields and data formats. It does not perform deep validation such as checking against external databases, verifying academic records, or validating institutional relationships. Administrators must ensure data accuracy before import.
+
+Notification and Communication Constraints
+The system provides notifications only when users have the website open in their browser. It does not send email notifications, SMS alerts, or push notifications. Users must actively check the system or keep the browser tab open to receive updates.
+
+Report and Document Generation Limitations
+Report generation requires specific data structures and templates. Reports are limited to predefined formats. Custom report creation is not available. Report generation depends on proper data relationships and may fail if database integrity is compromised. Clearance form PDF generation requires specific libraries and server configurations. The system uses FPDI and PhpWord libraries for PDF creation. Server environments must support these libraries. PDF generation may fail if server resources are limited or libraries are not properly installed.
+
+Signatory Assignment Restrictions
+Signatory assignments are tied to sectors and departments. The system does not support dynamic signatory assignment based on individual student or faculty characteristics. Signatory workflows follow predefined sector-based configurations.
+
+Access Control and Session Management
+The system enforces strict role-based access control. Users cannot access features outside their assigned roles. This prevents flexibility for users who need temporary access to additional features. Role changes require administrator intervention. The system uses PHP sessions for user authentication. Sessions expire after periods of inactivity. Users must log in again after session expiration. The system does not support remember me functionality or extended session durations.
+

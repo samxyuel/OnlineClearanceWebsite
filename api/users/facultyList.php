@@ -34,7 +34,7 @@ try {
     ";
     $selectFields = "
         f.employee_number, u.user_id, u.first_name, u.last_name, u.middle_name,
-        d.department_name, f.employment_status, u.account_status,
+        u.email, u.contact_number, d.department_name, f.employment_status, u.account_status,
         COALESCE(cf.clearance_form_progress, 'Unapplied') as clearance_status
     ";
     $searchFields = ['u.first_name', 'u.last_name', 'f.employee_number', 'd.department_name'];

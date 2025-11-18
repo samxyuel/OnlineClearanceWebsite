@@ -269,3 +269,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<!-- Universal Modal Handler - Handles all modal close buttons (X, Cancel, Escape, outside click) -->
+<script src="../../assets/js/modal-handler.js"></script>

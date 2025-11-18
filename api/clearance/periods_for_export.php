@@ -103,7 +103,38 @@ try {
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$userId, $userId]);
     } elseif ($roleNorm === 'program head') {
+        // Program Head: Show all closed periods for College/SHS where they have signatory assignments
+        // Simplified logic: Show closed periods where Program Head has assignments
+        // Department filtering happens during report generation, not here
+        $sql = "
+            SELECT DISTINCT
+                ay.year as academic_year,
+                s.semester_name,
+                cp.period_id
+            FROM clearance_periods cp
+            INNER JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id
+            INNER JOIN semesters s ON cp.semester_id = s.semester_id
+            WHERE cp.status = 'closed'
+            AND (cp.sector = 'College' OR cp.sector = 'Senior High School')
+            AND EXISTS (
+                SELECT 1 FROM sector_signatory_assignments ssa
+                WHERE ssa.user_id = ?
+                AND ssa.is_active = 1
+                AND ssa.clearance_type IN ('College', 'Senior High School')
+            )
+            ORDER BY ay.year DESC, 
+                     CASE s.semester_name 
+                         WHEN '1st' THEN 1 
+                         WHEN '2nd' THEN 2 
+                         ELSE 3 
+                     END ASC
+        ";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$userId]);
+        
+        /* OLD CODE - Commented out for reference (may be useful for future file format implementations)
         // Program Head: Only periods for their assigned department (College/SHS only)
+        // This version required clearance forms to exist, which was too restrictive
         $sql = "
             SELECT DISTINCT
                 ay.year as academic_year,
@@ -136,6 +167,7 @@ try {
         ";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$userId]);
+        */
     } else {
         // Default: Get periods from user's own clearance forms
         $sql = "
