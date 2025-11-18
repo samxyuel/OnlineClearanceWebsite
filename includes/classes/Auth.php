@@ -26,7 +26,7 @@ class Auth {
             
             // Check if user exists
             if (!$user) {
-                return ['success' => false, 'message' => 'Account does not exist'];
+                return ['success' => false, 'message' => 'Account does not exist. Please contact the system administrator.'];
             }
             
             // Check if account is active
