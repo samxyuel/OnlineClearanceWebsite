@@ -132,8 +132,8 @@ try {
         $ins->execute([$employeeOut, $newUserId, $primaryDesignationId, $staffCategory, $employmentStatus ?: null, $primaryDepartmentId]);
     }
 
-    // Keep "Is also a faculty" logic for backward compatibility
-    $isAlsoFaculty = isset($input['isAlsoFaculty']) && $input['isAlsoFaculty'] === 'on';
+    // Keep "Is also a faculty" logic for backward compatibility, accommodating both form and JSON style inputs
+    $isAlsoFaculty = (isset($input['isAlsoFaculty']) && ($input['isAlsoFaculty'] === 'on' || $input['isAlsoFaculty'] === true)) || (isset($input['is_also_faculty']) && $input['is_also_faculty'] === true);
     if ($isAlsoFaculty) {
         $stmt = $pdo->prepare("SELECT 1 FROM faculty WHERE user_id = ?");
         $stmt->execute([$newUserId]);

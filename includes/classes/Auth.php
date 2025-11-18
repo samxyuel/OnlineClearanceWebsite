@@ -35,6 +35,17 @@ class Auth {
                 $_SESSION['last_name'] = $user['last_name'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['login_time'] = time();
+
+                // If user is any kind of staff, check if they also have a faculty role
+                $staffRoles = ['Regular Staff', 'staff', 'Program Head', 'School Administrator'];
+                if (in_array($user['role_name'], $staffRoles, true)) {
+                    $facultyCheckSql = "SELECT COUNT(*) FROM faculty WHERE user_id = ?";
+                    $facultyStmt = $this->connection->prepare($facultyCheckSql);
+                    $facultyStmt->execute([$user['user_id']]);
+                    $_SESSION['has_faculty_role'] = $facultyStmt->fetchColumn() > 0;
+                } else {
+                    $_SESSION['has_faculty_role'] = false;
+                }
                 
                 // Log successful login
                 $this->logActivity($user['user_id'], 'login', 'User logged in successfully');

@@ -197,6 +197,15 @@ $sidebarLinks = [
 // Default links by role
 $currentSidebarLinks = $currentRole ? $sidebarLinks[$currentRole] : $sidebarLinks['student'];
 
+// Add clearance link for staff/admins if they also have a faculty role
+$staffRolesWithFacultyCheck = ['staff', 'program_head', 'school_admin'];
+if (in_array($currentRole, $staffRolesWithFacultyCheck) && isset($_SESSION['has_faculty_role']) && $_SESSION['has_faculty_role']) {
+    // Insert 'My Clearance' link after the first item (usually Dashboard)
+    $myClearanceLink = ['icon' => 'fas fa-file-alt', 'text' => 'My Clearance', 'link' => '../../pages/end-user/clearance.php'];
+    array_splice($currentSidebarLinks['top'], 1, 0, [$myClearanceLink]);
+}
+
+
 // Context-aware enable/disable flags for operator roles
 $enableStudentMgmt = true;
 $enableFacultyMgmt = true;
