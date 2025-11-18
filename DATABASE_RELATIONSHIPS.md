@@ -32,6 +32,7 @@ This document describes all primary keys (PK) and foreign keys (FK) in the Onlin
 - `user_activities.user_id` → ON DELETE CASCADE
 - `user_roles.user_id` → ON DELETE CASCADE
 - `user_roles.assigned_by` → ON DELETE SET NULL
+- `user_security_questions.user_id` → ON DELETE CASCADE
 
 **Unique Constraints:**
 
@@ -521,6 +522,42 @@ This document describes all primary keys (PK) and foreign keys (FK) in the Onlin
 
 ### 35. data_versions
 
+## Security and Authentication Tables
+
+### 36. user_security_questions
+
+**Primary Key:** `security_question_id` (INT, AUTO_INCREMENT)
+
+**Foreign Keys:**
+
+- `user_id` → `users.user_id` ON DELETE CASCADE ON UPDATE CASCADE
+
+**Unique Constraints:**
+
+- `user_id` UNIQUE (one record per user)
+
+**Description:** Stores security questions and hashed answers for password recovery. Each user can have exactly one set of 3 security questions.
+
+---
+
+### 37. password_reset_attempts
+
+**Primary Key:** `attempt_id` (INT, AUTO_INCREMENT)
+
+**Foreign Keys:**
+
+- None (tracks by username, not user_id, since username is entered before authentication)
+
+**Unique Constraints:**
+
+- `username` UNIQUE (one tracking record per username)
+
+**Description:** Tracks failed password reset attempts for rate limiting. Prevents brute force attacks on security questions. Rate limit: 3 attempts per username, 15-minute cooldown.
+
+---
+
+### 35. data_versions
+
 **Primary Key:** `version_id` (INT, AUTO_INCREMENT)
 
 **Foreign Keys:**
@@ -534,14 +571,14 @@ This document describes all primary keys (PK) and foreign keys (FK) in the Onlin
 
 ### Total Counts
 
-- **Total Tables:** 35
-- **Total Primary Keys:** 35
-- **Total Foreign Keys:** ~70+
+- **Total Tables:** 37
+- **Total Primary Keys:** 37
+- **Total Foreign Keys:** ~71+
 - **Tables with Composite Primary Keys:** 2 (role_permissions, user_roles)
 
 ### Most Referenced Tables (Hub Tables)
 
-1. **users** - Referenced by 19 tables
+1. **users** - Referenced by 20 tables
 2. **designations** - Referenced by 11 tables
 3. **departments** - Referenced by 10 tables
 4. **clearance_forms** - Referenced by 2 tables
@@ -550,7 +587,7 @@ This document describes all primary keys (PK) and foreign keys (FK) in the Onlin
 
 When a user is deleted (`users` table):
 
-- Cascades to: students, faculty, staff, user_roles, clearance_forms, login_sessions, user_activities
+- Cascades to: students, faculty, staff, user_roles, clearance_forms, login_sessions, user_activities, user_security_questions
 - Sets NULL: audit_logs, bulk_operations, data_versions, file_uploads, system_settings
 
 ### Critical Relationships
@@ -614,10 +651,3 @@ ORDER BY FK_COUNT DESC;
 ---
 
 ## Generated: November 12, 2025
-
-
-
-
-
-
-
