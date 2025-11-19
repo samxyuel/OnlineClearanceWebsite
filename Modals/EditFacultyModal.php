@@ -1,5 +1,6 @@
 <?php // Edit Faculty Modal - Modify Existing Faculty ?>
 <link rel="stylesheet" href="../../assets/css/modals.css">
+<?php include __DIR__ . '/GeneratedCredentialsModal.php'; ?>
 <div class="modal-overlay edit-faculty-modal-overlay" id="editFacultyModal">
   <div class="modal-window">
     <button class="modal-close" onclick="window.closeEditFacultyModal && window.closeEditFacultyModal()">&times;</button>
@@ -74,18 +75,17 @@
           </div>
         </div>
 
-        <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--light-blue-gray);">
-          <label style="color: var(--deep-navy-blue); font-weight: 600;">Password Management</label>
-          <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <button type="button" class="modal-action-secondary" onclick="resetFacultyPassword()" style="flex: 1;">
-              <i class="fas fa-key"></i> Reset Password
-            </button>
-            <!--
-            <button type="button" class="modal-action-secondary" onclick="sendPasswordEmail()" style="flex: 1;">
-              <i class="fas fa-envelope"></i> Send Email
-            </button>
-            -->
-          </div>
+        <!-- Password Management Section -->
+        <div class="form-section-divider">
+          <hr>
+          <span class="divider-text">Password Management</span>
+        </div>
+        <div class="form-group">
+          <label>Password Actions</label>
+          <button type="button" class="btn btn-outline-warning" onclick="resetFacultyPassword()">
+            <i class="fas fa-key"></i> Reset Password
+          </button>
+          <small class="form-help">This will generate a new secure password for the user. The new password will be displayed for you to copy.</small>
         </div>
       </form>
     </div>
@@ -243,8 +243,8 @@
 
     showConfirmationModal(
       'Reset Password',
-      `Are you sure you want to reset the password for ${username}? A new, secure password will be generated.`,
-      'Reset Password',
+      `Are you sure you want to reset the password for ${username}? A new password will be generated.`,
+      'Reset',
       'Cancel',
       async () => {
         try {

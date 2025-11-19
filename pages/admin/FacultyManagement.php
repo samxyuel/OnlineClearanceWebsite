@@ -196,9 +196,7 @@ ob_start();
                                         <thead>
                                             <tr>
                                                 <th class="checkbox-column">
-                                                    <button class="btn btn-outline-secondary clear-selection-btn" onclick="clearAllSelections()" id="clearSelectionBtn" disabled>
-                                                        <i class="fas fa-times"></i> Clear All Selection
-                                                    </button>
+                                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Select all visible">
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
@@ -675,21 +673,33 @@ ob_start();
             }
         }
 
-        function toggleHeaderCheckbox() {
-            const headerCheckbox = document.getElementById('headerCheckbox');
-            const facultyCheckboxes = document.querySelectorAll('.faculty-checkbox');
-            
+        function toggleSelectAll(checked) {
+            const facultyCheckboxes = document.querySelectorAll('#facultyTableBody .faculty-checkbox');
             facultyCheckboxes.forEach(checkbox => {
-                checkbox.checked = headerCheckbox.checked;
+                const row = checkbox.closest('tr');
+                // Only toggle visible and enabled rows, respecting current filters
+                if (row && row.style.display !== 'none' && !checkbox.disabled) {
+                    checkbox.checked = checked;
+                }
             });
-            
             updateBulkButtons();
             updateSelectionCounter();
+        }
+
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const allCheckboxes = document.querySelectorAll('#facultyTableBody .faculty-checkbox');
+            const checkedCount = document.querySelectorAll('#facultyTableBody .faculty-checkbox:checked').length;
+
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
+            }
         }
 
         function updateBulkButtons() {
             const checkedBoxes = document.querySelectorAll('.faculty-checkbox:checked');
             const selectedCount = checkedBoxes.length;
+            updateSelectAllCheckbox();
             // Counters
             let activeCount = 0, inactiveCount = 0, resignedCount = 0, eligibleReset = 0;
             checkedBoxes.forEach(cb=>{

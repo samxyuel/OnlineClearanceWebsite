@@ -1697,11 +1697,20 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap; /* Allow wrapping if needed */
+  max-width: 100%; /* Prevent container overflow */
+  overflow: hidden; /* Prevent container overflow */
+  justify-content: center; /* Center controls */
 }
 
 .page-numbers {
   display: flex;
   gap: 4px;
+  flex-wrap: wrap; /* Allow wrapping on very small screens */
+  max-width: 100%; /* Prevent overflow */
+  overflow-x: auto; /* Allow horizontal scroll as fallback */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on mobile */
+  justify-content: center; /* Center page numbers */
 }
 
 .pagination-btn {

@@ -999,28 +999,46 @@ try {
 
         function renderPagination(total, page, limit) {
             const totalPages = Math.ceil(total / limit);
-            const startEntry = (page - 1) * limit + 1;
+            const startEntry = total === 0 ? 0 : (page - 1) * limit + 1;
             const endEntry = Math.min(page * limit, total);
 
-            document.getElementById('paginationInfo').textContent = `Showing ${total > 0 ? startEntry : 0} to ${endEntry} of ${total} entries`;
+            document.getElementById('paginationInfo').textContent = 
+                `Showing ${startEntry} to ${endEntry} of ${total} entries`;
             
             const pageNumbersContainer = document.getElementById('pageNumbers');
-            pageNumbersContainer.innerHTML = ''; // Clear old page numbers
+            pageNumbersContainer.innerHTML = '';
 
-            // Simplified pagination buttons for this example
-            for (let i = 1; i <= totalPages; i++) {
-                const button = document.createElement('button');
-                button.className = `pagination-btn ${i === page ? 'active' : ''}`;
-                button.textContent = i;
-                button.onclick = () => {
-                    currentPage = i;
-                    fetchStudents();
-                };
-                pageNumbersContainer.appendChild(button);
+            // Smart pagination logic (max 7 page numbers shown)
+            if (totalPages <= 7) {
+                for (let i = 1; i <= totalPages; i++) {
+                    addPageButton(i, i === page);
+                }
+            } else {
+                if (page <= 4) {
+                    for (let i = 1; i <= 5; i++) {
+                        addPageButton(i, i === page);
+                    }
+                    addEllipsis();
+                    addPageButton(totalPages, false);
+                } else if (page >= totalPages - 3) {
+                    addPageButton(1, false);
+                    addEllipsis();
+                    for (let i = totalPages - 4; i <= totalPages; i++) {
+                        addPageButton(i, i === page);
+                    }
+                } else {
+                    addPageButton(1, false);
+                    addEllipsis();
+                    for (let i = page - 1; i <= page + 1; i++) {
+                        addPageButton(i, i === page);
+                    }
+                    addEllipsis();
+                    addPageButton(totalPages, false);
+                }
             }
 
             document.getElementById('prevPage').disabled = page === 1;
-            document.getElementById('nextPage').disabled = page === totalPages;
+            document.getElementById('nextPage').disabled = page >= totalPages;
         }
 
         function updateStatistics(stats) {

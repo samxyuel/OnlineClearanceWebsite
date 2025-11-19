@@ -205,9 +205,7 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <thead>
                                         <tr>
                                                 <th class="checkbox-column">
-                                                    <button class="btn btn-outline-secondary clear-selection-btn" onclick="clearAllSelections()" id="clearSelectionBtn" disabled>
-                                                        <i class="fas fa-times"></i> Clear All Selection
-                                                    </button>
+                                                    <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Select all visible">
                                                 </th>
                                             <th>Student Number</th>
                                             <th>Name</th>
@@ -633,15 +631,26 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         // Bulk selection functions
-        function toggleSelectAll() {
-            const selectAllCheckbox = document.getElementById('selectAll');
-            const studentCheckboxes = document.querySelectorAll('.student-checkbox');
-            
+        function toggleSelectAll(checked) {
+            const studentCheckboxes = document.querySelectorAll('#studentsTableBody .student-checkbox');
             studentCheckboxes.forEach(checkbox => {
-                checkbox.checked = selectAllCheckbox.checked;
+                const row = checkbox.closest('tr');
+                // Only toggle visible and enabled rows, respecting current filters
+                if (row && row.style.display !== 'none' && !checkbox.disabled) {
+                    checkbox.checked = checked;
+                }
             });
-            
             updateBulkButtons();
+        }
+
+        function updateSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const allCheckboxes = document.querySelectorAll('#studentsTableBody .student-checkbox');
+            const checkedCount = document.querySelectorAll('#studentsTableBody .student-checkbox:checked').length;
+
+            if (selectAllCheckbox) {
+                selectAllCheckbox.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
+            }
         }
 
         function updateBulkButtons() {
@@ -653,6 +662,7 @@ if (session_status() == PHP_SESSION_NONE) {
             });
             
             updateSelectionCounter();
+            updateSelectAllCheckbox();
         }
 
         function updateSelectionCounter() {

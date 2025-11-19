@@ -4,6 +4,7 @@
 ?>
 <!-- Include Modal Styles -->
 <link rel="stylesheet" href="../../assets/css/modals.css">
+<?php include __DIR__ . '/GeneratedCredentialsModal.php'; ?>
 
 <div class="modal-overlay edit-student-modal-overlay" id="editStudentModal">
   <div class="modal-window">
@@ -123,32 +124,17 @@
           </select>
         </div>
         
-        <!-- Password Section -->
-        <div class="form-section">
-          <h3 class="form-section-title">Password Management</h3>
-          
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="editChangePassword" onchange="togglePasswordFields()">
-              <span class="checkmark"></span>
-              Change password
-            </label>
-          </div>
-          
-          <div id="passwordFields" style="display: none;">
-            <div class="form-group">
-              <label for="editNewPassword">New Password *</label>
-              <input type="password" id="editNewPassword" name="newPassword" 
-                     placeholder="Enter new password" minlength="8">
-              <small class="form-help">Minimum 8 characters</small>
-            </div>
-            
-            <div class="form-group">
-              <label for="editConfirmNewPassword">Confirm New Password *</label>
-              <input type="password" id="editConfirmNewPassword" name="confirmNewPassword" 
-                     placeholder="Confirm new password" minlength="8">
-            </div>
-          </div>
+        <!-- Password Management Section -->
+        <div class="form-section-divider">
+          <hr>
+          <span class="divider-text">Password Management</span>
+        </div>
+        <div class="form-group">
+          <label>Password Actions</label>
+          <button type="button" class="btn btn-outline-warning" onclick="handlePasswordReset()">
+            <i class="fas fa-key"></i> Reset Password
+          </button>
+          <small class="form-help">This will generate a new secure password for the user. The new password will be displayed for you to copy.</small>
         </div>
         
         <!-- Account Actions -->
@@ -253,24 +239,65 @@ function updateDepartmentFromProgram() {
         departmentIdField.value = selectedOption.dataset.departmentId;
     }
 }
-// Toggle password fields
-function togglePasswordFields() {
-  const changePassword = document.getElementById('editChangePassword');
-  const passwordFields = document.getElementById('passwordFields');
-  const newPassword = document.getElementById('editNewPassword');
-  const confirmNewPassword = document.getElementById('editConfirmNewPassword');
-  
-  if (changePassword.checked) {
-    passwordFields.style.display = 'block';
-    newPassword.required = true;
-    confirmNewPassword.required = true;
-  } else {
-    passwordFields.style.display = 'none';
-    newPassword.required = false;
-    confirmNewPassword.required = false;
-    newPassword.value = '';
-    confirmNewPassword.value = '';
-  }
+// --- Password Reset Logic ---
+
+function handlePasswordReset() {
+    const userId = document.getElementById('editStudentForm').dataset.userId;
+    const username = document.getElementById('editStudentNumber').value;
+
+    if (!userId) {
+        showToastNotification('Cannot reset password. User ID is missing.', 'error');
+        return;
+    }
+
+    showConfirmationModal(
+        'Reset Password',
+        `Are you sure you want to reset the password for ${username}? A new password will be generated.`,
+        'Reset',
+        'Cancel',
+        async () => {
+            try {
+                // Generate a new secure password on the client-side for immediate display
+                const newPassword = generateSecurePassword();
+
+                const response = await fetch('../../api/users/password.php', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        user_id: userId,
+                        new_password: newPassword
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred.' }));
+                    throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Use the new unified GeneratedCredentialsModal
+                    openGeneratedCredentialsModal('passwordReset', { username: username, password: newPassword });
+                } else {
+                    throw new Error(data.message || 'Failed to reset password.');
+                }
+            } catch (error) {
+                showToastNotification(error.message, 'error');
+            }
+        },
+        'warning'
+    );
+}
+
+function generateSecurePassword(length = 12) {
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+    let password = "";
+    for (let i = 0, n = charset.length; i < length; ++i) {
+        password += charset.charAt(Math.floor(Math.random() * n));
+    }
+    return password;
 }
 
 // Update generated section display
@@ -317,18 +344,7 @@ function validateEditStudentForm() {
     }
   }
   
-  // Validate password if changing
-  const changePassword = document.getElementById('editChangePassword');
-  if (changePassword.checked) {
-    const newPassword = document.getElementById('editNewPassword').value;
-    const confirmNewPassword = document.getElementById('editConfirmNewPassword').value;
-    
-    if (newPassword !== confirmNewPassword) {
-      showToastNotification('New passwords do not match', 'error');
-      document.getElementById('editConfirmNewPassword').focus();
-      return false;
-    }
-  }
+  // Password reset is handled separately via handlePasswordReset() function
   
   // Validate email format
   const email = document.getElementById('editEmail').value;
@@ -414,12 +430,7 @@ window.closeEditStudentModal = function() {
     const form = document.getElementById('editStudentForm');
     if (form) form.reset();
     
-    // Reset password fields
-    const changePasswordCheckbox = document.getElementById('editChangePassword');
-    if (changePasswordCheckbox) {
-      changePasswordCheckbox.checked = false;
-      togglePasswordFields();
-    }
+    // Form reset is handled by form.reset() above
   } catch (error) {
     // Silent error handling
   }
@@ -488,6 +499,9 @@ async function loadStudentData(userId) {
 
         if (data.success && data.student) {
             const student = data.student;
+
+            // Store user_id in form dataset for password reset
+            if (form) form.dataset.userId = student.user_id;
 
             // Populate form fields
             document.getElementById('editStudentId').value = student.user_id;
