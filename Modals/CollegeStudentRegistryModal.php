@@ -377,32 +377,79 @@ function confirmStudentCreation(credentialData) {
   });
 }
 
-function closeStudentRegistrationModal() {
-  const modal = document.getElementById('studentRegistrationModal');
-  modal.style.display = 'none';
-  document.body.style.overflow = 'auto';
-  
-  // Reset form
-  const form = document.getElementById('studentRegistrationForm');
-  form.reset();
-  
-  // Clear dynamic dropdowns
-  document.getElementById('program').innerHTML = '<option value="">Select Program</option>';
-  document.getElementById('yearLevel').innerHTML = '<option value="">Select Year Level</option>';
-}
+window.closeStudentRegistrationModal = function() {
+  console.log('[CollegeStudentRegistryModal] closeStudentRegistrationModal() called');
+  try {
+    const modal = document.getElementById('studentRegistrationModal');
+    if (!modal) {
+      console.warn('[CollegeStudentRegistryModal] Modal not found');
+      return;
+    }
+    console.log('[CollegeStudentRegistryModal] Closing modal:', modal.id);
 
-// Open modal function (called from parent page)
-function openStudentRegistrationModal() {
-  const modal = document.getElementById('studentRegistrationModal');
-  modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+    // Use window.closeModal if available, otherwise fallback
+    if (typeof window.closeModal === 'function') {
+      window.closeModal('studentRegistrationModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+      document.body.classList.remove('modal-open');
+      modal.classList.remove('active');
+    }
+    
+    // Reset form
+    const form = document.getElementById('studentRegistrationForm');
+    if (form) form.reset();
+    
+    // Clear dynamic dropdowns
+    const programSelect = document.getElementById('program');
+    const yearLevelSelect = document.getElementById('yearLevel');
+    if (programSelect) programSelect.innerHTML = '<option value="">Select Program</option>';
+    if (yearLevelSelect) yearLevelSelect.innerHTML = '<option value="">Select Year Level</option>';
+  } catch (error) {
+    // Silent error handling
+  }
+};
 
-  // Populate departments when the modal is opened
-  populateCollegeDepartments();
-  
-  // Focus on first input
-  setTimeout(() => {
-    document.getElementById('studentNumber').focus();
-  }, 100);
-}
+// Open modal function (called from parent page) - Make globally available
+window.openStudentRegistrationModal = function() {
+  try {
+    const modal = document.getElementById('studentRegistrationModal');
+    if (!modal) {
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('Student registration modal not found. Please refresh the page.', 'error');
+      }
+      return;
+    }
+
+    // Use window.openModal if available, otherwise fallback
+    if (typeof window.openModal === 'function') {
+      window.openModal('studentRegistrationModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
+      requestAnimationFrame(() => {
+        modal.classList.add('active');
+      });
+    }
+
+    // Populate departments when the modal is opened
+    populateCollegeDepartments();
+    
+    // Focus on first input
+    setTimeout(() => {
+      const firstInput = document.getElementById('studentNumber');
+      if (firstInput && typeof firstInput.focus === 'function') {
+        firstInput.focus();
+      }
+    }, 100);
+  } catch (error) {
+    if (typeof showToastNotification === 'function') {
+      showToastNotification('Unable to open student registration modal. Please try again.', 'error');
+    }
+  }
+};
 </script>

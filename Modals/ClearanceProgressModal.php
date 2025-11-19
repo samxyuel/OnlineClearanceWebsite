@@ -287,26 +287,65 @@
 
 <script>
 // Clearance Progress Modal Functions
-function openClearanceProgressModal(personId, personType, personName, schoolTerm = '') {
-    const modal = document.getElementById('clearanceProgressModal');
-    const personNameElement = document.getElementById('progressPersonName');
-    
-    // Set the person name in the modal header
-    personNameElement.textContent = personName;
-    
-    // Load clearance progress data for the optional school term (if provided)
-    loadClearanceProgressData(personId, personType, schoolTerm);
-    
-    // Show the modal
-    modal.style.display = 'flex';
-    document.body.classList.add('modal-open');
-}
+window.openClearanceProgressModal = function(personId, personType, personName, schoolTerm = '') {
+    try {
+        const modal = document.getElementById('clearanceProgressModal');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Clearance progress modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
 
-function closeClearanceProgressModal() {
-    const modal = document.getElementById('clearanceProgressModal');
-    modal.style.display = 'none';
-    document.body.classList.remove('modal-open');
-}
+        const personNameElement = document.getElementById('progressPersonName');
+        if (personNameElement) {
+            personNameElement.textContent = personName;
+        }
+        
+        // Load clearance progress data for the optional school term (if provided)
+        loadClearanceProgressData(personId, personType, schoolTerm);
+        
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal('clearanceProgressModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open clearance progress modal. Please try again.', 'error');
+        }
+    }
+};
+
+window.closeClearanceProgressModal = function() {
+    console.log('[ClearanceProgressModal] closeClearanceProgressModal() called');
+    try {
+        const modal = document.getElementById('clearanceProgressModal');
+        if (!modal) {
+            console.warn('[ClearanceProgressModal] Modal not found');
+            return;
+        }
+        console.log('[ClearanceProgressModal] Closing modal:', modal.id);
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('clearanceProgressModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        // Silent error handling
+    }
+};
 
 function loadClearanceProgressData(personId, personType, schoolTerm = '') {
     // The user_status.php API can handle both students and faculty by user_id.
@@ -416,8 +455,6 @@ function exportClearanceForm() {
     // This will be developed in the near future
 }
 
-// Make functions globally available
-window.openClearanceProgressModal = openClearanceProgressModal;
-window.closeClearanceProgressModal = closeClearanceProgressModal;
+// Make export function globally available
 window.exportClearanceForm = exportClearanceForm;
 </script>

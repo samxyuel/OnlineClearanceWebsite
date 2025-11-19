@@ -92,11 +92,13 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
+                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
+                            <?php */ ?>
                         </div>
 
                         <!-- Current Period Wrapper -->
@@ -968,53 +970,101 @@ if (session_status() == PHP_SESSION_NONE) {
 
         // Modal functions
         function openAddStudentModal() {
-            console.log('🎯 openAddStudentModal function called - College Management');
-            console.log('Checking if openStudentRegistrationModal exists:', typeof window.openStudentRegistrationModal);
-            if (typeof window.openStudentRegistrationModal === 'function') {
-                console.log('✅ Calling openStudentRegistrationModal...');
-                window.openStudentRegistrationModal();
-                console.log('✅ Student registration modal opened successfully');
-            } else {
-                console.error('❌ openStudentRegistrationModal function not found');
-                console.error('Available functions:', Object.keys(window).filter(key => typeof window[key] === 'function'));
-                showToastNotification('Student registration modal not available', 'error');
+            try {
+                if (typeof window.openStudentRegistrationModal === 'function') {
+                    window.openStudentRegistrationModal();
+                } else {
+                    // Function not available - show error immediately
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Student registration feature is not available. Please refresh the page.', 'error');
+                    }
+                }
+            } catch (error) {
+                // Silent error handling - no console output
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open student registration modal. Please try again.', 'error');
+                }
             }
         }
 
         function triggerImportModal() {
-            console.log('triggerImportModal function called');
-            console.log('Checking window.openImportModal:', typeof window.openImportModal);
-            console.log('Available window functions:', Object.keys(window).filter(k => typeof window[k] === 'function' && k.toLowerCase().includes('import')).join(', '));
-            
-            // Wait a bit if function not immediately available (script loading race condition)
-            if (typeof window.openImportModal !== 'function') {
-                console.warn('window.openImportModal not found immediately, waiting 100ms...');
-                setTimeout(() => {
-                    if (typeof window.openImportModal === 'function') {
-                        window.openImportModal('college', 'student_import', 'Admin');
-                        console.log('Import modal opened successfully (delayed)');
-                    } else {
-                        console.error('Import modal function still not found after delay');
-                        console.error('Debug - window object keys:', Object.keys(window).filter(k => k.includes('Import') || k.includes('Modal')).slice(0, 20));
-                        showToastNotification('Import modal not available. Please refresh the page.', 'error');
+            try {
+                if (typeof window.openImportModal === 'function') {
+                    window.openImportModal('college', 'student_import', 'Admin');
+                } else {
+                    // Function not available - show error immediately
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Import feature is not available. Please refresh the page.', 'error');
                     }
-                }, 100);
-                return;
+                }
+            } catch (error) {
+                // Silent error handling - no console output
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open import modal. Please try again.', 'error');
+                }
             }
-            
-            // Initialize modal with page context: college student import
-            window.openImportModal('college', 'student_import', 'Admin');
-            console.log('Import modal opened successfully');
         }
 
         function triggerExportModal() {
-            console.log('triggerExportModal function called');
-            if (typeof window.openExportModal === 'function') {
-                window.openExportModal();
-                console.log('Export modal opened successfully');
-            } else {
-                console.error('Export modal function not found');
-                showToastNotification('Export modal not available', 'error');
+            console.log('[CollegeStudentManagement] triggerExportModal() called');
+            console.log('[CollegeStudentManagement] Checking for window.openExportModal:', typeof window.openExportModal);
+            
+            try {
+                // Check if ExportModal function is available
+                if (typeof window.openExportModal === 'function') {
+                    console.log('[CollegeStudentManagement] Calling window.openExportModal()');
+                    window.openExportModal();
+                } else {
+                    console.log('[CollegeStudentManagement] window.openExportModal not available, opening modal directly');
+                    // Try to find the modal directly
+                    const modal = document.getElementById('exportModal');
+                    if (modal) {
+                        console.log('[CollegeStudentManagement] Modal found, opening directly');
+                        if (typeof window.openModal === 'function') {
+                            window.openModal('exportModal');
+                            // Dispatch modal:open event to trigger data loading
+                            setTimeout(() => {
+                                console.log('[CollegeStudentManagement] Dispatching modal:open event');
+                                const event = new CustomEvent('modal:open', { 
+                                    detail: { modal: modal },
+                                    bubbles: true,
+                                    cancelable: true
+                                });
+                                modal.dispatchEvent(event);
+                                // Also dispatch on document as fallback
+                                document.dispatchEvent(event);
+                            }, 100);
+                        } else {
+                            // Fallback: open modal manually
+                            modal.style.display = 'flex';
+                            document.body.classList.add('modal-open');
+                            requestAnimationFrame(() => {
+                                modal.classList.add('active');
+                                // Dispatch modal:open event to trigger data loading
+                                setTimeout(() => {
+                                    console.log('[CollegeStudentManagement] Dispatching modal:open event (fallback)');
+                                    const event = new CustomEvent('modal:open', { 
+                                        detail: { modal: modal },
+                                        bubbles: true,
+                                        cancelable: true
+                                    });
+                                    modal.dispatchEvent(event);
+                                    document.dispatchEvent(event);
+                                }, 50);
+                            });
+                        }
+                    } else {
+                        console.error('[CollegeStudentManagement] Export modal element not found');
+                        if (typeof showToastNotification === 'function') {
+                            showToastNotification('Export modal not found. Please refresh the page.', 'error');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('[CollegeStudentManagement] Error in triggerExportModal:', error);
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open export modal. Please try again.', 'error');
+                }
             }
         }
 
@@ -1319,25 +1369,83 @@ if (session_status() == PHP_SESSION_NONE) {
 
         // Bulk Selection Modal Functions
         function openBulkSelectionModal() {
-            console.log('openBulkSelectionModal function called');
-            const modal = document.getElementById('bulkSelectionModal');
-            if (modal) {
-                modal.style.display = 'flex';
-                document.body.style.overflow = 'hidden';
-                console.log('Bulk selection modal opened successfully');
-            } else {
-                console.error('Bulk selection modal not found');
+            try {
+                if (typeof window.openModal === 'function') {
+                    window.openModal('bulkSelectionModal');
+                } else {
+                    // Fallback to direct manipulation if openModal not available
+                    const modal = document.getElementById('bulkSelectionModal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                        document.body.classList.add('modal-open');
+                        requestAnimationFrame(() => {
+                            modal.classList.add('active');
+                        });
+                    } else {
+                        // Modal not found - show error
+                        if (typeof showToastNotification === 'function') {
+                            showToastNotification('Selection filters feature is temporarily unavailable.', 'error');
+                        }
+                    }
+                }
+            } catch (error) {
+                // Silent error handling
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open selection filters. Please try again.', 'error');
+                }
             }
         }
 
-        function closeBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            
-            // Reset all checkboxes
-            const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(cb => cb.checked = false);
+        window.closeBulkSelectionModal = function() {
+            console.log('[CollegeStudentManagement] closeBulkSelectionModal() called');
+            try {
+                const modal = document.getElementById('bulkSelectionModal');
+                if (!modal) {
+                    console.warn('[CollegeStudentManagement] Bulk selection modal not found');
+                    return;
+                }
+                console.log('[CollegeStudentManagement] Closing bulk selection modal:', modal.id);
+
+                // Use window.closeModal if available, otherwise fallback
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('bulkSelectionModal');
+                } else {
+                    // Fallback to direct manipulation
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                    document.body.classList.remove('modal-open');
+                    modal.classList.remove('active');
+                }
+                
+                // Reset all checkboxes
+                const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = false);
+            } catch (error) {
+                // Silent error handling
+            }
+        }
+
+        // Batch Update Modal Functions (stub - to be implemented)
+        function openCollegeBatchUpdateModal() {
+            try {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Batch update feature is coming soon.', 'info');
+                }
+            } catch (error) {
+                // Silent error handling
+            }
+        }
+
+        // Signatory Override Modal Functions (stub - currently disabled)
+        function openSignatoryOverrideModal() {
+            try {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Signatory override feature is currently disabled.', 'info');
+                }
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function resetBulkSelectionFilters() {

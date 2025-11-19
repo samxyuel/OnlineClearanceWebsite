@@ -136,27 +136,79 @@
 
 <script>
 function openEditCourseModalInternal(courseCode) {
-    // Simulate fetching course data
-    const courseData = getCourseData(courseCode);
-    
-    // Populate form fields
-    document.getElementById('editCourseId').value = courseCode;
-    document.getElementById('editCourseCode').value = courseData.code;
-    document.getElementById('editCourseName').value = courseData.name;
-    document.getElementById('editCourseDepartment').value = courseData.department;
-    document.getElementById('editCourseStatus').value = courseData.status;
-    document.getElementById('editCourseDescription').value = courseData.description || '';
-    
-    // Show modal
-    document.getElementById('editCourseModal').style.display = 'flex';
+    try {
+        const modal = document.getElementById('editCourseModal');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Edit course modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        // Simulate fetching course data
+        const courseData = getCourseData(courseCode);
+        
+        // Populate form fields
+        const courseIdField = document.getElementById('editCourseId');
+        const courseCodeField = document.getElementById('editCourseCode');
+        const courseNameField = document.getElementById('editCourseName');
+        const courseDeptField = document.getElementById('editCourseDepartment');
+        const courseStatusField = document.getElementById('editCourseStatus');
+        const courseDescField = document.getElementById('editCourseDescription');
+        
+        if (courseIdField) courseIdField.value = courseCode;
+        if (courseCodeField) courseCodeField.value = courseData.code;
+        if (courseNameField) courseNameField.value = courseData.name;
+        if (courseDeptField) courseDeptField.value = courseData.department;
+        if (courseStatusField) courseStatusField.value = courseData.status;
+        if (courseDescField) courseDescField.value = courseData.description || '';
+        
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal('editCourseModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open edit course modal. Please try again.', 'error');
+        }
+    }
 }
 
 // Global function for external access
 window.openEditCourseModalInternal = openEditCourseModalInternal;
 
-function closeEditCourseModal() {
-    document.getElementById('editCourseModal').style.display = 'none';
-}
+window.closeEditCourseModal = function() {
+    console.log('[EditCourseModal] closeEditCourseModal() called');
+    try {
+        const modal = document.getElementById('editCourseModal');
+        if (!modal) {
+            console.warn('[EditCourseModal] Modal not found');
+            return;
+        }
+        console.log('[EditCourseModal] Closing modal:', modal.id);
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('editCourseModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        // Silent error handling
+    }
+};
 
 function updateCourse() {
     const form = document.getElementById('editCourseForm');

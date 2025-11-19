@@ -128,12 +128,27 @@ window.openSignatorySettingsModal = function(clearanceType) {
     
     // Show modal
     const modal = document.querySelector('.signatory-settings-modal-overlay');
-    if (modal) {
+    if (!modal) {
+        console.error('[SignatorySettingsModal] Modal element not found');
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Signatory settings modal not found. Please refresh the page.', 'error');
+        }
+        return;
+    }
+    
+    console.log('[SignatorySettingsModal] Opening modal for:', normalizedType);
+    
+    // Use window.openModal if available, otherwise fallback
+    if (typeof window.openModal === 'function') {
+        window.openModal(modal);
+    } else {
+        // Fallback to direct manipulation
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
-        console.log('Modal should now be visible');
-    } else {
-        console.error('Modal overlay not found');
+        document.body.classList.add('modal-open');
+        requestAnimationFrame(() => {
+            modal.classList.add('active');
+        });
     }
 };
 
@@ -142,10 +157,27 @@ console.log('🔧 Defining other functions...');
 
 // Close signatory settings modal
 window.closeSignatorySettingsModal = function() {
-    const modal = document.querySelector('.signatory-settings-modal-overlay');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
+    console.log('[SignatorySettingsModal] closeSignatorySettingsModal() called');
+    try {
+        const modal = document.querySelector('.signatory-settings-modal-overlay');
+        if (!modal) {
+            console.warn('[SignatorySettingsModal] Modal not found');
+            return;
+        }
+        console.log('[SignatorySettingsModal] Closing modal');
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal(modal);
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        // Silent error handling
     }
 };
 

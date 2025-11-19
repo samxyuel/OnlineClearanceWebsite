@@ -118,16 +118,64 @@
 
 <script>
 function openAddDepartmentModalInternal() {
-    document.getElementById('addDepartmentModal').style.display = 'flex';
-    document.getElementById('addDepartmentForm').reset();
+    try {
+        const modal = document.getElementById('addDepartmentModal');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Add department modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal('addDepartmentModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
+
+        const form = document.getElementById('addDepartmentForm');
+        if (form) form.reset();
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open add department modal. Please try again.', 'error');
+        }
+    }
 }
 
 // Global function for external access
 window.openAddDepartmentModalInternal = openAddDepartmentModalInternal;
 
-function closeAddDepartmentModal() {
-    document.getElementById('addDepartmentModal').style.display = 'none';
-}
+window.closeAddDepartmentModal = function() {
+    console.log('[AddDepartmentModal] closeAddDepartmentModal() called');
+    try {
+        const modal = document.getElementById('addDepartmentModal');
+        if (!modal) {
+            console.warn('[AddDepartmentModal] Modal not found');
+            return;
+        }
+        console.log('[AddDepartmentModal] Closing modal:', modal.id);
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('addDepartmentModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        // Silent error handling
+    }
+};
 
 function saveDepartment() {
     const form = document.getElementById('addDepartmentForm');

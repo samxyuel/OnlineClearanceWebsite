@@ -179,57 +179,148 @@
                 
                 <!-- Add Modal Function Wrappers -->
                 <script>
-                    // Modal function wrappers - silent opening for better UX
+                    // Modal function wrappers - use standardized approach
                     function openAddDepartmentModal() {
-                        if (typeof window.openAddDepartmentModalInternal === 'function') {
-                            window.openAddDepartmentModalInternal();
-                        } else {
-                            document.getElementById('addDepartmentModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openAddDepartmentModalInternal === 'function') {
+                                window.openAddDepartmentModalInternal();
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('addDepartmentModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('addDepartmentModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open add department modal. Please try again.', 'error');
+                            }
                         }
                     }
                     
                     function openEditDepartmentModal(departmentId) {
-                        if (typeof window.openEditDepartmentModalInternal === 'function') {
-                            window.openEditDepartmentModalInternal(departmentId);
-                        } else {
-                            // Fallback to direct modal opening
-                            document.getElementById('editDepartmentModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openEditDepartmentModalInternal === 'function') {
+                                window.openEditDepartmentModalInternal(departmentId);
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('editDepartmentModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('editDepartmentModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open edit department modal. Please try again.', 'error');
+                            }
                         }
                     }
                     
                     function openAddCourseModal(departmentId) {
-                        if (typeof window.openAddCourseModalInternal === 'function') {
-                            window.openAddCourseModalInternal(departmentId);
-                        } else {
-                            // Fallback to direct modal opening
-                            document.getElementById('addCourseModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openAddCourseModalInternal === 'function') {
+                                window.openAddCourseModalInternal(departmentId);
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('addCourseModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('addCourseModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open add course modal. Please try again.', 'error');
+                            }
                         }
                     }
                     
                     function openEditCourseModal(courseCode) {
-                        if (typeof window.openEditCourseModalInternal === 'function') {
-                            window.openEditCourseModalInternal(courseCode);
-                        } else {
-                            // Fallback to direct modal opening
-                            document.getElementById('editCourseModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openEditCourseModalInternal === 'function') {
+                                window.openEditCourseModalInternal(courseCode);
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('editCourseModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('editCourseModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open edit course modal. Please try again.', 'error');
+                            }
                         }
                     }
                     
                     function openImportModal() {
-                        if (typeof window.openImportModalInternal === 'function') {
-                            window.openImportModalInternal();
-                        } else {
-                            // Fallback to direct modal opening
-                            document.getElementById('courseImportModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openImportModalInternal === 'function') {
+                                window.openImportModalInternal();
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('courseImportModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('courseImportModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open import modal. Please try again.', 'error');
+                            }
                         }
                     }
                     
                     function openExportModal() {
-                        if (typeof window.openExportModalInternal === 'function') {
-                            window.openExportModalInternal();
-                        } else {
-                            // Fallback to direct modal opening
-                            document.getElementById('courseExportModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openExportModalInternal === 'function') {
+                                window.openExportModalInternal();
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('courseExportModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('courseExportModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open export modal. Please try again.', 'error');
+                            }
                         }
                     }
                 </script>

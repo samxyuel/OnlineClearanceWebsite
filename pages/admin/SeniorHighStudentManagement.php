@@ -92,11 +92,13 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
+                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
+                            <?php */ ?>
                         </div>
 
                         <!-- Current Period Wrapper -->
@@ -354,7 +356,8 @@ if (session_status() == PHP_SESSION_NONE) {
     <?php include '../../Modals/SHSStudentRegistryModal.php'; ?>
 
     <!-- Include Generated Credentials Modal -->
-    <?php include '../../Modals/GeneratedCredentialsModal.php'; ?>
+    <!-- Commented out: Already included in SHSStudentRegistryModal.php to avoid duplicate IDs -->
+    <?php // include '../../Modals/GeneratedCredentialsModal.php'; ?>
 
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
@@ -837,23 +840,76 @@ if (session_status() == PHP_SESSION_NONE) {
 
         // Modal functions
         function openAddStudentModal() {
-            openStudentRegistrationModal();
+            try {
+                if (typeof window.openStudentRegistrationModal === 'function') {
+                    window.openStudentRegistrationModal();
+                } else {
+                    // Function not available - show error immediately
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Student registration feature is not available. Please refresh the page.', 'error');
+                    }
+                }
+            } catch (error) {
+                // Silent error handling - no console output
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open student registration modal. Please try again.', 'error');
+                }
+            }
         }
 
         function triggerImportModal() {
-            if (typeof window.openImportModal === 'function') {
-                // Initialize modal with page context: SHS student import
-                window.openImportModal('shs', 'student_import', 'Admin');
-            } else {
-                console.error('Import modal function not found');
+            try {
+                if (typeof window.openImportModal === 'function') {
+                    window.openImportModal('shs', 'student_import', 'Admin');
+                } else {
+                    // Function not available - show error immediately
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Import feature is not available. Please refresh the page.', 'error');
+                    }
+                }
+            } catch (error) {
+                // Silent error handling - no console output
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open import modal. Please try again.', 'error');
+                }
             }
         }
 
         function triggerExportModal() {
-            if (typeof window.openExportModal === 'function') {
-                window.openExportModal();
-            } else {
-                console.error('Export modal function not found');
+            console.log('[SeniorHighStudentManagement] triggerExportModal() called');
+            console.log('[SeniorHighStudentManagement] Checking for window.openExportModal:', typeof window.openExportModal);
+            
+            try {
+                if (typeof window.openExportModal === 'function') {
+                    console.log('[SeniorHighStudentManagement] Calling window.openExportModal()');
+                    window.openExportModal();
+                } else {
+                    console.error('[SeniorHighStudentManagement] window.openExportModal is not a function');
+                    // Try to find the modal directly
+                    const modal = document.getElementById('exportModal');
+                    if (modal) {
+                        console.log('[SeniorHighStudentManagement] Modal found, opening directly');
+                        if (typeof window.openModal === 'function') {
+                            window.openModal('exportModal');
+                        } else {
+                            modal.style.display = 'flex';
+                            document.body.classList.add('modal-open');
+                            requestAnimationFrame(() => {
+                                modal.classList.add('active');
+                            });
+                        }
+                    } else {
+                        console.error('[SeniorHighStudentManagement] Export modal element not found');
+                        if (typeof showToastNotification === 'function') {
+                            showToastNotification('Export modal not found. Please refresh the page.', 'error');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('[SeniorHighStudentManagement] Error in triggerExportModal:', error);
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open export modal. Please try again.', 'error');
+                }
             }
         }
 
@@ -1098,19 +1154,72 @@ if (session_status() == PHP_SESSION_NONE) {
 
         // Bulk Selection Modal Functions
         function openBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionModal');
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+            try {
+                if (typeof window.openModal === 'function') {
+                    window.openModal('bulkSelectionModal');
+                } else {
+                    // Fallback to direct manipulation if openModal not available
+                    const modal = document.getElementById('bulkSelectionModal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                        document.body.classList.add('modal-open');
+                        requestAnimationFrame(() => {
+                            modal.classList.add('active');
+                        });
+                    } else {
+                        // Modal not found - show error
+                        if (typeof showToastNotification === 'function') {
+                            showToastNotification('Selection filters feature is temporarily unavailable.', 'error');
+                        }
+                    }
+                }
+            } catch (error) {
+                // Silent error handling
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open selection filters. Please try again.', 'error');
+                }
+            }
         }
 
-        function closeBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            
-            // Reset all checkboxes
-            const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(cb => cb.checked = false);
+        window.closeBulkSelectionModal = function() {
+            console.log('[SeniorHighStudentManagement] closeBulkSelectionModal() called');
+            try {
+                const modal = document.getElementById('bulkSelectionModal');
+                if (!modal) {
+                    console.warn('[SeniorHighStudentManagement] Bulk selection modal not found');
+                    return;
+                }
+                console.log('[SeniorHighStudentManagement] Closing bulk selection modal:', modal.id);
+
+                // Use window.closeModal if available, otherwise fallback
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('bulkSelectionModal');
+                } else {
+                    // Fallback to direct manipulation
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                    document.body.classList.remove('modal-open');
+                    modal.classList.remove('active');
+                }
+                
+                // Reset all checkboxes
+                const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = false);
+            } catch (error) {
+                // Silent error handling
+            }
+        }
+
+        // Batch Update Modal Functions (stub - to be implemented)
+        function openSeniorHighBatchUpdateModal() {
+            try {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Batch update feature is coming soon.', 'info');
+                }
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function resetBulkSelectionFilters() {

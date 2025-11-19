@@ -644,9 +644,60 @@ function validateExportForm() {
 }
 
 window.openExportModal = async function() {
-  console.log('[ExportModal] openExportModal() called');
-  document.getElementById('exportModal').style.display = 'flex';
-  document.body.classList.add('modal-open');
+  try {
+    console.log('[ExportModal] ==========================================');
+    console.log('[ExportModal] openExportModal() called');
+    console.log('[ExportModal] Checking for modal element...');
+    
+    const modal = document.getElementById('exportModal');
+    if (!modal) {
+      console.error('[ExportModal] ❌ Modal element not found!');
+      console.error('[ExportModal] Searching for alternative selectors...');
+      const altModal = document.querySelector('.export-modal-overlay');
+      console.log('[ExportModal] Found by class selector:', altModal);
+      
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('Export modal not found. Please refresh the page.', 'error');
+      }
+      return;
+    }
+    
+    console.log('[ExportModal] ✅ Modal element found:', modal.id);
+    console.log('[ExportModal] Modal current display:', window.getComputedStyle(modal).display);
+    console.log('[ExportModal] Checking for window.openModal...');
+    console.log('[ExportModal] window.openModal type:', typeof window.openModal);
+
+    // Use window.openModal if available, otherwise fallback
+    if (typeof window.openModal === 'function') {
+      console.log('[ExportModal] Using window.openModal()');
+      window.openModal('exportModal');
+      console.log('[ExportModal] window.openModal() called');
+      
+      // Verify modal is now visible
+      setTimeout(() => {
+        const display = window.getComputedStyle(modal).display;
+        console.log('[ExportModal] Modal display after openModal:', display);
+        if (display === 'none' || display === '') {
+          console.error('[ExportModal] ❌ Modal still not visible! Using fallback...');
+          modal.style.display = 'flex';
+          document.body.classList.add('modal-open');
+          requestAnimationFrame(() => {
+            modal.classList.add('active');
+          });
+        } else {
+          console.log('[ExportModal] ✅ Modal is now visible');
+        }
+      }, 100);
+    } else {
+      console.log('[ExportModal] window.openModal not available, using fallback');
+      // Fallback to direct manipulation
+      modal.style.display = 'flex';
+      document.body.classList.add('modal-open');
+      requestAnimationFrame(() => {
+        modal.classList.add('active');
+      });
+      console.log('[ExportModal] Fallback: Modal display set to flex');
+    }
   
   const now = new Date();
   const timestamp = now.toISOString().slice(0, 10);
@@ -874,14 +925,43 @@ window.openExportModal = async function() {
   }
   
   updateExportButtonState();
+  } catch (error) {
+    console.error('[ExportModal] Error in openExportModal:', error);
+    if (typeof showToastNotification === 'function') {
+      showToastNotification('Error opening export modal. Please try again.', 'error');
+    }
+  }
 };
 
 window.closeExportModal = function() {
-  document.getElementById('exportModal').style.display = 'none';
-  document.body.classList.remove('modal-open');
-  document.getElementById('exportForm').reset();
-  document.getElementById('sectionDepartment').style.display = 'none';
-  document.getElementById('sectionProgram').style.display = 'none';
+  console.log('[ExportModal] closeExportModal() called');
+  try {
+    const modal = document.getElementById('exportModal');
+    if (!modal) {
+      console.warn('[ExportModal] Modal not found');
+      return;
+    }
+    console.log('[ExportModal] Closing modal:', modal.id);
+
+    // Use window.closeModal if available, otherwise fallback
+    if (typeof window.closeModal === 'function') {
+      window.closeModal('exportModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'none';
+      document.body.classList.remove('modal-open');
+      modal.classList.remove('active');
+    }
+
+    const form = document.getElementById('exportForm');
+    if (form) form.reset();
+    const deptSection = document.getElementById('sectionDepartment');
+    if (deptSection) deptSection.style.display = 'none';
+    const progSection = document.getElementById('sectionProgram');
+    if (progSection) progSection.style.display = 'none';
+  } catch (error) {
+    // Silent error handling
+  }
 };
 
 window.submitExportForm = async function() {
@@ -1006,4 +1086,69 @@ window.submitExportForm = async function() {
   document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeExportModal();
 });
+
+// Listen for modal:open event to trigger data loading when modal is opened via window.openModal()
+document.addEventListener('modal:open', function(e) {
+  // Check both e.detail.modal and e.target to catch the event regardless of how it's dispatched
+  const modal = (e.detail && e.detail.modal) || e.target;
+  const isExportModal = modal && (
+    modal.id === 'exportModal' || 
+    modal.classList.contains('export-modal-overlay')
+  );
+  
+  if (isExportModal) {
+    console.log('[ExportModal] modal:open event received, triggering data loading');
+    console.log('[ExportModal] Modal element:', modal.id || modal.className);
+    // Initialize the modal data
+    setTimeout(async () => {
+      try {
+        const now = new Date();
+        const timestamp = now.toISOString().slice(0, 10);
+        const fileNameEl = document.getElementById('exportFileName');
+        if (fileNameEl) fileNameEl.value = '';
+
+        const roleRaw = document.getElementById('currentRole')?.value || 'Guest';
+        const roleNorm = normalizeRole(roleRaw);
+        console.log('[ExportModal] Current role:', roleRaw, '-> normalized:', roleNorm);
+        
+        buildReportTypeOptions(roleNorm);
+        console.log('[ExportModal] Report type options built');
+
+        console.log('[ExportModal] Loading user assignments...');
+        await loadUserAssignments();
+        console.log('[ExportModal] User assignments loaded');
+        
+        console.log('[ExportModal] Loading periods...');
+        try {
+          await loadExportPeriods();
+          console.log('[ExportModal] Periods loaded successfully');
+        } catch (e) {
+          console.error('[ExportModal] loadExportPeriods() threw an exception:', e);
+          console.error('[ExportModal] Exception details:', e.message, e.stack);
+        }
+        console.log('[ExportModal] Periods loading attempt completed');
+
+        // Initialize hierarchical states
+        setSectionEnabled('sectionFormat', true);
+        setSectionEnabled('sectionPeriod', true);
+        setSectionEnabled('sectionReport', false);
+        setSectionEnabled('sectionSector', false);
+        const deptSection = document.getElementById('sectionDepartment');
+        if (deptSection) deptSection.style.display = 'none';
+        setSectionEnabled('sectionDepartment', false);
+        const progSection = document.getElementById('sectionProgram');
+        if (progSection) progSection.style.display = 'none';
+        setSectionEnabled('sectionProgram', false);
+        setSectionEnabled('sectionOptions', false);
+        const submitBtn = document.getElementById('exportSubmitBtn');
+        if (submitBtn) submitBtn.disabled = true;
+      } catch (error) {
+        console.error('[ExportModal] Error initializing modal data:', error);
+      }
+    }, 50);
+  }
+});
+
+// Ensure function is available immediately
+console.log('[ExportModal] Script loaded. window.openExportModal type:', typeof window.openExportModal);
 </script> 

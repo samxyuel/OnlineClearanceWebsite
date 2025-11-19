@@ -204,10 +204,24 @@
 <script>
 // Make functions globally accessible
 window.closeEditStaffModal = function() {
-    const modal = document.querySelector('.edit-staff-modal-overlay');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.classList.remove('modal-open');
+    console.log('[EditStaffModal] closeEditStaffModal() called');
+    try {
+        const modal = document.querySelector('.edit-staff-modal-overlay');
+        if (!modal) {
+            console.warn('[EditStaffModal] Modal not found');
+            return;
+        }
+        console.log('[EditStaffModal] Closing modal');
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal(modal);
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
         // Reset form
         document.getElementById('editStaffForm').reset();
         // Clear current assignments data
@@ -223,6 +237,8 @@ window.closeEditStaffModal = function() {
         if (existingWarning) {
             existingWarning.remove();
         }
+    } catch (error) {
+        console.error('[EditStaffModal] Error closing modal:', error);
     }
 };
 

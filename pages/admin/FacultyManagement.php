@@ -88,11 +88,13 @@ ob_start();
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
+                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
+                            <?php */ ?>
                         </div>
 
                         <!-- Current Period Wrapper -->
@@ -385,7 +387,6 @@ ob_start();
     <!-- Include Modals (moved after session start) -->
     <?php include '../../Modals/FacultyRegistryModal.php'; ?>
     <?php include '../../Modals/EditFacultyModal.php'; ?>
-    <?php include '../../Modals/FacultyExportModal.php'; ?>
     <?php include '../../Modals/ExportModal.php'; ?>
     <?php include '../../Modals/ImportModal.php'; ?>
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
@@ -480,7 +481,7 @@ ob_start();
         </div>
     </div>
 
-
+    <?php /* Signatory Override interface temporarily disabled ?>
     <!-- Signatory Override Modal -->
     <div id="signatoryOverrideModal" class="modal-overlay" style="display: none;">
         <div class="modal-window override-modal">
@@ -598,6 +599,7 @@ ob_start();
             <!-- Dynamic content will be populated -->
         </div>
     </div>
+    <?php */ ?>
 
     <script>
         // Toggle sidebar
@@ -973,21 +975,35 @@ ob_start();
                 const data = await res.json();
                 if(!data.success){showToastNotification(data.message||'Failed to load faculty','error');return;}
                 const f = data.faculty;
+                if (!f) {
+                    showToastNotification('Faculty data not found', 'error');
+                    return;
+                }
                 document.getElementById('editFacultyForm').dataset.userId = f.user_id; // Store user_id
                 document.getElementById('editFacultyId').value = empId;
                 document.getElementById('editEmployeeNumber').value = empId;
-                document.getElementById('editEmploymentStatus').value = f.employment_status.toLowerCase().replace(/ /g,'-');
-                document.getElementById('editLastName').value = f.last_name;
-                document.getElementById('editFirstName').value = f.first_name;
+                // Safely handle employment_status - it might be undefined or null
+                const employmentStatus = f.employment_status || '';
+                document.getElementById('editEmploymentStatus').value = employmentStatus ? employmentStatus.toLowerCase().replace(/ /g,'-') : '';
+                document.getElementById('editLastName').value = f.last_name || '';
+                document.getElementById('editFirstName').value = f.first_name || '';
                 document.getElementById('editMiddleName').value = f.middle_name||'';
                 document.getElementById('editEmail').value = f.email||'';
                 document.getElementById('editContactNumber').value = f.contact_number||'';
-                document.getElementById('editAccountStatus').value = f.account_status;
+                document.getElementById('editAccountStatus').value = f.account_status || '';
             }catch(err){console.error(err);showToastNotification('Network error','error');}
         }
 
         function editFaculty(facultyId) {
-            openEditFacultyModal(facultyId);
+            if (typeof window.openEditFacultyModal === 'function') {
+                window.openEditFacultyModal(facultyId);
+            } else {
+                console.error('openEditFacultyModal function not found');
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Edit faculty modal is not available. Please refresh the page.', 'error');
+                }
+                return;
+            }
             populateEditFormLive(facultyId);
         }
 
@@ -1352,51 +1368,105 @@ ob_start();
 
         // Modal functions
         function openAddFacultyModal() {
-            openFacultyRegistrationModal();
+            try {
+                if (typeof window.openFacultyRegistrationModal === 'function') {
+                    window.openFacultyRegistrationModal();
+                } else {
+                    // Function not available - show error immediately
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Faculty registration feature is not available. Please refresh the page.', 'error');
+                    }
+                }
+            } catch (error) {
+                // Silent error handling - no console output
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open faculty registration modal. Please try again.', 'error');
+                }
+            }
         }
 
         function triggerImportModal() {
-            console.log('triggerImportModal function called (Admin - Faculty)');
-            console.log('Checking window.openImportModal:', typeof window.openImportModal);
-            
-            // Wait a bit if function not immediately available (script loading race condition)
-            if (typeof window.openImportModal !== 'function') {
-                console.warn('window.openImportModal not found immediately, waiting 100ms...');
-                setTimeout(() => {
-                    if (typeof window.openImportModal === 'function') {
-                        window.openImportModal('faculty', 'faculty_import', 'Admin');
-                        console.log('Import modal opened successfully (delayed)');
-                    } else {
-                        console.error('Import modal function still not found after delay');
-                        console.error('Debug - window object keys:', Object.keys(window).filter(k => k.includes('Import') || k.includes('Modal')).slice(0, 20));
-                        showToastNotification('Import modal not available. Please refresh the page.', 'error');
+            try {
+                if (typeof window.openImportModal === 'function') {
+                    window.openImportModal('faculty', 'faculty_import', 'Admin');
+                } else {
+                    // Function not available - show error immediately
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Import feature is not available. Please refresh the page.', 'error');
                     }
-                }, 100);
-                return;
+                }
+            } catch (error) {
+                // Silent error handling - no console output
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open import modal. Please try again.', 'error');
+                }
             }
-            
-            // Initialize modal with page context: faculty import for Admin
-            window.openImportModal('faculty', 'faculty_import', 'Admin');
-            console.log('Import modal opened successfully');
         }
 
         function triggerExportModal() {
-            // For Admin, we have two export modals:
-            // 1. ExportModal.php - for clearance reports (progress, applicant status)
-            // 2. FacultyExportModal.php - for faculty data exports
+            console.log('[FacultyManagement] triggerExportModal() called');
+            console.log('[FacultyManagement] Checking for window.openExportModal:', typeof window.openExportModal);
             
-            // Check if ExportModal (clearance reports) is available first
-            if (typeof window.openExportModal === 'function') {
-                window.openExportModal();
-            } else if (typeof openFacultyExportModal === 'function') {
-                // Fallback to FacultyExportModal for faculty data exports
-                openFacultyExportModal();
-            } else {
-                console.error('Export modal function not found');
-                showToastNotification('Export modal not available', 'error');
+            try {
+                // Check if ExportModal is available
+                if (typeof window.openExportModal === 'function') {
+                    console.log('[FacultyManagement] Calling window.openExportModal()');
+                    window.openExportModal();
+                } else {
+                    console.error('[FacultyManagement] window.openExportModal is not a function');
+                    // Try to find the modal directly
+                    const modal = document.getElementById('exportModal');
+                    if (modal) {
+                        console.log('[FacultyManagement] Modal found, opening directly');
+                        if (typeof window.openModal === 'function') {
+                            window.openModal('exportModal');
+                            // Trigger data loading after modal opens
+                            setTimeout(() => {
+                                if (typeof window.openExportModal === 'function') {
+                                    // If function is now available, call it to load data
+                                    console.log('[FacultyManagement] window.openExportModal now available, calling it');
+                                    window.openExportModal();
+                                } else {
+                                    // Manually trigger data loading via modal:open event
+                                    console.log('[FacultyManagement] Manually triggering export modal data loading');
+                                    const event = new CustomEvent('modal:open', { detail: { modal: modal } });
+                                    modal.dispatchEvent(event);
+                                }
+                            }, 100);
+                        } else {
+                            modal.style.display = 'flex';
+                            document.body.classList.add('modal-open');
+                            requestAnimationFrame(() => {
+                                modal.classList.add('active');
+                            });
+                            // Trigger data loading
+                            setTimeout(() => {
+                                if (typeof window.openExportModal === 'function') {
+                                    window.openExportModal();
+                                } else {
+                                    // Manually trigger data loading via modal:open event
+                                    console.log('[FacultyManagement] Manually triggering export modal data loading (fallback)');
+                                    const event = new CustomEvent('modal:open', { detail: { modal: modal } });
+                                    modal.dispatchEvent(event);
+                                }
+                            }, 100);
+                        }
+                    } else {
+                        console.error('[FacultyManagement] Export modal element not found');
+                        if (typeof showToastNotification === 'function') {
+                            showToastNotification('Export modal not found. Please refresh the page.', 'error');
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('[FacultyManagement] Error in triggerExportModal:', error);
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open export modal. Please try again.', 'error');
+                }
             }
         }
 
+        /* Signatory Override JavaScript functions temporarily disabled  <!-- ?php
         // Signatory Override Modal Functions
         function openSignatoryOverrideModal() {
             const modal = document.getElementById('signatoryOverrideModal');
@@ -1652,6 +1722,7 @@ ob_start();
                 }
             });
         }
+            ?> --> */ 
 
         // Clearance Progress Modal Function
         function viewClearanceProgress(facultyId) {
@@ -1674,6 +1745,10 @@ ob_start();
 
         async function populateFilter(selectId, url, placeholder, valueField = 'value', textField = 'text') {
             const select = document.getElementById(selectId);
+            if (!select) {
+                console.error(`Element with id "${selectId}" not found`);
+                return;
+            }
             try {
                 const response = await fetch(url, { credentials: 'include' });
                 const data = await response.json();
@@ -1860,18 +1935,75 @@ ob_start();
 
         // Bulk Selection Modal Functions
         function openBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionModal');
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-            
-            // Reset all checkboxes
-            resetBulkSelectionFilters();
+            try {
+                if (typeof window.openModal === 'function') {
+                    window.openModal('bulkSelectionModal');
+                    // Reset all checkboxes after opening
+                    setTimeout(() => {
+                        resetBulkSelectionFilters();
+                    }, 100);
+                } else {
+                    // Fallback to direct manipulation if openModal not available
+                    const modal = document.getElementById('bulkSelectionModal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                        document.body.classList.add('modal-open');
+                        requestAnimationFrame(() => {
+                            modal.classList.add('active');
+                        });
+                        
+                        // Reset all checkboxes
+                        resetBulkSelectionFilters();
+                    } else {
+                        // Modal not found - show error
+                        if (typeof showToastNotification === 'function') {
+                            showToastNotification('Selection filters feature is temporarily unavailable.', 'error');
+                        }
+                    }
+                }
+            } catch (error) {
+                // Silent error handling
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open selection filters. Please try again.', 'error');
+                }
+            }
         }
 
-        function closeBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
+        window.closeBulkSelectionModal = function() {
+            console.log('[FacultyManagement] closeBulkSelectionModal() called');
+            try {
+                const modal = document.getElementById('bulkSelectionModal');
+                if (!modal) {
+                    console.warn('[FacultyManagement] Bulk selection modal not found');
+                    return;
+                }
+                console.log('[FacultyManagement] Closing bulk selection modal:', modal.id);
+
+                // Use window.closeModal if available, otherwise fallback
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('bulkSelectionModal');
+                } else {
+                    // Fallback to direct manipulation
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                    document.body.classList.remove('modal-open');
+                    modal.classList.remove('active');
+                }
+            } catch (error) {
+                // Silent error handling
+            }
+        }
+
+        // Batch Update Modal Functions (stub - to be implemented)
+        function openFacultyBatchUpdateModal() {
+            try {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Batch update feature is coming soon.', 'info');
+                }
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function resetBulkSelectionFilters() {

@@ -1526,39 +1526,73 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         async function openResignedFacultySelectionModal() {
-            const modal = document.getElementById('resignedFacultySelectionModal');
-            if (!modal) {
-                return;
+            try {
+                const modal = document.getElementById('resignedFacultySelectionModal');
+                if (!modal) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Resigned faculty selection modal not found. Please refresh the page.', 'error');
+                    }
+                    return;
+                }
+
+                // Use window.openModal if available, otherwise fallback
+                if (typeof window.openModal === 'function') {
+                    window.openModal('resignedFacultySelectionModal');
+                } else {
+                    // Fallback to direct manipulation
+                    modal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    document.body.classList.add('modal-open');
+                    requestAnimationFrame(() => {
+                        modal.classList.add('active');
+                    });
+                }
+
+                await prepareResignedFacultySelectionState();
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open resigned faculty selection modal. Please try again.', 'error');
+                }
             }
-
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-
-            await prepareResignedFacultySelectionState();
         }
 
-function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
-            const modal = document.getElementById('resignedFacultySelectionModal');
-            if (!modal) {
-                return;
-            }
+window.closeResignedFacultySelectionModal = function({ resetSelection = true } = {}) {
+    console.log('[ResignedFacultySelectionModal] closeResignedFacultySelectionModal() called', { resetSelection });
+    try {
+        const modal = document.getElementById('resignedFacultySelectionModal');
+        if (!modal) {
+            console.warn('[ResignedFacultySelectionModal] Modal not found');
+            return;
+        }
+        console.log('[ResignedFacultySelectionModal] Closing modal:', modal.id);
 
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('resignedFacultySelectionModal');
+        } else {
+            // Fallback to direct manipulation
             modal.style.display = 'none';
             document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
 
-    if (resetSelection) {
-        resignedFacultySelectionState.selectedIds = new Set(resignedFacultySelectionState.originalSelectedIds);
-        renderResignedFacultyTable();
+        if (resetSelection) {
+            resignedFacultySelectionState.selectedIds = new Set(resignedFacultySelectionState.originalSelectedIds);
+            renderResignedFacultyTable();
+        }
+
+        const selectAllCheckbox = document.getElementById('resignedSelectionSelectAll');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        }
+
+        updateResignedSelectionHeaderCounts();
+        updateResignedFacultySelectionSummary();
+    } catch (error) {
+        console.error('[ResignedFacultySelectionModal] Error closing modal:', error);
     }
-
-    const selectAllCheckbox = document.getElementById('resignedSelectionSelectAll');
-    if (selectAllCheckbox) {
-        selectAllCheckbox.checked = false;
-        selectAllCheckbox.indeterminate = false;
-    }
-
-    updateResignedSelectionHeaderCounts();
-    updateResignedFacultySelectionSummary();
 }
 
         async function prepareResignedFacultySelectionState() {
@@ -2003,57 +2037,99 @@ function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
         
         function showConfirmationModal(title, message, confirmText = 'Confirm', cancelText = 'Cancel', type = 'info') {
             return new Promise((resolve) => {
-                window.confirmationResolve = resolve;
-                
-                const modal = document.getElementById('confirmationModal');
-                const header = document.getElementById('alertHeader');
-                const icon = document.getElementById('alertIcon');
-                const titleEl = document.getElementById('alertTitle');
-                const messageEl = document.getElementById('alertMessage');
-                const confirmBtn = document.getElementById('confirmBtn');
-                const cancelBtn = document.getElementById('cancelBtn');
-                
-                // Set content
-                titleEl.textContent = title;
-                messageEl.textContent = message;
-                confirmBtn.textContent = confirmText;
-                cancelBtn.textContent = cancelText;
-                
-                // Set styling based on type
-                header.className = `alert-modal-header alert-${type}`;
-                
-                // Set icon based on type
-                const icons = {
-                    'info': 'fas fa-info-circle',
-                    'warning': 'fas fa-exclamation-triangle',
-                    'danger': 'fas fa-exclamation-circle',
-                    'success': 'fas fa-check-circle'
-                };
-                icon.className = icons[type] || icons['info'];
-                
-                // Set button styling
-                if (type === 'danger') {
-                    confirmBtn.className = 'btn btn-danger';
-                } else if (type === 'warning') {
-                    confirmBtn.className = 'btn btn-warning';
-                } else {
-                    confirmBtn.className = 'btn btn-primary';
+                try {
+                    window.confirmationResolve = resolve;
+                    
+                    const modal = document.getElementById('confirmationModal');
+                    if (!modal) {
+                        if (typeof showToastNotification === 'function') {
+                            showToastNotification('Confirmation modal not found. Please refresh the page.', 'error');
+                        }
+                        resolve(false);
+                        return;
+                    }
+
+                    const header = document.getElementById('alertHeader');
+                    const icon = document.getElementById('alertIcon');
+                    const titleEl = document.getElementById('alertTitle');
+                    const messageEl = document.getElementById('alertMessage');
+                    const confirmBtn = document.getElementById('confirmBtn');
+                    const cancelBtn = document.getElementById('cancelBtn');
+                    
+                    // Set content
+                    if (titleEl) titleEl.textContent = title;
+                    if (messageEl) messageEl.textContent = message;
+                    if (confirmBtn) confirmBtn.textContent = confirmText;
+                    if (cancelBtn) cancelBtn.textContent = cancelText;
+                    
+                    // Set styling based on type
+                    if (header) header.className = `alert-modal-header alert-${type}`;
+                    
+                    // Set icon based on type
+                    const icons = {
+                        'info': 'fas fa-info-circle',
+                        'warning': 'fas fa-exclamation-triangle',
+                        'danger': 'fas fa-exclamation-circle',
+                        'success': 'fas fa-check-circle'
+                    };
+                    if (icon) icon.className = icons[type] || icons['info'];
+                    
+                    // Set button styling
+                    if (confirmBtn) {
+                        if (type === 'danger') {
+                            confirmBtn.className = 'btn btn-danger';
+                        } else if (type === 'warning') {
+                            confirmBtn.className = 'btn btn-warning';
+                        } else {
+                            confirmBtn.className = 'btn btn-primary';
+                        }
+                    }
+                    
+                    // Use window.openModal if available, otherwise fallback
+                    if (typeof window.openModal === 'function') {
+                        window.openModal('confirmationModal');
+                    } else {
+                        // Fallback to direct manipulation
+                        modal.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                        document.body.classList.add('modal-open');
+                        requestAnimationFrame(() => {
+                            modal.classList.add('active');
+                        });
+                    }
+                } catch (error) {
+                    if (window.confirmationResolve) {
+                        window.confirmationResolve(false);
+                        window.confirmationResolve = null;
+                    }
                 }
-                
-                // Show modal
-                modal.style.display = 'flex';
-                setTimeout(() => modal.classList.add('active'), 10);
             });
         }
         
         function closeConfirmationModal() {
-            const modal = document.getElementById('confirmationModal');
-            modal.classList.remove('active');
-            setTimeout(() => modal.style.display = 'none', 300);
-            
-            if (window.confirmationResolve) {
-                window.confirmationResolve(false);
-                window.confirmationResolve = null;
+            try {
+                const modal = document.getElementById('confirmationModal');
+                if (!modal) return;
+
+                // Use window.closeModal if available, otherwise fallback
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('confirmationModal');
+                } else {
+                    // Fallback to direct manipulation
+                    modal.classList.remove('active');
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                        document.body.style.overflow = 'auto';
+                        document.body.classList.remove('modal-open');
+                    }, 300);
+                }
+                
+                if (window.confirmationResolve) {
+                    window.confirmationResolve(false);
+                    window.confirmationResolve = null;
+                }
+            } catch (error) {
+                // Silent error handling
             }
         }
         
@@ -2329,8 +2405,27 @@ function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
             }
             
             const modal = document.getElementById('addScopeModal');
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+            if (!modal) {
+                console.error('[ClearanceManagement] addScopeModal not found');
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Add signatory modal not found. Please refresh the page.', 'error');
+                }
+                return;
+            }
+            
+            console.log('[ClearanceManagement] Opening add scope modal for:', normalizedType);
+            
+            // Use window.openModal if available, otherwise fallback
+            if (typeof window.openModal === 'function') {
+                window.openModal('addScopeModal');
+            } else {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+                document.body.classList.add('modal-open');
+                requestAnimationFrame(() => {
+                    modal.classList.add('active');
+                });
+            }
             
             // Correctly lock the "Add" button based on the specific sector's status
             const addBtn = modal.querySelector('.modal-action-primary');
@@ -2338,8 +2433,11 @@ function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
                 addBtn.disabled = isSectorLocked(normalizedType);
             }
             
-            // Load Program Head preview for this sector
-            await loadProgramHeadPreview(normalizedType);
+            // Load Program Head preview for this sector (don't await - let it load in background)
+            // This way the modal displays even if there's an error
+            loadProgramHeadPreview(normalizedType).catch(err => {
+                console.error('[ClearanceManagement] Program Head preview failed, but modal is still open:', err);
+            });
             
             // Load all staff table (excluding PH)
             try {
@@ -2399,39 +2497,39 @@ function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
                     return;
                 }
 
-                if (previewContainer && previewTitle && previewList) {
-                    // Update title
-                    previewTitle.textContent = `Program Heads in ${sector}`;
-                    
-                    if (programHeads.length === 0) {
-                        previewList.innerHTML = '<div style="color:#6c757d;padding:8px;font-style:italic;">No Program Heads assigned to departments in this sector.</div>';
-                        previewContainer.style.display = 'block';
-                    } else {
-                        const html = programHeads.map(ph => `
-                            <div class="program-head-preview-item">
-                                <div class="ph-info">
-                                    <strong>${ph.first_name} ${ph.last_name}</strong>
-                                    <span class="ph-employee">(${ph.employee_number})</span>
-                                </div>
-                                <div class="ph-departments">
-                                    <i class="fas fa-building"></i> ${ph.department_name}
-                                </div>
+                // Update title
+                previewTitle.textContent = `Program Heads in ${sector}`;
+                
+                if (programHeads.length === 0) {
+                    previewList.innerHTML = '<div style="color:#6c757d;padding:8px;font-style:italic;">No Program Heads assigned to departments in this sector.</div>';
+                    previewContainer.style.display = 'block';
+                } else {
+                    const html = programHeads.map(ph => `
+                        <div class="program-head-preview-item">
+                            <div class="ph-info">
+                                <strong>${ph.first_name} ${ph.last_name}</strong>
+                                <span class="ph-employee">(${ph.employee_number})</span>
                             </div>
-                        `).join('');
-                        previewList.innerHTML = html;
-                        previewContainer.style.display = 'block';
-                    }
-                    
+                            <div class="ph-departments">
+                                <i class="fas fa-building"></i> ${ph.department_name}
+                            </div>
+                        </div>
+                    `).join('');
+                    previewList.innerHTML = html;
+                    previewContainer.style.display = 'block';
                 }
             } catch (error) {
                 console.error('❌ Error loading Program Head preview:', error);
-                // Show error message in preview
+                // Show error message in preview but don't prevent modal from displaying
                 const previewContainer = document.getElementById('programHeadPreviewContainer');
+                const previewTitle = document.getElementById('programHeadPreviewTitle');
                 const previewList = document.getElementById('programHeadPreviewList');
-                if (previewContainer && previewList) {
-                    previewList.innerHTML = '<div style="color:#dc3545;padding:8px;">Error loading Program Head information</div>';
+                if (previewContainer && previewTitle && previewList) {
+                    previewTitle.textContent = `Program Heads in ${sector}`;
+                    previewList.innerHTML = '<div style="color:#dc3545;padding:8px;">⚠️ Unable to load Program Head information. You can still proceed with adding signatories.</div>';
                     previewContainer.style.display = 'block';
                 }
+                // Don't throw - allow modal to continue displaying
             }
         }
 
@@ -2455,13 +2553,29 @@ function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
         }
 
         function closeAddScopeModal(){
-            const modal = document.getElementById('addScopeModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            // clear selection marker
-            const sel = document.querySelector('#scopeSearchResults .selected');
-            if (sel) sel.classList.remove('selected');
-            document.getElementById('scopeSearchResults').dataset.selectedUserId = '';
+            try {
+                const modal = document.getElementById('addScopeModal');
+                if (!modal) return;
+
+                // Use window.closeModal if available, otherwise fallback
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('addScopeModal');
+                } else {
+                    // Fallback to direct manipulation
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                    document.body.classList.remove('modal-open');
+                    modal.classList.remove('active');
+                }
+
+                // clear selection marker
+                const sel = document.querySelector('#scopeSearchResults .selected');
+                if (sel) sel.classList.remove('selected');
+                const searchResults = document.getElementById('scopeSearchResults');
+                if (searchResults) searchResults.dataset.selectedUserId = '';
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function debouncedScopeSearch(){
@@ -4743,13 +4857,29 @@ function closeResignedFacultySelectionModal({ resetSelection = true } = {}) {
     <script>
         // Override the alerts.js executeConfirmedAction to prevent conflicts
         window.executeConfirmedAction = function() {
-            const modal = document.getElementById('confirmationModal');
-            modal.classList.remove('active');
-            setTimeout(() => modal.style.display = 'none', 300);
-            
-            if (window.confirmationResolve) {
-                window.confirmationResolve(true);
-                window.confirmationResolve = null;
+            try {
+                const modal = document.getElementById('confirmationModal');
+                if (!modal) return;
+
+                // Use window.closeModal if available, otherwise fallback
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('confirmationModal');
+                } else {
+                    // Fallback to direct manipulation
+                    modal.classList.remove('active');
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                        document.body.style.overflow = 'auto';
+                        document.body.classList.remove('modal-open');
+                    }, 300);
+                }
+                
+                if (window.confirmationResolve) {
+                    window.confirmationResolve(true);
+                    window.confirmationResolve = null;
+                }
+            } catch (error) {
+                // Silent error handling
             }
         }
     </script>

@@ -219,32 +219,79 @@
   
   // Make functions globally accessible
   window.openFacultyRegistrationModal = function() {
-    const modal = document.getElementById('facultyRegistrationModal');
-    modal.style.display = 'flex';
-    window.additionalDepartments = [];
-    document.getElementById('departmentsList').innerHTML = '';
-    populateAdditionalDepartmentSelect();
+    try {
+      const modal = document.getElementById('facultyRegistrationModal');
+      if (!modal) {
+        if (typeof showToastNotification === 'function') {
+          showToastNotification('Faculty registration modal not found. Please refresh the page.', 'error');
+        }
+        return;
+      }
+
+      // Use window.openModal if available, otherwise fallback
+      if (typeof window.openModal === 'function') {
+        window.openModal('facultyRegistrationModal');
+      } else {
+        // Fallback to direct manipulation
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        document.body.classList.add('modal-open');
+        requestAnimationFrame(() => {
+          modal.classList.add('active');
+        });
+      }
+
+      window.additionalDepartments = [];
+      const deptList = document.getElementById('departmentsList');
+      if (deptList) deptList.innerHTML = '';
+      populateAdditionalDepartmentSelect();
+    } catch (error) {
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('Unable to open faculty registration modal. Please try again.', 'error');
+      }
+    }
   };
   
   window.closeFacultyRegistrationModal = function() {
-    const modal = document.getElementById('facultyRegistrationModal');
-    modal.style.display = 'none';
-    
-    // Reset form
-    document.getElementById('facultyRegistrationForm').reset();
-    window.additionalDepartments = [];
-    const deptList = document.getElementById('departmentsList');
-    if (deptList) deptList.innerHTML = '';
-    
-    // Clear error messages
-    const errorDivs = modal.querySelectorAll('.field-error');
-    errorDivs.forEach(div => div.remove());
-    
-    // Reset field borders
-    const fields = modal.querySelectorAll('input, select');
-    fields.forEach(field => {
-      field.style.borderColor = '';
-    });
+    console.log('[FacultyRegistryModal] closeFacultyRegistrationModal() called');
+    try {
+      const modal = document.getElementById('facultyRegistrationModal');
+      if (!modal) {
+        console.warn('[FacultyRegistryModal] Modal not found');
+        return;
+      }
+      console.log('[FacultyRegistryModal] Closing modal:', modal.id);
+
+      // Use window.closeModal if available, otherwise fallback
+      if (typeof window.closeModal === 'function') {
+        window.closeModal('facultyRegistrationModal');
+      } else {
+        // Fallback to direct manipulation
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        document.body.classList.remove('modal-open');
+        modal.classList.remove('active');
+      }
+      
+      // Reset form
+      const form = document.getElementById('facultyRegistrationForm');
+      if (form) form.reset();
+      window.additionalDepartments = [];
+      const deptList = document.getElementById('departmentsList');
+      if (deptList) deptList.innerHTML = '';
+      
+      // Clear error messages
+      const errorDivs = modal.querySelectorAll('.field-error');
+      errorDivs.forEach(div => div.remove());
+      
+      // Reset field borders
+      const fields = modal.querySelectorAll('input, select');
+      fields.forEach(field => {
+        field.style.borderColor = '';
+      });
+    } catch (error) {
+      // Silent error handling
+    }
   };
   
   function submitFacultyRegistrationForm() {

@@ -306,48 +306,85 @@
   // Make functions globally accessible
   
   window.openEditFacultyModal = function(facultyId) {
-    const modal = document.getElementById('editFacultyModal');
-    if (!modal) {
-      console.error('EditFacultyModal not found in DOM');
-      return;
-    }
-    
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
+    try {
+      const modal = document.getElementById('editFacultyModal');
+      if (!modal) {
+        if (typeof showToastNotification === 'function') {
+          showToastNotification('Edit faculty modal not found. Please refresh the page.', 'error');
+        }
+        return;
+      }
 
-    // Populate form with faculty data
-    populateEditForm(facultyId);
-    
-    // Initialize department select and fetch existing assignments
-    window.editAdditionalDepartments = [];
-    populateEditDepartmentSelect();
-    fetchEditDepartmentAssignments(facultyId);
-  };  window.closeEditFacultyModal = function() {
-    const modal = document.getElementById('editFacultyModal');
-    if (!modal) {
-      return;
+      // Use window.openModal if available, otherwise fallback
+      if (typeof window.openModal === 'function') {
+        window.openModal('editFacultyModal');
+      } else {
+        // Fallback to direct manipulation
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        document.body.classList.add('modal-open');
+        requestAnimationFrame(() => {
+          modal.classList.add('active');
+        });
+      }
+
+      // Note: Form population is handled by populateEditFormLive() in FacultyManagement.php
+      // which is called after openEditFacultyModal() in the editFaculty() function
+      
+      // Initialize department select and fetch existing assignments
+      window.editAdditionalDepartments = [];
+      populateEditDepartmentSelect();
+      if (facultyId) {
+        fetchEditDepartmentAssignments(facultyId);
+      }
+    } catch (error) {
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('Unable to open edit faculty modal. Please try again.', 'error');
+      }
     }
-    
-    modal.style.display = 'none';
-    document.body.style.overflow = 'auto';
-    
-    // Reset form
-    document.getElementById('editFacultyForm').reset();
-    
-    // Clear additional departments
-    window.editAdditionalDepartments = [];
-    const deptList = document.getElementById('editDepartmentsList');
-    if (deptList) deptList.innerHTML = '';
-    
-    // Clear error messages
-    const errorDivs = modal.querySelectorAll('.field-error');
-    errorDivs.forEach(div => div.remove());
-    
-    // Reset field borders
-    const fields = modal.querySelectorAll('input, select');
-    fields.forEach(field => {
-      field.style.borderColor = '';
-    });
+  };
+
+  window.closeEditFacultyModal = function() {
+    console.log('[EditFacultyModal] closeEditFacultyModal() called');
+    try {
+      const modal = document.getElementById('editFacultyModal');
+      if (!modal) {
+        console.warn('[EditFacultyModal] Modal not found');
+        return;
+      }
+      console.log('[EditFacultyModal] Closing modal:', modal.id);
+
+      // Use window.closeModal if available, otherwise fallback
+      if (typeof window.closeModal === 'function') {
+        window.closeModal('editFacultyModal');
+      } else {
+        // Fallback to direct manipulation
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        document.body.classList.remove('modal-open');
+        modal.classList.remove('active');
+      }
+      
+      // Reset form
+      document.getElementById('editFacultyForm').reset();
+      
+      // Clear additional departments
+      window.editAdditionalDepartments = [];
+      const deptList = document.getElementById('editDepartmentsList');
+      if (deptList) deptList.innerHTML = '';
+      
+      // Clear error messages
+      const errorDivs = modal.querySelectorAll('.field-error');
+      errorDivs.forEach(div => div.remove());
+      
+      // Reset field borders
+      const fields = modal.querySelectorAll('input, select');
+      fields.forEach(field => {
+        field.style.borderColor = '';
+      });
+    } catch (error) {
+      console.error('[EditFacultyModal] Error closing modal:', error);
+    }
   };
   
   window.submitEditFacultyForm = function() {

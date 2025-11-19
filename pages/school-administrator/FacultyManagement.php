@@ -181,11 +181,13 @@ handleFacultyManagementPageRequest();
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
+                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
+                            <?php */ ?>
                         </div>
 
                         <!-- Tab Banner Wrapper -->
@@ -495,6 +497,7 @@ handleFacultyManagementPageRequest();
         </div>
     </div>
 
+    <?php /* Signatory Override interface temporarily disabled ?>
     <!-- Signatory Override Modal -->
     <div id="signatoryOverrideModal" class="modal-overlay" style="display: none;">
         <div class="modal-window override-modal">
@@ -612,6 +615,7 @@ handleFacultyManagementPageRequest();
             <!-- Dynamic content will be populated -->
         </div>
     </div>
+    <?php */ ?>
 
     <script src="../../assets/js/activity-tracker.js"></script>
     <script src="../../assets/js/clearance-button-manager.js"></script>
@@ -1250,15 +1254,51 @@ handleFacultyManagementPageRequest();
 
         // Bulk Selection Modal Functions
         function openBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionModal');
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+            try {
+                if (typeof window.openModal === "function") {
+                    window.openModal("bulkSelectionModal");
+                } else {
+                    // Fallback to direct manipulation if openModal not available
+                    const modal = document.getElementById('bulkSelectionModal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                        document.body.classList.add('modal-open');
+                        requestAnimationFrame(() => {
+                            modal.classList.add('active');
+                        });
+                    } else {
+                        if (typeof showToastNotification === 'function') {
+                            showToastNotification('Selection filters are temporarily unavailable.', 'error');
+                        }
+                    }
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open selection filters. Please try again.', 'error');
+                }
+            }
         }
 
         function closeBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
+            try {
+                if (typeof window.closeModal === "function") {
+                    window.closeModal("bulkSelectionModal");
+                } else {
+                    // Fallback to direct manipulation if closeModal not available
+                    const modal = document.getElementById('bulkSelectionModal');
+                    if (modal) {
+                        modal.classList.remove('active');
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            document.body.style.overflow = 'auto';
+                            document.body.classList.remove('modal-open');
+                        }, 300);
+                    }
+                }
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function resetBulkSelectionFilters() {
@@ -1545,17 +1585,55 @@ handleFacultyManagementPageRequest();
             });
         });
 
+        <?php /* Signatory Override JavaScript functions temporarily disabled
         // Signatory Override Modal Functions
         function openSignatoryOverrideModal() {
-            const modal = document.getElementById('signatoryOverrideModal');
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+            try {
+                const modal = document.getElementById('signatoryOverrideModal');
+                if (!modal) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Signatory override feature is temporarily unavailable.', 'error');
+                    }
+                    return;
+                }
+
+                if (typeof window.openModal === "function") {
+                    window.openModal("signatoryOverrideModal");
+                } else {
+                    // Fallback to direct manipulation if openModal not available
+                    modal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    document.body.classList.add('modal-open');
+                    requestAnimationFrame(() => {
+                        modal.classList.add('active');
+                    });
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open signatory override modal. Please try again.', 'error');
+                }
+            }
         }
 
         function closeSignatoryOverrideModal() {
-            const modal = document.getElementById('signatoryOverrideModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
+            try {
+                if (typeof window.closeModal === "function") {
+                    window.closeModal("signatoryOverrideModal");
+                } else {
+                    // Fallback to direct manipulation if closeModal not available
+                    const modal = document.getElementById('signatoryOverrideModal');
+                    if (modal) {
+                        modal.classList.remove('active');
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            document.body.style.overflow = 'auto';
+                            document.body.classList.remove('modal-open');
+                        }, 300);
+                    }
+                }
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function proceedWithOverride() {
@@ -1801,6 +1879,7 @@ handleFacultyManagementPageRequest();
         function exportOverrideReport() {
             showToastNotification('Override report export functionality will be implemented', 'info');
         }
+        */ ?>
 
         // New function for viewing clearance progress
         function viewClearanceProgress(facultyId) {
@@ -1823,53 +1902,97 @@ handleFacultyManagementPageRequest();
         };
 
         function openRejectionRemarksModal(targetId, targetName, targetType = 'faculty', isBulk = false, targetIds = [], existingRemarks = '', existingReasonId = '') {
-            currentRejectionData = {
-                targetId: targetId,
-                targetName: targetName,
-                targetType: targetType,
-                isBulk: isBulk,
-                targetIds: targetIds,
-                existingRemarks: existingRemarks,
-                existingReasonId: existingReasonId
-            };
+            try {
+                const modal = document.getElementById('rejectionRemarksModal');
+                if (!modal) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Rejection feature is temporarily unavailable.', 'error');
+                    }
+                    return;
+                }
 
-            // Update modal content based on target type
-            const modal = document.getElementById('rejectionRemarksModal');
-            const targetNameElement = document.getElementById('rejectionTargetName');
-            const targetTypeElement = document.getElementById('rejectionType');
-            const reasonSelect = document.getElementById('rejectionReason');
-            const remarksTextarea = document.getElementById('additionalRemarks');
+                currentRejectionData = {
+                    targetId: targetId,
+                    targetName: targetName,
+                    targetType: targetType,
+                    isBulk: isBulk,
+                    targetIds: targetIds,
+                    existingRemarks: existingRemarks,
+                    existingReasonId: existingReasonId
+                };
 
-            // Reset form
-            reasonSelect.value = existingReasonId || '';
-            remarksTextarea.value = existingRemarks || '';
+                // Update modal content based on target type
+                const targetNameElement = document.getElementById('rejectionTargetName');
+                const targetTypeElement = document.getElementById('rejectionType');
+                const reasonSelect = document.getElementById('rejectionReason');
+                const remarksTextarea = document.getElementById('additionalRemarks');
 
-            // Update display
-            if (isBulk) {
-                targetNameElement.textContent = `Rejecting: ${targetIds.length} Selected ${targetType === 'student' ? 'Students' : 'Faculty'}`;
-            } else {
-                targetNameElement.textContent = `Rejecting: ${targetName}`;
+                if (!targetNameElement || !targetTypeElement || !reasonSelect || !remarksTextarea) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Rejection modal elements not found. Please refresh the page.', 'error');
+                    }
+                    return;
+                }
+
+                // Reset form (use existing values if provided)
+                reasonSelect.value = existingReasonId || '';
+                remarksTextarea.value = existingRemarks || '';
+
+                // Update display
+                if (isBulk) {
+                    targetNameElement.textContent = `Rejecting: ${targetIds.length} Selected ${targetType === 'student' ? 'Students' : 'Faculty'}`;
+                } else {
+                    targetNameElement.textContent = `Rejecting: ${targetName}`;
+                }
+                targetTypeElement.textContent = targetType === 'student' ? 'Student' : 'Faculty';
+
+                // Show modal
+                if (typeof window.openModal === "function") {
+                    window.openModal("rejectionRemarksModal");
+                } else {
+                    // Fallback to direct manipulation if openModal not available
+                    modal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    document.body.classList.add('modal-open');
+                    requestAnimationFrame(() => {
+                        modal.classList.add('active');
+                    });
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open rejection modal. Please try again.', 'error');
+                }
             }
-            targetTypeElement.textContent = targetType === 'student' ? 'Student' : 'Faculty';
-
-            // Show modal
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
         }
 
         function closeRejectionRemarksModal() {
-            const modal = document.getElementById('rejectionRemarksModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            
-            // Reset current rejection data
-            currentRejectionData = {
-                targetId: null,
-                targetName: null,
-                targetType: 'faculty',
-                isBulk: false,
-                targetIds: []
-            };
+            try {
+                if (typeof window.closeModal === "function") {
+                    window.closeModal("rejectionRemarksModal");
+                } else {
+                    // Fallback to direct manipulation if closeModal not available
+                    const modal = document.getElementById('rejectionRemarksModal');
+                    if (modal) {
+                        modal.classList.remove('active');
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            document.body.style.overflow = 'auto';
+                            document.body.classList.remove('modal-open');
+                        }, 300);
+                    }
+                }
+                
+                // Reset current rejection data
+                currentRejectionData = {
+                    targetId: null,
+                    targetName: null,
+                    targetType: 'faculty',
+                    isBulk: false,
+                    targetIds: []
+                };
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function handleReasonChange() {

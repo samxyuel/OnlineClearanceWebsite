@@ -624,19 +624,66 @@ $adminName = 'Admin User'; // Temporary admin name for testing
 
         // Modal functions
         function openStaffRegistrationModal() {
-            const modal = document.querySelector('.staff-registration-modal-overlay');
-            if (modal) {
-                modal.style.display = 'flex';
-                document.body.classList.add('modal-open');
+            try {
+                const modal = document.querySelector('.staff-registration-modal-overlay');
+                if (!modal) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Staff registration modal not found. Please refresh the page.', 'error');
+                    }
+                    return;
+                }
+
+                // Use window.openModal if available, otherwise fallback
+                if (typeof window.openModal === 'function') {
+                    window.openModal(modal);
+                } else {
+                    // Fallback to direct manipulation
+                    modal.style.display = 'flex';
+                    document.body.classList.add('modal-open');
+                    requestAnimationFrame(() => {
+                        modal.classList.add('active');
+                    });
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open staff registration modal. Please try again.', 'error');
+                }
             }
         }
 
         async function openEditStaffModal(staffId) {
-            const staff = staffData.find(s => s.id === staffId);
-            if (staff) {
+            try {
+                const staff = staffData.find(s => s.id === staffId);
+                if (!staff) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Staff member not found.', 'error');
+                    }
+                    return;
+                }
+
                 // Populate edit modal with staff data
                 const modal = document.querySelector('.edit-staff-modal-overlay');
-                if (modal) {
+                if (!modal) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Edit staff modal not found. Please refresh the page.', 'error');
+                    }
+                    return;
+                }
+
+                // Use window.openModal if available, otherwise fallback
+                if (typeof window.openModal === 'function') {
+                    window.openModal(modal);
+                } else {
+                    // Fallback to direct manipulation
+                    modal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    document.body.classList.add('modal-open');
+                    requestAnimationFrame(() => {
+                        modal.classList.add('active');
+                    });
+                }
+
+                if (staff) {
                     // Set form values
                     document.getElementById('editStaffForm').dataset.userId = staff.user_id;
                     document.getElementById('editEmployeeId').value = staff.id;
@@ -717,6 +764,11 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                     modal.style.display = 'flex';
                     document.body.classList.add('modal-open');
                 }
+            } catch (error) {
+                console.error('[StaffManagement] Error opening edit staff modal:', error);
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open edit staff modal. Please try again.', 'error');
+                }
             }
         }
 
@@ -730,10 +782,30 @@ $adminName = 'Admin User'; // Temporary admin name for testing
         // }
 
         function openStaffExportModal() {
-            const modal = document.querySelector('.staff-export-modal-overlay');
-            if (modal) {
-                modal.style.display = 'flex';
-                document.body.classList.add('modal-open');
+            try {
+                const modal = document.querySelector('.staff-export-modal-overlay');
+                if (!modal) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Staff export modal not found. Please refresh the page.', 'error');
+                    }
+                    return;
+                }
+
+                // Use window.openModal if available, otherwise fallback
+                if (typeof window.openModal === 'function') {
+                    window.openModal(modal);
+                } else {
+                    // Fallback to direct manipulation
+                    modal.style.display = 'flex';
+                    document.body.classList.add('modal-open');
+                    requestAnimationFrame(() => {
+                        modal.classList.add('active');
+                    });
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open staff export modal. Please try again.', 'error');
+                }
             }
         }
 

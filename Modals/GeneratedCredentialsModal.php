@@ -29,42 +29,91 @@
  * @param {function} [confirmCallback] - Optional callback for the confirm button.
  */
 function openGeneratedCredentialsModal(mode, data, confirmCallback) {
-    const modal = document.getElementById('credentialModal');
-    const titleEl = document.getElementById('credentialModalTitle');
-    const textEl = document.getElementById('credentialModalText');
-    const usernameEl = document.getElementById('generatedUsername');
-    const passwordEl = document.getElementById('generatedPassword');
-    const passwordLabelEl = document.getElementById('passwordLabel');
-    const confirmBtn = document.getElementById('credentialModalConfirmBtn');
-    const closeBtn = document.getElementById('credentialModalCloseBtn');
+    console.log('[GeneratedCredentialsModal] openGeneratedCredentialsModal() called', { mode, data });
+    try {
+        const modal = document.getElementById('credentialModal');
+        if (!modal) {
+            console.error('[GeneratedCredentialsModal] Modal element not found');
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Credentials modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+        
+        const titleEl = document.getElementById('credentialModalTitle');
+        const textEl = document.getElementById('credentialModalText');
+        const usernameEl = document.getElementById('generatedUsername');
+        const passwordEl = document.getElementById('generatedPassword');
+        const passwordLabelEl = document.getElementById('passwordLabel');
+        const confirmBtn = document.getElementById('credentialModalConfirmBtn');
+        const closeBtn = document.getElementById('credentialModalCloseBtn');
 
-    usernameEl.value = data.username || '';
-    passwordEl.value = data.password || '';
+        if (usernameEl) usernameEl.value = data.username || '';
+        if (passwordEl) passwordEl.value = data.password || '';
 
-    if (mode === 'passwordReset') {
-        titleEl.textContent = 'New Password Generated';
-        textEl.textContent = 'Copy the new password and provide it securely to the user. This is the only time it will be shown.';
-        passwordLabelEl.textContent = 'New Password:';
-        confirmBtn.style.display = 'none';
-        closeBtn.textContent = 'Close';
-    } else { // 'newAccount' or default
-        titleEl.textContent = 'Generated Credentials';
-        textEl.textContent = 'Copy these credentials and provide them securely to the user.';
-        passwordLabelEl.textContent = 'Password:';
-        closeBtn.textContent = 'Back';
-        if (confirmCallback && typeof confirmCallback === 'function') {
-            confirmBtn.style.display = 'inline-flex';
-            confirmBtn.onclick = confirmCallback; // Assign the specific callback
+        if (mode === 'passwordReset') {
+            if (titleEl) titleEl.textContent = 'New Password Generated';
+            if (textEl) textEl.textContent = 'Copy the new password and provide it securely to the user. This is the only time it will be shown.';
+            if (passwordLabelEl) passwordLabelEl.textContent = 'New Password:';
+            if (confirmBtn) confirmBtn.style.display = 'none';
+            if (closeBtn) closeBtn.textContent = 'Close';
+        } else { // 'newAccount' or default
+            if (titleEl) titleEl.textContent = 'Generated Credentials';
+            if (textEl) textEl.textContent = 'Copy these credentials and provide them securely to the user.';
+            if (passwordLabelEl) passwordLabelEl.textContent = 'Password:';
+            if (closeBtn) closeBtn.textContent = 'Back';
+            if (confirmCallback && typeof confirmCallback === 'function') {
+                if (confirmBtn) {
+                    confirmBtn.style.display = 'inline-flex';
+                    confirmBtn.onclick = confirmCallback; // Assign the specific callback
+                }
+            } else {
+                if (confirmBtn) confirmBtn.style.display = 'none';
+            }
+        }
+
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            console.log('[GeneratedCredentialsModal] Using window.openModal()');
+            window.openModal('credentialModal');
         } else {
-            confirmBtn.style.display = 'none';
+            console.log('[GeneratedCredentialsModal] Using fallback method');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
+    } catch (error) {
+        console.error('[GeneratedCredentialsModal] Error opening modal:', error);
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open credentials modal. Please try again.', 'error');
         }
     }
-
-    modal.style.display = 'flex';
 }
 
 function closeGeneratedCredentialsModal() {
-    document.getElementById('credentialModal').style.display = 'none';
+    console.log('[GeneratedCredentialsModal] closeGeneratedCredentialsModal() called');
+    try {
+        const modal = document.getElementById('credentialModal');
+        if (!modal) {
+            console.warn('[GeneratedCredentialsModal] Modal not found');
+            return;
+        }
+        
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('credentialModal');
+        } else {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        console.error('[GeneratedCredentialsModal] Error closing modal:', error);
+    }
 }
 
 function copyGeneratedCredentials() {

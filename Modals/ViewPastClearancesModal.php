@@ -155,36 +155,64 @@
  */
 
 /**
- * Show View Past Clearances Modal
+ * Show View Past Clearances Modal - Make globally available
  */
-function showViewPastClearancesModal() {
-    const modal = document.getElementById('viewPastClearancesModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
+window.showViewPastClearancesModal = function() {
+    try {
+        const modal = document.getElementById('viewPastClearancesModal');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('View past clearances modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal('viewPastClearancesModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
         
         // Load default tab (College)
-        loadPastClearances('college');
-        
-        // Add click outside to close functionality
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeViewPastClearancesModal();
-            }
-        });
+        if (typeof loadPastClearances === 'function') {
+            loadPastClearances('college');
+        }
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open view past clearances modal. Please try again.', 'error');
+        }
     }
-}
+};
 
 /**
- * Close View Past Clearances Modal
+ * Close View Past Clearances Modal - Make globally available
  */
-function closeViewPastClearancesModal() {
-    const modal = document.getElementById('viewPastClearancesModal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
+window.closeViewPastClearancesModal = function() {
+    try {
+        const modal = document.getElementById('viewPastClearancesModal');
+        if (!modal) return;
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('viewPastClearancesModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        // Silent error handling
     }
-}
+};
 
 /**
  * Switch past clearances tab

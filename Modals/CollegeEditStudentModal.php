@@ -383,30 +383,77 @@ function submitEditStudentForm() {
   });
 }
 
-// Close modal
-function closeEditStudentModal() {
-  const modal = document.getElementById('editStudentModal');
-  modal.style.display = 'none';
-  document.body.style.overflow = 'auto';
-  
-  // Reset form
-  const form = document.getElementById('editStudentForm');
-  form.reset();
-  
-  // Reset password fields
-  document.getElementById('editChangePassword').checked = false;
-  togglePasswordFields();
-}
+// Close modal - Make globally available
+window.closeEditStudentModal = function() {
+  console.log('[CollegeEditStudentModal] closeEditStudentModal() called');
+  try {
+    const modal = document.getElementById('editStudentModal');
+    if (!modal) {
+      console.warn('[CollegeEditStudentModal] Modal not found');
+      return;
+    }
+    console.log('[CollegeEditStudentModal] Closing modal:', modal.id);
 
-// Open modal function (called from parent page)
-function openEditStudentModal(studentId) {
-  const modal = document.getElementById('editStudentModal');
-  modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+    // Use window.closeModal if available, otherwise fallback
+    if (typeof window.closeModal === 'function') {
+      window.closeModal('editStudentModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+      document.body.classList.remove('modal-open');
+      modal.classList.remove('active');
+    }
+    
+    // Reset form
+    const form = document.getElementById('editStudentForm');
+    if (form) form.reset();
+    
+    // Reset password fields
+    const changePasswordCheckbox = document.getElementById('editChangePassword');
+    if (changePasswordCheckbox) {
+      changePasswordCheckbox.checked = false;
+      togglePasswordFields();
+    }
+  } catch (error) {
+    // Silent error handling
+  }
+};
 
-  // Load student data
-  loadStudentData(studentId);
-}
+// Open modal function (called from parent page) - Make globally available
+window.openEditStudentModal = function(studentId) {
+  try {
+    const modal = document.getElementById('editStudentModal');
+    if (!modal) {
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('Edit student modal not found. Please refresh the page.', 'error');
+      }
+      return;
+    }
+
+    // Use window.openModal if available, otherwise fallback
+    if (typeof window.openModal === 'function') {
+      window.openModal('editStudentModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
+      requestAnimationFrame(() => {
+        modal.classList.add('active');
+      });
+    }
+
+    // Load student data
+    if (studentId) {
+      loadStudentData(studentId);
+    }
+  } catch (error) {
+    if (typeof showToastNotification === 'function') {
+      showToastNotification('Unable to open edit student modal. Please try again.', 'error');
+    }
+  }
+};
 
 // Load student data for editing
 async function loadStudentData(userId) {

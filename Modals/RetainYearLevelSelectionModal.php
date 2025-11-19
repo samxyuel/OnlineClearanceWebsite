@@ -596,16 +596,28 @@ async function loadRetentionDepartments(tab) {
 
 // Close modal function - Make it globally accessible
 window.closeRetainYearLevelModal = function() {
-  const modal = document.getElementById('retainYearLevelModal');
-  if (!modal) {
-    return;
-  }
+  console.log('[RetainYearLevelSelectionModal] closeRetainYearLevelModal() called');
+  try {
+    const modal = document.getElementById('retainYearLevelModal');
+    if (!modal) {
+      console.warn('[RetainYearLevelSelectionModal] Modal not found');
+      return;
+    }
+    console.log('[RetainYearLevelSelectionModal] Closing modal:', modal.id);
+
+    // Use window.closeModal if available, otherwise fallback
+    if (typeof window.closeModal === 'function') {
+      window.closeModal('retainYearLevelModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+      document.body.classList.remove('modal-open');
+      modal.classList.remove('active');
+    }
   
-  modal.style.display = 'none';
-  document.body.style.overflow = 'auto';
-  
-  // Reset form
-  selectedRetentionStudents.clear();
+    // Reset form
+    selectedRetentionStudents.clear();
   retentionStudents = { shs: [], college: [] };
   
   // Reset filters
@@ -626,18 +638,34 @@ window.closeRetainYearLevelModal = function() {
   
   // Reset to SHS tab
   window.switchRetentionTab('shs');
+  } catch (error) {
+    console.error('[RetainYearLevelSelectionModal] Error closing modal:', error);
+  }
 };
 
 // Open modal function (called from parent page) - Make it globally accessible
 window.openRetainYearLevelModal = function() {
-  const modal = document.getElementById('retainYearLevelModal');
-  if (!modal) {
-    console.error('RetainYearLevelModal not found in DOM');
-    return;
-  }
-  
-  modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+  try {
+    const modal = document.getElementById('retainYearLevelModal');
+    if (!modal) {
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('Retain year level modal not found. Please refresh the page.', 'error');
+      }
+      return;
+    }
+
+    // Use window.openModal if available, otherwise fallback
+    if (typeof window.openModal === 'function') {
+      window.openModal('retainYearLevelModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
+      requestAnimationFrame(() => {
+        modal.classList.add('active');
+      });
+    }
   
   // Set SHS tab as active (without triggering load)
   currentRetentionTab = 'shs';
@@ -659,6 +687,12 @@ window.openRetainYearLevelModal = function() {
     updateRetentionPreview('shs');
     updateRetentionPreview('college');
   }, 100);
+  } catch (error) {
+    console.error('[RetainYearLevelSelectionModal] Error opening modal:', error);
+    if (typeof showToastNotification === 'function') {
+      showToastNotification('Unable to open retention modal. Please try again.', 'error');
+    }
+  }
 };
 
 // Initialize when DOM is loaded

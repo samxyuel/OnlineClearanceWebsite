@@ -902,28 +902,20 @@ try {
         }
 
         function triggerImportModal() {
-            console.log('triggerImportModal function called (Program Head)');
-            console.log('Checking window.openImportModal:', typeof window.openImportModal);
-            
-            // Wait a bit if function not immediately available (script loading race condition)
-            if (typeof window.openImportModal !== 'function') {
-                console.warn('window.openImportModal not found immediately, waiting 100ms...');
-                setTimeout(() => {
-                    if (typeof window.openImportModal === 'function') {
-                        window.openImportModal('college', 'student_import', 'Program Head');
-                        console.log('Import modal opened successfully (delayed)');
-                    } else {
-                        console.error('Import modal function still not found after delay');
-                        console.error('Debug - window object keys:', Object.keys(window).filter(k => k.includes('Import') || k.includes('Modal')).slice(0, 20));
-                        showToastNotification('Import modal not available. Please refresh the page.', 'error');
+            try {
+                if (typeof window.openImportModal === 'function') {
+                    window.openImportModal('college', 'student_import', 'Program Head');
+                } else {
+                    // Function not available - show error immediately
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Import feature is not available. Please refresh the page.', 'error');
                     }
-                }, 100);
-                return;
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open import modal. Please try again.', 'error');
+                }
             }
-            
-            // Initialize modal with page context: college student import for Program Head
-            window.openImportModal('college', 'student_import', 'Program Head');
-            console.log('Import modal opened successfully');
         }
 
         function triggerExportModal() {
@@ -1134,15 +1126,51 @@ try {
 
         // Bulk selection functions
         function openBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionModal');
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+            try {
+                if (typeof window.openModal === "function") {
+                    window.openModal("bulkSelectionModal");
+                } else {
+                    // Fallback to direct manipulation if openModal not available
+                    const modal = document.getElementById('bulkSelectionModal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                        document.body.classList.add('modal-open');
+                        requestAnimationFrame(() => {
+                            modal.classList.add('active');
+                        });
+                    } else {
+                        if (typeof showToastNotification === 'function') {
+                            showToastNotification('Selection filters are temporarily unavailable.', 'error');
+                        }
+                    }
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open selection filters. Please try again.', 'error');
+                }
+            }
         }
 
         function closeBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
+            try {
+                if (typeof window.closeModal === "function") {
+                    window.closeModal("bulkSelectionModal");
+                } else {
+                    // Fallback to direct manipulation if closeModal not available
+                    const modal = document.getElementById('bulkSelectionModal');
+                    if (modal) {
+                        modal.classList.remove('active');
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            document.body.style.overflow = 'auto';
+                            document.body.classList.remove('modal-open');
+                        }, 300);
+                    }
+                }
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function applyBulkSelection() {
@@ -1841,59 +1869,103 @@ try {
         };
 
         function openRejectionRemarksModal(userId, clearanceFormId, signatoryId, studentName, isBulk = false, bulkData = []) {
-            currentRejectionData = {
-                userId: userId, // This is the applicant_user_id
-                formId: clearanceFormId,
-                signatoryId: signatoryId,
-                studentName: studentName, // Correctly assigned
-                isBulk: isBulk,
-                bulkData: bulkData
-            };
+            try {
+                const modal = document.getElementById('rejectionRemarksModal');
+                if (!modal) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Rejection feature is temporarily unavailable.', 'error');
+                    }
+                    return;
+                }
 
-            // Update modal content based on target type
-            const modal = document.getElementById('rejectionRemarksModal');
-            const targetNameElement = document.getElementById('rejectionTargetName');
-            const targetTypeElement = document.getElementById('rejectionType');
-            const reasonSelect = document.getElementById('rejectionReason');
-            const remarksTextarea = document.getElementById('additionalRemarks');
+                currentRejectionData = {
+                    userId: userId, // This is the applicant_user_id
+                    formId: clearanceFormId,
+                    signatoryId: signatoryId,
+                    studentName: studentName, // Correctly assigned
+                    isBulk: isBulk,
+                    bulkData: bulkData
+                };
 
-            // Reset form for new rejection or pre-fill if editing
-            reasonSelect.value = '';
-            remarksTextarea.value = '';
+                // Update modal content based on target type
+                const targetNameElement = document.getElementById('rejectionTargetName');
+                const targetTypeElement = document.getElementById('rejectionType');
+                const reasonSelect = document.getElementById('rejectionReason');
+                const remarksTextarea = document.getElementById('additionalRemarks');
 
-            if (!isBulk) {
-                const row = document.querySelector(`tr[data-user-id='${userId}']`);
-                if (row) {
-                    remarksTextarea.value = row.getAttribute('data-remarks') || '';
-                    reasonSelect.value = row.getAttribute('data-rejection-reason-id') || '';
+                if (!targetNameElement || !targetTypeElement || !reasonSelect || !remarksTextarea) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Rejection modal elements not found. Please refresh the page.', 'error');
+                    }
+                    return;
+                }
+
+                // Reset form for new rejection or pre-fill if editing
+                reasonSelect.value = '';
+                remarksTextarea.value = '';
+
+                if (!isBulk) {
+                    const row = document.querySelector(`tr[data-user-id='${userId}']`);
+                    if (row) {
+                        remarksTextarea.value = row.getAttribute('data-remarks') || '';
+                        reasonSelect.value = row.getAttribute('data-rejection-reason-id') || '';
+                    }
+                }
+
+                // Update display
+                if (isBulk) {
+                    targetNameElement.textContent = `Rejecting: ${currentRejectionData.bulkData.length} Selected Students`;
+                } else {
+                    targetNameElement.textContent = `Rejecting: ${currentRejectionData.studentName}`;
+                }
+                targetTypeElement.textContent = 'Student';
+
+                // Show modal
+                if (typeof window.openModal === "function") {
+                    window.openModal("rejectionRemarksModal");
+                } else {
+                    // Fallback to direct manipulation if openModal not available
+                    modal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    document.body.classList.add('modal-open');
+                    requestAnimationFrame(() => {
+                        modal.classList.add('active');
+                    });
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open rejection modal. Please try again.', 'error');
                 }
             }
-
-            // Update display
-            if (isBulk) {
-                targetNameElement.textContent = `Rejecting: ${currentRejectionData.bulkData.length} Selected Students`;
-            } else {
-                targetNameElement.textContent = `Rejecting: ${currentRejectionData.studentName}`;
-            }
-            targetTypeElement.textContent = 'Student';
-
-            // Show modal
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
         }
 
         function closeRejectionRemarksModal() {
-            const modal = document.getElementById('rejectionRemarksModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            
-            // Reset current rejection data
-            currentRejectionData = {
-                userId: null,
-                formId: null,
-                isBulk: false,
-                bulkData: []
-            };
+            try {
+                if (typeof window.closeModal === "function") {
+                    window.closeModal("rejectionRemarksModal");
+                } else {
+                    // Fallback to direct manipulation if closeModal not available
+                    const modal = document.getElementById('rejectionRemarksModal');
+                    if (modal) {
+                        modal.classList.remove('active');
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            document.body.style.overflow = 'auto';
+                            document.body.classList.remove('modal-open');
+                        }, 300);
+                    }
+                }
+                
+                // Reset current rejection data
+                currentRejectionData = {
+                    userId: null,
+                    formId: null,
+                    isBulk: false,
+                    bulkData: []
+                };
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function handleReasonChange() {

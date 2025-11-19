@@ -1031,15 +1031,51 @@ try {
 
         // Bulk selection functions
         function openBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionModal');
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+            try {
+                if (typeof window.openModal === "function") {
+                    window.openModal("bulkSelectionModal");
+                } else {
+                    // Fallback to direct manipulation if openModal not available
+                    const modal = document.getElementById('bulkSelectionModal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                        document.body.classList.add('modal-open');
+                        requestAnimationFrame(() => {
+                            modal.classList.add('active');
+                        });
+                    } else {
+                        if (typeof showToastNotification === 'function') {
+                            showToastNotification('Selection filters are temporarily unavailable.', 'error');
+                        }
+                    }
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open selection filters. Please try again.', 'error');
+                }
+            }
         }
 
         function closeBulkSelectionModal() {
-            const modal = document.getElementById('bulkSelectionModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
+            try {
+                if (typeof window.closeModal === "function") {
+                    window.closeModal("bulkSelectionModal");
+                } else {
+                    // Fallback to direct manipulation if closeModal not available
+                    const modal = document.getElementById('bulkSelectionModal');
+                    if (modal) {
+                        modal.classList.remove('active');
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            document.body.style.overflow = 'auto';
+                            document.body.classList.remove('modal-open');
+                        }, 300);
+                    }
+                }
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function applyBulkSelection() {
@@ -1541,51 +1577,95 @@ try {
         };
 
         function openRejectionRemarksModal(targetId, targetName, targetType = 'student', isBulk = false, targetIds = []) {
-            currentRejectionData = {
-                targetId: targetId,
-                targetName: targetName,
-                targetType: targetType,
-                isBulk: isBulk,
-                targetIds: targetIds
-            };
+            try {
+                const modal = document.getElementById('rejectionRemarksModal');
+                if (!modal) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Rejection feature is temporarily unavailable.', 'error');
+                    }
+                    return;
+                }
 
-            // Update modal content based on target type
-            const modal = document.getElementById('rejectionRemarksModal');
-            const targetNameElement = document.getElementById('rejectionTargetName');
-            const targetTypeElement = document.getElementById('rejectionType');
-            const reasonSelect = document.getElementById('rejectionReason');
-            const remarksTextarea = document.getElementById('additionalRemarks');
+                currentRejectionData = {
+                    targetId: targetId,
+                    targetName: targetName,
+                    targetType: targetType,
+                    isBulk: isBulk,
+                    targetIds: targetIds
+                };
 
-            // Reset form
-            reasonSelect.value = '';
-            remarksTextarea.value = '';
+                // Update modal content based on target type
+                const targetNameElement = document.getElementById('rejectionTargetName');
+                const targetTypeElement = document.getElementById('rejectionType');
+                const reasonSelect = document.getElementById('rejectionReason');
+                const remarksTextarea = document.getElementById('additionalRemarks');
 
-            // Update display
-            if (isBulk) {
-                targetNameElement.textContent = `Rejecting: ${targetIds.length} Selected ${targetType === 'student' ? 'Students' : 'Faculty'}`;
-            } else {
-                targetNameElement.textContent = `Rejecting: ${targetName}`;
+                if (!targetNameElement || !targetTypeElement || !reasonSelect || !remarksTextarea) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Rejection modal elements not found. Please refresh the page.', 'error');
+                    }
+                    return;
+                }
+
+                // Reset form
+                reasonSelect.value = '';
+                remarksTextarea.value = '';
+
+                // Update display
+                if (isBulk) {
+                    targetNameElement.textContent = `Rejecting: ${targetIds.length} Selected ${targetType === 'student' ? 'Students' : 'Faculty'}`;
+                } else {
+                    targetNameElement.textContent = `Rejecting: ${targetName}`;
+                }
+                targetTypeElement.textContent = targetType === 'student' ? 'Student' : 'Faculty';
+
+                // Show modal
+                if (typeof window.openModal === "function") {
+                    window.openModal("rejectionRemarksModal");
+                } else {
+                    // Fallback to direct manipulation if openModal not available
+                    modal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    document.body.classList.add('modal-open');
+                    requestAnimationFrame(() => {
+                        modal.classList.add('active');
+                    });
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open rejection modal. Please try again.', 'error');
+                }
             }
-            targetTypeElement.textContent = targetType === 'student' ? 'Student' : 'Faculty';
-
-            // Show modal
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
         }
 
         function closeRejectionRemarksModal() {
-            const modal = document.getElementById('rejectionRemarksModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            
-            // Reset current rejection data
-            currentRejectionData = {
-                targetId: null,
-                targetName: null,
-                targetType: 'student',
-                isBulk: false,
-                targetIds: []
-            };
+            try {
+                if (typeof window.closeModal === "function") {
+                    window.closeModal("rejectionRemarksModal");
+                } else {
+                    // Fallback to direct manipulation if closeModal not available
+                    const modal = document.getElementById('rejectionRemarksModal');
+                    if (modal) {
+                        modal.classList.remove('active');
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            document.body.style.overflow = 'auto';
+                            document.body.classList.remove('modal-open');
+                        }, 300);
+                    }
+                }
+                
+                // Reset current rejection data
+                currentRejectionData = {
+                    targetId: null,
+                    targetName: null,
+                    targetType: 'student',
+                    isBulk: false,
+                    targetIds: []
+                };
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function handleReasonChange() {
@@ -1924,40 +2004,86 @@ try {
         }
 
         function openRejectionRemarksModal(userId, studentName, type = 'student', isBulk = false, bulkData = [], clearanceFormId = null, signatoryId = null, existingRemarks = '', existingReasonId = '') {
-            currentRejectionData = {
-                userId: userId,
-                studentName: studentName,
-                isBulk: isBulk,
-                bulkData: bulkData,
-                formId: clearanceFormId,
-                signatoryId: signatoryId
-            };
+            try {
+                const modal = document.getElementById('rejectionRemarksModal');
+                if (!modal) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Rejection feature is temporarily unavailable.', 'error');
+                    }
+                    return;
+                }
 
-            const modal = document.getElementById('rejectionRemarksModal');
-            const targetNameElement = document.getElementById('rejectionTargetName');
-            const reasonSelect = document.getElementById('rejectionReason');
-            const remarksTextarea = document.getElementById('additionalRemarks');
+                currentRejectionData = {
+                    userId: userId,
+                    studentName: studentName,
+                    isBulk: isBulk,
+                    bulkData: bulkData,
+                    formId: clearanceFormId,
+                    signatoryId: signatoryId
+                };
 
-            // Pre-fill form if existing data is passed, otherwise reset
-            reasonSelect.value = existingReasonId || '';
-            remarksTextarea.value = existingRemarks || '';
+                const targetNameElement = document.getElementById('rejectionTargetName');
+                const targetTypeElement = document.getElementById('rejectionType');
+                const reasonSelect = document.getElementById('rejectionReason');
+                const remarksTextarea = document.getElementById('additionalRemarks');
 
-            // Update display
-            if (isBulk) {
-                targetNameElement.textContent = `Rejecting: ${bulkData.length} Selected Students`;
-            } else {
-                targetNameElement.textContent = `Rejecting: ${studentName}`;
+                if (!targetNameElement || !targetTypeElement || !reasonSelect || !remarksTextarea) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Rejection modal elements not found. Please refresh the page.', 'error');
+                    }
+                    return;
+                }
+
+                // Pre-fill form if existing data is passed, otherwise reset
+                reasonSelect.value = existingReasonId || '';
+                remarksTextarea.value = existingRemarks || '';
+
+                // Update display
+                if (isBulk) {
+                    targetNameElement.textContent = `Rejecting: ${bulkData.length} Selected Students`;
+                } else {
+                    targetNameElement.textContent = `Rejecting: ${studentName}`;
+                }
+                targetTypeElement.textContent = 'Student';
+
+                // Show modal
+                if (typeof window.openModal === "function") {
+                    window.openModal("rejectionRemarksModal");
+                } else {
+                    // Fallback to direct manipulation if openModal not available
+                    modal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    document.body.classList.add('modal-open');
+                    requestAnimationFrame(() => {
+                        modal.classList.add('active');
+                    });
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open rejection modal. Please try again.', 'error');
+                }
             }
-            document.getElementById('rejectionType').textContent = 'Student';
-
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
         }
 
         function closeRejectionRemarksModal() {
-            const modal = document.getElementById('rejectionRemarksModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
+            try {
+                if (typeof window.closeModal === "function") {
+                    window.closeModal("rejectionRemarksModal");
+                } else {
+                    // Fallback to direct manipulation if closeModal not available
+                    const modal = document.getElementById('rejectionRemarksModal');
+                    if (modal) {
+                        modal.classList.remove('active');
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            document.body.style.overflow = 'auto';
+                            document.body.classList.remove('modal-open');
+                        }, 300);
+                    }
+                }
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         async function loadRejectionReasons() {

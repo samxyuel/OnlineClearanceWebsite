@@ -57,46 +57,97 @@
 <script>
 // Add New Signatory Modal Functions
 window.showAddSignatoryModal = function(type) {
-    const modal = document.querySelector('.add-signatory-modal-overlay');
-    const signatoryType = document.getElementById('signatoryType');
-    const modalTitle = document.getElementById('addSignatoryModalTitle');
-    
-    // Set the signatory type based on context
-    if (type) {
-        signatoryType.value = type;
+    try {
+        const modal = document.querySelector('.add-signatory-modal-overlay');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Add signatory modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        console.log('[AddSignatoryModal] Opening modal for type:', type);
         
-        // Update modal title based on context
-        if (type === 'student') {
-            modalTitle.textContent = 'Add Student Signatory';
-        } else if (type === 'faculty') {
-            modalTitle.textContent = 'Add Faculty Signatory';
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal(modal);
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
         }
         
-        // Update position options immediately
-        updatePositionOptions();
+        const signatoryType = document.getElementById('signatoryType');
+        const modalTitle = document.getElementById('addSignatoryModalTitle');
+        
+        // Set the signatory type based on context
+        if (type && signatoryType) {
+            signatoryType.value = type;
+            
+            // Update modal title based on context
+            if (modalTitle) {
+                if (type === 'student') {
+                    modalTitle.textContent = 'Add Student Signatory';
+                } else if (type === 'faculty') {
+                    modalTitle.textContent = 'Add Faculty Signatory';
+                }
+            }
+            
+            // Update position options immediately
+            if (typeof updatePositionOptions === 'function') {
+                updatePositionOptions();
+            }
+        }
+        
+        // Focus on the first input
+        setTimeout(() => {
+            const firstInput = modal.querySelector('input, select');
+            if (firstInput && typeof firstInput.focus === 'function') {
+                firstInput.focus();
+            }
+        }, 100);
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open add signatory modal. Please try again.', 'error');
+        }
     }
-    
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    
-    // Focus on the first input
-    setTimeout(() => {
-        const firstInput = modal.querySelector('input, select');
-        if (firstInput) firstInput.focus();
-    }, 100);
 };
 
 window.closeAddSignatoryModal = function() {
-    const modal = document.querySelector('.add-signatory-modal-overlay');
-    const modalTitle = document.getElementById('addSignatoryModalTitle');
-    
-    modal.style.display = 'none';
-    document.body.style.overflow = 'auto';
-    
-    // Reset form and title
-    document.getElementById('addSignatoryForm').reset();
-    document.getElementById('addSignatoryValidationMessages').innerHTML = '';
-    modalTitle.textContent = 'Add New Signatory';
+    console.log('[AddSignatoryModal] closeAddSignatoryModal() called');
+    try {
+        const modal = document.querySelector('.add-signatory-modal-overlay');
+        if (!modal) {
+            console.warn('[AddSignatoryModal] Modal not found');
+            return;
+        }
+        console.log('[AddSignatoryModal] Closing modal');
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal(modal);
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+        
+        // Reset form and title
+        const form = document.getElementById('addSignatoryForm');
+        if (form) form.reset();
+        const validationMessages = document.getElementById('addSignatoryValidationMessages');
+        if (validationMessages) validationMessages.innerHTML = '';
+        const modalTitle = document.getElementById('addSignatoryModalTitle');
+        if (modalTitle) modalTitle.textContent = 'Add New Signatory';
+    } catch (error) {
+        // Silent error handling
+    }
 };
 
 window.updatePositionOptions = function() {

@@ -367,8 +367,9 @@
   }
 }
 
-/* Modal Overlay */
-.modal-overlay {
+/* Modal Overlay - Support both .modal and .modal-overlay classes */
+.modal-overlay,
+.modal {
   display: none;
   position: fixed;
   top: 0;
@@ -384,12 +385,39 @@
   transition: opacity 0.3s ease;
 }
 
-.modal-overlay.active {
+.modal-overlay.active,
+.modal.active {
   opacity: 1;
 }
 
-/* Modal Window */
-.modal-window {
+/* Ensure .modal class also works when displayed */
+.modal[style*="display: flex"],
+.modal[style*="display:flex"],
+.modal-overlay[style*="display: flex"],
+.modal-overlay[style*="display:flex"] {
+  display: flex !important;
+}
+
+/* Ensure retention and graduation modal overlays display correctly */
+/* These inherit from .modal-overlay which already has display: none by default */
+.retention-modal-overlay.active,
+.graduation-modal-overlay.active,
+.retention-modal-overlay[style*="display: flex"],
+.retention-modal-overlay[style*="display:flex"],
+.graduation-modal-overlay[style*="display: flex"],
+.graduation-modal-overlay[style*="display:flex"],
+#retainYearLevelModal.active,
+#eligibleForGraduationModal.active,
+#retainYearLevelModal[style*="display: flex"],
+#retainYearLevelModal[style*="display:flex"],
+#eligibleForGraduationModal[style*="display: flex"],
+#eligibleForGraduationModal[style*="display:flex"] {
+  display: flex !important;
+}
+
+/* Modal Window - Support both .modal-window and .modal-content */
+.modal-window,
+.modal-content {
   background: white;
   border-radius: 16px;
   max-width: 600px;
@@ -402,6 +430,7 @@
   flex-direction: column;
   animation: modalSlideIn 0.3s ease;
   overflow: hidden;
+  z-index: 1; /* Ensure modal window is above overlay */
 }
 
 @keyframes modalSlideIn {
@@ -432,6 +461,8 @@
   justify-content: center;
   border-radius: 50%;
   transition: all 0.2s ease;
+  z-index: 10000; /* Ensure button is above all modal content */
+  pointer-events: auto; /* Explicitly enable pointer events */
 }
 
 .modal-close:hover {
@@ -440,13 +471,19 @@
   transform: scale(1.1);
 }
 
+.modal-close:active {
+  transform: scale(0.95);
+}
+
 /* Modal Header */
 .modal-header {
   /* background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); */
   /* background: var(--very-light-off-white); */
   padding: 24px 30px;
+  padding-right: 60px; /* Add extra padding on right to prevent overlap with close button */
   border-bottom: 1px solid #e5e7eb;
   position: relative;
+  z-index: 1; /* Lower than close button */
 }
 
 .modal-title {
@@ -466,8 +503,9 @@
   line-height: 1.5;
 }
 
-/* Modal Content Area */
-.modal-content-area {
+/* Modal Content Area - Support both .modal-content-area and .modal-body */
+.modal-content-area,
+.modal-body {
   border-radius: 0;
   min-height: 200px;
   max-height: 60vh;
@@ -574,8 +612,9 @@
   font-size: 0.7rem;
 }
 
-/* Modal Actions */
-.modal-actions {
+/* Modal Actions - Support both .modal-actions and .modal-footer */
+.modal-actions,
+.modal-footer {
   display: flex;
   /* justify-content: flex-end; */
   justify-content: space-between;

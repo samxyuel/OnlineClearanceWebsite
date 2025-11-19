@@ -278,16 +278,58 @@
 
 <script>
 function openImportModalInternal() {
-    document.getElementById('courseImportModal').style.display = 'flex';
-    resetImportModal();
+    try {
+        const modal = document.getElementById('courseImportModal');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Course import modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal('courseImportModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
+
+        resetImportModal();
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open course import modal. Please try again.', 'error');
+        }
+    }
 }
 
 // Global function for external access
 window.openImportModalInternal = openImportModalInternal;
 
-function closeCourseImportModal() {
-    document.getElementById('courseImportModal').style.display = 'none';
-}
+window.closeCourseImportModal = function() {
+    try {
+        const modal = document.getElementById('courseImportModal');
+        if (!modal) return;
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('courseImportModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        // Silent error handling
+    }
+};
 
 function resetImportModal() {
     document.getElementById('importFile').value = '';

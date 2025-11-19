@@ -178,6 +178,13 @@
 // --- Dynamic Filter Population ---
 async function populateSelect(selectId, url, placeholder, valueField = 'value', textField = 'text') {
     const select = document.getElementById(selectId);
+    
+    // Check if select element exists before proceeding
+    if (!select) {
+        console.error(`[SHSEditStudentModal] Element with id "${selectId}" not found`);
+        return;
+    }
+    
     try {
         select.innerHTML = `<option value="">Loading...</option>`;
         const response = await fetch(url, { credentials: 'include' });
@@ -194,33 +201,48 @@ async function populateSelect(selectId, url, placeholder, valueField = 'value', 
             });
         }
     } catch (error) {
-        console.error(`Error loading options for ${selectId}:`, error);
-        select.innerHTML = `<option value="">Error loading</option>`;
+        console.error(`[SHSEditStudentModal] Error loading options for ${selectId}:`, error);
+        if (select) {
+            select.innerHTML = `<option value="">Error loading</option>`;
+        }
     }
 }
 
 async function loadEditSHSPrograms() {
-    const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
-    url.searchParams.append('type', 'programs');
-    url.searchParams.append('sector', 'Senior High School');
-    await populateSelect('editProgram', url, 'Select Program', 'program_id', 'program_name');
+    try {
+        const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+        url.searchParams.append('type', 'programs');
+        url.searchParams.append('sector', 'Senior High School');
+        await populateSelect('editProgram', url, 'Select Program', 'program_id', 'program_name');
+    } catch (error) {
+        console.error('[SHSEditStudentModal] Error loading SHS programs:', error);
+    }
 }
 
 async function loadEditSHSYearLevels() {
-    const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
-    url.searchParams.append('type', 'enum');
-    url.searchParams.append('table', 'students');
-    url.searchParams.append('column', 'year_level');
-    url.searchParams.append('sector', 'Senior High School');
-    await populateSelect('editYearLevel', url, 'Select Year Level');
+    try {
+        const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+        url.searchParams.append('type', 'enum');
+        url.searchParams.append('table', 'students');
+        url.searchParams.append('column', 'year_level');
+        url.searchParams.append('sector', 'Senior High School');
+        await populateSelect('editYearLevel', url, 'Select Year Level');
+    } catch (error) {
+        console.error('[SHSEditStudentModal] Error loading SHS year levels:', error);
+    }
 }
 
 async function updateEditProgramsAndYearLevels() {
     // For SHS, programs and year levels are independent of the department (which is fixed)
-    await Promise.all([
-        loadEditSHSPrograms(),
-        loadEditSHSYearLevels()
-    ]);
+    try {
+        await Promise.all([
+            loadEditSHSPrograms(),
+            loadEditSHSYearLevels()
+        ]);
+    } catch (error) {
+        console.error('[SHSEditStudentModal] Error updating programs and year levels:', error);
+        // Don't throw - allow the form to continue loading even if dropdowns fail
+    }
 }
 
 function updateDepartmentFromProgram() {
@@ -367,35 +389,90 @@ function submitEditStudentForm() {
 }
 
 // Close modal
-function closeEditStudentModal() {
-  const modal = document.getElementById('editStudentModal');
-  modal.style.display = 'none';
-  document.body.style.overflow = 'auto';
-  
-  // Reset form
-  const form = document.getElementById('editStudentForm');
-  form.reset();
-  
-  // Reset password fields
-  document.getElementById('editChangePassword').checked = false;
-  togglePasswordFields();
-}
+window.closeEditStudentModal = function() {
+  console.log('[SHSEditStudentModal] closeEditStudentModal() called');
+  try {
+    const modal = document.getElementById('editStudentModal');
+    if (!modal) {
+      console.warn('[SHSEditStudentModal] Modal not found');
+      return;
+    }
+    console.log('[SHSEditStudentModal] Closing modal:', modal.id);
 
-// Open modal function (called from parent page)
-function openEditStudentModal(studentId) {
-  const modal = document.getElementById('editStudentModal');
-  modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-  
-  // Load student data
-  loadStudentData(studentId);
-}
+    // Use window.closeModal if available, otherwise fallback
+    if (typeof window.closeModal === 'function') {
+      window.closeModal('editStudentModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+      document.body.classList.remove('modal-open');
+      modal.classList.remove('active');
+    }
+    
+    // Reset form
+    const form = document.getElementById('editStudentForm');
+    if (form) form.reset();
+    
+    // Reset password fields
+    const changePasswordCheckbox = document.getElementById('editChangePassword');
+    if (changePasswordCheckbox) {
+      changePasswordCheckbox.checked = false;
+      togglePasswordFields();
+    }
+  } catch (error) {
+    // Silent error handling
+  }
+};
+
+// Open modal function (called from parent page) - Make globally available
+window.openEditStudentModal = function(studentId) {
+  try {
+    const modal = document.getElementById('editStudentModal');
+    if (!modal) {
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('Edit student modal not found. Please refresh the page.', 'error');
+      }
+      return;
+    }
+
+    // Use window.openModal if available, otherwise fallback
+    if (typeof window.openModal === 'function') {
+      window.openModal('editStudentModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
+      requestAnimationFrame(() => {
+        modal.classList.add('active');
+      });
+    }
+
+    // Load student data
+    if (studentId) {
+      loadStudentData(studentId);
+    }
+  } catch (error) {
+    if (typeof showToastNotification === 'function') {
+      showToastNotification('Unable to open edit student modal. Please try again.', 'error');
+    }
+  }
+};
 
 // Load student data for editing
 async function loadStudentData(userId) {
     const form = document.getElementById('editStudentForm');
+    if (!form) {
+        console.error('[SHSEditStudentModal] Edit student form not found');
+        return;
+    }
+    
     const submitBtn = document.getElementById('editSubmitBtn');
     form.classList.add('loading');
+
+    // Wait a bit for modal to be fully rendered before accessing elements
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Ensure dropdowns are populated before setting values
     await updateEditProgramsAndYearLevels();

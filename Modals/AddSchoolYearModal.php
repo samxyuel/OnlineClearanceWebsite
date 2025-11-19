@@ -111,35 +111,84 @@
 <script>
 // Open add school year modal
 window.showAddSchoolYearModal = function() {
-    // Show modal
-    document.querySelector('.add-school-year-modal-overlay').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    
-    // Auto-generate school year name
-    const currentYear = new Date().getFullYear();
-    const nextYear = currentYear + 1;
-    const schoolYearName = `${nextYear}-${nextYear + 1}`;
-    
-    document.getElementById('schoolYearName').value = schoolYearName;
-    
-    // Force 2-term selection and initialize preview
-    const twoTerms = document.getElementById('twoTerms');
-    const threeTerms = document.getElementById('threeTerms');
-    if (twoTerms) twoTerms.checked = true;
-    if (threeTerms) threeTerms.checked = false;
-    updateTermPreview();
-    
-    // Add event listeners
-    addSchoolYearModalEventListeners();
+    try {
+        const modal = document.querySelector('.add-school-year-modal-overlay');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Add school year modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal(modal);
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
+        
+        // Auto-generate school year name
+        const currentYear = new Date().getFullYear();
+        const nextYear = currentYear + 1;
+        const schoolYearName = `${nextYear}-${nextYear + 1}`;
+        
+        const schoolYearNameField = document.getElementById('schoolYearName');
+        if (schoolYearNameField) schoolYearNameField.value = schoolYearName;
+        
+        // Force 2-term selection and initialize preview
+        const twoTerms = document.getElementById('twoTerms');
+        const threeTerms = document.getElementById('threeTerms');
+        if (twoTerms) twoTerms.checked = true;
+        if (threeTerms) threeTerms.checked = false;
+        if (typeof updateTermPreview === 'function') {
+            updateTermPreview();
+        }
+        
+        // Add event listeners
+        if (typeof addSchoolYearModalEventListeners === 'function') {
+            addSchoolYearModalEventListeners();
+        }
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open add school year modal. Please try again.', 'error');
+        }
+    }
 };
 
 // Close add school year modal
 window.closeAddSchoolYearModal = function() {
-    document.querySelector('.add-school-year-modal-overlay').style.display = 'none';
-    document.body.style.overflow = 'auto';
-    
-    // Reset form
-    document.getElementById('addSchoolYearForm').reset();
+    console.log('[AddSchoolYearModal] closeAddSchoolYearModal() called');
+    try {
+        const modal = document.querySelector('.add-school-year-modal-overlay');
+        if (!modal) {
+            console.warn('[AddSchoolYearModal] Modal not found');
+            return;
+        }
+        console.log('[AddSchoolYearModal] Closing modal');
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal(modal);
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+        
+        // Reset form
+        const form = document.getElementById('addSchoolYearForm');
+        if (form) form.reset();
+    } catch (error) {
+        // Silent error handling
+    }
 };
 
 // Update term preview based on selection

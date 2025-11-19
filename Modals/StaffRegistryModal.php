@@ -157,12 +157,28 @@
 <script>
 // Make functions globally accessible
 window.closeStaffRegistrationModal = function() {
-    const modal = document.querySelector('.staff-registration-modal-overlay');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.classList.remove('modal-open');
+    console.log('[StaffRegistryModal] closeStaffRegistrationModal() called');
+    try {
+        const modal = document.querySelector('.staff-registration-modal-overlay');
+        if (!modal) {
+            console.warn('[StaffRegistryModal] Modal not found');
+            return;
+        }
+        console.log('[StaffRegistryModal] Closing modal');
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal(modal);
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+
         // Reset form
-        document.getElementById('staffRegistrationForm').reset();
+        const form = document.getElementById('staffRegistrationForm');
+        if (form) form.reset();
         // Reset additional designations
         window.additionalDesignations = [];
         const designationsList = document.getElementById('designationsList');
@@ -170,24 +186,50 @@ window.closeStaffRegistrationModal = function() {
         // Reset additional designation select if present
         const addSel = document.getElementById('additionalDesignationSelect');
         if (addSel) addSel.value = '';
+    } catch (error) {
+        // Silent error handling
     }
 };
 
 // Open Staff Registration Modal with initialization
-window.openStaffRegistrationModalWithInit = function() {
-    const modal = document.querySelector('.staff-registration-modal-overlay');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.classList.add('modal-open');
+window.openStaffRegistrationModal = function() {
+    try {
+        const modal = document.querySelector('.staff-registration-modal-overlay');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Staff registration modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal(modal);
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
         
         // Initialize designations on first open
-        if (!document.getElementById('designationOptions').hasChildNodes()) {
+        const designationOptions = document.getElementById('designationOptions');
+        if (designationOptions && !designationOptions.hasChildNodes()) {
             fetchDesignations('');
         }
         // Ensure the additional-designation select is populated with the full list
         populateAdditionalDesignationSelect();
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open staff registration modal. Please try again.', 'error');
+        }
     }
 };
+
+// Alias for backward compatibility
+window.openStaffRegistrationModalWithInit = window.openStaffRegistrationModal;
 
 window.submitStaffRegistrationForm = function() {
     if (!validateStaffRegistrationForm()) {

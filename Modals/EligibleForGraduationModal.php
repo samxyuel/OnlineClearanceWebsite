@@ -199,14 +199,27 @@ function attachSelectAllListeners() {
 // Define modal functions immediately (before DOMContentLoaded)
 // Open modal function (called from parent page) - Make it globally accessible
 window.openEligibleForGraduationModal = function() {
-  const modal = document.getElementById('eligibleForGraduationModal');
-  if (!modal) {
-    console.error('EligibleForGraduationModal not found in DOM');
-    return;
-  }
-  
-  modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+  try {
+    const modal = document.getElementById('eligibleForGraduationModal');
+    if (!modal) {
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('Eligible for graduation modal not found. Please refresh the page.', 'error');
+      }
+      return;
+    }
+
+    // Use window.openModal if available, otherwise fallback
+    if (typeof window.openModal === 'function') {
+      window.openModal('eligibleForGraduationModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
+      requestAnimationFrame(() => {
+        modal.classList.add('active');
+      });
+    }
   
   // Set SHS tab as active (without triggering load)
   currentGraduationTab = 'shs';
@@ -237,20 +250,38 @@ window.openEligibleForGraduationModal = function() {
   
   // Check if already confirmed
   updateGraduationConfirmationStatus(graduationConfirmed);
+  } catch (error) {
+    console.error('[EligibleForGraduationModal] Error opening modal:', error);
+    if (typeof showToastNotification === 'function') {
+      showToastNotification('Unable to open graduation modal. Please try again.', 'error');
+    }
+  }
 };
 
 // Close modal function - Make it globally accessible
 window.closeEligibleForGraduationModal = function() {
-  const modal = document.getElementById('eligibleForGraduationModal');
-  if (!modal) {
-    return;
-  }
+  console.log('[EligibleForGraduationModal] closeEligibleForGraduationModal() called');
+  try {
+    const modal = document.getElementById('eligibleForGraduationModal');
+    if (!modal) {
+      console.warn('[EligibleForGraduationModal] Modal not found');
+      return;
+    }
+    console.log('[EligibleForGraduationModal] Closing modal:', modal.id);
+
+    // Use window.closeModal if available, otherwise fallback
+    if (typeof window.closeModal === 'function') {
+      window.closeModal('eligibleForGraduationModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+      document.body.classList.remove('modal-open');
+      modal.classList.remove('active');
+    }
   
-  modal.style.display = 'none';
-  document.body.style.overflow = 'auto';
-  
-  // Reset form (but keep confirmation status)
-  // selectedGraduationStudents.clear(); // Don't clear - keep selections
+    // Reset form (but keep confirmation status)
+    // selectedGraduationStudents.clear(); // Don't clear - keep selections
   // graduationStudents = { shs: [], college: [] }; // Don't clear - keep data
   
   // Reset filters
@@ -281,6 +312,9 @@ window.closeEligibleForGraduationModal = function() {
   
   // Reset to SHS tab
   switchGraduationTab('shs');
+  } catch (error) {
+    console.error('[EligibleForGraduationModal] Error closing modal:', error);
+  }
 };
 
 // Switch between SHS and College tabs - Make it globally accessible

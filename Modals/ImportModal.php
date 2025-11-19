@@ -946,12 +946,25 @@ window.openImportModal = function(pageType = null, importType = null, role = 'Ad
   const modal = document.getElementById('importModal');
   if (!modal) {
     console.error('[ImportModal] Modal element not found!');
+    if (typeof showToastNotification === 'function') {
+      showToastNotification('Import modal not found. Please refresh the page.', 'error');
+    }
     return;
   }
   
   console.log('[ImportModal] Showing modal...');
-  modal.style.display = 'flex';
-  document.body.classList.add('modal-open');
+  
+  // Use window.openModal if available, otherwise fallback
+  if (typeof window.openModal === 'function') {
+    window.openModal('importModal');
+  } else {
+    // Fallback to direct manipulation
+    modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    requestAnimationFrame(() => {
+      modal.classList.add('active');
+    });
+  }
   
   // Always initialize with provided or default parameters
   let finalPageType, finalImportType, finalRole;
@@ -1022,18 +1035,34 @@ window.openImportModal = function(pageType = null, importType = null, role = 'Ad
 // Define other modal functions to ensure they're available
 console.log('[ImportModal] Defining window.closeImportModal...');
 window.closeImportModal = function() {
-  const modal = document.getElementById('importModal');
-  if (!modal) return;
-  
-  modal.style.display = 'none';
-  document.body.classList.remove('modal-open');
-  
-  // Reset form
-  const form = document.getElementById('importForm');
-  if (form) {
-    form.reset();
+  console.log('[ImportModal] closeImportModal() called');
+  try {
+    const modal = document.getElementById('importModal');
+    if (!modal) {
+      console.warn('[ImportModal] Modal not found');
+      return;
+    }
+    console.log('[ImportModal] Closing modal:', modal.id);
+    
+    // Use window.closeModal if available, otherwise fallback
+    if (typeof window.closeModal === 'function') {
+      window.closeModal('importModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'none';
+      document.body.classList.remove('modal-open');
+      modal.classList.remove('active');
+    }
+    
+    // Reset form
+    const form = document.getElementById('importForm');
+    if (form) {
+      form.reset();
+    }
+    removeSelectedFile();
+  } catch (error) {
+    // Silent error handling
   }
-  removeSelectedFile();
 }
 
 // Store pending form data for confirmation resubmission

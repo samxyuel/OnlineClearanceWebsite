@@ -92,11 +92,13 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
+                            <?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
+                            <?php */ ?>
                         </div>
 
                         <!-- Search and Filters Section -->
@@ -839,6 +841,7 @@ if (session_status() == PHP_SESSION_NONE) {
         </div>
     </div>
 
+    <?php /* Signatory Override interface temporarily disabled ?>
     <!-- Signatory Override Modal -->
     <div id="signatoryOverrideModal" class="modal-overlay" style="display: none;">
         <div class="modal-window override-modal">
@@ -957,6 +960,7 @@ if (session_status() == PHP_SESSION_NONE) {
             <!-- Dynamic content will be populated -->
         </div>
     </div>
+    <?php */ ?>
 
     <script>
         // Toggle sidebar
@@ -1799,6 +1803,7 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         });
 
+        <?php /* Signatory Override JavaScript functions temporarily disabled
         // Signatory Override Modal Function
         function openSignatoryOverrideModal() {
             const modal = document.getElementById('signatoryOverrideModal');
@@ -2055,6 +2060,7 @@ if (session_status() == PHP_SESSION_NONE) {
         function exportOverrideReport() {
             showToastNotification('Override report export functionality will be implemented', 'info');
         }
+        */ ?>
 
         // Clearance Progress Modal Function
         function viewClearanceProgress(studentId) {
