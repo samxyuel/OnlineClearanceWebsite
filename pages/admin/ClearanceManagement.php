@@ -17,7 +17,6 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/css/sector-clearance.css">
-    <link rel="stylesheet" href="../../assets/css/grace-period-monitoring.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -58,19 +57,6 @@ if (session_status() == PHP_SESSION_NONE) {
 
                             <div class="tab-panels">
                                 <section class="tab-panel active" id="tab-academic-sector" role="tabpanel" aria-labelledby="academic-sector-tab" data-tab-panel="academic-sector">
-                                    <!-- Grace Period Monitoring Section -->
-                                    <!-- TODO: Uncomment when grace period functionality is ready
-                                    <div class="grace-period-monitoring" id="grace-period-monitoring">
-                                        <div class="monitoring-header">
-                                            <h3><i class="fas fa-clock"></i> Grace Period Monitoring</h3>
-                                            <p>Monitor system transitions and grace periods across all clearance sectors</p>
-                                        </div>
-                                        <div class="grace-period-grid" id="grace-period-grid">
-                                            <-- Grace period cards will be populated by JavaScript --
-                                        </div>
-                                    </div>
-                                    -->
-
                                     <!-- Sector-Based Clearance Management -->
                                     <div class="sector-clearance-management">
                             <!-- School Years & Terms Card -->
@@ -669,7 +655,6 @@ if (session_status() == PHP_SESSION_NONE) {
 
     <!-- Scripts -->
     <script src="../../assets/js/activity-tracker.js"></script>
-    <script src="../../assets/js/grace-period-manager.js"></script>
     
     <!-- Include Audit Functions -->
     <?php include '../../includes/functions/audit_functions.php'; ?>
@@ -3511,9 +3496,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             const buttonElement = document.querySelector(`[onclick="activateTerm('${termId}')"]`);
             
             try {
-                await gracePeriodManager.executeWithGracePeriod(
-                    `activate-${termId}`,
-                    async () => {
                     // Special handling for Term 2 activation
                     if (termId === 'term2') {
                         // First, ensure Term 1 is ended
@@ -3576,9 +3558,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                         await initializeSectorButtons();
                         
                         showToast(`Term ${termId} activated successfully`, 'success');
-                    },
-                    buttonElement
-                );
             } catch (error) {
                 console.error('Error activating term:', error);
                 showToast(error.message || 'Failed to activate term', 'error');
@@ -3593,9 +3572,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             const buttonElement = document.querySelector(`[onclick="endTerm('${termId}')"]`);
             
             try {
-                await gracePeriodManager.executeWithGracePeriod(
-                    `end-${termId}`,
-                    async () => {
                     const currentYear = schoolYears[currentSchoolYearIndex];
                     if (!currentYear) { 
                         throw new Error('Data not loaded yet.');
@@ -3663,9 +3639,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                         updateAddYearButton(false);
                         
                         showToast(`Term ${termId} ended successfully`, 'success');
-                    },
-                    buttonElement
-                );
             } catch (error) {
                 console.error('Error ending term:', error);
                 // Only show toast for actual errors, not user cancellation
@@ -3680,9 +3653,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             const buttonElement = document.querySelector(`[onclick="skipEndTerm('${termId}')"]`);
 
             try {
-                await gracePeriodManager.executeWithGracePeriod(
-                    `skip-end-${termId}`,
-                    async () => {
                     const currentYear = schoolYears[currentSchoolYearIndex];
                     if (!currentYear) { 
                         throw new Error('Data not loaded yet.');
@@ -3745,9 +3715,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                         updateAddYearButton(false);
                         
                         showToast(`Term ${termId} skipped/ended successfully`, 'success');
-                    },
-                    buttonElement
-                );
             } catch (error) {
                 console.error('Error skipping/ending term:', error);
                 // Only show toast for actual errors, not user cancellation
@@ -3770,80 +3737,7 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             }
         }
 
-        // Grace Period Management System
-        // Use the GracePeriodManager from grace-period-manager.js
-        let gracePeriodManager;
-        
-        // Wait for the grace-period-manager.js to load and create a simple wrapper
-        function createGracePeriodManager() {
-            return {
-                activeOperations: new Set(),
-                minGracePeriod: 3000,
-
-            async executeWithGracePeriod(operationId, operation, buttonElement) {
-                if (this.activeOperations.has(operationId)) {
-                    showToast('Operation already in progress', 'warning');
-                    return;
-                }
-
-                this.activeOperations.add(operationId);
-                const startTime = Date.now();
-
-                try {
-                    // Set loading state
-                    this.setButtonLoadingState(buttonElement, 'Processing...');
-
-                    // Execute the operation
-                    const result = await operation();
-
-                    // Calculate remaining grace period
-                    const elapsed = Date.now() - startTime;
-                    const remainingTime = Math.max(0, this.minGracePeriod - elapsed);
-
-                    // Wait for remaining grace period
-                    if (remainingTime > 0) {
-                        await new Promise(resolve => setTimeout(resolve, remainingTime));
-                    }
-
-                    return result;
-                } catch (error) {
-                    throw error;
-                } finally {
-                    // Clear loading state
-                    this.clearButtonLoadingState(buttonElement);
-                    this.activeOperations.delete(operationId);
-                }
-                },
-
-            setButtonLoadingState(buttonElement, text = 'Processing...') {
-                if (!buttonElement) return;
-                
-                buttonElement.disabled = true;
-                buttonElement.dataset.originalText = buttonElement.innerHTML;
-                buttonElement.innerHTML = `
-                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    ${text}
-                `;
-                buttonElement.classList.add('loading');
-                },
-
-            clearButtonLoadingState(buttonElement) {
-                if (!buttonElement) return;
-                
-                buttonElement.disabled = false;
-                if (buttonElement.dataset.originalText) {
-                    buttonElement.innerHTML = buttonElement.dataset.originalText;
-                    delete buttonElement.dataset.originalText;
-                }
-                buttonElement.classList.remove('loading');
-            }
-            };
-        }
-
-        // Initialize grace period manager
-        gracePeriodManager = createGracePeriodManager();
-
-        // Sector-based clearance period functions with grace period
+        // Sector-based clearance period functions
         async function startSectorPeriod(sector) {
             const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
             const buttonElement = document.getElementById(`${sectorKey}-start-btn`);
@@ -3852,65 +3746,59 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             console.log(`🚀 DEBUG: Button element:`, buttonElement);
             
             try {
-                await gracePeriodManager.executeWithGracePeriod(
-                    `start-${sector}`,
-                    async () => {
-                        // Check if there's an active term first
-                        const activeTerm = await getActiveTerm();
-                        console.log(`🚀 DEBUG: Active term data:`, activeTerm);
-                        
-                        if (!activeTerm) {
-                            throw new Error('Cannot start clearance period: No active term found');
-                        }
+                // Check if there's an active term first
+                const activeTerm = await getActiveTerm();
+                console.log(`🚀 DEBUG: Active term data:`, activeTerm);
+                
+                if (!activeTerm) {
+                    throw new Error('Cannot start clearance period: No active term found');
+                }
 
-                        const requestData = {
-                            sector: sector,
-                            academic_year_id: activeTerm.academic_year_id,
-                            semester_id: activeTerm.semester_id,
-                            start_date: new Date().toISOString().slice(0, 10),
-                            action: 'start'
-                        };
-                        
-                        console.log(`🚀 DEBUG: Sending request to API:`, requestData);
+                const requestData = {
+                    sector: sector,
+                    academic_year_id: activeTerm.academic_year_id,
+                    semester_id: activeTerm.semester_id,
+                    start_date: new Date().toISOString().slice(0, 10),
+                    action: 'start'
+                };
+                
+                console.log(`🚀 DEBUG: Sending request to API:`, requestData);
 
-                        // Try to update existing period first, then create if needed
-                        const response = await fetchJSON(`${API_BASE}/periods.php`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(requestData)
-                        });
+                // Try to update existing period first, then create if needed
+                const response = await fetchJSON(`${API_BASE}/periods.php`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
 
-                        console.log(`🚀 DEBUG: API response:`, response);
+                console.log(`🚀 DEBUG: API response:`, response);
 
-                        if (response.success) {
-                            console.log(`✅ DEBUG: ${sector} clearance period started successfully`);
-                            
-                            // Display form distribution results if available
-                            let successMessage = `${sector} clearance period started successfully`;
-                            if (response.form_distribution) {
-                                const dist = response.form_distribution;
-                                if (dist.success) {
-                                    successMessage += `\n📋 Forms distributed: ${dist.forms_created} forms created for ${dist.eligible_users} eligible users`;
-                                    if (dist.signatories_assigned > 0) {
-                                        successMessage += `\n👥 Signatories assigned: ${dist.signatories_assigned} total assignments`;
-                                    }
-                                } else {
-                                    console.warn(`⚠️ Form distribution failed: ${dist.message}`);
-                                    successMessage += `\n⚠️ Form distribution: ${dist.message}`;
-                                }
+                if (response.success) {
+                    console.log(`✅ DEBUG: ${sector} clearance period started successfully`);
+                    
+                    // Display form distribution results if available
+                    let successMessage = `${sector} clearance period started successfully`;
+                    if (response.form_distribution) {
+                        const dist = response.form_distribution;
+                        if (dist.success) {
+                            successMessage += `\n📋 Forms distributed: ${dist.forms_created} forms created for ${dist.eligible_users} eligible users`;
+                            if (dist.signatories_assigned > 0) {
+                                successMessage += `\n👥 Signatories assigned: ${dist.signatories_assigned} total assignments`;
                             }
-                            
-                            showToast(successMessage, 'success');
-                            
-                            console.log(`🔄 DEBUG: Refreshing sector data...`);
-                            await refreshSectorData();
-                            console.log(`✅ DEBUG: Sector data refreshed`);
                         } else {
-                            throw new Error(response.message || 'Failed to start clearance period');
+                            console.warn(`⚠️ Form distribution failed: ${dist.message}`);
+                            successMessage += `\n⚠️ Form distribution: ${dist.message}`;
                         }
-                    },
-                    buttonElement
-                );
+                    }
+                    
+                    showToast(successMessage, 'success');
+                    
+                    console.log(`🔄 DEBUG: Refreshing sector data...`);
+                    await refreshSectorData();
+                    console.log(`✅ DEBUG: Sector data refreshed`);
+                } else {
+                    throw new Error(response.message || 'Failed to start clearance period');
+                }
             } catch (error) {
                 console.error(`❌ DEBUG: Error starting ${sector} sector period:`, error);
                 showToast(error.message || 'Failed to start clearance period', 'error');
@@ -3926,48 +3814,42 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             console.log(`⏭️ DEBUG: Button element:`, buttonElement);
             
             try {
-                await gracePeriodManager.executeWithGracePeriod(
-                    `skip-${sector}`,
-                    async () => {
-                        // Check if there's an active term first
-                        const activeTerm = await getActiveTerm();
-                        console.log(`⏭️ DEBUG: Active term data:`, activeTerm);
-                        
-                        if (!activeTerm) {
-                            throw new Error('Cannot skip clearance period: No active term found');
-                        }
+                // Check if there's an active term first
+                const activeTerm = await getActiveTerm();
+                console.log(`⏭️ DEBUG: Active term data:`, activeTerm);
+                
+                if (!activeTerm) {
+                    throw new Error('Cannot skip clearance period: No active term found');
+                }
 
-                        const requestData = {
-                            sector: sector,
-                            academic_year_id: activeTerm.academic_year_id,
-                            semester_id: activeTerm.semester_id,
-                            start_date: new Date().toISOString().slice(0, 10),
-                            action: 'skip'
-                        };
-                        
-                        console.log(`⏭️ DEBUG: Sending request to API:`, requestData);
+                const requestData = {
+                    sector: sector,
+                    academic_year_id: activeTerm.academic_year_id,
+                    semester_id: activeTerm.semester_id,
+                    start_date: new Date().toISOString().slice(0, 10),
+                    action: 'skip'
+                };
+                
+                console.log(`⏭️ DEBUG: Sending request to API:`, requestData);
 
-                        const response = await fetchJSON(`${API_BASE}/periods.php`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(requestData)
-                        });
+                const response = await fetchJSON(`${API_BASE}/periods.php`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
 
-                        console.log(`⏭️ DEBUG: API response:`, response);
+                console.log(`⏭️ DEBUG: API response:`, response);
 
-                        if (response.success) {
-                            console.log(`✅ DEBUG: ${sector} clearance period skipped successfully`);
-                            showToast(`${sector} clearance period skipped successfully`, 'success');
-                            
-                            console.log(`🔄 DEBUG: Refreshing sector data...`);
-                            await refreshSectorData();
-                            console.log(`✅ DEBUG: Sector data refreshed`);
-                        } else {
-                            throw new Error(response.message || 'Failed to skip clearance period');
-                        }
-                    },
-                    buttonElement
-                );
+                if (response.success) {
+                    console.log(`✅ DEBUG: ${sector} clearance period skipped successfully`);
+                    showToast(`${sector} clearance period skipped successfully`, 'success');
+                    
+                    console.log(`🔄 DEBUG: Refreshing sector data...`);
+                    await refreshSectorData();
+                    console.log(`✅ DEBUG: Sector data refreshed`);
+                } else {
+                    throw new Error(response.message || 'Failed to skip clearance period');
+                }
             } catch (error) {
                 console.error(`❌ DEBUG: Error skipping ${sector} sector period:`, error);
                 showToast(error.message || 'Failed to skip clearance period', 'error');
@@ -3982,59 +3864,53 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             console.log(`⏸️ DEBUG: Button element:`, buttonElement);
             
             try {
-                await gracePeriodManager.executeWithGracePeriod(
-                    `pause-${sector}`,
-                    async () => {
-                        // Get the current period data to extract period_id
-                        const activeTerm = await getActiveTerm();
-                        console.log(`⏸️ DEBUG: Active term data:`, activeTerm);
+                // Get the current period data to extract period_id
+                const activeTerm = await getActiveTerm();
+                console.log(`⏸️ DEBUG: Active term data:`, activeTerm);
 
-                        if (!activeTerm) {
-                            throw new Error('Cannot pause clearance period: No active term found');
-                        }
+                if (!activeTerm) {
+                    throw new Error('Cannot pause clearance period: No active term found');
+                }
 
-                        // Get the current period for this sector
-                        const response = await fetch(`${API_BASE}/sector-periods.php`, {
-                            credentials: 'include'
-                        });
-                        const data = await response.json();
-                        
-                        if (data.success && data.periods_by_sector && data.periods_by_sector[sector]) {
-                            const currentPeriod = data.periods_by_sector[sector][0]; // Get latest period
-                            console.log(`⏸️ DEBUG: Current period for ${sector}:`, currentPeriod);
-                            
-                            if (!currentPeriod || !currentPeriod.period_id) {
-                                throw new Error(`No active period found for ${sector}`);
-                            }
+                // Get the current period for this sector
+                const response = await fetch(`${API_BASE}/sector-periods.php`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success && data.periods_by_sector && data.periods_by_sector[sector]) {
+                    const currentPeriod = data.periods_by_sector[sector][0]; // Get latest period
+                    console.log(`⏸️ DEBUG: Current period for ${sector}:`, currentPeriod);
+                    
+                    if (!currentPeriod || !currentPeriod.period_id) {
+                        throw new Error(`No active period found for ${sector}`);
+                    }
 
-                            const requestData = {
-                                period_id: currentPeriod.period_id,
-                                action: 'pause'
-                            };
+                    const requestData = {
+                        period_id: currentPeriod.period_id,
+                        action: 'pause'
+                    };
 
-                            console.log(`⏸️ DEBUG: Sending request to API:`, requestData);
+                    console.log(`⏸️ DEBUG: Sending request to API:`, requestData);
 
-                            const apiResponse = await fetchJSON(`${API_BASE}/periods.php`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(requestData)
-                            });
+                    const apiResponse = await fetchJSON(`${API_BASE}/periods.php`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestData)
+                    });
 
-                            console.log(`⏸️ DEBUG: API response:`, apiResponse);
+                    console.log(`⏸️ DEBUG: API response:`, apiResponse);
 
-                            if (apiResponse.success) {
-                                console.log(`✅ DEBUG: ${sector} clearance period paused successfully`);
-                                showToast(`${sector} clearance period paused`, 'success');
-                                await refreshSectorData();
-                            } else {
-                                throw new Error(apiResponse.message || 'Failed to pause clearance period');
-                            }
-                        } else {
-                            throw new Error(`No period data found for ${sector}`);
-                        }
-                    },
-                    buttonElement
-                );
+                    if (apiResponse.success) {
+                        console.log(`✅ DEBUG: ${sector} clearance period paused successfully`);
+                        showToast(`${sector} clearance period paused`, 'success');
+                        await refreshSectorData();
+                    } else {
+                        throw new Error(apiResponse.message || 'Failed to pause clearance period');
+                    }
+                } else {
+                    throw new Error(`No period data found for ${sector}`);
+                }
             } catch (error) {
                 console.error(`❌ DEBUG: Error pausing ${sector} sector period:`, error);
                 showToast(error.message || 'Failed to pause clearance period', 'error');
@@ -4049,59 +3925,53 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             console.log(`🛑 DEBUG: Button element:`, buttonElement);
             
             try {
-                await gracePeriodManager.executeWithGracePeriod(
-                    `close-${sector}`,
-                    async () => {
-                        // Get the current period data to extract period_id
-                        const activeTerm = await getActiveTerm();
-                        console.log(`🛑 DEBUG: Active term data:`, activeTerm);
+                // Get the current period data to extract period_id
+                const activeTerm = await getActiveTerm();
+                console.log(`🛑 DEBUG: Active term data:`, activeTerm);
 
-                        if (!activeTerm) {
-                            throw new Error('Cannot close clearance period: No active term found');
-                        }
+                if (!activeTerm) {
+                    throw new Error('Cannot close clearance period: No active term found');
+                }
 
-                        // Get the current period for this sector
-                        const response = await fetch(`${API_BASE}/sector-periods.php`, {
-                            credentials: 'include'
-                        });
-                        const data = await response.json();
-                        
-                        if (data.success && data.periods_by_sector && data.periods_by_sector[sector]) {
-                            const currentPeriod = data.periods_by_sector[sector][0]; // Get latest period
-                            console.log(`🛑 DEBUG: Current period for ${sector}:`, currentPeriod);
-                            
-                            if (!currentPeriod || !currentPeriod.period_id) {
-                                throw new Error(`No active period found for ${sector}`);
-                            }
+                // Get the current period for this sector
+                const response = await fetch(`${API_BASE}/sector-periods.php`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success && data.periods_by_sector && data.periods_by_sector[sector]) {
+                    const currentPeriod = data.periods_by_sector[sector][0]; // Get latest period
+                    console.log(`🛑 DEBUG: Current period for ${sector}:`, currentPeriod);
+                    
+                    if (!currentPeriod || !currentPeriod.period_id) {
+                        throw new Error(`No active period found for ${sector}`);
+                    }
 
-                            const requestData = {
-                                period_id: currentPeriod.period_id,
-                                action: 'close'
-                            };
+                    const requestData = {
+                        period_id: currentPeriod.period_id,
+                        action: 'close'
+                    };
 
-                            console.log(`🛑 DEBUG: Sending request to API:`, requestData);
+                    console.log(`🛑 DEBUG: Sending request to API:`, requestData);
 
-                            const apiResponse = await fetchJSON(`${API_BASE}/periods.php`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(requestData)
-                            });
+                    const apiResponse = await fetchJSON(`${API_BASE}/periods.php`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestData)
+                    });
 
-                            console.log(`🛑 DEBUG: API response:`, apiResponse);
+                    console.log(`🛑 DEBUG: API response:`, apiResponse);
 
-                            if (apiResponse.success) {
-                                console.log(`✅ DEBUG: ${sector} clearance period closed successfully`);
-                                showToast(`${sector} clearance period closed`, 'success');
-                                await refreshSectorData();
-                            } else {
-                                throw new Error(apiResponse.message || 'Failed to close clearance period');
-                            }
-                        } else {
-                            throw new Error(`No period data found for ${sector}`);
-                        }
-                    },
-                    buttonElement
-                );
+                    if (apiResponse.success) {
+                        console.log(`✅ DEBUG: ${sector} clearance period closed successfully`);
+                        showToast(`${sector} clearance period closed`, 'success');
+                        await refreshSectorData();
+                    } else {
+                        throw new Error(apiResponse.message || 'Failed to close clearance period');
+                    }
+                } else {
+                    throw new Error(`No period data found for ${sector}`);
+                }
             } catch (error) {
                 console.error(`❌ DEBUG: Error closing ${sector} sector period:`, error);
                 showToast(error.message || 'Failed to close clearance period', 'error');

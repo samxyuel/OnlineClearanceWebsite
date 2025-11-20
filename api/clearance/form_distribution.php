@@ -27,6 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 try {
     $connection = Database::getInstance()->getConnection();
     
+    // Debug: Check actual connection collation
+    $collationCheck = $connection->query("SELECT @@collation_connection, @@collation_database, @@character_set_connection")->fetch(PDO::FETCH_ASSOC);
+    error_log("🔍 FORM DISTRIBUTION COLLATION CHECK: " . json_encode($collationCheck));
+    
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         handleFormDistribution($connection);
     } else {
@@ -398,8 +402,10 @@ function checkExistingForm($connection, $userId, $academicYearId, $semesterId, $
 function createClearanceForm($connection, $user, $academicYearId, $semesterId, $clearanceType) {
     // Generate a unique clearance form ID
     $year = date('Y');
-    $stmt = $connection->prepare("SELECT clearance_form_id FROM clearance_forms WHERE clearance_form_id LIKE ? ORDER BY clearance_form_id DESC LIMIT 1");
-    $stmt->execute(["CF-$year-%"]);
+    // Use CONCAT to build the pattern in SQL, which respects connection collation
+    // Apply COLLATE to both sides of LIKE to ensure matching collations
+    $stmt = $connection->prepare("SELECT clearance_form_id FROM clearance_forms WHERE clearance_form_id COLLATE utf8mb4_unicode_ci LIKE CONCAT('CF-', ?, '-%') COLLATE utf8mb4_unicode_ci ORDER BY clearance_form_id DESC LIMIT 1");
+    $stmt->execute([$year]);
     $lastId = $stmt->fetchColumn();
     $nextNum = $lastId ? (int)substr($lastId, -5) + 1 : 1;
     $clearanceFormId = "CF-$year-" . str_pad($nextNum, 5, '0', STR_PAD_LEFT);

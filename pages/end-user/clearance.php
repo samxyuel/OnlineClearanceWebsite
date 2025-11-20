@@ -530,12 +530,10 @@
             clearInterval(refreshInterval);
         }
         
-        // Only monitor if period is active (ongoing or grace period)
+        // Only monitor if period is active (ongoing or paused)
         if (currentPeriodData && 
             (currentPeriodData.period_status === 'ongoing' || 
-             currentPeriodData.period_status === 'grace_period' ||
-             currentPeriodData.period_status === 'paused' ||
-             currentPeriodData.period_status === 'paused_grace_period')) {
+             currentPeriodData.period_status === 'paused')) {
             
             // Refresh every 30 seconds with error handling
             refreshInterval = setInterval(async () => {

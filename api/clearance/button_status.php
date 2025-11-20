@@ -2,7 +2,7 @@
 /**
  * Enhanced Clearance Button Status API
  * Returns comprehensive button status information including:
- * 1. Period status with grace period logic
+ * 1. Period status
  * 2. User's application status
  * 3. Signatory button states
  * 4. Real-time status updates
@@ -37,7 +37,6 @@ try {
     $targetUserId = null; // The user whose status is being checked (the applicant)
 
     $clearanceType = $_GET['clearance_type'] ?? null;
-    $includeGracePeriod = $_GET['include_grace_period'] ?? true;
     
     // Determine the target user ID from the request
     if (isset($_GET['faculty_id'])) {
@@ -52,9 +51,6 @@ try {
     } else {
         $targetUserId = $actingUserId; // Default to self if no target is specified
     }
-
-    // Grace period duration in minutes
-    $GRACE_PERIOD_MINUTES = 5;
     
     // Get current user's clearance type if not specified
     if (!$clearanceType) {
@@ -141,25 +137,7 @@ try {
         exit();
     }
     
-    // Calculate grace period information
-    $gracePeriod = null;
-    $currentTime = new DateTime();
-    $periodUpdated = new DateTime($period['updated_at']);
-    $timeDiff = $currentTime->getTimestamp() - $periodUpdated->getTimestamp();
-    $gracePeriodEnds = $periodUpdated->getTimestamp() + ($GRACE_PERIOD_MINUTES * 60);
-    $isInGracePeriod = $timeDiff < ($GRACE_PERIOD_MINUTES * 60);
-    
-    if ($includeGracePeriod && $isInGracePeriod) {
-        $gracePeriod = [
-            'is_active' => true,
-            'started_at' => $period['updated_at'],
-            'ends_at' => date('Y-m-d H:i:s', $gracePeriodEnds),
-            'remaining_seconds' => max(0, $gracePeriodEnds - $currentTime->getTimestamp()),
-            'duration_minutes' => $GRACE_PERIOD_MINUTES
-        ];
-    }
-    
-    // Determine period status with grace period consideration
+    // Determine period status
     $effectiveStatus = $period['status'];
     $canApply = false;
     $message = '';
@@ -172,27 +150,15 @@ try {
             break;
             
         case 'Ongoing':
-            if ($isInGracePeriod) {
-                $effectiveStatus = 'grace_period';
-                $canApply = false;
-                $message = 'Clearance period is in grace period. Applications will be enabled shortly.';
-            } else {
-                $effectiveStatus = 'ongoing';
-                $canApply = true;
-                $message = 'Clearance period is active. You can apply to signatories.';
-            }
+            $effectiveStatus = 'ongoing';
+            $canApply = true;
+            $message = 'Clearance period is active. You can apply to signatories.';
             break;
             
         case 'Paused':
-            if ($isInGracePeriod) {
-                $effectiveStatus = 'paused_grace_period';
-                $canApply = false;
-                $message = 'Clearance period is paused and in grace period.';
-    } else {
-                $effectiveStatus = 'paused';
-                $canApply = false;
-                $message = 'Clearance period is paused. Applications are disabled.';
-            }
+            $effectiveStatus = 'paused';
+            $canApply = false;
+            $message = 'Clearance period is paused. Applications are disabled.';
             break;
             
         case 'Closed':
@@ -254,8 +220,8 @@ try {
     // Determine button states for each signatory
     $buttonStates = [];
     foreach ($signatoryStatuses as $signatory) {
-        $buttonState = determineButtonState($signatory['action'], $effectiveStatus, $isInGracePeriod);
-        $signatoryActionButtons = determineSignatoryActionButtons($signatory['action'], $effectiveStatus, $isInGracePeriod);
+        $buttonState = determineButtonState($signatory['action'], $effectiveStatus);
+        $signatoryActionButtons = determineSignatoryActionButtons($signatory['action'], $effectiveStatus);
         
         $buttonStates[] = [
             'signatory_id' => $signatory['signatory_id'],
@@ -278,7 +244,7 @@ try {
         'clearance_type' => $clearanceType,
         'period_status' => $effectiveStatus,
         'period' => $period,
-        'grace_period' => $gracePeriod,
+        'grace_period' => null,
         'can_apply' => $canApply,
         'message' => $message,
         'application' => $application,
@@ -305,7 +271,7 @@ try {
 /**
  * Determine button state based on signatory action and period status
  */
-function determineButtonState($signatoryAction, $effectiveStatus, $isInGracePeriod) {
+function determineButtonState($signatoryAction, $effectiveStatus) {
     $buttonState = [
         'enabled' => false,
         'text' => '',
@@ -321,15 +287,6 @@ function determineButtonState($signatoryAction, $effectiveStatus, $isInGracePeri
             $buttonState['class'] = 'btn-secondary';
             $buttonState['tooltip'] = 'Clearance period has not been started yet';
             $buttonState['reason'] = 'period_not_started';
-            break;
-            
-        case 'grace_period':
-        case 'paused_grace_period':
-            $buttonState['enabled'] = false;
-            $buttonState['text'] = 'Grace Period';
-            $buttonState['class'] = 'btn-warning';
-            $buttonState['tooltip'] = 'Clearance period is in grace period. Please wait.';
-            $buttonState['reason'] = 'grace_period';
             break;
             
         case 'ongoing':
@@ -441,7 +398,7 @@ function determineButtonState($signatoryAction, $effectiveStatus, $isInGracePeri
 /**
  * Determine signatory action buttons (approve/reject) based on signatory action and period status
  */
-function determineSignatoryActionButtons($signatoryAction, $effectiveStatus, $isInGracePeriod) {
+function determineSignatoryActionButtons($signatoryAction, $effectiveStatus) {
     $approveButton = [
         'enabled' => false,
         'text' => 'Approve',
@@ -469,16 +426,6 @@ function determineSignatoryActionButtons($signatoryAction, $effectiveStatus, $is
             $rejectButton['enabled'] = false;
             $rejectButton['tooltip'] = 'Clearance period has not been started yet';
             $rejectButton['reason'] = 'period_not_started';
-            break;
-            
-        case 'grace_period':
-        case 'paused_grace_period':
-            $approveButton['enabled'] = false;
-            $approveButton['tooltip'] = 'Clearance period is in grace period. Please wait.';
-            $approveButton['reason'] = 'grace_period';
-            $rejectButton['enabled'] = false;
-            $rejectButton['tooltip'] = 'Clearance period is in grace period. Please wait.';
-            $rejectButton['reason'] = 'grace_period';
             break;
             
         case 'ongoing':

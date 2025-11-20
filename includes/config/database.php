@@ -20,8 +20,10 @@ class Database {
     
     private function __construct() {
         try {
+            // Remove charset from DSN to avoid implicit collation setting
+            // We'll set it explicitly after connection
             $this->connection = new PDO(
-                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME,
                 DB_USER,
                 DB_PASS,
                 [
@@ -30,6 +32,14 @@ class Database {
                     PDO::ATTR_EMULATE_PREPARES => false
                 ]
             );
+            
+            // Set charset and collation explicitly BEFORE any other operations
+            // This ensures all string operations use the correct collation
+            $this->connection->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
+            $this->connection->exec("SET collation_connection = 'utf8mb4_unicode_ci'");
+            $this->connection->exec("SET collation_database = 'utf8mb4_unicode_ci'");
+            $this->connection->exec("SET character_set_connection = 'utf8mb4'");
+            
         } catch (PDOException $e) {
             die("Connection failed: " . $e->getMessage());
         }

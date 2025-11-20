@@ -220,7 +220,7 @@ function getUserSector($connection, $userId) {
 // Helper function to generate clearance form ID
 function generateClearanceFormId($connection) {
     $year = date('Y');
-    $stmt = $connection->query("SELECT COUNT(*) + 1 as next_id FROM clearance_forms WHERE clearance_form_id LIKE 'CF-$year-%'");
+    $stmt = $connection->query("SELECT COUNT(*) + 1 as next_id FROM clearance_forms WHERE clearance_form_id COLLATE utf8mb4_unicode_ci LIKE 'CF-$year-%'");
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     $nextId = str_pad($result['next_id'], 5, '0', STR_PAD_LEFT);
     return "CF-$year-$nextId";
