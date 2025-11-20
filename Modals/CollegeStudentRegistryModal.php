@@ -93,49 +93,18 @@
           <input type="tel" id="phoneNumber" name="phoneNumber" 
                  placeholder="+63 9XX XXX XXXX" maxlength="15">
         </div>
-        
-        <!-- Address Information -->
-        <div class="form-group">
-          <label for="address">Address *</label>
-          <textarea id="address" name="address" required 
-                    placeholder="Enter complete address" rows="3" maxlength="200"></textarea>
-        </div>
-        
-        <!-- Account Settings -->
-        <div class="form-section">
-          <h3 class="form-section-title">Account Settings</h3>
-          
-          <div class="form-group">
-            <label for="password">Initial Password *</label>
-            <input type="password" id="password" name="password" required 
-                   placeholder="Enter initial password" minlength="8">
-            <small class="form-help">Minimum 8 characters</small>
-          </div>
-          
-          <div class="form-group">
-            <label for="confirmPassword">Confirm Password *</label>
-            <input type="password" id="confirmPassword" name="confirmPassword" required 
-                   placeholder="Confirm initial password" minlength="8">
-          </div>
-          
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="sendWelcomeEmail" name="sendWelcomeEmail" checked>
-              <span class="checkmark"></span>
-              Send welcome email with login credentials
-            </label>
-          </div>
-        </div>
       </form>
     </div>
     
     <!-- Modal Actions -->
     <div class="modal-actions">
       <button class="modal-action-secondary" onclick="closeStudentRegistrationModal()">Cancel</button>
-      <button class="modal-action-primary" onclick="submitStudentRegistrationForm()" id="submitBtn">Add Student</button>
+      <button class="modal-action-primary" onclick="submitStudentRegistrationForm()" id="submitBtn">Generate Credentials</button>
     </div>
   </div>
 </div>
+
+<?php include __DIR__ . '/GeneratedCredentialsModal.php'; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -145,31 +114,65 @@ document.addEventListener('DOMContentLoaded', function() {
 async function populateCollegeDepartments() {
     const departmentSelect = document.getElementById('department');
     if (!departmentSelect) return;
-    departmentSelect.innerHTML = '<option value="">Loading Departments...</option>';
-    departmentSelect.disabled = true;
 
-    try {
-        // Use the modern, centralized API for departments, filtering by sector.
-        const response = await fetch(`../../api/departments/list.php?sector=College`);
-        const data = await response.json(); // This will now receive valid JSON.
+    // Check if it's a Program Head with specific departments
+    if (window.managedDepartments && Array.isArray(window.managedDepartments)) {
+        const managedDepts = window.managedDepartments;
 
-        if (data.success && data.departments) {
-            departmentSelect.innerHTML = '<option value="">Select Department</option>';
-            data.departments.forEach(dept => {
+        if (managedDepts.length > 0) {
+            departmentSelect.innerHTML = ''; // Clear loading message
+
+            if (managedDepts.length === 1) {
+                // If only one department, pre-select and lock it
+                const dept = managedDepts[0];
                 const option = document.createElement('option');
-                option.value = dept.department_id; // Send the ID
+                option.value = dept.department_id;
                 option.textContent = dept.department_name;
+                option.selected = true;
                 departmentSelect.appendChild(option);
-            });
-            departmentSelect.disabled = false;
+                departmentSelect.disabled = true;
+                updateProgramsAndYearLevels(); // Automatically trigger program loading
+            } else {
+                // If multiple departments, populate dropdown and allow selection
+                departmentSelect.innerHTML = '<option value="">Select your department</option>';
+                managedDepts.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept.department_id;
+                    option.textContent = dept.department_name;
+                    departmentSelect.appendChild(option);
+                });
+                departmentSelect.disabled = false;
+            }
         } else {
-            showToast(data.message || 'Could not load departments.', 'error');
+            departmentSelect.innerHTML = '<option value="">No departments assigned</option>';
+            departmentSelect.disabled = true;
+            showToast('You are not assigned to any departments to add students.', 'error');
+        }
+    } else {
+        // Fallback for Admin or other roles: fetch all college departments
+        departmentSelect.innerHTML = '<option value="">Loading Departments...</option>';
+        departmentSelect.disabled = true;
+        try {
+            const response = await fetch(`../../api/departments/list.php?sector=College`);
+            const data = await response.json();
+
+            if (data.success && data.departments) {
+                departmentSelect.innerHTML = '<option value="">Select Department</option>';
+                data.departments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept.department_id;
+                    option.textContent = dept.department_name;
+                    departmentSelect.appendChild(option);
+                });
+                departmentSelect.disabled = false;
+            } else {
+                throw new Error(data.message || 'Could not load departments.');
+            }
+        } catch (error) {
+            console.error('Failed to fetch departments:', error);
+            showToast('An error occurred while loading departments.', 'error');
             departmentSelect.innerHTML = '<option value="">Error loading</option>';
         }
-    } catch (error) {
-        console.error('Failed to fetch departments:', error);
-        showToast('An error occurred while loading departments.', 'error');
-        departmentSelect.innerHTML = '<option value="">Error loading</option>';
     }
 }
 
@@ -187,25 +190,30 @@ async function updateProgramsAndYearLevels() {
   
   if (departmentId) {
     try {
-      const response = await fetch(`../../controllers/college_academics_api.php?action=get_programs&department_id=${departmentId}`);
+      // Use the modern, centralized API for programs, filtering by department.
+      const response = await fetch(`../../api/programs/list.php?department_id=${departmentId}`);
       const data = await response.json();
 
-      if (data.success) {
+      if (data.success && data.programs) {
         // Populate programs
         data.programs.forEach(program => {
           const option = document.createElement('option');
-          option.value = program.value; // Use program_code
-          option.textContent = program.display;
+          option.value = program.program_code || program.program_id;
+          option.dataset.programId = program.program_id;
+          option.dataset.departmentId = program.department_id;
+          option.textContent = program.program_name;
           programSelect.appendChild(option);
         });
 
         // Populate year levels from the same API response
-        data.year_levels.forEach(yearLevel => {
-          const option = document.createElement('option');
-          option.value = yearLevel;
-          option.textContent = yearLevel;
-          yearLevelSelect.appendChild(option);
-        });
+        if (data.year_levels) {
+            data.year_levels.forEach(yearLevel => {
+              const option = document.createElement('option');
+              option.value = yearLevel;
+              option.textContent = yearLevel;
+              yearLevelSelect.appendChild(option);
+            });
+        }
 
         programSelect.disabled = false;
         yearLevelSelect.disabled = false;
@@ -254,7 +262,7 @@ function validateStudentRegistrationForm() {
   const formData = new FormData(form);
   
   // Check required fields
-  const requiredFields = ['studentNumber', 'department', 'program', 'yearLevel', 'section', 'lastName', 'firstName', 'email', 'address', 'password', 'confirmPassword'];
+  const requiredFields = ['studentNumber', 'department', 'program', 'yearLevel', 'section', 'lastName', 'firstName', 'email'];
   
   for (const field of requiredFields) {
     const input = form.querySelector(`[name="${field}"]`);
@@ -263,16 +271,6 @@ function validateStudentRegistrationForm() {
       input.focus();
       return false;
     }
-  }
-  
-  // Validate password match
-  const password = formData.get('password');
-  const confirmPassword = formData.get('confirmPassword');
-  
-  if (password !== confirmPassword) {
-    showToast('Passwords do not match', 'error');
-    document.getElementById('confirmPassword').focus();
-    return false;
   }
   
   // Validate email format
@@ -291,78 +289,167 @@ function submitStudentRegistrationForm() {
   if (!validateStudentRegistrationForm()) {
     return;
   }
-  
-  const form = document.getElementById('studentRegistrationForm');
-  const formData = new FormData(form);
-  const submitBtn = document.getElementById('submitBtn');
-  
-  // Disable submit button
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Adding Student...';
-  
-  // Submit form
-  fetch(form.dataset.endpoint, {
-    method: 'POST',
-    body: formData,
-    credentials: 'include'
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      showToast('Student added successfully!', 'success');
-      const newUserId = data.user_id || null;
-      if (newUserId) {
-          // Trigger automatic clearance form creation
-          onUserCreated(newUserId, 'College').catch(console.error);
-      }
 
+  // Generate credentials locally first
+  const form = document.getElementById('studentRegistrationForm');
+  const studentId = form.studentNumber.value.trim();
+  const lastName = form.lastName.value.trim().replace(/\s+/g, '');
+  const username = studentId; // Use student number as username
+  const password = `${lastName}${studentId}`; // e.g., Doe02000288327
+
+  // Prepare the data for the modal and the final submission
+  const credentialData = { username, password };
+
+  // The callback function that will be executed when "Confirm & Save" is clicked
+  const confirmCallback = () => {
+    // Pass the generated credentials along with the form data
+    confirmStudentCreation(credentialData);
+  };
+
+  // Open the unified credentials modal
+  openGeneratedCredentialsModal('newAccount', credentialData, confirmCallback);
+}
+
+function confirmStudentCreation(credentialData) {
+  const form = document.getElementById('studentRegistrationForm');
+  const formData = {
+    studentNumber: form.studentNumber.value.trim(),
+    department: form.department.value,
+    program: form.program.value,
+    yearLevel: form.yearLevel.value,
+    section: form.section.value.trim(),
+    firstName: form.firstName.value.trim(),
+    lastName: form.lastName.value.trim(),
+    middleName: form.middleName.value.trim() || null,
+    email: form.email.value.trim() || null,
+    phoneNumber: form.phoneNumber.value.trim() || null,
+    password: credentialData.password,
+    confirmPassword: credentialData.password,
+    sector: 'college'
+  };
+
+  const confirmBtn = document.getElementById('credentialModalConfirmBtn');
+  if(confirmBtn) confirmBtn.disabled = true;
+  const submitBtn = document.getElementById('submitBtn');
+  if(submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding Student...';
+  }
+
+  fetch('../../controllers/addUsers.php', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(Object.entries(formData))
+  })
+  .then(r => r.json())
+  .then(res => {
+    if(res.success){
+      showToastNotification('Student registered successfully!', 'success');
+      closeGeneratedCredentialsModal();
       closeStudentRegistrationModal();
-      form.reset();
       // Refresh the student list
       if (typeof loadStudentsData === 'function') {
         loadStudentsData();
       }
+      // Trigger automatic clearance form creation
+      const newUserId = res.user_id || null;
+      if (newUserId) {
+        onUserCreated(newUserId, 'College').catch(console.error);
+      }
+      // notify parent page
+      document.dispatchEvent(new CustomEvent('student-added', { detail: { student_number: formData.studentNumber } }));
     } else {
-      showToast(data.message || 'Failed to add student', 'error');
+      showToastNotification(res.message || 'Error registering student', 'error');
+      if(confirmBtn) confirmBtn.disabled = false;
     }
   })
-  .catch(error => {
-    console.error('Error:', error);
-    showToast('An error occurred while adding the student', 'error');
+  .catch(err => {
+    console.error(err);
+    showToastNotification('Network error', 'error');
+    if(confirmBtn) confirmBtn.disabled = false;
   })
   .finally(() => {
-    // Re-enable submit button
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Add Student';
+    if(submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Generate Credentials';
+    }
   });
 }
 
-function closeStudentRegistrationModal() {
-  const modal = document.getElementById('studentRegistrationModal');
-  modal.style.display = 'none';
-  document.body.style.overflow = 'auto';
-  
-  // Reset form
-  const form = document.getElementById('studentRegistrationForm');
-  form.reset();
-  
-  // Clear dynamic dropdowns
-  document.getElementById('program').innerHTML = '<option value="">Select Program</option>';
-  document.getElementById('yearLevel').innerHTML = '<option value="">Select Year Level</option>';
-}
+window.closeStudentRegistrationModal = function() {
+  console.log('[CollegeStudentRegistryModal] closeStudentRegistrationModal() called');
+  try {
+    const modal = document.getElementById('studentRegistrationModal');
+    if (!modal) {
+      console.warn('[CollegeStudentRegistryModal] Modal not found');
+      return;
+    }
+    console.log('[CollegeStudentRegistryModal] Closing modal:', modal.id);
 
-// Open modal function (called from parent page)
-function openStudentRegistrationModal() {
-  const modal = document.getElementById('studentRegistrationModal');
-  modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+    // Use window.closeModal if available, otherwise fallback
+    if (typeof window.closeModal === 'function') {
+      window.closeModal('studentRegistrationModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+      document.body.classList.remove('modal-open');
+      modal.classList.remove('active');
+    }
+    
+    // Reset form
+    const form = document.getElementById('studentRegistrationForm');
+    if (form) form.reset();
+    
+    // Clear dynamic dropdowns
+    const programSelect = document.getElementById('program');
+    const yearLevelSelect = document.getElementById('yearLevel');
+    if (programSelect) programSelect.innerHTML = '<option value="">Select Program</option>';
+    if (yearLevelSelect) yearLevelSelect.innerHTML = '<option value="">Select Year Level</option>';
+  } catch (error) {
+    // Silent error handling
+  }
+};
 
-  // Populate departments when the modal is opened
-  populateCollegeDepartments();
-  
-  // Focus on first input
-  setTimeout(() => {
-    document.getElementById('studentNumber').focus();
-  }, 100);
-}
+// Open modal function (called from parent page) - Make globally available
+window.openStudentRegistrationModal = function() {
+  try {
+    const modal = document.getElementById('studentRegistrationModal');
+    if (!modal) {
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('Student registration modal not found. Please refresh the page.', 'error');
+      }
+      return;
+    }
+
+    // Use window.openModal if available, otherwise fallback
+    if (typeof window.openModal === 'function') {
+      window.openModal('studentRegistrationModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
+      requestAnimationFrame(() => {
+        modal.classList.add('active');
+      });
+    }
+
+    // Populate departments when the modal is opened
+    populateCollegeDepartments();
+    
+    // Focus on first input
+    setTimeout(() => {
+      const firstInput = document.getElementById('studentNumber');
+      if (firstInput && typeof firstInput.focus === 'function') {
+        firstInput.focus();
+      }
+    }, 100);
+  } catch (error) {
+    if (typeof showToastNotification === 'function') {
+      showToastNotification('Unable to open student registration modal. Please try again.', 'error');
+    }
+  }
+};
 </script>

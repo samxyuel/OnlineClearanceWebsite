@@ -87,26 +87,27 @@ function handleGetApplications($connection, $auth) {
         }
         
         if ($userType) {
-            // Filter by user type (student/faculty) based on role
+            // Filter by clearance_type (College, Senior High School, Faculty)
             if ($userType === 'student') {
-                $whereConditions[] = "u.user_id IN (SELECT ur.user_id FROM user_roles ur JOIN roles r ON ur.role_id = r.role_id WHERE r.role_name = 'Student')";
+                $whereConditions[] = "cf.clearance_type IN ('College', 'Senior High School')";
             } elseif ($userType === 'faculty') {
-                $whereConditions[] = "u.user_id IN (SELECT ur.user_id FROM user_roles ur JOIN roles r ON ur.role_id = r.role_id WHERE r.role_name = 'Faculty')";
+                $whereConditions[] = "cf.clearance_type = 'Faculty'";
             }
         }
         
         $whereClause = !empty($whereConditions) ? 'WHERE ' . implode(' AND ', $whereConditions) : '';
         
-        $sql = "SELECT ca.*, u.first_name, u.last_name, u.username, u.email,
-                       cp.start_date, cp.end_date, cp.is_active as period_active,
+        $sql = "SELECT cf.clearance_form_id as application_id, cf.user_id, cf.clearance_form_progress as status, cf.applied_at, cf.completed_at,
+                       u.first_name, u.last_name, u.username, u.email,
+                       cp.start_date, cp.end_date, cp.status as period_status,
                        ay.year as academic_year, s.semester_name
-                FROM clearance_applications ca
-                JOIN users u ON ca.user_id = u.user_id
-                JOIN clearance_periods cp ON ca.period_id = cp.period_id
-                JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id
-                JOIN semesters s ON cp.semester_id = s.semester_id
+                FROM clearance_forms cf
+                JOIN users u ON cf.user_id = u.user_id
+                JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
+                JOIN semesters s ON cf.semester_id = s.semester_id
+                LEFT JOIN clearance_periods cp ON cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id AND cf.clearance_type = cp.sector
                 $whereClause
-                ORDER BY ca.applied_at DESC";
+                ORDER BY cf.applied_at DESC";
         
         $stmt = $connection->prepare($sql);
         $stmt->execute($params);

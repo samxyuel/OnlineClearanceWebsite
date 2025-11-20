@@ -345,6 +345,8 @@
   gap: 0.5rem;
 }
 
+/* Ensure modal-close button is clickable - override any conflicting styles */
+.sector-clearance-management .modal-close,
 .modal-close {
   background: none;
   border: none;
@@ -359,11 +361,17 @@
   justify-content: center;
   width: 2.5rem;
   height: 2.5rem;
+  z-index: 10000; /* Ensure button is above all modal content */
+  pointer-events: auto; /* Explicitly enable pointer events */
 }
 
 .modal-close:hover {
   background: #f8f9fa;
   color: #495057;
+}
+
+.modal-close:active {
+  transform: scale(0.95);
 }
 
 /* Modal Body */

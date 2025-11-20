@@ -11,7 +11,8 @@
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/css/components.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <!-- Header -->
@@ -41,31 +42,43 @@
                         <!-- Current Term Status (Read-only for Staff) -->
                         <div class="card active-period-status">
                             <div class="status-content">
-                                <div class="status-info">
-                                    <h3><i class="fas fa-calendar-check"></i> 2024-2025 Term 1 (ACTIVE)</h3>
-                                    <p>Duration: 45 days | Started: Jan 15, 2024</p>
-                                    <div class="period-stats">
-                                        <span class="stat-item">
-                                            <i class="fas fa-user-graduate"></i> Students: 156 pending signatures
-                                        </span>
-                                        <span class="stat-item">
-                                            <i class="fas fa-chalkboard-teacher"></i> Faculty: 23 pending signatures
-                                        </span>
-                                        <span class="stat-item">
-                                            <i class="fas fa-clock"></i> Your Pending: 34 total
-                                        </span>
+                                <div class="status-header">
+                                    <h3><i class="fas fa-calendar-check"></i> <span id="currentAcademicYear">Loading...</span> - <span id="currentActiveTerm">Loading...</span></h3>
+                                    <p id="termDuration">Loading term information...</p>
+                                    
+                                    <!-- Sector Status Indicators -->
+                                    <div class="sector-status-indicators">
+                                        <div class="sector-indicator college-sector">
+                                            <i class="fas fa-university"></i>
+                                            <span class="sector-name">College</span>
+                                            <span class="sector-status" id="college-status">Loading...</span>
+                                        </div>
+                                        <div class="sector-indicator shs-sector">
+                                            <i class="fas fa-graduation-cap"></i>
+                                            <span class="sector-name">Senior High School</span>
+                                            <span class="sector-status" id="shs-status">Loading...</span>
+                                        </div>
+                                        <div class="sector-indicator faculty-sector">
+                                            <i class="fas fa-chalkboard-teacher"></i>
+                                            <span class="sector-name">Faculty</span>
+                                            <span class="sector-status" id="faculty-status">Loading...</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="status-actions">
-                                    <button class="btn btn-success" onclick="viewPendingClearances()">
-                                        <i class="fas fa-signature"></i> Sign Clearances
-                                    </button>
-                                    <button class="btn btn-info" onclick="exportStaffReport()">
-                                        <i class="fas fa-file-export"></i> Export Report
-                                    </button>
-                                    <a href="StudentManagement.php" class="btn btn-primary">
-                                        <i class="fas fa-users"></i> Manage Students
-                                    </a>
+                                
+                                <div class="status-stats">
+                                    <div class="stat-item">
+                                        <i class="fas fa-university"></i>
+                                        <span id="college-stats">College: 0 applied, 0 completed (0%)</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <i class="fas fa-graduation-cap"></i>
+                                        <span id="shs-stats">Senior High School: 0 applied, 0 completed (0%)</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <i class="fas fa-chalkboard-teacher"></i>
+                                        <span id="faculty-stats">Faculty: 0 applied, 0 completed (0%)</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -77,7 +90,7 @@
                                     <i class="fas fa-signature"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>1,245</h3>
+                                    <h3 id="totalSigned">0</h3>
                                     <p>Total Signed</p>
                                 </div>
                             </div>
@@ -86,7 +99,7 @@
                                     <i class="fas fa-check-circle"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>1,156</h3>
+                                    <h3 id="totalApproved">0</h3>
                                     <p>Approved</p>
                                 </div>
                             </div>
@@ -95,7 +108,7 @@
                                     <i class="fas fa-times-circle"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>89</h3>
+                                    <h3 id="totalRejected">0</h3>
                                     <p>Rejected</p>
                                 </div>
                             </div>
@@ -104,156 +117,22 @@
                                     <i class="fas fa-clock"></i>
                                 </div>
                                 <div class="stat-content">
-                                    <h3>34</h3>
+                                    <h3 id="totalPending">0</h3>
                                     <p>Pending</p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Quick Actions -->
-                        <div class="management-section">
-                            <div class="section-header">
-                                <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
-                            </div>
-                            <div class="quick-actions-grid">
-                                <a href="StudentManagement.php" class="action-card">
-                                    <div class="action-icon">
-                                        <i class="fas fa-user-graduate"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Student Clearances</h4>
-                                        <p>Review and sign student clearance requests</p>
-                                    </div>
-                                </a>
-                                <a href="FacultyManagement.php" class="action-card">
-                                    <div class="action-icon">
-                                        <i class="fas fa-chalkboard-teacher"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Faculty Clearances</h4>
-                                        <p>Review and sign faculty clearance requests</p>
-                                    </div>
-                                </a>
-                                <a href="#" class="action-card" onclick="viewPendingClearances()">
-                                    <div class="action-icon">
-                                        <i class="fas fa-signature"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Sign Clearances</h4>
-                                        <p>Approve or reject pending clearances</p>
-                                    </div>
-                                </a>
-                                <a href="#" class="action-card" onclick="exportStaffReport()">
-                                    <div class="action-icon">
-                                        <i class="fas fa-file-export"></i>
-                                    </div>
-                                    <div class="action-content">
-                                        <h4>Export Report</h4>
-                                        <p>Generate your clearance signing report</p>
-                                    </div>
-                                </a>
-                            </div>
+
+                        <!-- Content Grid -->
+                        <div class="content-grid">
+                            <!-- Recent Activity Section -->
+                            <?php include '../../includes/components/recent-activity.php'; ?>
+
+                            <!-- Notifications Panel -->
+                            <?php include '../../includes/components/notifications.php'; ?>
                         </div>
 
-                        <!-- Recent Activity -->
-                        <div class="management-section">
-                            <div class="section-header">
-                                <h3><i class="fas fa-history"></i> Recent Activity</h3>
-                            </div>
-                            <div class="activity-list">
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-check-circle"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>Student Clearance Approved</h4>
-                                        <p>Zinzu Chan Lee's clearance was approved</p>
-                                        <span class="activity-time">5 minutes ago</span>
-                                    </div>
-                                </div>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-times-circle"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>Faculty Clearance Rejected</h4>
-                                        <p>Dr. Ana Rodriguez's clearance was rejected - missing requirements</p>
-                                        <span class="activity-time">15 minutes ago</span>
-                                    </div>
-                                </div>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-file-export"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>Report Exported</h4>
-                                        <p>Monthly clearance signing report was generated</p>
-                                        <span class="activity-time">2 hours ago</span>
-                                    </div>
-                                </div>
-                                <div class="activity-item">
-                                    <div class="activity-icon">
-                                        <i class="fas fa-signature"></i>
-                                    </div>
-                                    <div class="activity-content">
-                                        <h4>Bulk Approval</h4>
-                                        <p>Approved 15 student clearances in batch</p>
-                                        <span class="activity-time">3 hours ago</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Position Overview -->
-                        <div class="management-section">
-                            <div class="section-header">
-                                <h3><i class="fas fa-user-shield"></i> Position Overview</h3>
-                            </div>
-                            <div class="department-overview">
-                                <div class="overview-card">
-                                    <h4><i class="fas fa-signature"></i> Clearance Signing Stats</h4>
-                                    <div class="clearance-stats">
-                                        <div class="status-item completed">
-                                            <span class="status-label">Approved</span>
-                                            <span class="status-count">1,156</span>
-                                        </div>
-                                        <div class="status-item pending">
-                                            <span class="status-label">Pending</span>
-                                            <span class="status-count">34</span>
-                                        </div>
-                                        <div class="status-item rejected">
-                                            <span class="status-label">Rejected</span>
-                                            <span class="status-count">89</span>
-                                        </div>
-                                        <div class="status-item in-progress">
-                                            <span class="status-label">In Progress</span>
-                                            <span class="status-count">12</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="overview-card">
-                                    <h4><i class="fas fa-chart-line"></i> This Month's Performance</h4>
-                                    <div class="performance-stats">
-                                        <div class="performance-item">
-                                            <span class="performance-label">Average Response Time</span>
-                                            <span class="performance-value">2.3 hours</span>
-                                        </div>
-                                        <div class="performance-item">
-                                            <span class="performance-label">Approval Rate</span>
-                                            <span class="performance-value">92.8%</span>
-                                        </div>
-                                        <div class="performance-item">
-                                            <span class="performance-label">Clearances Processed</span>
-                                            <span class="performance-value">156</span>
-                                        </div>
-                                        <div class="performance-item">
-                                            <span class="performance-label">Satisfaction Score</span>
-                                            <span class="performance-value">4.7/5.0</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 
@@ -342,6 +221,7 @@
         function loadUserInfo() {
             // Get user info from the header component (it's already loaded)
             const userNameElement = document.querySelector('.user-name');
+            
             if (userNameElement) {
                 const fullName = userNameElement.textContent.trim();
                 const welcomeMessage = document.getElementById('welcomeMessage');
@@ -352,6 +232,9 @@
 
             // Load staff position information
             loadStaffPosition();
+
+            // Load dashboard data
+            loadDashboardData();
         }
 
         // Load staff position information
@@ -377,6 +260,203 @@
                     positionElement.textContent = 'Position: Staff - Clearance Signatory';
                 }
             });
+        }
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            try {
+                // Load academic context and sector periods in parallel
+                const [contextResponse, sectorResponse, summaryResponse] = await Promise.all([
+                    fetch('../../api/clearance/context.php', { credentials: 'include' }),
+                    fetch('../../api/clearance/sector-periods.php', { credentials: 'include' }),
+                    fetch('../../api/dashboard/staff_summary.php', { credentials: 'include' })
+                ]);
+
+                const [contextResult, sectorResult, summaryResult] = await Promise.all([
+                    contextResponse.json(),
+                    sectorResponse.json(),
+                    summaryResponse.json()
+                ]);
+
+                // Update academic year and term display
+                updateAcademicYearDisplay(contextResult);
+                
+                // Update sector status display
+                if (sectorResult.success) {
+                    updateSectorStatusDisplay(sectorResult.periods_by_sector || {});
+                }
+
+                // Update dashboard statistics
+                if (summaryResult.success) {
+                    updateStatisticsDisplay(summaryResult.data);
+                } else {
+                    // Use fallback data if API fails
+                    updateStatisticsDisplay({
+                        signing_stats: {
+                            total_signed: 0,
+                            approved: 0,
+                            rejected: 0
+                        },
+                        pending_clearances: {
+                            total: 0
+                        },
+                        sector_stats: {
+                            college: { applied: 0, completed: 0 },
+                            shs: { applied: 0, completed: 0 },
+                            faculty: { applied: 0, completed: 0 }
+                        }
+                    });
+                }
+
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                showToast('An error occurred while loading dashboard data.', 'error');
+                // Use fallback data on error
+                updateStatisticsDisplay({
+                    signing_stats: {
+                        total_signed: 0,
+                        approved: 0,
+                        rejected: 0
+                    },
+                    pending_clearances: {
+                        total: 0
+                    },
+                    sector_stats: {
+                        college: { applied: 0, completed: 0 },
+                        shs: { applied: 0, completed: 0 },
+                        faculty: { applied: 0, completed: 0 }
+                    }
+                });
+            }
+        }
+
+        // Update academic year and term display
+        function updateAcademicYearDisplay(contextResult) {
+            const academicYearEl = document.getElementById('currentAcademicYear');
+            const activeTermEl = document.getElementById('currentActiveTerm');
+            const termDurationEl = document.getElementById('termDuration');
+
+            if (contextResult.success && contextResult.data) {
+                const data = contextResult.data;
+                
+                if (academicYearEl) academicYearEl.textContent = data.academic_year || 'No Academic Year';
+                if (activeTermEl) activeTermEl.textContent = data.active_term || 'No Active Term';
+                
+                if (data.active_term && data.term_duration) {
+                    if (termDurationEl) {
+                        termDurationEl.textContent = `Duration: ${data.term_duration} days | Started: ${new Date(data.term_start_date).toLocaleDateString()}`;
+                    }
+                } else {
+                    if (termDurationEl) termDurationEl.textContent = 'No active term information available.';
+                }
+            } else {
+                if (academicYearEl) academicYearEl.textContent = 'No Academic Year';
+                if (activeTermEl) activeTermEl.textContent = 'No Active Term';
+                if (termDurationEl) termDurationEl.textContent = 'No active term information available.';
+            }
+        }
+
+        // Update sector status display
+        function updateSectorStatusDisplay(periodsBySector) {
+            const sectors = [
+                { key: 'College', id: 'college-status' },
+                { key: 'Senior High School', id: 'shs-status' },
+                { key: 'Faculty', id: 'faculty-status' }
+            ];
+            
+            sectors.forEach(sector => {
+                const statusElement = document.getElementById(sector.id);
+                if (!statusElement) return;
+                
+                const sectorPeriods = periodsBySector[sector.key];
+                
+                if (sectorPeriods && sectorPeriods.length > 0) {
+                    const latestPeriod = sectorPeriods[0];
+                    const status = latestPeriod.status || 'Not Started';
+                    statusElement.textContent = status;
+                    statusElement.className = `sector-status status-${status.toLowerCase().replace(/\s+/g, '-')}`;
+                } else {
+                    statusElement.textContent = 'Not Started';
+                    statusElement.className = 'sector-status status-not-started';
+                }
+            });
+        }
+
+        // Update statistics display
+        function updateStatisticsDisplay(data) {
+            // Update Staff Statistics Dashboard
+            const totalSignedEl = document.getElementById('totalSigned');
+            const totalApprovedEl = document.getElementById('totalApproved');
+            const totalRejectedEl = document.getElementById('totalRejected');
+            const totalPendingEl = document.getElementById('totalPending');
+
+            // Update Total Signed
+            if (totalSignedEl) {
+                const totalSigned = data.signing_stats?.total_signed || 0;
+                totalSignedEl.textContent = totalSigned.toLocaleString();
+            }
+
+            // Update Approved
+            if (totalApprovedEl) {
+                const approved = data.signing_stats?.approved || 0;
+                totalApprovedEl.textContent = approved.toLocaleString();
+            }
+
+            // Update Rejected
+            if (totalRejectedEl) {
+                const rejected = data.signing_stats?.rejected || 0;
+                totalRejectedEl.textContent = rejected.toLocaleString();
+            }
+
+            // Update Pending
+            if (totalPendingEl) {
+                const pending = data.pending_clearances?.total || 0;
+                totalPendingEl.textContent = pending.toLocaleString();
+            }
+
+            // Update sector statistics
+            const collegeStatsEl = document.getElementById('college-stats');
+            const shsStatsEl = document.getElementById('shs-stats');
+            const facultyStatsEl = document.getElementById('faculty-stats');
+
+            // Update College stats
+            if (collegeStatsEl) {
+                if (data.sector_stats?.college) {
+                    const college = data.sector_stats.college;
+                    const applied = college.applied || 0;
+                    const completed = college.completed || 0;
+                    const percentage = applied > 0 ? Math.round((completed / applied) * 100) : 0;
+                    collegeStatsEl.textContent = `College: ${applied} applied, ${completed} completed (${percentage}%)`;
+                } else {
+                    collegeStatsEl.textContent = 'College: 0 applied, 0 completed (0%)';
+                }
+            }
+
+            // Update SHS stats
+            if (shsStatsEl) {
+                if (data.sector_stats?.shs) {
+                    const shs = data.sector_stats.shs;
+                    const applied = shs.applied || 0;
+                    const completed = shs.completed || 0;
+                    const percentage = applied > 0 ? Math.round((completed / applied) * 100) : 0;
+                    shsStatsEl.textContent = `Senior High School: ${applied} applied, ${completed} completed (${percentage}%)`;
+                } else {
+                    shsStatsEl.textContent = 'Senior High School: 0 applied, 0 completed (0%)';
+                }
+            }
+
+            // Update Faculty stats
+            if (facultyStatsEl) {
+                if (data.sector_stats?.faculty) {
+                    const faculty = data.sector_stats.faculty;
+                    const applied = faculty.applied || 0;
+                    const completed = faculty.completed || 0;
+                    const percentage = applied > 0 ? Math.round((completed / applied) * 100) : 0;
+                    facultyStatsEl.textContent = `Faculty: ${applied} applied, ${completed} completed (${percentage}%)`;
+                } else {
+                    facultyStatsEl.textContent = 'Faculty: 0 applied, 0 completed (0%)';
+                }
+            }
         }
     </script>
 </body>

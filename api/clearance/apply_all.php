@@ -42,10 +42,10 @@ $userId = $auth->getUserId();
 try {
     $pdo = Database::getInstance()->getConnection();
 
-    // Apply gate: require active period with status 'active'
-    $cpStmt = $pdo->query("SELECT academic_year_id, semester_id, status FROM clearance_periods WHERE is_active=1 LIMIT 1");
+    // Apply gate: require active period with status 'Ongoing'
+    $cpStmt = $pdo->query("SELECT academic_year_id, semester_id, status FROM clearance_periods WHERE status = 'Ongoing' LIMIT 1");
     $cp = $cpStmt->fetch(PDO::FETCH_ASSOC);
-    if(!$cp || $cp['status'] !== 'active'){
+    if(!$cp){
         http_response_code(400); echo json_encode(['success'=>false,'message'=>'No active clearance period for applications']); exit;
     }
     $ayId  = (int)$cp['academic_year_id'];
@@ -63,11 +63,11 @@ try {
     }
 
     // 2. Check if a form already exists
-    $dupStmt = $pdo->prepare("SELECT clearance_form_id, status FROM clearance_forms WHERE user_id = ? AND academic_year_id = ? AND semester_id = ? LIMIT 1");
+    $dupStmt = $pdo->prepare("SELECT clearance_form_id, clearance_form_progress FROM clearance_forms WHERE user_id = ? AND academic_year_id = ? AND semester_id = ? LIMIT 1");
     $dupStmt->execute([$userId,$ayId,$semId]);
     $existing = $dupStmt->fetch(PDO::FETCH_ASSOC);
 
-    if($existing && $existing['status']!=='Unapplied'){
+    if($existing && $existing['clearance_form_progress']!=='unapplied'){
         echo json_encode(['success'=>false,'message'=>'Clearance form already exists for this period']);
         exit;
     }
@@ -75,8 +75,8 @@ try {
     $pdo->beginTransaction();
 
     if(!$existing){
-        // 3. Insert new clearance_form
-        $insert = $pdo->prepare("INSERT INTO clearance_forms (user_id, academic_year_id, semester_id, clearance_type, status, created_at, updated_at) VALUES (?,?,?,?, 'Unapplied', NOW(), NOW())");
+        // 3. Insert new clearance_form with correct column name
+        $insert = $pdo->prepare("INSERT INTO clearance_forms (user_id, academic_year_id, semester_id, clearance_type, clearance_form_progress, created_at, updated_at) VALUES (?,?,?,?, 'unapplied', NOW(), NOW())");
         $role = $auth->getRoleName();
         $ctype = ($role === 'Faculty') ? 'Faculty' : 'Student';
         $insert->execute([$userId,$ayId,$semId,$ctype]);
@@ -140,8 +140,8 @@ try {
         $insSig->execute([$formId,$dId]);
     }
 
-    // 5. Update form status to Applied (rows are pending, no approvals yet)
-    $pdo->prepare("UPDATE clearance_forms SET status='Applied', updated_at=NOW() WHERE clearance_form_id=?")->execute([$formId]);
+    // 5. Update form progress to in-progress
+    $pdo->prepare("UPDATE clearance_forms SET clearance_form_progress='in-progress', updated_at=NOW() WHERE clearance_form_id=?")->execute([$formId]);
 
     logActivity($userId,'Global Apply', ['clearance_form_id'=>$formId,'academic_year_id'=>$ayId,'semester_id'=>$semId]);
 

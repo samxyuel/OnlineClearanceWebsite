@@ -126,8 +126,41 @@ class UserManager {
             $userId = $userRes['user_id'];
 
             // Insert into faculty table
-            $stmt = $this->connection->prepare("INSERT INTO faculty (employee_number, user_id, employment_status, created_at) VALUES (?,?,?,NOW())");
-            $stmt->execute([$data['employee_number'], $userId, $employmentStatus]);
+            // Include department_id if provided
+            $departmentId = $data['department_id'] ?? 50;
+            $stmt = $this->connection->prepare("INSERT INTO faculty (employee_number, user_id, employment_status, department_id, created_at) VALUES (?,?,?,?,NOW())");
+            $stmt->execute([$data['employee_number'], $userId, $employmentStatus, $departmentId]);
+
+            // Handle multiple department assignments
+            $assignedDepartments = $data['assignedDepartments'] ?? [];
+            if (!empty($assignedDepartments)) {
+                // Normalize and ensure ints
+                $assignedDepartments = array_values(array_filter(array_map('intval', $assignedDepartments)));
+
+                // Ensure the primary department (from department_id) is present and placed first
+                if ($departmentId) {
+                    if (!in_array($departmentId, $assignedDepartments, true)) {
+                        array_unshift($assignedDepartments, $departmentId);
+                    } else {
+                        // Move departmentId to the front
+                        $assignedDepartments = array_values(array_unique($assignedDepartments));
+                        $assignedDepartments = array_merge([ $departmentId ], array_filter($assignedDepartments, function($v) use($departmentId){ return $v !== $departmentId; }));
+                    }
+                }
+
+                $stmt = $this->connection->prepare("INSERT INTO user_department_assignments (user_id, department_id, is_primary) VALUES (?, ?, ?)");
+                $isFirst = true;
+                foreach ($assignedDepartments as $deptId) {
+                    if (!empty($deptId)) {
+                        $stmt->execute([$userId, (int)$deptId, $isFirst ? 1 : 0]);
+                        $isFirst = false;
+                    }
+                }
+            } elseif ($departmentId) {
+                // If no multi-department input, use the primary department for the assignment table
+                $stmt = $this->connection->prepare("INSERT INTO user_department_assignments (user_id, department_id, is_primary) VALUES (?, ?, 1)");
+                $stmt->execute([$userId, $departmentId]);
+            }
 
             $this->connection->commit();
             return ['success'=>true,'message'=>'Faculty registered','user_id'=>$userId];
@@ -335,6 +368,45 @@ class UserManager {
                 $stmt=$this->connection->prepare($sql);
                 $stmt->execute($params);
             }
+
+            // Handle multiple department assignments
+            $assignedDepartments = $data['assignedDepartments'] ?? [];
+            if (!empty($assignedDepartments)) {
+                // Normalize and ensure ints
+                $assignedDepartments = array_values(array_filter(array_map('intval', $assignedDepartments)));
+
+                // Get the primary department from faculty table
+                $primaryRow = $this->connection->prepare("SELECT department_id FROM faculty WHERE employee_number=?");
+                $primaryRow->execute([$employeeId]);
+                $primaryDept = $primaryRow->fetch(PDO::FETCH_ASSOC);
+                $primaryDepartmentId = $primaryDept ? (int)$primaryDept['department_id'] : 0;
+
+                // Ensure the primary department is present and placed first
+                if ($primaryDepartmentId) {
+                    if (!in_array($primaryDepartmentId, $assignedDepartments, true)) {
+                        array_unshift($assignedDepartments, $primaryDepartmentId);
+                    } else {
+                        // Move primaryDepartmentId to the front
+                        $assignedDepartments = array_values(array_unique($assignedDepartments));
+                        $assignedDepartments = array_merge([ $primaryDepartmentId ], array_filter($assignedDepartments, function($v) use($primaryDepartmentId){ return $v !== $primaryDepartmentId; }));
+                    }
+                }
+
+                // Delete existing assignments
+                $deleteStmt = $this->connection->prepare("DELETE FROM user_department_assignments WHERE user_id=?");
+                $deleteStmt->execute([$userId]);
+
+                // Insert new assignments
+                $stmt = $this->connection->prepare("INSERT INTO user_department_assignments (user_id, department_id, is_primary) VALUES (?, ?, ?)");
+                $isFirst = true;
+                foreach ($assignedDepartments as $deptId) {
+                    if (!empty($deptId)) {
+                        $stmt->execute([$userId, (int)$deptId, $isFirst ? 1 : 0]);
+                        $isFirst = false;
+                    }
+                }
+            }
+
             return ['success'=>true,'message'=>'Faculty updated'];
         }catch(PDOException $e){return ['success'=>false,'message'=>$e->getMessage()];}
     }

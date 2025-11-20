@@ -353,29 +353,82 @@
 
 <script>
 function openEditDepartmentModalInternal(departmentId) {
-    // Simulate fetching department data
-    const departmentData = getDepartmentData(departmentId);
-    
-    // Populate form fields
-    document.getElementById('editDepartmentId').value = departmentId;
-    document.getElementById('editDepartmentName').value = departmentData.name;
-    document.getElementById('editDepartmentType').value = departmentData.type;
-    document.getElementById('editDepartmentStatus').value = departmentData.status;
-    document.getElementById('editDepartmentDescription').value = departmentData.description || '';
-    
-    // Load department courses
-    loadDepartmentCourses(departmentId);
-    
-    // Show modal
-    document.getElementById('editDepartmentModal').style.display = 'flex';
+    try {
+        const modal = document.getElementById('editDepartmentModal');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Edit department modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        // Simulate fetching department data
+        const departmentData = getDepartmentData(departmentId);
+        
+        // Populate form fields
+        const deptIdField = document.getElementById('editDepartmentId');
+        const deptNameField = document.getElementById('editDepartmentName');
+        const deptTypeField = document.getElementById('editDepartmentType');
+        const deptStatusField = document.getElementById('editDepartmentStatus');
+        const deptDescField = document.getElementById('editDepartmentDescription');
+        
+        if (deptIdField) deptIdField.value = departmentId;
+        if (deptNameField) deptNameField.value = departmentData.name;
+        if (deptTypeField) deptTypeField.value = departmentData.type;
+        if (deptStatusField) deptStatusField.value = departmentData.status;
+        if (deptDescField) deptDescField.value = departmentData.description || '';
+        
+        // Load department courses
+        if (departmentId) {
+            loadDepartmentCourses(departmentId);
+        }
+        
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal('editDepartmentModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open edit department modal. Please try again.', 'error');
+        }
+    }
 }
 
 // Global function for external access
 window.openEditDepartmentModalInternal = openEditDepartmentModalInternal;
 
-function closeEditDepartmentModal() {
-    document.getElementById('editDepartmentModal').style.display = 'none';
-}
+window.closeEditDepartmentModal = function() {
+    console.log('[EditDepartmentModal] closeEditDepartmentModal() called');
+    try {
+        const modal = document.getElementById('editDepartmentModal');
+        if (!modal) {
+            console.warn('[EditDepartmentModal] Modal not found');
+            return;
+        }
+        console.log('[EditDepartmentModal] Closing modal:', modal.id);
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('editDepartmentModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        // Silent error handling
+    }
+};
 
 function updateDepartment() {
     const form = document.getElementById('editDepartmentForm');

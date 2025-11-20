@@ -1,0 +1,142 @@
+================================================================================
+CLEARANCE FORM PROGRESS REPORT - PLACEHOLDER REFERENCE
+================================================================================
+
+This document lists all sections and placeholders used in the Clearance Form
+Progress Reports for both Student and Faculty reports.
+
+================================================================================
+SECTION 1: HEADER SECTION
+================================================================================
+(Displayed at the top of the report, typically centered or left-aligned)
+
+Placeholder Name          | Data Source                        | Description
+------------------------- | ---------------------------------- | ---------------------------
+ReportTitle              | Dynamic (based on report type)     | "Student Clearance Form Progress Report" 
+                          |                                    | OR "Faculty Clearance Form Progress Report"
+SchoolYear               | Export modal selection             | Academic year (e.g., "2026-2027")
+SemesterName             | Export modal selection             | Semester name (e.g., "1st", "2nd")
+Sector                   | Export modal selection             | "College", "Senior High School", or "Faculty"
+DepartmentName           | Database lookup (departments table)| Department name based on selected department_id
+GeneratedBy              | Database lookup (users table)      | Full name of the user generating the report
+                          |                                    | Format: "First Last" (from first_name + last_name)
+
+================================================================================
+SECTION 2: SUMMARY SECTION
+================================================================================
+(Displayed below the header, showing statistics/aggregates)
+
+Placeholder Name          | Data Source                        | Description
+------------------------- | ---------------------------------- | ---------------------------
+TotalForms               | Calculated count                   | Total number of clearance forms found
+TotalUnapplied           | Count from form_status            | Number of forms with status = 'unapplied'
+TotalInProgress          | Count from form_status            | Number of forms with status = 'in-progress'
+TotalCompleted           | Count from form_status            | Number of forms with status = 'complete'
+
+Note: These counts are calculated from the actual data rows returned from the database.
+
+================================================================================
+SECTION 3: TABLE SECTION - STUDENT PROGRESS REPORT
+================================================================================
+
+TABLE HEADER ROW:
+-----------------
+| Student No | First Name | Middle Name | Last Name | Department/Program | Status |
+
+TABLE DATA ROW PLACEHOLDERS:
+-----------------------------
+Placeholder Name          | Database Field                     | Description
+------------------------- | ---------------------------------- | ---------------------------
+StudentNo                 | u.username (as student_no)        | Student identification number
+FirstName                 | u.first_name                      | Student's first name
+MiddleName                | u.middle_name                     | Student's middle name (can be NULL/empty)
+LastName                  | u.last_name                       | Student's last name
+Department                | p.program_name                    | Program name (for students, this is the program, not department)
+Status                    | cf.clearance_form_progress         | Form status: 
+                          |                                    |   - "Unapplied" (when status = 'unapplied')
+                          |                                    |   - "In Progress" (when status = 'in-progress')
+                          |                                    |   - "Complete" (when status = 'complete')
+
+ADDITIONAL AVAILABLE FIELDS (not currently displayed in table):
+- YearLevel (st.year_level)
+- Section (st.section)
+
+================================================================================
+SECTION 4: TABLE SECTION - FACULTY PROGRESS REPORT
+================================================================================
+
+TABLE HEADER ROW:
+-----------------
+| Employee No | First Name | Middle Name | Last Name | Department | Employment Status | Status |
+
+TABLE DATA ROW PLACEHOLDERS:
+-----------------------------
+Placeholder Name          | Database Field                     | Description
+------------------------- | ---------------------------------- | ---------------------------
+EmployeeNo                | f.employee_number                 | Employee identification number
+FirstName                 | u.first_name                      | Faculty member's first name
+MiddleName                | u.middle_name                     | Faculty member's middle name (can be NULL/empty)
+LastName                  | u.last_name                       | Faculty member's last name
+Department                | d.department_name                 | Department name (from departments table)
+EmploymentStatus          | f.employment_status               | Employment status:
+                          |                                    |   - "Full Time"
+                          |                                    |   - "Part Time"
+                          |                                    |   - "Part Time - Full Load"
+Status                    | cf.clearance_form_progress         | Form status:
+                          |                                    |   - "Unapplied" (when status = 'unapplied')
+                          |                                    |   - "In Progress" (when status = 'in-progress')
+                          |                                    |   - "Complete" (when status = 'complete')
+
+================================================================================
+PLACEHOLDER FORMAT IN PDF TEMPLATES
+================================================================================
+
+When creating your PDF templates, use these exact placeholder formats:
+
+${ReportTitle}
+${SchoolYear}
+${SemesterName}
+${Sector}
+${DepartmentName}
+${GeneratedBy}
+${TotalForms}
+${TotalUnapplied}
+${TotalInProgress}
+${TotalCompleted}
+
+For table rows:
+${StudentNo}      (Student reports)
+${EmployeeNo}     (Faculty reports)
+${FirstName}
+${MiddleName}
+${LastName}
+${Department}
+${EmploymentStatus}  (Faculty reports only)
+${Status}
+
+================================================================================
+DATA FORMAT NOTES
+================================================================================
+
+1. ReportTitle is automatically set based on report type:
+   - "Student Clearance Form Progress Report" for student_progress
+   - "Faculty Clearance Form Progress Report" for faculty_progress
+
+2. Status values are formatted for display:
+   - Database: 'unapplied' → Display: "Unapplied"
+   - Database: 'in-progress' → Display: "In Progress"
+   - Database: 'complete' → Display: "Complete"
+
+3. GeneratedBy includes the prefix "Generated by: " before the user's name
+
+4. For students, "Department" actually shows the Program Name
+   For faculty, "Department" shows the actual Department Name
+
+5. MiddleName can be NULL/empty - handle this in your template design
+
+6. EmploymentStatus is only applicable to Faculty reports
+
+================================================================================
+END OF DOCUMENT
+================================================================================
+

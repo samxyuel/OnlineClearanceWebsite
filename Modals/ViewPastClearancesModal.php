@@ -17,29 +17,29 @@
         
         <div class="modal-body" style="background: white;">
             <!-- Sector Tabs -->
-            <div class="sector-tabs">
-                <button class="tab-button active" onclick="switchPastClearancesTab('college')">
+            <div class="sector-tabs past-clearances-tabs">
+                <button class="past-clearances-tab-button active" onclick="switchPastClearancesTab('college')">
                     <i class="fas fa-university"></i> College
                 </button>
-                <button class="tab-button" onclick="switchPastClearancesTab('shs')">
+                <button class="past-clearances-tab-button" onclick="switchPastClearancesTab('shs')">
                     <i class="fas fa-graduation-cap"></i> Senior High School
                 </button>
-                <button class="tab-button" onclick="switchPastClearancesTab('faculty')">
+                <button class="past-clearances-tab-button" onclick="switchPastClearancesTab('faculty')">
                     <i class="fas fa-chalkboard-teacher"></i> Faculty
                 </button>
             </div>
             
             <!-- Tab Content -->
-            <div class="tab-content">
+            <div class="tab-content past-clearances-content">
                 <!-- College Tab -->
-                <div class="tab-panel active" id="past-clearances-college">
+                <div class="past-clearances-panel active" id="past-clearances-college">
                     <div class="past-clearances-header">
                         <h4><i class="fas fa-university"></i> College Clearance History</h4>
-                        <div class="export-actions">
+                        <!-- <div class="export-actions">
                             <button class="btn btn-sm btn-outline-primary" onclick="exportPastClearances('College')">
                                 <i class="fas fa-file-pdf"></i> Export as PDF
                             </button>
-                        </div>
+                        </div> -->
                     </div>
                     <div class="past-clearances-list" id="college-past-clearances">
                         <div class="loading-text">Loading College clearance history...</div>
@@ -47,14 +47,14 @@
                 </div>
                 
                 <!-- Senior High School Tab -->
-                <div class="tab-panel" id="past-clearances-shs">
+                <div class="past-clearances-panel" id="past-clearances-shs">
                     <div class="past-clearances-header">
                         <h4><i class="fas fa-graduation-cap"></i> Senior High School Clearance History</h4>
-                        <div class="export-actions">
+                        <!-- <div class="export-actions">
                             <button class="btn btn-sm btn-outline-primary" onclick="exportPastClearances('Senior High School')">
                                 <i class="fas fa-file-pdf"></i> Export as PDF
                             </button>
-                        </div>
+                        </div> -->
                     </div>
                     <div class="past-clearances-list" id="shs-past-clearances">
                         <div class="loading-text">Loading SHS clearance history...</div>
@@ -62,14 +62,14 @@
                 </div>
                 
                 <!-- Faculty Tab -->
-                <div class="tab-panel" id="past-clearances-faculty">
+                <div class="past-clearances-panel" id="past-clearances-faculty">
                     <div class="past-clearances-header">
                         <h4><i class="fas fa-chalkboard-teacher"></i> Faculty Clearance History</h4>
-                        <div class="export-actions">
+                        <!-- <div class="export-actions">
                             <button class="btn btn-sm btn-outline-primary" onclick="exportPastClearances('Faculty')">
                                 <i class="fas fa-file-pdf"></i> Export as PDF
                             </button>
-                        </div>
+                        </div> -->
                     </div>
                     <div class="past-clearances-list" id="faculty-past-clearances">
                         <div class="loading-text">Loading Faculty clearance history...</div>
@@ -84,59 +84,156 @@
     </div>
 </div>
 
+<style>
+/* Past Clearances Modal - Specific Tab Styles to Avoid Conflicts */
+#viewPastClearancesModal .past-clearances-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 0.5rem;
+}
+
+#viewPastClearancesModal .past-clearances-tab-button {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: transparent;
+    color: var(--medium-muted-blue, #6b7280);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#viewPastClearancesModal .past-clearances-tab-button:hover {
+    background: #f8f9fa;
+    color: var(--deep-navy-blue, #1e3a5f);
+}
+
+#viewPastClearancesModal .past-clearances-tab-button.active {
+    background: var(--darker-saturated-blue, #0c5591);
+    color: white;
+    border-bottom: 3px solid var(--bright-golden-yellow, #fbbf24);
+}
+
+#viewPastClearancesModal .past-clearances-tab-button.active i {
+    color: white;
+}
+
+#viewPastClearancesModal .past-clearances-content {
+    position: relative;
+}
+
+#viewPastClearancesModal .past-clearances-panel {
+    display: none;
+    animation: fadeInTab 0.35s ease;
+}
+
+#viewPastClearancesModal .past-clearances-panel.active {
+    display: block;
+}
+
+@keyframes fadeInTab {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+
 <script>
 /**
  * View Past Clearances Modal JavaScript Functions
  */
 
 /**
- * Show View Past Clearances Modal
+ * Show View Past Clearances Modal - Make globally available
  */
-function showViewPastClearancesModal() {
-    const modal = document.getElementById('viewPastClearancesModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
+window.showViewPastClearancesModal = function() {
+    try {
+        const modal = document.getElementById('viewPastClearancesModal');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('View past clearances modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal('viewPastClearancesModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
         
         // Load default tab (College)
-        loadPastClearances('college');
-        
-        // Add click outside to close functionality
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeViewPastClearancesModal();
-            }
-        });
+        if (typeof loadPastClearances === 'function') {
+            loadPastClearances('college');
+        }
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open view past clearances modal. Please try again.', 'error');
+        }
     }
-}
+};
 
 /**
- * Close View Past Clearances Modal
+ * Close View Past Clearances Modal - Make globally available
  */
-function closeViewPastClearancesModal() {
-    const modal = document.getElementById('viewPastClearancesModal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
+window.closeViewPastClearancesModal = function() {
+    try {
+        const modal = document.getElementById('viewPastClearancesModal');
+        if (!modal) return;
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('viewPastClearancesModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        // Silent error handling
     }
-}
+};
 
 /**
  * Switch past clearances tab
  */
 function switchPastClearancesTab(tab) {
-    // Update tab buttons
-    document.querySelectorAll('.tab-button').forEach(btn => {
+    // Get the modal container to scope selectors
+    const modal = document.getElementById('viewPastClearancesModal');
+    if (!modal) return;
+    
+    // Update tab buttons - use specific class to avoid conflicts
+    modal.querySelectorAll('.past-clearances-tab-button').forEach(btn => {
         btn.classList.remove('active');
     });
     
-    const activeButton = document.querySelector(`[onclick="switchPastClearancesTab('${tab}')"]`);
+    const activeButton = modal.querySelector(`.past-clearances-tab-button[onclick="switchPastClearancesTab('${tab}')"]`);
     if (activeButton) {
         activeButton.classList.add('active');
     }
     
-    // Update tab panels
-    document.querySelectorAll('.tab-panel').forEach(panel => {
+    // Update tab panels - use specific class to avoid conflicts
+    modal.querySelectorAll('.past-clearances-panel').forEach(panel => {
         panel.classList.remove('active');
     });
     
@@ -167,8 +264,10 @@ async function loadPastClearances(tab) {
     container.innerHTML = '<div class="loading-text">Loading clearance history...</div>';
     
     try {
-        // Use the existing sector-periods API to get historical data
-        const response = await fetch(`../../api/clearance/sector-periods.php?sector=${encodeURIComponent(sector)}&include_closed=true`);
+        // Use the new past clearances API to get historical data with statistics
+        const response = await fetch(`../../api/clearance/past_clearances.php?sector=${encodeURIComponent(sector)}`, {
+            credentials: 'include'
+        });
         const data = await response.json();
         
         if (data.success && data.periods) {
@@ -209,19 +308,19 @@ function renderPastClearances(container, periods) {
                     ${formatDate(period.start_date)} - ${formatDate(period.end_date || period.ended_at)}
                 </div>
                 <div class="period-stats">
-                    <span>Status: <strong>${period.status}</strong></span>
-                    <span>Applications: <strong>${period.total_forms || 0}</strong></span>
-                    <span>Completed: <strong>${period.completed_forms || 0}</strong></span>
+                    <span>Status: <strong>${period.status || 'N/A'}</strong></span>
+                    <span>Applications: <strong>${period.total_applications || period.total_forms || 0}</strong></span>
+                    <span>Completed: <strong>${period.completed_applications || period.completed_forms || 0}</strong></span>
                 </div>
             </div>
-            <div class="period-actions">
+            <!-- <div class="period-actions">
                 <button class="btn btn-sm btn-outline-primary" onclick="exportPeriodReport('${period.period_id}')">
                     <i class="fas fa-file-pdf"></i> Export Report
                 </button>
                 <button class="btn btn-sm btn-outline-info" onclick="viewPeriodDetails('${period.period_id}')">
                     <i class="fas fa-eye"></i> View Details
                 </button>
-            </div>
+            </div> -->
         </div>
     `).join('');
     

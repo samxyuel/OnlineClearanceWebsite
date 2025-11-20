@@ -13,17 +13,29 @@ class Auth {
     // User authentication
     public function authenticate($username, $password) {
         try {
+            // First, check if user exists (without checking account_status)
             $sql = "SELECT u.*, ur.role_id, r.role_name 
                     FROM users u 
                     JOIN user_roles ur ON u.user_id = ur.user_id 
                     JOIN roles r ON ur.role_id = r.role_id 
-                    WHERE u.username = ? AND u.account_status = 'active'";
+                    WHERE u.username = ?";
             
             $stmt = $this->connection->prepare($sql);
             $stmt->execute([$username]);
             $user = $stmt->fetch();
             
-            if ($user && password_verify($password, $user['password'])) {
+            // Check if user exists
+            if (!$user) {
+                return ['success' => false, 'message' => 'Account does not exist. Please contact the system administrator.'];
+            }
+            
+            // Check if account is active
+            if ($user['account_status'] !== 'active') {
+                return ['success' => false, 'message' => 'Account is inactive. Please contact the system administrator.'];
+            }
+            
+            // User exists and is active - verify password
+            if (password_verify($password, $user['password'])) {
                 // Start session and store user data
                 $this->ensureSessionStarted();
                 
@@ -35,6 +47,17 @@ class Auth {
                 $_SESSION['last_name'] = $user['last_name'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['login_time'] = time();
+
+                // If user is any kind of staff, check if they also have a faculty role
+                $staffRoles = ['Regular Staff', 'staff', 'Program Head', 'School Administrator'];
+                if (in_array($user['role_name'], $staffRoles, true)) {
+                    $facultyCheckSql = "SELECT COUNT(*) FROM faculty WHERE user_id = ?";
+                    $facultyStmt = $this->connection->prepare($facultyCheckSql);
+                    $facultyStmt->execute([$user['user_id']]);
+                    $_SESSION['has_faculty_role'] = $facultyStmt->fetchColumn() > 0;
+                } else {
+                    $_SESSION['has_faculty_role'] = false;
+                }
                 
                 // Log successful login
                 $this->logActivity($user['user_id'], 'login', 'User logged in successfully');
@@ -52,7 +75,8 @@ class Auth {
                 ];
             }
             
-            return ['success' => false, 'message' => 'Invalid username or password'];
+            // Password is incorrect (user exists and is active)
+            return ['success' => false, 'message' => 'Invalid password'];
             
         } catch (PDOException $e) {
             return ['success' => false, 'message' => 'Authentication error: ' . $e->getMessage()];

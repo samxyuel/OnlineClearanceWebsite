@@ -18,7 +18,7 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/css/sector-clearance.css">
     <link rel="stylesheet" href="../../assets/css/grace-period-monitoring.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <!-- Header -->
@@ -40,21 +40,39 @@ if (session_status() == PHP_SESSION_NONE) {
                             <p>Manage clearance periods, signatories, and monitor clearance statistics</p>
                         </div>
 
-                        <!-- Grace Period Monitoring Section -->
-                        <!-- TODO: Uncomment when grace period functionality is ready
-                        <div class="grace-period-monitoring" id="grace-period-monitoring">
-                            <div class="monitoring-header">
-                                <h3><i class="fas fa-clock"></i> Grace Period Monitoring</h3>
-                                <p>Monitor system transitions and grace periods across all clearance sectors</p>
+                        <div class="clearance-management-tabs">
+                            <div class="tab-navigation" role="tablist">
+                                <button class="tab-link active" id="academic-sector-tab" type="button" role="tab" aria-selected="true" aria-controls="tab-academic-sector" data-tab="academic-sector" tabindex="0">
+                                    <i class="fas fa-layer-group"></i>
+                                    <span>Academic Year and Sector Management</span>
+                                </button>
+                                <button class="tab-link" id="graduated-students-tab" type="button" role="tab" aria-selected="false" aria-controls="tab-graduated-students" data-tab="graduated-students" tabindex="-1">
+                                    <i class="fas fa-user-graduate"></i>
+                                    <span>Graduated Students</span>
+                                </button>
+                                <button class="tab-link" id="resigned-faculty-tab" type="button" role="tab" aria-selected="false" aria-controls="tab-resigned-faculty" data-tab="resigned-faculty" tabindex="-1">
+                                    <i class="fas fa-chalkboard-teacher"></i>
+                                    <span>Resigned Faculty</span>
+                                </button>
                             </div>
-                            <div class="grace-period-grid" id="grace-period-grid">
-                                <-- Grace period cards will be populated by JavaScript --
-                            </div>
-                        </div>
-                        -->
 
-                        <!-- Sector-Based Clearance Management -->
-                        <div class="sector-clearance-management">
+                            <div class="tab-panels">
+                                <section class="tab-panel active" id="tab-academic-sector" role="tabpanel" aria-labelledby="academic-sector-tab" data-tab-panel="academic-sector">
+                                    <!-- Grace Period Monitoring Section -->
+                                    <!-- TODO: Uncomment when grace period functionality is ready
+                                    <div class="grace-period-monitoring" id="grace-period-monitoring">
+                                        <div class="monitoring-header">
+                                            <h3><i class="fas fa-clock"></i> Grace Period Monitoring</h3>
+                                            <p>Monitor system transitions and grace periods across all clearance sectors</p>
+                                        </div>
+                                        <div class="grace-period-grid" id="grace-period-grid">
+                                            <-- Grace period cards will be populated by JavaScript --
+                                        </div>
+                                    </div>
+                                    -->
+
+                                    <!-- Sector-Based Clearance Management -->
+                                    <div class="sector-clearance-management">
                             <!-- School Years & Terms Card -->
                             <div class="sector-period-card academic-year-sector" id="academic-year-card">
                                 <div class="sector-card-header">
@@ -65,10 +83,16 @@ if (session_status() == PHP_SESSION_NONE) {
                                         </div>
                                     </div>
                                     <div class="sector-actions">
+                                        <button class="btn btn-sm btn-outline-info" onclick="window.openRetainYearLevelModal && window.openRetainYearLevelModal()" title="Select students to retain their year level">
+                                            <i class="fas fa-user-clock"></i> Retain Year Level
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-warning" onclick="window.openEligibleForGraduationModal && window.openEligibleForGraduationModal()" title="Confirm graduation selection">
+                                            <i class="fas fa-graduation-cap"></i> Eligible for Graduation
+                                        </button>
                                         <button class="btn btn-sm btn-outline-primary" onclick="showViewPastClearancesModal()">
                                             <i class="fas fa-history"></i> View Past Clearances
                                         </button>
-                                        <button class="btn btn-sm btn-primary" onclick="showAddSchoolYearModal()">
+                                        <button class="btn btn-sm btn-primary" id="addYearBtn" onclick="showAddSchoolYearModal()" disabled title="Graduation must be confirmed first">
                                             <i class="fas fa-plus"></i> Add Year
                                         </button>
                                     </div>
@@ -115,14 +139,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <div class="sector-status">
                                             <span class="status-badge" id="statistics-status-badge">Live</span>
                                         </div>
-                                    </div>
-                                    <div class="sector-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="refreshStatistics()">
-                                            <i class="fas fa-sync-alt"></i> Refresh
-                                        </button>
-                                        <button class="btn btn-sm btn-primary" onclick="openExportModal()">
-                                            <i class="fas fa-file-export"></i> Export
-                                        </button>
                                     </div>
                                 </div>
                                 
@@ -389,14 +405,241 @@ if (session_status() == PHP_SESSION_NONE) {
                                 </div>
                             </div>
 
-                            <!-- Export Button -->
-                            <div class="export-section">
-                                <button class="btn btn-primary export-btn" onclick="openExportModal()">
-                                    <i class="fas fa-file-export"></i> Export Clearance Data
-                                </button>
+                                    </div>
+                                    <!-- End of .sector-clearance-management -->
+                                </section>
+
+                                <section class="tab-panel" id="tab-graduated-students" role="tabpanel" aria-labelledby="graduated-students-tab" data-tab-panel="graduated-students" hidden>
+                                    <div class="graduated-panel-header">
+                                        <div class="graduated-panel-info">
+                                            <h3><i class="fas fa-user-graduate"></i> Graduated Students</h3>
+                                            <p>Review and manage students who have completed their clearance requirements.</p>
+                                        </div>
+                                        <div class="graduated-panel-meta">
+                                            <div class="graduated-overview">
+                                                <span class="overview-label">Total Graduates</span>
+                                                <span class="overview-value" id="graduatedTotal">0</span>
+                                            </div>
+                                            <button class="btn btn-sm btn-primary" onclick="openEligibleForGraduationModal()">
+                                                <i class="fas fa-user-check"></i> Manage Eligible Students
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="graduated-sector-tabs" role="tablist">
+                                        <button class="graduated-sector-tab active" id="graduated-college-tab" type="button" role="tab" aria-selected="true" aria-controls="graduated-college-panel" data-sector="college" tabindex="0">
+                                            <i class="fas fa-university"></i> College
+                                        </button>
+                                        <button class="graduated-sector-tab" id="graduated-shs-tab" type="button" role="tab" aria-selected="false" aria-controls="graduated-shs-panel" data-sector="shs" tabindex="-1">
+                                            <i class="fas fa-school"></i> Senior High School
+                                        </button>
+                                    </div>
+
+                                    <div class="graduated-sector-panels">
+                                        <section class="graduated-sector-panel active" id="graduated-college-panel" role="tabpanel" aria-labelledby="graduated-college-tab" data-sector-panel="college">
+                                            <div class="graduated-sector-toolbar">
+                                                <div class="graduated-filters">
+                                                    <div class="filter-group">
+                                                        <label for="graduatedCollegeDepartment">Department</label>
+                                                        <select id="graduatedCollegeDepartment">
+                                                            <option value="">All Departments</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="filter-group">
+                                                        <label for="graduatedCollegeProgram">Program</label>
+                                                        <select id="graduatedCollegeProgram">
+                                                            <option value="">All Programs</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="filter-group">
+                                                        <label for="graduatedCollegeYearLevel">Year Level</label>
+                                                        <select id="graduatedCollegeYearLevel">
+                                                            <option value="">All Year Levels</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="graduated-sector-overview">
+                                                    <span class="overview-label">College Graduates</span>
+                                                    <span class="overview-value" id="graduatedCollegeTotal">0</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="tab-table-card">
+                                                <div class="card-header">
+                                                    <h4><i class="fas fa-table"></i> Graduated Students List</h4>
+                                                </div>
+                                                <div class="card-content">
+                                                    <div class="tab-table-wrapper">
+                                                        <table class="tab-table graduated-table" aria-describedby="graduated-college-table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th scope="col">Student Name</th>
+                                                                    <th scope="col">Program</th>
+                                                                    <th scope="col">Year Level</th>
+                                                                    <th scope="col">Actions</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody id="graduatedCollegeTableBody">
+                                                                <tr class="empty-state-row">
+                                                                    <td colspan="4">
+                                                                        <div class="empty-state">
+                                                                            <i class="fas fa-folder-open"></i>
+                                                                            <div>
+                                                                                <p>No college graduates yet.</p>
+                                                                                <span>Confirm graduation in the Eligible for Graduation modal to populate this list.</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div class="table-pagination" id="graduatedCollegePagination"></div>
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        <section class="graduated-sector-panel" id="graduated-shs-panel" role="tabpanel" aria-labelledby="graduated-shs-tab" data-sector-panel="shs" hidden>
+                                            <div class="graduated-sector-toolbar">
+                                                <div class="graduated-filters">
+                                                    <div class="filter-group">
+                                                        <label for="graduatedShsDepartment">Department</label>
+                                                        <select id="graduatedShsDepartment">
+                                                            <option value="">All Departments</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="filter-group">
+                                                        <label for="graduatedShsProgram">Program</label>
+                                                        <select id="graduatedShsProgram">
+                                                            <option value="">All Programs</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="filter-group">
+                                                        <label for="graduatedShsYearLevel">Year Level</label>
+                                                        <select id="graduatedShsYearLevel">
+                                                            <option value="">All Year Levels</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="graduated-sector-overview">
+                                                    <span class="overview-label">SHS Graduates</span>
+                                                    <span class="overview-value" id="graduatedShsTotal">0</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="tab-table-card">
+                                                <div class="card-header">
+                                                    <h4><i class="fas fa-table"></i> Graduated Students List</h4>
+                                                </div>
+                                                <div class="card-content">
+                                                    <div class="tab-table-wrapper">
+                                                        <table class="tab-table graduated-table" aria-describedby="graduated-shs-table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th scope="col">Student Name</th>
+                                                                    <th scope="col">Program</th>
+                                                                    <th scope="col">Year Level</th>
+                                                                    <th scope="col">Actions</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody id="graduatedShsTableBody">
+                                                                <tr class="empty-state-row">
+                                                                    <td colspan="4">
+                                                                        <div class="empty-state">
+                                                                            <i class="fas fa-folder-open"></i>
+                                                                            <div>
+                                                                                <p>No senior high school graduates yet.</p>
+                                                                                <span>Confirm graduation in the Eligible for Graduation modal to populate this list.</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div class="table-pagination" id="graduatedShsPagination"></div>
+                                                </div>
+                                            </div>
+                                        </section>
+                                    </div>
+                                </section>
+
+                                <section class="tab-panel" id="tab-resigned-faculty" role="tabpanel" aria-labelledby="resigned-faculty-tab" data-tab-panel="resigned-faculty" hidden>
+                                    <div class="resigned-panel-header">
+                                        <div class="resigned-panel-info">
+                                            <h3><i class="fas fa-user-slash"></i> Resigned Faculty</h3>
+                                            <p>Track faculty members who have resigned and verify their clearance obligations.</p>
+                                        </div>
+                                        <div class="resigned-panel-meta">
+                                            <div class="resigned-overview">
+                                                <span class="overview-label">Total Resigned</span>
+                                                <span class="overview-value" id="resignedFacultyTotal">0</span>
+                                            </div>
+                                            <button class="btn btn-sm btn-primary" id="manageResignedFacultyBtn">
+                                                <i class="fas fa-user-cog"></i> Manage Resigned Faculty
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="resigned-toolbar">
+                                        <div class="resigned-filters">
+                                            <div class="filter-group">
+                                                <label for="resignedDepartmentFilter">Department</label>
+                                                <select id="resignedDepartmentFilter">
+                                                    <option value="">All Departments</option>
+                                                </select>
+                                            </div>
+                                            <div class="filter-group">
+                                                <label for="resignedStatusFilter">Clearance Status</label>
+                                                <select id="resignedStatusFilter">
+                                                    <option value="">All Clearance Status</option>
+                                                </select>
+                                            </div>
+                                            <div class="filter-group">
+                                                <label for="resignedEmploymentFilter">Employment Status</label>
+                                                <select id="resignedEmploymentFilter">
+                                                    <option value="">All Employment Status</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="tab-table-card">
+                                        <div class="card-header">
+                                            <h4><i class="fas fa-table"></i> Resigned Faculty List</h4>
+                                        </div>
+                                        <div class="card-content">
+                                            <div class="tab-table-wrapper">
+                                                <table class="tab-table resigned-table" aria-describedby="resigned-faculty-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th scope="col">Faculty Name</th>
+                                                            <th scope="col">Department</th>
+                                                            <th scope="col">Employment Status</th>
+                                                            <th scope="col">Actions</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="resignedFacultyTableBody">
+                                                        <tr class="empty-state-row">
+                                                            <td colspan="4">
+                                                                <div class="empty-state">
+                                                                    <i class="fas fa-folder-open"></i>
+                                                                    <div>
+                                                                        <p>No resigned faculty records yet.</p>
+                                                                        <span>Use the Manage Resigned Faculty button to select faculty members.</span>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="table-pagination" id="resignedFacultyPagination"></div>
+                                        </div>
+                                    </div>
+                                </section>
                             </div>
                         </div>
-                        <!-- End of .sector-clearance-management -->
                     </div>
                     <!-- End of .content-wrapper -->
                 </div>
@@ -411,12 +654,18 @@ if (session_status() == PHP_SESSION_NONE) {
     </main>
 
     <!-- Include Modals -->
-    <?php include '../../Modals/ClearanceExportModal.php'; ?>
     <?php include '../../Modals/AddSignatoryModal.php'; ?>
     <?php include '../../Modals/AddSchoolYearModal.php'; ?>
 
     <!-- Add Scope Signatory Modal (externalized) -->
     <?php include '../../Modals/AddScopeSignatoryModal.php'; ?>
+    
+    <!-- Year Level Retention and Graduation Modals -->
+    <?php include '../../Modals/RetainYearLevelSelectionModal.php'; ?>
+    <?php include '../../Modals/EligibleForGraduationModal.php'; ?>
+    <?php include '../../Modals/ResignedFacultySelection.php'; ?>
+    <?php include '../../Modals/EditFacultyModal.php'; ?>
+    <?php include '../../Modals/EditStudentModal.php'; ?>
 
     <!-- Scripts -->
     <script src="../../assets/js/activity-tracker.js"></script>
@@ -457,62 +706,1430 @@ if (session_status() == PHP_SESSION_NONE) {
             return data;
         }
 
+        function initializeTabNavigation() {
+            const tabButtons = document.querySelectorAll('.tab-navigation .tab-link');
+            const tabPanels = document.querySelectorAll('.tab-panels .tab-panel');
+
+            if (!tabButtons.length || !tabPanels.length) {
+                return;
+            }
+
+            tabButtons.forEach(button => {
+                const isActive = button.classList.contains('active');
+                button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                button.setAttribute('tabindex', isActive ? '0' : '-1');
+            });
+
+            tabPanels.forEach(panel => {
+                const isActive = panel.classList.contains('active');
+                panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+                if (isActive) {
+                    panel.removeAttribute('hidden');
+                } else {
+                    panel.setAttribute('hidden', 'hidden');
+                }
+            });
+
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    if (button.classList.contains('active')) {
+                        return;
+                    }
+
+                    const target = button.dataset.tab;
+                    const targetPanel = document.querySelector(`.tab-panel[data-tab-panel="${target}"]`);
+
+                    if (!targetPanel) {
+                        return;
+                    }
+
+                    tabButtons.forEach(btn => {
+                        const isTargetButton = btn === button;
+                        btn.classList.toggle('active', isTargetButton);
+                        btn.setAttribute('aria-selected', isTargetButton ? 'true' : 'false');
+                        btn.setAttribute('tabindex', isTargetButton ? '0' : '-1');
+                    });
+
+                    tabPanels.forEach(panel => {
+                        const isTargetPanel = panel === targetPanel;
+                        panel.classList.toggle('active', isTargetPanel);
+                        panel.setAttribute('aria-hidden', isTargetPanel ? 'false' : 'true');
+                        if (isTargetPanel) {
+                            panel.removeAttribute('hidden');
+                        } else {
+                            panel.setAttribute('hidden', 'hidden');
+                        }
+                    });
+
+                    targetPanel.setAttribute('tabindex', '-1');
+                    try {
+                        targetPanel.focus({ preventScroll: true });
+                    } catch (err) {
+                        targetPanel.focus();
+                    }
+                    targetPanel.removeAttribute('tabindex');
+                });
+            });
+        }
+
+        const graduatedStudentsState = {
+            college: {
+                label: 'College',
+                allStudents: [],
+                filters: { department: '', program: '', yearLevel: '' },
+                filtersAvailable: null,
+                pagination: { page: 1, totalPages: 1, total: 0, limit: 10 }
+            },
+            shs: {
+                label: 'Senior High School',
+                allStudents: [],
+                filters: { department: '', program: '', yearLevel: '' },
+                filtersAvailable: null,
+                pagination: { page: 1, totalPages: 1, total: 0, limit: 10 }
+            }
+        };
+
+        const RESIGNED_FACULTY_API = '../../api/users/resigned_faculty.php';
+
+        const resignedFacultyState = {
+            resignedFaculty: [],
+            filters: { department: '', employment: '', account: '' },
+            options: { departments: [], employment_statuses: [], account_statuses: [] },
+            currentResignedIds: new Set(),
+            pagination: { page: 1, totalPages: 1, total: 0, limit: 10 }
+        };
+
+        const resignedFacultySelectionState = {
+            allFaculty: [],
+            filters: { department: '', employment: '', account: '' },
+            search: '',
+            selectedIds: new Set(),
+            originalSelectedIds: new Set(),
+            options: { departments: [], employment_statuses: [], account_statuses: [] }
+        };
+
+        let resignedSelectionInitialized = false;
+        let resignedSelectionSearchTimer = null;
+
+        function initializeGraduatedStudentsSection() {
+            const sectorTabs = document.querySelectorAll('.graduated-sector-tab');
+            const sectorPanels = document.querySelectorAll('.graduated-sector-panel');
+
+            if (!sectorTabs.length || !sectorPanels.length) {
+                return;
+            }
+
+            sectorTabs.forEach(tab => {
+                tab.addEventListener('click', () => switchGraduatedSector(tab.dataset.sector));
+            });
+
+            ['college', 'shs'].forEach(sector => {
+                ['Department', 'Program', 'YearLevel'].forEach(filterKey => {
+                    const select = document.getElementById(`graduated${capitalizeSectorKey(sector)}${filterKey}`);
+                    if (select) {
+                        select.addEventListener('change', () => {
+                            const key = filterKey === 'YearLevel' ? 'yearLevel' : filterKey.toLowerCase();
+                            graduatedStudentsState[sector].filters[key] = select.value;
+                            graduatedStudentsState[sector].pagination.page = 1;
+                            loadGraduatedStudentsData(sector);
+                        });
+                    }
+                });
+            });
+
+            // Initial data load
+            loadGraduatedStudentsData('college');
+            loadGraduatedStudentsData('shs');
+        }
+
+        function capitalizeSectorKey(sector) {
+            return sector === 'college' ? 'College' : 'Shs';
+        }
+
+        function switchGraduatedSector(sector) {
+            const targetTab = document.querySelector(`.graduated-sector-tab[data-sector="${sector}"]`);
+            const targetPanel = document.querySelector(`.graduated-sector-panel[data-sector-panel="${sector}"]`);
+
+            if (!targetTab || !targetPanel || targetTab.classList.contains('active')) {
+                return;
+            }
+
+            document.querySelectorAll('.graduated-sector-tab').forEach(tab => {
+                const isActive = tab === targetTab;
+                tab.classList.toggle('active', isActive);
+                tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                tab.setAttribute('tabindex', isActive ? '0' : '-1');
+            });
+
+            document.querySelectorAll('.graduated-sector-panel').forEach(panel => {
+                const isActive = panel === targetPanel;
+                panel.classList.toggle('active', isActive);
+                if (isActive) {
+                    panel.removeAttribute('hidden');
+                    panel.setAttribute('aria-hidden', 'false');
+                    panel.setAttribute('tabindex', '-1');
+                    try {
+                        panel.focus({ preventScroll: true });
+                    } catch (err) {
+                        panel.focus();
+                    }
+                    panel.removeAttribute('tabindex');
+                } else {
+                    panel.setAttribute('hidden', 'hidden');
+                    panel.setAttribute('aria-hidden', 'true');
+                }
+            });
+        }
+
+        async function loadGraduatedStudentsData(sector) {
+            const tableBody = document.getElementById(`graduated${capitalizeSectorKey(sector)}TableBody`);
+            if (!tableBody) {
+                return;
+            }
+
+            setGraduatedTableLoadingState(sector, true);
+
+            try {
+                const params = new URLSearchParams();
+                params.append('sector', graduatedStudentsState[sector].label);
+                params.append('account_status', 'graduated'); // Fetch all graduated students
+                const filters = graduatedStudentsState[sector].filters;
+                if (filters.department) params.append('department_id', filters.department);
+                if (filters.program) params.append('program_id', filters.program);
+                // Don't filter by year_level for graduated students - we want ALL graduated students
+                // Only add year_level filter if user explicitly selected one
+                if (filters.yearLevel) {
+                    params.append('year_level', filters.yearLevel);
+                }
+                const pagination = graduatedStudentsState[sector].pagination || { page: 1, limit: 10 };
+                params.append('page', pagination.page);
+                params.append('limit', pagination.limit);
+                params.append('include_filters', '1');
+
+                const response = await fetch(`../../api/users/graduation_management.php?${params.toString()}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+                }
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to load graduated students');
+                }
+
+                const payload = data.data || {};
+                const meta = {
+                    page: Number(payload.page ?? pagination.page ?? 1),
+                    limit: Number(payload.limit ?? pagination.limit ?? 10),
+                    totalPages: Math.max(1, Number(payload.total_pages ?? 1)),
+                    total: Number(payload.total ?? 0)
+                };
+
+                if (meta.totalPages > 0 && meta.page > meta.totalPages && meta.total > 0) {
+                    graduatedStudentsState[sector].pagination.page = meta.totalPages;
+                    await loadGraduatedStudentsData(sector);
+                    return;
+                }
+
+                graduatedStudentsState[sector].pagination = meta;
+                graduatedStudentsState[sector].allStudents = payload.students || [];
+                graduatedStudentsState[sector].filtersAvailable = payload.filters_available || null;
+                populateGraduatedFilterOptions(sector);
+                renderGraduatedStudentsTable(sector);
+                updateGraduatedSummaryCounts();
+            } catch (error) {
+                console.error('Error loading graduated students:', error);
+                renderGraduatedStudentsErrorState(sector, error.message || 'Unable to load graduates.');
+            } finally {
+                setGraduatedTableLoadingState(sector, false);
+            }
+        }
+
+        function resetGraduatedFilters(sector) {
+            graduatedStudentsState[sector].filters = { department: '', program: '', yearLevel: '' };
+            if (graduatedStudentsState[sector].pagination) {
+                graduatedStudentsState[sector].pagination.page = 1;
+            }
+            ['Department', 'Program', 'YearLevel'].forEach(filterKey => {
+                const select = document.getElementById(`graduated${capitalizeSectorKey(sector)}${filterKey}`);
+                if (select) {
+                    select.value = '';
+                }
+            });
+        }
+
+        function populateGraduatedFilterOptions(sector) {
+            const filtersAvailable = graduatedStudentsState[sector].filtersAvailable;
+            const students = graduatedStudentsState[sector].allStudents;
+            const departmentSelect = document.getElementById(`graduated${capitalizeSectorKey(sector)}Department`);
+            const programSelect = document.getElementById(`graduated${capitalizeSectorKey(sector)}Program`);
+            const yearLevelSelect = document.getElementById(`graduated${capitalizeSectorKey(sector)}YearLevel`);
+
+            if (!departmentSelect || !programSelect || !yearLevelSelect) {
+                return;
+            }
+
+            if (filtersAvailable) {
+                const departmentMap = new Map(
+                    (filtersAvailable.departments || []).map(opt => [opt.value, opt.label])
+                );
+                const programMap = new Map(
+                    (filtersAvailable.programs || []).map(opt => [opt.value, opt.label])
+                );
+                const yearLevels = filtersAvailable.year_levels || [];
+
+                setSelectOptions(departmentSelect, departmentMap, 'All Departments');
+                setSelectOptions(programSelect, programMap, 'All Programs');
+                setSelectOptions(yearLevelSelect, yearLevels.slice().sort((a, b) => a.localeCompare(b)), 'All Year Levels');
+                return;
+            }
+
+            // Fallback using current page data
+            const departments = new Map();
+            const programs = new Map();
+            const yearLevels = new Set();
+
+            students.forEach(student => {
+                const deptValue = student.department_id ?? student.department ?? student.department_name;
+                const deptLabel = student.department_name ?? student.department ?? 'Unassigned Department';
+                if (deptValue) {
+                    departments.set(String(deptValue), deptLabel);
+                }
+
+                const programValue = student.program_id ?? student.program_code ?? student.program;
+                const programLabel = student.program ?? student.program_name ?? 'Unassigned Program';
+                if (programValue) {
+                    programs.set(String(programValue), programLabel);
+                }
+
+                if (student.year_level) {
+                    yearLevels.add(student.year_level);
+                }
+            });
+
+            setSelectOptions(departmentSelect, departments, 'All Departments');
+            setSelectOptions(programSelect, programs, 'All Programs');
+            setSelectOptions(yearLevelSelect, Array.from(yearLevels).sort((a, b) => a.localeCompare(b)), 'All Year Levels');
+        }
+
+        function setSelectOptions(selectElement, options, placeholder) {
+            if (!selectElement) {
+                return;
+            }
+
+            const currentValue = selectElement.value;
+            selectElement.innerHTML = '';
+
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = placeholder;
+            selectElement.appendChild(defaultOption);
+
+            if (options instanceof Map) {
+                options.forEach((label, value) => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = label;
+                    selectElement.appendChild(option);
+                });
+            } else if (Array.isArray(options)) {
+                options.forEach(value => {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    selectElement.appendChild(option);
+                });
+            }
+
+            if (currentValue && Array.from(selectElement.options).some(opt => opt.value === currentValue)) {
+                selectElement.value = currentValue;
+            }
+        }
+
+        function renderGraduatedStudentsTable(sector) {
+            const tableBody = document.getElementById(`graduated${capitalizeSectorKey(sector)}TableBody`);
+            if (!tableBody) {
+                return;
+            }
+
+            const students = graduatedStudentsState[sector].allStudents;
+            const filters = graduatedStudentsState[sector].filters;
+            const pagination = graduatedStudentsState[sector].pagination || { page: 1, totalPages: 1, total: students.length };
+
+            const filteredStudents = students.filter(student => {
+                const departmentMatch = !filters.department || matchesStudentField(student, filters.department, ['department_id', 'department', 'department_name']);
+                const programMatch = !filters.program || matchesStudentField(student, filters.program, ['program_id', 'program_code', 'program', 'program_name']);
+                const yearLevelMatch = !filters.yearLevel || (student.year_level && student.year_level.toString() === filters.yearLevel);
+                return departmentMatch && programMatch && yearLevelMatch;
+            });
+
+            if (filteredStudents.length === 0) {
+                tableBody.innerHTML = `
+                    <tr class="empty-state-row">
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <i class="fas fa-folder-open"></i>
+                                <div>
+                                    <p>No graduates match the selected filters.</p>
+                                    <span>Try adjusting the filters or confirm new graduates in the Eligible for Graduation modal.</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                renderGraduatedPagination(sector);
+                const total = pagination.total || 0;
+                updateGraduatedSectorCount(sector, total);
+                return;
+            }
+
+            const rowsHtml = filteredStudents.map(student => {
+                const fullName = formatStudentName(student);
+                const program = student.program ?? student.program_name ?? 'No program';
+                const yearLevel = student.year_level ?? 'N/A';
+                const studentId = student.user_id ?? student.student_id ?? '';
+                const safeId = String(studentId).replace(/'/g, "\\'");
+                const studentNumber = student.student_id ?? student.student_number ?? '';
+
+                return `
+                    <tr>
+                        <td>
+                            <div class="graduated-student-cell">
+                                <span class="graduated-student-name">${fullName}</span>
+                                ${studentNumber ? `<span class="graduated-student-number">${studentNumber}</span>` : ''}
+                            </div>
+                        </td>
+                        <td>${program}</td>
+                        <td>${yearLevel}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" type="button" onclick="openEditStudentModal('${safeId}')">
+                                <i class="fas fa-pen"></i> Edit
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            tableBody.innerHTML = rowsHtml;
+            renderGraduatedPagination(sector);
+            const total = pagination.total || filteredStudents.length;
+            updateGraduatedSectorCount(sector, total);
+        }
+
+        function matchesStudentField(student, filterValue, fields) {
+            return fields.some(field => {
+                if (student[field] === undefined || student[field] === null) {
+                    return false;
+                }
+                return String(student[field]) === String(filterValue);
+            });
+        }
+
+        function formatStudentName(student) {
+            const lastName = student.last_name ?? '';
+            const firstName = student.first_name ?? '';
+            const middleName = student.middle_name ?? '';
+            return [lastName, ', ', firstName, middleName ? ` ${middleName}` : ''].join('').trim() || 'Unnamed Student';
+        }
+
+        function setGraduatedTableLoadingState(sector, isLoading) {
+            const tableBody = document.getElementById(`graduated${capitalizeSectorKey(sector)}TableBody`);
+            if (!tableBody) {
+                return;
+            }
+
+            if (isLoading) {
+                tableBody.innerHTML = `
+                    <tr class="empty-state-row">
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <div>
+                                    <p>Loading graduate records...</p>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function renderGraduatedStudentsErrorState(sector, message) {
+            const tableBody = document.getElementById(`graduated${capitalizeSectorKey(sector)}TableBody`);
+            if (!tableBody) {
+                return;
+            }
+
+            tableBody.innerHTML = `
+                <tr class="empty-state-row">
+                    <td colspan="4">
+                        <div class="empty-state">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <div>
+                                <p>Unable to load graduates.</p>
+                                <span>${message}</span>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            if (graduatedStudentsState[sector].pagination) {
+                graduatedStudentsState[sector].pagination.total = 0;
+                graduatedStudentsState[sector].pagination.totalPages = 1;
+                graduatedStudentsState[sector].pagination.page = 1;
+            }
+            renderGraduatedPagination(sector);
+            updateGraduatedSectorCount(sector, 0);
+        }
+
+        function renderGraduatedPagination(sector) {
+            const container = document.getElementById(`graduated${capitalizeSectorKey(sector)}Pagination`);
+            if (!container) {
+                return;
+            }
+
+            const pagination = graduatedStudentsState[sector].pagination;
+            if (!pagination || pagination.totalPages <= 1 || pagination.total === 0) {
+                container.style.display = 'none';
+                container.innerHTML = '';
+                return;
+            }
+
+            const { page, totalPages, total } = pagination;
+            const prevDisabled = page <= 1 ? 'disabled' : '';
+            const nextDisabled = page >= totalPages ? 'disabled' : '';
+
+            container.style.display = 'flex';
+            container.innerHTML = `
+                <div class="pagination-controls">
+                    <button class="pagination-btn" ${prevDisabled} onclick="changeGraduatedPage('${sector}', ${page - 1})">Prev</button>
+                    <span class="pagination-info">Page ${page} of ${totalPages}</span>
+                    <button class="pagination-btn" ${nextDisabled} onclick="changeGraduatedPage('${sector}', ${page + 1})">Next</button>
+                </div>
+                <div class="pagination-summary">${total} total</div>
+            `;
+        }
+
+        function changeGraduatedPage(sector, newPage) {
+            const pagination = graduatedStudentsState[sector].pagination;
+            if (!pagination) {
+                return;
+            }
+
+            if (newPage < 1 || newPage > pagination.totalPages || newPage === pagination.page) {
+                return;
+            }
+
+            graduatedStudentsState[sector].pagination.page = newPage;
+            loadGraduatedStudentsData(sector);
+        }
+
+        function renderResignedPagination() {
+            const container = document.getElementById('resignedFacultyPagination');
+            if (!container) {
+                return;
+            }
+
+            const pagination = resignedFacultyState.pagination;
+            if (!pagination || pagination.totalPages <= 1 || pagination.total === 0) {
+                container.style.display = 'none';
+                container.innerHTML = '';
+                return;
+            }
+
+            const { page, totalPages, total } = pagination;
+            const prevDisabled = page <= 1 ? 'disabled' : '';
+            const nextDisabled = page >= totalPages ? 'disabled' : '';
+
+            container.style.display = 'flex';
+            container.innerHTML = `
+                <div class="pagination-controls">
+                    <button class="pagination-btn" ${prevDisabled} onclick="changeResignedFacultyPage(${page - 1})">Prev</button>
+                    <span class="pagination-info">Page ${page} of ${totalPages}</span>
+                    <button class="pagination-btn" ${nextDisabled} onclick="changeResignedFacultyPage(${page + 1})">Next</button>
+                </div>
+                <div class="pagination-summary">${total} total</div>
+            `;
+        }
+
+        function changeResignedFacultyPage(newPage) {
+            const pagination = resignedFacultyState.pagination;
+            if (!pagination) {
+                return;
+            }
+
+            if (newPage < 1 || newPage > pagination.totalPages || newPage === pagination.page) {
+                return;
+            }
+
+            resignedFacultyState.pagination.page = newPage;
+            loadResignedFacultyList();
+        }
+
+        function updateGraduatedSectorCount(sector, count) {
+            const sectorTotalEl = document.getElementById(`graduated${capitalizeSectorKey(sector)}Total`);
+            const pagination = graduatedStudentsState[sector].pagination;
+            const total = pagination ? pagination.total : count;
+            if (sectorTotalEl) {
+                sectorTotalEl.textContent = total;
+            }
+            updateGraduatedSummaryCounts();
+        }
+
+        function updateGraduatedSummaryCounts() {
+            const collegeTotal = graduatedStudentsState.college.pagination?.total ?? graduatedStudentsState.college.allStudents.length;
+            const shsTotal = graduatedStudentsState.shs.pagination?.total ?? graduatedStudentsState.shs.allStudents.length;
+            const overall = collegeTotal + shsTotal;
+
+            const overallEl = document.getElementById('graduatedTotal');
+            const collegeEl = document.getElementById('graduatedCollegeTotal');
+            const shsEl = document.getElementById('graduatedShsTotal');
+
+            if (overallEl) overallEl.textContent = overall;
+            if (collegeEl) collegeEl.textContent = collegeTotal;
+            if (shsEl) shsEl.textContent = shsTotal;
+        }
+
+        async function initializeResignedFacultySection() {
+            const manageBtn = document.getElementById('manageResignedFacultyBtn');
+            if (manageBtn) {
+                manageBtn.addEventListener('click', () => openResignedFacultySelectionModal());
+            }
+
+            const departmentSelect = document.getElementById('resignedDepartmentFilter');
+            const employmentSelect = document.getElementById('resignedEmploymentFilter');
+            const accountSelect = document.getElementById('resignedStatusFilter');
+
+            if (departmentSelect) {
+                departmentSelect.addEventListener('change', () => {
+                    resignedFacultyState.filters.department = departmentSelect.value;
+                    resignedFacultyState.pagination.page = 1;
+                    applyResignedMainFilters();
+                });
+            }
+
+            if (employmentSelect) {
+                employmentSelect.addEventListener('change', () => {
+                    resignedFacultyState.filters.employment = employmentSelect.value;
+                    resignedFacultyState.pagination.page = 1;
+                    applyResignedMainFilters();
+                });
+            }
+
+            if (accountSelect) {
+                accountSelect.addEventListener('change', () => {
+                    resignedFacultyState.filters.account = accountSelect.value;
+                    resignedFacultyState.pagination.page = 1;
+                    applyResignedMainFilters();
+                });
+            }
+
+            await loadResignedFacultyList({ includeFilters: true });
+        }
+
+        async function loadResignedFacultyList({ includeFilters = false } = {}) {
+            const params = new URLSearchParams({ scope: 'resigned' });
+            const { department, employment, account } = resignedFacultyState.filters;
+            const pagination = resignedFacultyState.pagination || { page: 1, limit: 10 };
+
+            if (department) params.append('department_id', department);
+            if (employment) params.append('employment_status', employment);
+            if (account) params.append('account_status', account);
+            if (includeFilters) params.append('include_filters', '1');
+            params.append('page', pagination.page);
+            params.append('limit', pagination.limit);
+
+            const tableBody = document.getElementById('resignedFacultyTableBody');
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr class="empty-state-row">
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <div>
+                                    <p>Loading resigned faculty...</p>
+                                    <span>Please wait while we fetch the latest data.</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+
+            try {
+                const response = await fetch(`${RESIGNED_FACULTY_API}?${params.toString()}`, { credentials: 'include' });
+                const payload = await response.json();
+
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.message || 'Failed to load resigned faculty data.');
+                }
+
+                const data = payload.data || {};
+                resignedFacultyState.resignedFaculty = Array.isArray(data.faculty) ? data.faculty : [];
+                const currentIds = new Set((data.current_resigned_ids || []).map(Number));
+                resignedFacultyState.currentResignedIds = currentIds;
+
+                const meta = data.meta || {};
+                const total = Number(meta.total ?? resignedFacultyState.resignedFaculty.length);
+                const totalPages = Math.max(1, Number(meta.total_pages ?? 1));
+                const currentPage = Number(meta.page ?? pagination.page);
+                const limit = Number(meta.limit ?? pagination.limit);
+
+                resignedFacultyState.pagination = {
+                    page: currentPage,
+                    totalPages,
+                    total,
+                    limit
+                };
+
+                if (totalPages > 0 && currentPage > totalPages && total > 0) {
+                    resignedFacultyState.pagination.page = totalPages;
+                    await loadResignedFacultyList({ includeFilters });
+                    return;
+                }
+
+                if (resignedFacultySelectionState.selectedIds.size === 0 && resignedFacultySelectionState.originalSelectedIds.size === 0) {
+                    resignedFacultySelectionState.selectedIds = new Set(currentIds);
+                    resignedFacultySelectionState.originalSelectedIds = new Set(currentIds);
+                }
+
+                if (includeFilters && data.filters) {
+                    resignedFacultyState.options = data.filters;
+                    updateResignedMainFilterOptions();
+                }
+
+                renderResignedFacultyTable();
+            } catch (error) {
+                console.error('Error loading resigned faculty:', error);
+                if (tableBody) {
+                    tableBody.innerHTML = `
+                        <tr class="empty-state-row">
+                            <td colspan="4">
+                                <div class="empty-state">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <div>
+                                        <p>Unable to load resigned faculty.</p>
+                                        <span>${error.message}</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
+                resignedFacultyState.pagination.total = 0;
+                resignedFacultyState.pagination.totalPages = 1;
+                resignedFacultyState.pagination.page = 1;
+                renderResignedPagination();
+            } finally {
+                updateResignedFacultySummary();
+            }
+        }
+
+        function updateResignedMainFilterOptions() {
+            const departmentSelect = document.getElementById('resignedDepartmentFilter');
+            const employmentSelect = document.getElementById('resignedEmploymentFilter');
+            const accountSelect = document.getElementById('resignedStatusFilter');
+
+            const { departments = [], employment_statuses = [], account_statuses = [] } = resignedFacultyState.options || {};
+
+            const departmentMap = new Map(departments.map(opt => [opt.value, opt.label]));
+            setSelectOptions(departmentSelect, departmentMap, 'All Departments');
+            setSelectOptions(employmentSelect, employment_statuses, 'All Employment Status');
+            setSelectOptions(accountSelect, account_statuses, 'All Account Status');
+
+            if (departmentSelect) departmentSelect.value = resignedFacultyState.filters.department || '';
+            if (employmentSelect) employmentSelect.value = resignedFacultyState.filters.employment || '';
+            if (accountSelect) accountSelect.value = resignedFacultyState.filters.account || '';
+        }
+
+        async function applyResignedMainFilters() {
+            await loadResignedFacultyList();
+        }
+
+        function renderResignedFacultyTable() {
+            const tableBody = document.getElementById('resignedFacultyTableBody');
+            if (!tableBody) {
+                return;
+            }
+
+            const dataSet = resignedFacultyState.resignedFaculty;
+            if (!dataSet || dataSet.length === 0) {
+                tableBody.innerHTML = `
+                    <tr class="empty-state-row">
+                        <td colspan="4">
+                            <div class="empty-state">
+                                <i class="fas fa-folder-open"></i>
+                                <div>
+                                    <p>No resigned faculty records yet.</p>
+                                    <span>Use the Manage Resigned Faculty button to select faculty members.</span>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                renderResignedPagination();
+                return;
+            }
+
+            tableBody.innerHTML = dataSet.map(item => {
+                const accountStatusRaw = (item.account_status || item.status || '').toLowerCase();
+                const badgeClass = `status-badge account-${accountStatusRaw || 'inactive'}`;
+                const statusLabel = accountStatusRaw ? accountStatusRaw.toUpperCase() : 'UNKNOWN';
+                const employeeNumber = item.employee_number || 'N/A';
+                const departmentLabel = item.department_name || 'Unassigned Department';
+                const employmentStatus = item.employment_status || 'Not specified';
+                const fullName = getFacultyFullName(item);
+                const userId = Number(item.user_id);
+                const isResigned = resignedFacultyState.currentResignedIds.has(userId) || accountStatusRaw === 'resigned';
+
+                return `
+                    <tr class="${isResigned ? 'resigned-selected-row' : ''}">
+                        <td class="resigned-name-cell">
+                            <div class="resigned-name-details">
+                                <div class="resigned-name-row">
+                                    ${fullName}
+                                    <span class="${badgeClass}">${statusLabel}</span>
+                                </div>
+                                <div class="resigned-name-meta">
+                                    <span><i class="fas fa-id-card"></i> ${employeeNumber}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="resigned-department-cell">
+                            <span><i class="fas fa-building"></i> ${departmentLabel}</span>
+                        </td>
+                        <td class="resigned-employment-cell">
+                            <span><i class="fas fa-briefcase"></i> ${employmentStatus}</span>
+                        </td>
+                        <td class="resigned-actions-cell">
+                            <button class="btn btn-link" type="button" onclick="openEditFacultyModal('${item.employee_number || item.user_id || ''}')">
+                                <i class="fas fa-user-edit"></i> Edit
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            renderResignedPagination();
+        }
+
+        function updateResignedFacultySummary() {
+            const totalEl = document.getElementById('resignedFacultyTotal');
+            if (totalEl) {
+                const total = resignedFacultyState.pagination?.total ?? resignedFacultyState.resignedFaculty.length;
+                totalEl.textContent = total;
+            }
+        }
+
+        async function openResignedFacultySelectionModal() {
+            try {
+                const modal = document.getElementById('resignedFacultySelectionModal');
+                if (!modal) {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Resigned faculty selection modal not found. Please refresh the page.', 'error');
+                    }
+                    return;
+                }
+
+                // Use window.openModal if available, otherwise fallback
+                if (typeof window.openModal === 'function') {
+                    window.openModal('resignedFacultySelectionModal');
+                } else {
+                    // Fallback to direct manipulation
+                    modal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    document.body.classList.add('modal-open');
+                    requestAnimationFrame(() => {
+                        modal.classList.add('active');
+                    });
+                }
+
+                await prepareResignedFacultySelectionState();
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open resigned faculty selection modal. Please try again.', 'error');
+                }
+            }
+        }
+
+window.closeResignedFacultySelectionModal = function({ resetSelection = true } = {}) {
+    console.log('[ResignedFacultySelectionModal] closeResignedFacultySelectionModal() called', { resetSelection });
+    try {
+        const modal = document.getElementById('resignedFacultySelectionModal');
+        if (!modal) {
+            console.warn('[ResignedFacultySelectionModal] Modal not found');
+            return;
+        }
+        console.log('[ResignedFacultySelectionModal] Closing modal:', modal.id);
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('resignedFacultySelectionModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+
+        if (resetSelection) {
+            resignedFacultySelectionState.selectedIds = new Set(resignedFacultySelectionState.originalSelectedIds);
+            renderResignedFacultyTable();
+        }
+
+        const selectAllCheckbox = document.getElementById('resignedSelectionSelectAll');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        }
+
+        updateResignedSelectionHeaderCounts();
+        updateResignedFacultySelectionSummary();
+    } catch (error) {
+        console.error('[ResignedFacultySelectionModal] Error closing modal:', error);
+    }
+}
+
+        async function prepareResignedFacultySelectionState() {
+            const container = document.getElementById('resignedFacultySelectionContainer');
+            if (container) {
+                container.innerHTML = `
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Loading faculty roster...</p>
+                    </div>
+                `;
+            }
+
+            resignedFacultySelectionState.filters = { department: '', employment: '', account: '' };
+            resignedFacultySelectionState.search = '';
+
+            const searchInput = document.getElementById('resignedSelectionSearch');
+            if (searchInput) {
+                searchInput.value = '';
+            }
+
+            await loadResignedFacultySelectionData(false);
+                initializeResignedFacultySelectionHandlers();
+        }
+
+        async function loadResignedFacultySelectionData(preserveSelection = false) {
+            const params = new URLSearchParams({ scope: 'selection', include_filters: '1' });
+            const { department, employment, account } = resignedFacultySelectionState.filters;
+            const { search } = resignedFacultySelectionState;
+
+            if (department) params.append('department_id', department);
+            if (employment) params.append('employment_status', employment);
+            if (account) params.append('account_status', account);
+            if (search) params.append('search', search);
+
+            try {
+                const response = await fetch(`${RESIGNED_FACULTY_API}?${params.toString()}`, { credentials: 'include' });
+                const payload = await response.json();
+
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.message || 'Failed to load faculty selection data.');
+                }
+
+                const data = payload.data || {};
+                resignedFacultySelectionState.allFaculty = Array.isArray(data.faculty) ? data.faculty : [];
+
+                if (!preserveSelection) {
+                    const serverSelected = (data.current_resigned_ids || []).map(Number);
+                    resignedFacultySelectionState.selectedIds = new Set(serverSelected);
+                    resignedFacultySelectionState.originalSelectedIds = new Set(serverSelected);
+                }
+
+                if (data.filters) {
+                    resignedFacultySelectionState.options = data.filters;
+                    updateResignedSelectionFilters();
+                }
+
+            renderResignedFacultySelectionList();
+                updateResignedSelectionHeaderCounts();
+            updateResignedFacultySelectionSummary();
+            } catch (error) {
+                console.error('Error loading faculty roster for selection:', error);
+                const container = document.getElementById('resignedFacultySelectionContainer');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="no-students">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Unable to load faculty roster.</p>
+                            <span>${error.message}</span>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function updateResignedSelectionFilters() {
+            const departmentSelect = document.getElementById('resignedSelectionDepartment');
+            const employmentSelect = document.getElementById('resignedSelectionEmployment');
+            const accountSelect = document.getElementById('resignedSelectionAccount');
+
+            const { departments = [], employment_statuses = [], account_statuses = [] } = resignedFacultySelectionState.options || {};
+
+            const departmentMap = new Map(departments.map(opt => [opt.value, opt.label]));
+            setSelectOptions(departmentSelect, departmentMap, 'All Departments');
+            setSelectOptions(employmentSelect, employment_statuses, 'All Employment Status');
+            setSelectOptions(accountSelect, account_statuses, 'All Account Status');
+
+            if (departmentSelect) departmentSelect.value = resignedFacultySelectionState.filters.department || '';
+            if (employmentSelect) employmentSelect.value = resignedFacultySelectionState.filters.employment || '';
+            if (accountSelect) accountSelect.value = resignedFacultySelectionState.filters.account || '';
+        }
+
+        function initializeResignedFacultySelectionHandlers() {
+            if (resignedSelectionInitialized) {
+                return;
+            }
+
+            const departmentSelect = document.getElementById('resignedSelectionDepartment');
+            const employmentSelect = document.getElementById('resignedSelectionEmployment');
+            const accountSelect = document.getElementById('resignedSelectionAccount');
+            const searchInput = document.getElementById('resignedSelectionSearch');
+            const selectAllCheckbox = document.getElementById('resignedSelectionSelectAll');
+
+            if (departmentSelect) {
+                departmentSelect.addEventListener('change', async () => {
+                    resignedFacultySelectionState.filters.department = departmentSelect.value;
+                    await loadResignedFacultySelectionData(true);
+                });
+            }
+
+            if (employmentSelect) {
+                employmentSelect.addEventListener('change', async () => {
+                    resignedFacultySelectionState.filters.employment = employmentSelect.value;
+                    await loadResignedFacultySelectionData(true);
+                });
+            }
+
+            if (accountSelect) {
+                accountSelect.addEventListener('change', async () => {
+                    resignedFacultySelectionState.filters.account = accountSelect.value;
+                    await loadResignedFacultySelectionData(true);
+                });
+            }
+
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    if (resignedSelectionSearchTimer) {
+                        clearTimeout(resignedSelectionSearchTimer);
+                    }
+                    resignedSelectionSearchTimer = setTimeout(() => {
+                        resignedFacultySelectionState.search = searchInput.value.trim();
+                        loadResignedFacultySelectionData(true);
+                    }, 250);
+                });
+            }
+
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', event => {
+                    toggleAllResignedFaculty(event.target.checked);
+                });
+            }
+
+            resignedSelectionInitialized = true;
+        }
+
+        function renderResignedFacultySelectionList() {
+            const container = document.getElementById('resignedFacultySelectionContainer');
+            if (!container) {
+                return;
+            }
+
+            const facultyList = resignedFacultySelectionState.allFaculty;
+            if (!facultyList || facultyList.length === 0) {
+                container.innerHTML = `
+                    <div class="no-students">
+                        <i class="fas fa-user-slash"></i>
+                        <p>No faculty members match the current filters.</p>
+                    </div>
+                `;
+                updateResignedSelectionHeaderCounts();
+                updateResignedFacultySelectionSummary();
+                updateResignedSelectAllCheckbox();
+                return;
+            }
+
+            container.innerHTML = facultyList.map(faculty => {
+                const userId = Number(faculty.user_id);
+                const isSelected = resignedFacultySelectionState.selectedIds.has(userId);
+                const statusRaw = (faculty.status || '').toLowerCase();
+                const badgeClass = `status-badge account-${statusRaw || 'inactive'}`;
+                const statusLabel = statusRaw ? statusRaw.toUpperCase() : 'UNKNOWN';
+                const employmentStatus = faculty.employment_status || 'Not specified';
+                const departmentName = faculty.department_name || 'Unassigned Department';
+                const employeeNumber = faculty.employee_number || 'N/A';
+                const fullName = getFacultyFullName(faculty);
+
+                return `
+                    <div class="faculty-roster-item ${isSelected ? 'selected' : ''}">
+                        <div class="faculty-roster-checkbox">
+                            <input type="checkbox"
+                                data-user-id="${userId}"
+                                ${isSelected ? 'checked' : ''}
+                                onchange="toggleResignedFacultySelection(${userId})">
+                        </div>
+                        <div class="faculty-roster-info">
+                            <div class="faculty-roster-name">
+                                ${fullName}
+                                <span class="${badgeClass}">${statusLabel}</span>
+                            </div>
+                            <div class="faculty-roster-employee">${employeeNumber}</div>
+                            <div class="faculty-roster-department">${departmentName}</div>
+                            <div class="faculty-roster-employment">${employmentStatus}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            updateResignedSelectAllCheckbox();
+        }
+
+        function updateResignedSelectAllCheckbox() {
+            const selectAllCheckbox = document.getElementById('resignedSelectionSelectAll');
+            if (!selectAllCheckbox) {
+                return;
+            }
+
+            const visibleIds = resignedFacultySelectionState.allFaculty.map(faculty => Number(faculty.user_id));
+            if (visibleIds.length === 0) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                return;
+            }
+
+            const selectedVisible = visibleIds.filter(id => resignedFacultySelectionState.selectedIds.has(id)).length;
+
+            if (selectedVisible === 0) {
+                selectAllCheckbox.checked = false;
+                selectAllCheckbox.indeterminate = false;
+            } else if (selectedVisible === visibleIds.length) {
+                    selectAllCheckbox.checked = true;
+                    selectAllCheckbox.indeterminate = false;
+                } else {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = true;
+                }
+            }
+
+        function updateResignedSelectionHeaderCounts() {
+            const selectedCountEl = document.getElementById('resignedSelectionSelectedCount');
+            if (selectedCountEl) {
+                selectedCountEl.textContent = `${resignedFacultySelectionState.selectedIds.size} selected`;
+            }
+        }
+
+        function updateResignedFacultySelectionSummary() {
+            const summaryContainer = document.getElementById('resignedSelectionSummary');
+            const summaryCount = document.getElementById('resignedSelectionSummaryCount');
+            const summaryList = document.getElementById('resignedSelectionSummaryList');
+            const headerSelectedCount = document.getElementById('resignedSelectionSelectedCount');
+
+            if (!summaryContainer || !summaryCount || !summaryList) {
+                return;
+            }
+
+            const selectedFaculty = resignedFacultySelectionState.allFaculty.filter(faculty =>
+                resignedFacultySelectionState.selectedIds.has(Number(faculty.user_id))
+            );
+
+            if (selectedFaculty.length === 0) {
+                summaryContainer.classList.remove('is-visible');
+                summaryContainer.style.display = 'none';
+                summaryList.innerHTML = '<p class="no-selection">No faculty members selected.</p>';
+                summaryCount.textContent = '0 selected';
+                if (headerSelectedCount) {
+                    headerSelectedCount.textContent = '0 selected';
+                }
+                return;
+            }
+
+            summaryContainer.style.display = '';
+            summaryContainer.classList.add('is-visible');
+            summaryCount.textContent = `${selectedFaculty.length} selected`;
+            if (headerSelectedCount) {
+                headerSelectedCount.textContent = `${resignedFacultySelectionState.selectedIds.size} selected`;
+            }
+
+            const listHtml = selectedFaculty.map(faculty => {
+                const fullName = getFacultyFullName(faculty);
+                const employeeNumber = faculty.employee_number || 'N/A';
+                const employment = faculty.employment_status || 'Not specified';
+                const department = faculty.department_name || 'Unassigned Department';
+                return `
+                    <div class="summary-item">
+                        <div class="summary-student-info">
+                            <div class="summary-student-name">${fullName}</div>
+                            <div class="summary-student-details">
+                                <span class="summary-detail-item">${employeeNumber}</span>
+                                <span class="summary-detail-item">${department}</span>
+                                <span class="summary-detail-item">${employment}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            summaryList.innerHTML = listHtml;
+        }
+
+        function toggleResignedFacultySelection(userId) {
+            const numericId = Number(userId);
+            if (resignedFacultySelectionState.selectedIds.has(numericId)) {
+                resignedFacultySelectionState.selectedIds.delete(numericId);
+            } else {
+                resignedFacultySelectionState.selectedIds.add(numericId);
+            }
+            renderResignedFacultySelectionList();
+            updateResignedSelectionHeaderCounts();
+            updateResignedFacultySelectionSummary();
+            renderResignedFacultyTable();
+        }
+
+        function toggleAllResignedFaculty(isChecked) {
+            const visibleFaculty = resignedFacultySelectionState.allFaculty;
+            if (isChecked) {
+                visibleFaculty.forEach(faculty => resignedFacultySelectionState.selectedIds.add(Number(faculty.user_id)));
+            } else {
+                visibleFaculty.forEach(faculty => resignedFacultySelectionState.selectedIds.delete(Number(faculty.user_id)));
+            }
+
+            renderResignedFacultySelectionList();
+            updateResignedSelectionHeaderCounts();
+            updateResignedFacultySelectionSummary();
+            renderResignedFacultyTable();
+        }
+
+        async function confirmResignedFacultySelection() {
+            const confirmBtn = document.getElementById('confirmResignedFacultySelectionBtn');
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = 'Saving...';
+            }
+
+            const newSelectedSet = resignedFacultySelectionState.selectedIds || new Set();
+            const originalSelectedSet = resignedFacultySelectionState.originalSelectedIds || new Set();
+
+            const toResign = Array.from(newSelectedSet).filter(id => !originalSelectedSet.has(id));
+            const toRestore = Array.from(originalSelectedSet).filter(id => !newSelectedSet.has(id));
+
+            if (toResign.length === 0 && toRestore.length === 0) {
+                showToast('No changes to update.', 'info');
+                closeResignedFacultySelectionModal({ resetSelection: false });
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Confirm Selection';
+                }
+                return;
+            }
+
+            try {
+                const response = await fetch(RESIGNED_FACULTY_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        resign_ids: toResign,
+                        restore_ids: toRestore
+                    })
+                });
+
+                const payload = await response.json();
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.message || 'Failed to update resigned faculty status.');
+                }
+
+                resignedFacultySelectionState.originalSelectedIds = new Set(resignedFacultySelectionState.selectedIds);
+                resignedFacultyState.currentResignedIds = new Set(resignedFacultySelectionState.selectedIds);
+
+            showToast('Resigned faculty selection updated.', 'success');
+                document.dispatchEvent(new CustomEvent('resigned-faculty-updated', { detail: { count: newSelectedSet.size } }));
+
+                await loadResignedFacultyList();
+                closeResignedFacultySelectionModal({ resetSelection: false });
+            } catch (error) {
+                console.error('Error updating resigned faculty selection:', error);
+                showToast(error.message || 'Unable to update resigned faculty selection.', 'error');
+            } finally {
+                if (confirmBtn) {
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = 'Confirm Selection';
+                }
+            }
+        }
+
+        function getFacultyFullName(faculty) {
+            return [faculty.last_name, faculty.first_name, faculty.middle_name || '']
+                .filter(Boolean)
+                .join(', ')
+                .replace(', ,', ',')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function refreshGraduatedStudentsData() {
+            loadGraduatedStudentsData('college');
+            loadGraduatedStudentsData('shs');
+        }
+
+        // Graduation Confirmation Handler
+        let graduationConfirmedStatus = false;
+        
+        // Listen for graduation confirmation event
+        document.addEventListener('graduation-confirmed', function(event) {
+            graduationConfirmedStatus = event.detail.confirmed;
+            updateAddYearButtonState();
+            refreshGraduatedStudentsData();
+            
+            if (graduationConfirmedStatus) {
+                showToast('Graduation selection confirmed. You can now create a new school year.', 'success');
+            }
+        });
+
+        document.addEventListener('resigned-faculty-updated', function(event) {
+            const count = event.detail?.count ?? 0;
+            console.log(`Resigned faculty selection updated (${count} selected).`);
+        });
+        
+        // Update Add Year button state based on graduation confirmation
+        function updateAddYearButtonState() {
+            const addYearBtn = document.getElementById('addYearBtn');
+            if (addYearBtn) {
+                if (graduationConfirmedStatus) {
+                    addYearBtn.disabled = false;
+                    addYearBtn.title = 'Create a new school year';
+                    addYearBtn.classList.remove('btn-primary');
+                    addYearBtn.classList.add('btn-primary');
+                } else {
+                    addYearBtn.disabled = true;
+                    addYearBtn.title = 'Graduation must be confirmed first';
+                }
+            }
+        }
+        
+        // Check graduation confirmation status on page load
+        async function checkGraduationConfirmationStatus() {
+            try {
+                // You can add an API call here to check if graduation was already confirmed
+                // For now, we'll rely on the modal's internal state
+                // This can be enhanced later with a database check
+            } catch (error) {
+                console.error('Error checking graduation confirmation status:', error);
+            }
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAddYearButtonState();
+            checkGraduationConfirmationStatus();
+        });
+
         // Confirmation Modal Functions
         window.confirmationResolve = null;
         
         function showConfirmationModal(title, message, confirmText = 'Confirm', cancelText = 'Cancel', type = 'info') {
             return new Promise((resolve) => {
-                window.confirmationResolve = resolve;
-                
-                const modal = document.getElementById('confirmationModal');
-                const header = document.getElementById('alertHeader');
-                const icon = document.getElementById('alertIcon');
-                const titleEl = document.getElementById('alertTitle');
-                const messageEl = document.getElementById('alertMessage');
-                const confirmBtn = document.getElementById('confirmBtn');
-                const cancelBtn = document.getElementById('cancelBtn');
-                
-                // Set content
-                titleEl.textContent = title;
-                messageEl.textContent = message;
-                confirmBtn.textContent = confirmText;
-                cancelBtn.textContent = cancelText;
-                
-                // Set styling based on type
-                header.className = `alert-modal-header alert-${type}`;
-                
-                // Set icon based on type
-                const icons = {
-                    'info': 'fas fa-info-circle',
-                    'warning': 'fas fa-exclamation-triangle',
-                    'danger': 'fas fa-exclamation-circle',
-                    'success': 'fas fa-check-circle'
-                };
-                icon.className = icons[type] || icons['info'];
-                
-                // Set button styling
-                if (type === 'danger') {
-                    confirmBtn.className = 'btn btn-danger';
-                } else if (type === 'warning') {
-                    confirmBtn.className = 'btn btn-warning';
-                } else {
-                    confirmBtn.className = 'btn btn-primary';
+                try {
+                    window.confirmationResolve = resolve;
+                    
+                    const modal = document.getElementById('confirmationModal');
+                    if (!modal) {
+                        if (typeof showToastNotification === 'function') {
+                            showToastNotification('Confirmation modal not found. Please refresh the page.', 'error');
+                        }
+                        resolve(false);
+                        return;
+                    }
+
+                    const header = document.getElementById('alertHeader');
+                    const icon = document.getElementById('alertIcon');
+                    const titleEl = document.getElementById('alertTitle');
+                    const messageEl = document.getElementById('alertMessage');
+                    const confirmBtn = document.getElementById('confirmBtn');
+                    const cancelBtn = document.getElementById('cancelBtn');
+                    
+                    // Set content
+                    if (titleEl) titleEl.textContent = title;
+                    if (messageEl) messageEl.textContent = message;
+                    if (confirmBtn) confirmBtn.textContent = confirmText;
+                    if (cancelBtn) cancelBtn.textContent = cancelText;
+                    
+                    // Set styling based on type
+                    if (header) header.className = `alert-modal-header alert-${type}`;
+                    
+                    // Set icon based on type
+                    const icons = {
+                        'info': 'fas fa-info-circle',
+                        'warning': 'fas fa-exclamation-triangle',
+                        'danger': 'fas fa-exclamation-circle',
+                        'success': 'fas fa-check-circle'
+                    };
+                    if (icon) icon.className = icons[type] || icons['info'];
+                    
+                    // Set button styling
+                    if (confirmBtn) {
+                        if (type === 'danger') {
+                            confirmBtn.className = 'btn btn-danger';
+                        } else if (type === 'warning') {
+                            confirmBtn.className = 'btn btn-warning';
+                        } else {
+                            confirmBtn.className = 'btn btn-primary';
+                        }
+                    }
+                    
+                    // Use window.openModal if available, otherwise fallback
+                    if (typeof window.openModal === 'function') {
+                        window.openModal('confirmationModal');
+                    } else {
+                        // Fallback to direct manipulation
+                        modal.style.display = 'flex';
+                        document.body.style.overflow = 'hidden';
+                        document.body.classList.add('modal-open');
+                        requestAnimationFrame(() => {
+                            modal.classList.add('active');
+                        });
+                    }
+                } catch (error) {
+                    if (window.confirmationResolve) {
+                        window.confirmationResolve(false);
+                        window.confirmationResolve = null;
+                    }
                 }
-                
-                // Show modal
-                modal.style.display = 'flex';
-                setTimeout(() => modal.classList.add('active'), 10);
             });
         }
         
         function closeConfirmationModal() {
-            const modal = document.getElementById('confirmationModal');
-            modal.classList.remove('active');
-            setTimeout(() => modal.style.display = 'none', 300);
-            
-            if (window.confirmationResolve) {
-                window.confirmationResolve(false);
-                window.confirmationResolve = null;
+            try {
+                const modal = document.getElementById('confirmationModal');
+                if (!modal) return;
+
+                // Use window.closeModal if available, otherwise fallback
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('confirmationModal');
+                } else {
+                    // Fallback to direct manipulation
+                    modal.classList.remove('active');
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                        document.body.style.overflow = 'auto';
+                        document.body.classList.remove('modal-open');
+                    }, 300);
+                }
+                
+                if (window.confirmationResolve) {
+                    window.confirmationResolve(false);
+                    window.confirmationResolve = null;
+                }
+            } catch (error) {
+                // Silent error handling
             }
         }
         
@@ -543,15 +2160,28 @@ if (session_status() == PHP_SESSION_NONE) {
                 ]);
                 
                 const items = signatoriesData.signatories || [];
-                const settings = settingsData.settings?.[0] || {};
+                const settings = settingsData.settings ? settingsData.settings[0] : {};
+                const includeProgramHead = settings && (settings.include_program_head == 1 || settings.include_program_head === true);
                 
-                if (items.length === 0) {
+                if (items.length === 0 && !includeProgramHead) {
                     listEl.innerHTML = '<div style="color:#6c757d;padding:6px 0;">No signatories assigned to this sector yet</div>';
                     return;
                 }
                 
+                let finalHtml = '';
+
+                // Add the dynamic "Program Head" header if enabled for the sector
+                if (includeProgramHead) {
+                    const userTypeName = (normalizedType === 'Faculty') ? 'faculty' : 'student';
+                    finalHtml += `
+                        <div class="signatory-item-header">
+                            <strong>Program Head (Dynamic)</strong>
+                            <span class="signatory-requirement">(Assigned based on ${userTypeName}'s department)</span>
+                        </div>`;
+                }
+
                 // Enhanced render with required signatory styling
-                const regularSignatoriesHtml = items.map(it => {
+                finalHtml += items.map(it => {
                     let itemClass = 'signatory-item optional';
                     let requirementText = '';
                     
@@ -590,15 +2220,6 @@ if (session_status() == PHP_SESSION_NONE) {
                     `;
                 }).join('');
                 
-                let finalHtml = regularSignatoriesHtml;
-                if (settings.include_program_head == 1) {
-                    finalHtml = `
-                        <div class="signatory-item-header">
-                            <strong>Program Head (Dynamic)</strong>
-                            <span class="signatory-requirement">(Assigned based on student's department)</span>
-                        </div>
-                    ` + finalHtml;
-                }
                 listEl.innerHTML = finalHtml;
                 
             } catch (error) {
@@ -784,8 +2405,27 @@ if (session_status() == PHP_SESSION_NONE) {
             }
             
             const modal = document.getElementById('addScopeModal');
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
+            if (!modal) {
+                console.error('[ClearanceManagement] addScopeModal not found');
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Add signatory modal not found. Please refresh the page.', 'error');
+                }
+                return;
+            }
+            
+            console.log('[ClearanceManagement] Opening add scope modal for:', normalizedType);
+            
+            // Use window.openModal if available, otherwise fallback
+            if (typeof window.openModal === 'function') {
+                window.openModal('addScopeModal');
+            } else {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+                document.body.classList.add('modal-open');
+                requestAnimationFrame(() => {
+                    modal.classList.add('active');
+                });
+            }
             
             // Correctly lock the "Add" button based on the specific sector's status
             const addBtn = modal.querySelector('.modal-action-primary');
@@ -793,8 +2433,11 @@ if (session_status() == PHP_SESSION_NONE) {
                 addBtn.disabled = isSectorLocked(normalizedType);
             }
             
-            // Load Program Head preview for this sector
-            await loadProgramHeadPreview(normalizedType);
+            // Load Program Head preview for this sector (don't await - let it load in background)
+            // This way the modal displays even if there's an error
+            loadProgramHeadPreview(normalizedType).catch(err => {
+                console.error('[ClearanceManagement] Program Head preview failed, but modal is still open:', err);
+            });
             
             // Load all staff table (excluding PH)
             try {
@@ -848,43 +2491,45 @@ if (session_status() == PHP_SESSION_NONE) {
                 const previewContainer = document.getElementById('programHeadPreviewContainer');
                 const previewTitle = document.getElementById('programHeadPreviewTitle');
                 const previewList = document.getElementById('programHeadPreviewList');
-                
-                if (previewContainer && previewTitle && previewList) {
-                    // Update title
-                    previewTitle.textContent = `Program Heads in ${sector}`;
-                    
-                    if (programHeads.length === 0) {
-                        previewList.innerHTML = '<div style="color:#6c757d;padding:8px;font-style:italic;">No Program Heads assigned to departments in this sector</div>';
-                        previewContainer.style.display = 'block'; // Show even when empty for user awareness
-                    } else {
-                        const html = programHeads.map(ph => `
-                            <div class="program-head-preview-item">
-                                <div class="ph-info">
-                                    <strong>${ph.first_name} ${ph.last_name}</strong>
-                                    <span class="ph-employee">(${ph.employee_number})</span>
-                                </div>
-                                <div class="ph-departments">
-                                    <i class="fas fa-building"></i> ${ph.department_name}
-                                </div>
-                            </div>
-                        `).join('');
-                        previewList.innerHTML = html;
-                        previewContainer.style.display = 'block';
-                    }
-                    
-                    console.log(`✅ Program Head preview updated for ${sector}`);
-                } else {
+
+                if (!previewContainer || !previewTitle || !previewList) {
                     console.error('❌ Program Head preview elements not found in DOM');
+                    return;
+                }
+
+                // Update title
+                previewTitle.textContent = `Program Heads in ${sector}`;
+                
+                if (programHeads.length === 0) {
+                    previewList.innerHTML = '<div style="color:#6c757d;padding:8px;font-style:italic;">No Program Heads assigned to departments in this sector.</div>';
+                    previewContainer.style.display = 'block';
+                } else {
+                    const html = programHeads.map(ph => `
+                        <div class="program-head-preview-item">
+                            <div class="ph-info">
+                                <strong>${ph.first_name} ${ph.last_name}</strong>
+                                <span class="ph-employee">(${ph.employee_number})</span>
+                            </div>
+                            <div class="ph-departments">
+                                <i class="fas fa-building"></i> ${ph.department_name}
+                            </div>
+                        </div>
+                    `).join('');
+                    previewList.innerHTML = html;
+                    previewContainer.style.display = 'block';
                 }
             } catch (error) {
                 console.error('❌ Error loading Program Head preview:', error);
-                // Show error message in preview
+                // Show error message in preview but don't prevent modal from displaying
                 const previewContainer = document.getElementById('programHeadPreviewContainer');
+                const previewTitle = document.getElementById('programHeadPreviewTitle');
                 const previewList = document.getElementById('programHeadPreviewList');
-                if (previewContainer && previewList) {
-                    previewList.innerHTML = '<div style="color:#dc3545;padding:8px;">Error loading Program Head information</div>';
+                if (previewContainer && previewTitle && previewList) {
+                    previewTitle.textContent = `Program Heads in ${sector}`;
+                    previewList.innerHTML = '<div style="color:#dc3545;padding:8px;">⚠️ Unable to load Program Head information. You can still proceed with adding signatories.</div>';
                     previewContainer.style.display = 'block';
                 }
+                // Don't throw - allow modal to continue displaying
             }
         }
 
@@ -908,13 +2553,29 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         function closeAddScopeModal(){
-            const modal = document.getElementById('addScopeModal');
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            // clear selection marker
-            const sel = document.querySelector('#scopeSearchResults .selected');
-            if (sel) sel.classList.remove('selected');
-            document.getElementById('scopeSearchResults').dataset.selectedUserId = '';
+            try {
+                const modal = document.getElementById('addScopeModal');
+                if (!modal) return;
+
+                // Use window.closeModal if available, otherwise fallback
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('addScopeModal');
+                } else {
+                    // Fallback to direct manipulation
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                    document.body.classList.remove('modal-open');
+                    modal.classList.remove('active');
+                }
+
+                // clear selection marker
+                const sel = document.querySelector('#scopeSearchResults .selected');
+                if (sel) sel.classList.remove('selected');
+                const searchResults = document.getElementById('scopeSearchResults');
+                if (searchResults) searchResults.dataset.selectedUserId = '';
+            } catch (error) {
+                // Silent error handling
+            }
         }
 
         function debouncedScopeSearch(){
@@ -2832,12 +4493,43 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
 
-        function openExportModal() {
-            openClearanceExportModal();
+
+        // Graduation and Retention Modal Functions
+        // Note: These are wrapper functions that call the window functions from the modals
+        // The actual implementations are in the modal files
+        if (typeof window.openEligibleForGraduationModal !== 'function') {
+            // Fallback if modal script hasn't loaded yet
+            window.openEligibleForGraduationModal = function() {
+                const modal = document.getElementById('eligibleForGraduationModal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    showToast('Please wait for modal to fully load...', 'info');
+                } else {
+                    showToast('Graduation modal not available. Please refresh the page.', 'error');
+                }
+            };
+        }
+
+        if (typeof window.openRetainYearLevelModal !== 'function') {
+            // Fallback if modal script hasn't loaded yet
+            window.openRetainYearLevelModal = function() {
+                const modal = document.getElementById('retainYearLevelModal');
+                if (modal) {
+                    modal.style.display = 'flex';
+                    document.body.style.overflow = 'hidden';
+                    showToast('Please wait for modal to fully load...', 'info');
+                } else {
+                    showToast('Retention modal not available. Please refresh the page.', 'error');
+                }
+            };
         }
 
         // Initialize accordions as expanded by default
         document.addEventListener('DOMContentLoaded', async function() {
+            initializeTabNavigation();
+            initializeGraduatedStudentsSection();
+            initializeResignedFacultySection();
             // All accordions start expanded
             const accordions = document.querySelectorAll('.accordion-content');
             accordions.forEach(accordion => {
@@ -3165,13 +4857,29 @@ if (session_status() == PHP_SESSION_NONE) {
     <script>
         // Override the alerts.js executeConfirmedAction to prevent conflicts
         window.executeConfirmedAction = function() {
-            const modal = document.getElementById('confirmationModal');
-            modal.classList.remove('active');
-            setTimeout(() => modal.style.display = 'none', 300);
-            
-            if (window.confirmationResolve) {
-                window.confirmationResolve(true);
-                window.confirmationResolve = null;
+            try {
+                const modal = document.getElementById('confirmationModal');
+                if (!modal) return;
+
+                // Use window.closeModal if available, otherwise fallback
+                if (typeof window.closeModal === 'function') {
+                    window.closeModal('confirmationModal');
+                } else {
+                    // Fallback to direct manipulation
+                    modal.classList.remove('active');
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                        document.body.style.overflow = 'auto';
+                        document.body.classList.remove('modal-open');
+                    }, 300);
+                }
+                
+                if (window.confirmationResolve) {
+                    window.confirmationResolve(true);
+                    window.confirmationResolve = null;
+                }
+            } catch (error) {
+                // Silent error handling
             }
         }
     </script>

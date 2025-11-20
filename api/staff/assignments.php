@@ -58,45 +58,42 @@ try {
 
 function handleGetAssignments($pdo) {
     $staffId = $_GET['staff_id'] ?? null;
+    $userId = $_GET['user_id'] ?? null;
     $departmentId = $_GET['department_id'] ?? null;
-    $sectorId = $_GET['sector_id'] ?? null;
     
-    if (!$staffId && !$departmentId && !$sectorId) {
+    // Support both staff_id (legacy) and user_id (new)
+    $targetUserId = $userId ?? $staffId;
+    
+    if (!$targetUserId && !$departmentId) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'At least one filter parameter is required']);
         return;
     }
     
-    $where = ['sda.is_active = 1'];
+    $where = ['uda.is_active = 1'];
     $params = [];
     
-    if ($staffId) {
-        $where[] = 'sda.staff_id = :staff_id';
-        $params[':staff_id'] = $staffId;
+    if ($targetUserId) {
+        $where[] = 'uda.user_id = :user_id';
+        $params[':user_id'] = $targetUserId;
     }
     
     if ($departmentId) {
-        $where[] = 'sda.department_id = :department_id';
+        $where[] = 'uda.department_id = :department_id';
         $params[':department_id'] = $departmentId;
     }
     
-    if ($sectorId) {
-        $where[] = 'sda.sector_id = :sector_id';
-        $params[':sector_id'] = $sectorId;
-    }
-    
-    $sql = "SELECT sda.assignment_id, sda.staff_id, sda.department_id, sda.sector_id, 
-                   sda.is_primary, sda.assigned_at, sda.assigned_by,
-                   s.staff_category, u.first_name, u.last_name, u.username,
+    $sql = "SELECT uda.user_id, uda.department_id, 
+                   uda.is_primary, uda.created_at,
+                   u.first_name, u.last_name, u.username,
                    d.department_name, d.department_code, d.department_type,
-                   sec.sector_name
-            FROM staff_department_assignments sda
-            JOIN staff s ON sda.staff_id = s.employee_number
-            JOIN users u ON s.user_id = u.user_id
-            JOIN departments d ON sda.department_id = d.department_id
-            JOIN sectors sec ON sda.sector_id = sec.sector_id
+                   COALESCE(sec.sector_name, d.department_type) as sector_name
+            FROM user_department_assignments uda
+            JOIN users u ON uda.user_id = u.user_id
+            JOIN departments d ON uda.department_id = d.department_id
+            LEFT JOIN sectors sec ON d.sector_id = sec.sector_id
             WHERE " . implode(' AND ', $where) . "
-            ORDER BY sda.is_primary DESC, d.department_name ASC";
+            ORDER BY uda.is_primary DESC, d.department_name ASC";
     
     $stmt = $pdo->prepare($sql);
     foreach ($params as $key => $value) {
@@ -119,53 +116,36 @@ function handleCreateAssignment($pdo, $auth) {
     }
     
     $staffId = $input['staff_id'] ?? null;
+    $userId = $input['user_id'] ?? null;
     $departmentId = $input['department_id'] ?? null;
     $isPrimary = $input['is_primary'] ?? false;
     
-    if (!$staffId || !$departmentId) {
+    // Support both staff_id (legacy) and user_id (new)
+    $targetUserId = $userId ?? $staffId;
+    
+    if (!$targetUserId || !$departmentId) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'staff_id and department_id are required']);
+        echo json_encode(['success' => false, 'message' => 'user_id and department_id are required']);
         return;
     }
     
-    // Validate staff is a Program Head
-    $stmt = $pdo->prepare("SELECT staff_category FROM staff WHERE user_id = ?");
-    $stmt->execute([$staffId]);
-    $staff = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$staff || $staff['staff_category'] !== 'Program Head') {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Only Program Heads can be assigned to departments. The selected user is not a Program Head.']);
-        return;
-    }
-    
-    // Get sector_id from department_id
-    $secStmt = $pdo->prepare("SELECT sector_id FROM departments WHERE department_id = ?");
-    $secStmt->execute([$departmentId]);
-    $sectorId = $secStmt->fetchColumn();
-    if (!$sectorId) {
-        http_response_code(404);
-        echo json_encode(['success' => false, 'message' => 'Department not found or has no sector assigned']);
-        return;
-    }
-
     // Check if assignment already exists
-    $stmt = $pdo->prepare("SELECT assignment_id FROM staff_department_assignments WHERE staff_id = ? AND department_id = ?");
-    $stmt->execute([$staffId, $departmentId]);
+    $stmt = $pdo->prepare("SELECT 1 FROM user_department_assignments WHERE user_id = ? AND department_id = ?");
+    $stmt->execute([$targetUserId, $departmentId]);
     if ($stmt->fetch()) {
         echo json_encode(['success' => false, 'message' => 'Assignment already exists']);
         return;
     }
     
-    // If setting as primary, unset other primary assignments for this staff
+    // If setting as primary, unset other primary assignments for this user
     if ($isPrimary) {
-        $stmt = $pdo->prepare("UPDATE staff_department_assignments SET is_primary = 0 WHERE staff_id = ? AND is_active = 1");
-        $stmt->execute([$staffId]);
+        $stmt = $pdo->prepare("UPDATE user_department_assignments SET is_primary = 0 WHERE user_id = ? AND is_active = 1");
+        $stmt->execute([$targetUserId]);
     }
     
     // Create new assignment
-    $stmt = $pdo->prepare("INSERT INTO staff_department_assignments (staff_id, department_id, sector_id, is_primary, assigned_by) VALUES (?, ?, ?, ?, ?)");
-    $stmt->execute([$staffId, $departmentId, $sectorId, $isPrimary ? 1 : 0, $auth->getUserId() ?? 1]);
+    $stmt = $pdo->prepare("INSERT INTO user_department_assignments (user_id, department_id, is_primary, is_active) VALUES (?, ?, ?, 1)");
+    $stmt->execute([$targetUserId, $departmentId, $isPrimary ? 1 : 0]);
     
     echo json_encode([
         'success' => true,
@@ -182,35 +162,34 @@ function handleUpdateAssignment($pdo, $auth) {
         return;
     }
     
-    $assignmentId = $input['assignment_id'] ?? null;
+    $userId = $input['user_id'] ?? null;
+    $departmentId = $input['department_id'] ?? null;
     $isPrimary = $input['is_primary'] ?? null;
     
-    if (!$assignmentId || $isPrimary === null) {
+    if (!$userId || !$departmentId || $isPrimary === null) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'assignment_id and is_primary are required']);
+        echo json_encode(['success' => false, 'message' => 'user_id, department_id and is_primary are required']);
         return;
     }
     
     // Get current assignment
-    $stmt = $pdo->prepare("SELECT staff_id FROM staff_department_assignments WHERE assignment_id = ? AND is_active = 1");
-    $stmt->execute([$assignmentId]);
-    $assignment = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$assignment) {
+    $stmt = $pdo->prepare("SELECT 1 FROM user_department_assignments WHERE user_id = ? AND department_id = ? AND is_active = 1");
+    $stmt->execute([$userId, $departmentId]);
+    if (!$stmt->fetch()) {
         http_response_code(404);
         echo json_encode(['success' => false, 'message' => 'Assignment not found']);
         return;
     }
     
-    // If setting as primary, unset other primary assignments for this staff
+    // If setting as primary, unset other primary assignments for this user
     if ($isPrimary) {
-        $stmt = $pdo->prepare("UPDATE staff_department_assignments SET is_primary = 0 WHERE staff_id = ? AND assignment_id != ? AND is_active = 1");
-        $stmt->execute([$assignment['staff_id'], $assignmentId]);
+        $stmt = $pdo->prepare("UPDATE user_department_assignments SET is_primary = 0 WHERE user_id = ? AND department_id != ? AND is_active = 1");
+        $stmt->execute([$userId, $departmentId]);
     }
     
     // Update assignment
-    $stmt = $pdo->prepare("UPDATE staff_department_assignments SET is_primary = ?, assigned_by = ? WHERE assignment_id = ?");
-    $stmt->execute([$isPrimary ? 1 : 0, $auth->getUserId(), $assignmentId]);
+    $stmt = $pdo->prepare("UPDATE user_department_assignments SET is_primary = ? WHERE user_id = ? AND department_id = ?");
+    $stmt->execute([$isPrimary ? 1 : 0, $userId, $departmentId]);
     
     echo json_encode([
         'success' => true,
@@ -226,25 +205,18 @@ function handleDeleteAssignment($pdo, $auth) {
         return;
     }
     
-    $assignmentId = $input['assignment_id'] ?? null;
-    $staffId = $input['staff_id'] ?? null;
+    $userId = $input['user_id'] ?? $input['staff_id'] ?? null;
     $departmentId = $input['department_id'] ?? null;
     
-    if (!$assignmentId && (!$staffId || !$departmentId)) {
+    if (!$userId || !$departmentId) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'assignment_id or (staff_id and department_id) are required']);
+        echo json_encode(['success' => false, 'message' => 'user_id and department_id are required']);
         return;
     }
     
-    if ($assignmentId) {
-        // Delete by assignment ID
-        $stmt = $pdo->prepare("DELETE FROM staff_department_assignments WHERE assignment_id = ?");
-        $stmt->execute([$assignmentId]);
-    } else {
-        // Delete by staff_id and department_id
-        $stmt = $pdo->prepare("DELETE FROM staff_department_assignments WHERE staff_id = ? AND department_id = ?");
-        $stmt->execute([$staffId, $departmentId]);
-    }
+    // Delete by user_id and department_id
+    $stmt = $pdo->prepare("DELETE FROM user_department_assignments WHERE user_id = ? AND department_id = ?");
+    $stmt->execute([$userId, $departmentId]);
     
     echo json_encode([
         'success' => true,

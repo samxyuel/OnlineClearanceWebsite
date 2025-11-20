@@ -16,8 +16,7 @@
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <!-- Header -->
@@ -86,6 +85,12 @@
                                             </div>
                                         </div>
                                         <div class="actions-section">
+                                            <div class="include-inactive-toggle">
+                                                <label class="course-toggle-label">
+                                                    <input type="checkbox" id="includeInactiveToggle">
+                                                    <span>Include Inactive</span>
+                                                </label>
+                                            </div>
                                             <div class="left-actions">
                                             <button class="btn btn-outline btn-compact" onclick="openImportModal()">
                                                 <i class="fas fa-download"></i>
@@ -113,15 +118,15 @@
                                     <h3><i class="fas fa-folder"></i> Department Categories</h3>
                                 </div>
                                     <div class="compact-tab-navigation">
-                                        <button class="compact-tab-button active" onclick="switchTab('college')">
+                                        <button class="compact-tab-button active" onclick="switchTab('college', this)">
                                             <i class="fas fa-graduation-cap"></i>
                                             <span>College</span>
                                         </button>
-                                        <button class="compact-tab-button" onclick="switchTab('senior-high')">
+                                        <button class="compact-tab-button" onclick="switchTab('senior-high', this)">
                                             <i class="fas fa-school"></i>
                                             <span>Senior High School</span>
                                         </button>
-                                    <button class="compact-tab-button" onclick="switchTab('faculty')">
+                                    <button class="compact-tab-button" onclick="switchTab('faculty', this)">
                                         <i class="fas fa-chalkboard-teacher"></i>
                                         <span>Faculty</span>
                                     </button>
@@ -133,340 +138,24 @@
                                 <div class="card-content">
                                     <!-- College Departments -->
                                     <div class="departments-container active" id="college-departments">
-                                <!-- ICT Department -->
-                                <div class="department-card" data-department="ICT">
-                                    <div class="department-card-header">
-                                        <span class="department-icon"><i class="fas fa-laptop-code"></i></span>
-                                        <span class="department-id">ICT</span>
-                                    </div>
-                                    <div class="department-card-body">
-                                        <h4 class="department-name">Information & Communication Technology</h4>
-                                        <p class="department-courses">3 Courses</p>
-                                        <p class="department-status">Active</p>
-                                        <div class="department-content-spacer"></div>
-                                    </div>
-                                    <div class="department-card-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAddCourseModal('ICT')">
-                                            <i class="fas fa-plus"></i> Add Course
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="openEditDepartmentModal('ICT')">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAssignPHModal('College','Information & Communication Technology','ICT')">
-                                            <i class="fas fa-user-tie"></i> Assign/Change Program Head
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDepartment('ICT')">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </div>
-                                    <!-- Course Preview Section -->
-                                    <div class="course-preview">
-                                        <div class="course-preview-content">
-                                            <div class="course-preview-title">
-                                                <i class="fas fa-book"></i> Courses
-                                            </div>
-                                            <div class="course-preview-list">
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> BS in Information Technology
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> BS in Computer Science
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> BS in Computer Engineering
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Business & Management Department -->
-                                <div class="department-card" data-department="BSA">
-                                    <div class="department-card-header">
-                                        <span class="department-icon"><i class="fas fa-briefcase"></i></span>
-                                        <span class="department-id">BSA</span>
-                                    </div>
-                                    <div class="department-card-body">
-                                        <h4 class="department-name">Business & Management, Arts, and Sciences</h4>
-                                        <p class="department-courses">5 Courses</p>
-                                        <p class="department-status">Active</p>
-                                        <div class="department-content-spacer"></div>
-                                    </div>
-                                    <div class="department-card-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAddCourseModal('BSA')">
-                                            <i class="fas fa-plus"></i> Add Course
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="openEditDepartmentModal('BSA')">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAssignPHModal('College','Business, Arts, & Science','BSA')">
-                                            <i class="fas fa-user-tie"></i> Assign/Change Program Head
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDepartment('BSA')">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </div>
-                                    <!-- Course Preview Section -->
-                                    <div class="course-preview">
-                                        <div class="course-preview-content">
-                                            <div class="course-preview-title">
-                                                <i class="fas fa-book"></i> Courses
-                                            </div>
-                                            <div class="course-preview-list">
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> BS in Business Administration
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> BS in Accountancy
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> BS in Accounting Information System
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> Bachelor of Multimedia Arts
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> BA in Communication
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Tourism and Hospitality Management Department -->
-                                <div class="department-card" data-department="THM">
-                                    <div class="department-card-header">
-                                        <span class="department-icon"><i class="fas fa-hotel"></i></span>
-                                        <span class="department-id">THM</span>
-                                    </div>
-                                    <div class="department-card-body">
-                                        <h4 class="department-name">Tourism and Hospitality Management</h4>
-                                        <p class="department-courses">3 Courses</p>
-                                        <p class="department-status">Active</p>
-                                        <div class="department-content-spacer"></div>
-                                    </div>
-                                    <div class="department-card-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAddCourseModal('THM')">
-                                            <i class="fas fa-plus"></i> Add Course
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="openEditDepartmentModal('THM')">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAssignPHModal('College','Tourism & Hospitality Management','THM')">
-                                            <i class="fas fa-user-tie"></i> Assign/Change Program Head
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDepartment('THM')">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </div>
-                                    <!-- Course Preview Section -->
-                                    <div class="course-preview">
-                                        <div class="course-preview-content">
-                                            <div class="course-preview-title">
-                                                <i class="fas fa-book"></i> Courses
-                                            </div>
-                                            <div class="course-preview-list">
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> BS in Hospitality Management
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> BS in Culinary Management
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> BS in Tourism Management
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        <div class="departments-placeholder">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading departments...
                                 </div>
                             </div>
 
                             <!-- Senior High School Departments -->
                             <div class="departments-container" id="senior-high-departments">
-                                <!-- Academic Track Department -->
-                                <div class="department-card" data-department="ACADEMIC">
-                                    <div class="department-card-header">
-                                        <span class="department-icon"><i class="fas fa-graduation-cap"></i></span>
-                                        <span class="department-id">ACADEMIC</span>
-                                    </div>
-                                    <div class="department-card-body">
-                                        <h4 class="department-name">Academic Track</h4>
-                                        <p class="department-courses">4 Courses</p>
-                                        <p class="department-status">Active</p>
-                                        <div class="department-content-spacer"></div>
-                                    </div>
-                                    <div class="department-card-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAddCourseModal('ACADEMIC')">
-                                            <i class="fas fa-plus"></i> Add Course
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="openEditDepartmentModal('ACADEMIC')">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAssignPHModal('Senior High School','Academic Track','ACADEMIC')">
-                                            <i class="fas fa-user-tie"></i> Assign/Change Program Head
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDepartment('ACADEMIC')">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </div>
-                                    <!-- Course Preview Section -->
-                                    <div class="course-preview">
-                                        <div class="course-preview-content">
-                                            <div class="course-preview-title">
-                                                <i class="fas fa-book"></i> Courses
-                                            </div>
-                                            <div class="course-preview-list">
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> ABM (Accountancy, Business, Management)
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> STEM (Science, Technology, Engineering, Mathematics)
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> HUMSS (Humanities and Social Sciences)
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> GA (General Academic)
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Technical-Vocational Livelihood Track Department -->
-                                <div class="department-card" data-department="TVL">
-                                    <div class="department-card-header">
-                                        <span class="department-icon"><i class="fas fa-tools"></i></span>
-                                        <span class="department-id">TVL</span>
-                                    </div>
-                                    <div class="department-card-body">
-                                        <h4 class="department-name">Technical-Vocational Livelihood Track</h4>
-                                        <p class="department-courses">2 Courses</p>
-                                        <p class="department-status">Active</p>
-                                        <div class="department-content-spacer"></div>
-                                    </div>
-                                    <div class="department-card-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAddCourseModal('TVL')">
-                                            <i class="fas fa-plus"></i> Add Course
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="openEditDepartmentModal('TVL')">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAssignPHModal('Senior High School','Technological-Vocational Livelihood','TVL')">
-                                            <i class="fas fa-user-tie"></i> Assign/Change Program Head
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDepartment('TVL')">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </div>
-                                    <!-- Course Preview Section -->
-                                    <div class="course-preview">
-                                        <div class="course-preview-content">
-                                            <div class="course-preview-title">
-                                                <i class="fas fa-book"></i> Courses
-                                            </div>
-                                            <div class="course-preview-list">
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> Digital Arts
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> IT in Mobile app and Web development (MAWD)
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Home Economics Department -->
-                                <div class="department-card" data-department="HOME_ECON">
-                                    <div class="department-card-header">
-                                        <span class="department-icon"><i class="fas fa-home"></i></span>
-                                        <span class="department-id">HOME_ECON</span>
-                                    </div>
-                                    <div class="department-card-body">
-                                        <h4 class="department-name">Home Economics</h4>
-                                        <p class="department-courses">3 Courses</p>
-                                        <p class="department-status">Active</p>
-                                        <div class="department-content-spacer"></div>
-                                    </div>
-                                    <div class="department-card-actions">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAddCourseModal('HOME_ECON')">
-                                            <i class="fas fa-plus"></i> Add Course
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="openEditDepartmentModal('HOME_ECON')">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAssignPHModal('Senior High School','Home Economics','HOME_ECON')">
-                                            <i class="fas fa-user-tie"></i> Assign/Change Program Head
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDepartment('HOME_ECON')">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </div>
-                                    <!-- Course Preview Section -->
-                                    <div class="course-preview">
-                                        <div class="course-preview-content">
-                                            <div class="course-preview-title">
-                                                <i class="fas fa-book"></i> Courses
-                                            </div>
-                                            <div class="course-preview-list">
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> Tourism Operations
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> Restaurant and Cafe Operations
-                                                </div>
-                                                <div class="course-preview-item">
-                                                    <i class="fas fa-graduation-cap"></i> Culinary Arts
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        <div class="departments-placeholder">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading departments...
                                 </div>
                             </div>
 
                             <!-- Faculty Departments -->
                             <div class="departments-container" id="faculty-departments">
-                                <!-- General Education Department -->
-                                <div class="department-card" data-department="GENERAL_EDUCATION">
-                                    <div class="department-card-header">
-                                        <span class="department-icon"><i class="fas fa-graduation-cap"></i></span>
-                                        <span class="department-id">GENERAL_EDUCATION</span>
+                                        <div class="departments-placeholder">
+                                            <i class="fas fa-spinner fa-spin"></i> Loading departments...
                                     </div>
-                                    <div class="department-card-body">
-                                        <h4 class="department-name">General Education</h4>
-                                    <!--    <p class="department-courses">0 Courses</p> -->
-                                        <p class="department-status">Active</p>
-                                        <div class="department-content-spacer"></div>
                                     </div>
-                                    <div class="department-card-actions">
-                                    <!--    <button class="btn btn-sm btn-outline-primary" onclick="openAddCourseModal('GENERAL_EDUCATION')">
-                                            <i class="fas fa-plus"></i> Add Course
-                                        </button> -->
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="openEditDepartmentModal('GENERAL_EDUCATION')">
-                                            <i class="fas fa-edit"></i> Edit
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="openAssignPHModal('Faculty','General Education','GENERAL_EDUCATION')">
-                                            <i class="fas fa-user-tie"></i> Assign/Change Program Head
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteDepartment('GENERAL_EDUCATION')">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </div>
-                                    <!-- Course Preview Section -->
-                                <!--    <div class="course-preview">
-                                        <div class="course-preview-content">
-                                            <div class="course-preview-title">
-                                                <i class="fas fa-book"></i> Courses
-                                            </div>
-                                            <div class="course-preview-list">
-                                                <!- No courses initially ->
-                                                </div>
-                                            </div>
-                                        </div> -->
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div> <!-- Close departments-scrollable-card -->
@@ -490,57 +179,148 @@
                 
                 <!-- Add Modal Function Wrappers -->
                 <script>
-                    // Modal function wrappers - silent opening for better UX
+                    // Modal function wrappers - use standardized approach
                     function openAddDepartmentModal() {
-                        if (typeof window.openAddDepartmentModalInternal === 'function') {
-                            window.openAddDepartmentModalInternal();
-                        } else {
-                            document.getElementById('addDepartmentModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openAddDepartmentModalInternal === 'function') {
+                                window.openAddDepartmentModalInternal();
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('addDepartmentModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('addDepartmentModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open add department modal. Please try again.', 'error');
+                            }
                         }
                     }
                     
                     function openEditDepartmentModal(departmentId) {
-                        if (typeof window.openEditDepartmentModalInternal === 'function') {
-                            window.openEditDepartmentModalInternal(departmentId);
-                        } else {
-                            // Fallback to direct modal opening
-                            document.getElementById('editDepartmentModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openEditDepartmentModalInternal === 'function') {
+                                window.openEditDepartmentModalInternal(departmentId);
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('editDepartmentModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('editDepartmentModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open edit department modal. Please try again.', 'error');
+                            }
                         }
                     }
                     
                     function openAddCourseModal(departmentId) {
-                        if (typeof window.openAddCourseModalInternal === 'function') {
-                            window.openAddCourseModalInternal(departmentId);
-                        } else {
-                            // Fallback to direct modal opening
-                            document.getElementById('addCourseModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openAddCourseModalInternal === 'function') {
+                                window.openAddCourseModalInternal(departmentId);
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('addCourseModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('addCourseModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open add course modal. Please try again.', 'error');
+                            }
                         }
                     }
                     
                     function openEditCourseModal(courseCode) {
-                        if (typeof window.openEditCourseModalInternal === 'function') {
-                            window.openEditCourseModalInternal(courseCode);
-                        } else {
-                            // Fallback to direct modal opening
-                            document.getElementById('editCourseModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openEditCourseModalInternal === 'function') {
+                                window.openEditCourseModalInternal(courseCode);
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('editCourseModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('editCourseModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open edit course modal. Please try again.', 'error');
+                            }
                         }
                     }
                     
                     function openImportModal() {
-                        if (typeof window.openImportModalInternal === 'function') {
-                            window.openImportModalInternal();
-                        } else {
-                            // Fallback to direct modal opening
-                            document.getElementById('courseImportModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openImportModalInternal === 'function') {
+                                window.openImportModalInternal();
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('courseImportModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('courseImportModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open import modal. Please try again.', 'error');
+                            }
                         }
                     }
                     
                     function openExportModal() {
-                        if (typeof window.openExportModalInternal === 'function') {
-                            window.openExportModalInternal();
-                        } else {
-                            // Fallback to direct modal opening
-                            document.getElementById('courseExportModal').style.display = 'flex';
+                        try {
+                            if (typeof window.openExportModalInternal === 'function') {
+                                window.openExportModalInternal();
+                            } else {
+                                // Fallback to window.openModal or direct manipulation
+                                const modal = document.getElementById('courseExportModal');
+                                if (modal) {
+                                    if (typeof window.openModal === 'function') {
+                                        window.openModal('courseExportModal');
+                                    } else {
+                                        modal.style.display = 'flex';
+                                        document.body.style.overflow = 'hidden';
+                                        document.body.classList.add('modal-open');
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            if (typeof showToastNotification === 'function') {
+                                showToastNotification('Unable to open export modal. Please try again.', 'error');
+                            }
                         }
                     }
                 </script>
@@ -571,272 +351,471 @@
             </script>
             
             <script>
-                // Sample data for demonstration
-                const departmentsData = {
-                    college: [
-                        {
-                            id: 'ICT',
-                            name: 'INFORMATION & COMMUNICATION TECHNOLOGY (ICT)',
-                            courses: ['BSIT', 'BSCS', 'BSCpE'],
-                            students: 0,
-                            status: 'Active'
-                        },
-                        {
-                            id: 'BSA',
-                            name: 'BUSINESS & MANAGEMENT, Arts, and Sciences (BSA)',
-                            courses: ['BSBA', 'BSA', 'BSAIS', 'BMMA', 'BAC'],
-                            students: 0,
-                            status: 'Active'
-                        },
-                        {
-                            id: 'THM',
-                            name: 'Tourism and Hospitality Management (THM)',
-                            courses: ['BSHM', 'BSCM', 'BSTM'],
-                            students: 0,
-                            status: 'Active'
-                        }
-                    ],
-                    seniorHigh: [
-                        {
-                            id: 'ACADEMIC',
-                            name: 'ACADEMIC TRACK',
-                            courses: ['ABM', 'STEM', 'HUMSS', 'GA'],
-                            students: 0,
-                            status: 'Active'
-                        },
-                        {
-                            id: 'TVL',
-                            name: 'TECHNICAL-VOCATIONAL LIVELIHOOD TRACK',
-                            courses: ['DIGITAL_ARTS', 'MAWD'],
-                            students: 0,
-                            status: 'Active'
-                        },
-                        {
-                            id: 'HOME_ECON',
-                            name: 'HOME ECONOMICS',
-                            courses: ['TOURISM_OPS', 'RESTAURANT_OPS', 'CULINARY_ARTS'],
-                            students: 0,
-                            status: 'Active'
-                        }
-                    ],
-                    faculty: [
-                        {
-                            id: 'GENERAL_EDUCATION',
-                            name: 'General Education',
-                            courses: [], // Empty array - no courses initially
-                            students: 0,
-                            status: 'Active'
-                        }
-                    ]
+                const courseManagementState = {
+                    includeInactive: false,
+                    activeSector: 'college',
+                    searchTerm: '',
+                    data: null,
+                    loading: false
                 };
 
-                // Tab switching functionality
-                function switchTab(tabName) {
-                    // Update tab buttons
-                    const tabButtons = document.querySelectorAll('.compact-tab-button');
-                    tabButtons.forEach(button => {
-                        button.classList.remove('active');
-                    });
-                    event.target.classList.add('active');
+                const sectorIdMap = {
+                    college: 'college-departments',
+                    senior_high: 'senior-high-departments',
+                    faculty: 'faculty-departments'
+                };
 
-                    // Update content containers
-                    const containers = document.querySelectorAll('.departments-container');
-                    containers.forEach(container => {
-                        container.classList.remove('active');
-                    });
+                const sectorOrder = ['college', 'senior_high', 'faculty'];
 
-                    if (tabName === 'college') {
-                        document.getElementById('college-departments').classList.add('active');
-                    } else if (tabName === 'senior-high') {
-                        document.getElementById('senior-high-departments').classList.add('active');
-                    } else if (tabName === 'faculty') {
-                        document.getElementById('faculty-departments').classList.add('active');
-                    }
-
-                    // Update statistics
-                    updateStatistics(tabName);
-                }
-
-                // Update statistics based on active tab
-                function updateStatistics(tabName) {
-                    try {
-                        let data;
-                        if (tabName === 'college') {
-                            data = departmentsData.college;
-                        } else if (tabName === 'senior-high') {
-                            data = departmentsData.seniorHigh;
-                        } else if (tabName === 'faculty') {
-                            data = departmentsData.faculty;
-                        } else {
-                            data = departmentsData.college; // Default fallback
-                        }
-                        
-                    const totalDepartments = data.length;
-                    const totalCourses = data.reduce((sum, dept) => sum + dept.courses.length, 0);
-                    const totalStudents = data.reduce((sum, dept) => sum + dept.students, 0);
-                    const activeDepartments = data.filter(dept => dept.status === 'Active').length;
-
-                    document.getElementById('totalDepartments').textContent = totalDepartments;
-                    document.getElementById('totalCourses').textContent = totalCourses;
-                    document.getElementById('totalStudents').textContent = totalStudents;
-                    document.getElementById('activeDepartments').textContent = activeDepartments;
-                    } catch (error) {
-                        console.error('Error updating statistics:', error);
-                    }
-                }
-
-                // Search functionality
-                document.getElementById('searchInput').addEventListener('input', function(e) {
-                    const searchTerm = e.target.value.toLowerCase();
-                    const activeContainer = document.querySelector('.departments-container.active');
-                    const departmentCards = activeContainer.querySelectorAll('.department-card');
-                    
-                    let visibleCount = 0;
-                    let totalCount = departmentCards.length;
-
-                    departmentCards.forEach(card => {
-                        const departmentName = card.querySelector('.department-name').textContent.toLowerCase();
-                        const courseItems = card.querySelectorAll('.course-item');
-
-                        let hasMatch = departmentName.includes(searchTerm);
-                        
-                        // Check course matches
-                        courseItems.forEach(course => {
-                            const courseCode = course.querySelector('.course-code').textContent.toLowerCase();
-                            const courseName = course.querySelector('.course-name').textContent.toLowerCase();
-                            const courseMatch = courseCode.includes(searchTerm) || courseName.includes(searchTerm);
-                            
-                            course.style.display = courseMatch ? 'flex' : 'none';
-                            if (courseMatch) hasMatch = true;
+                document.addEventListener('DOMContentLoaded', function() {
+                    const includeInactiveCheckbox = document.getElementById('includeInactiveToggle');
+                    if (includeInactiveCheckbox) {
+                        includeInactiveCheckbox.addEventListener('change', function() {
+                            courseManagementState.includeInactive = this.checked;
+                            fetchCourseData();
                         });
+                    }
 
-                        card.style.display = hasMatch ? 'block' : 'none';
-                        if (hasMatch) visibleCount++;
-                    });
+                    const searchInput = document.getElementById('searchInput');
+                    if (searchInput) {
+                        searchInput.addEventListener('input', function(event) {
+                            courseManagementState.searchTerm = event.target.value.trim();
+                            renderDepartments(courseManagementState.activeSector);
+                        });
+                    }
+
+                    fetchCourseData();
                 });
 
-                // Delete functions with confirmation
-                function deleteCourse(courseCode) {
+                function normalizeTabName(tabName) {
+                    if (tabName === 'senior-high') {
+                        return 'senior_high';
+                    }
+                    return tabName;
+                }
+
+                function switchTab(tabName, buttonElement) {
+                    const normalized = normalizeTabName(tabName);
+                    courseManagementState.activeSector = normalized;
+
+                    document.querySelectorAll('.compact-tab-button').forEach(btn => btn.classList.remove('active'));
+                    if (buttonElement) {
+                        buttonElement.classList.add('active');
+                    }
+
+                    Object.values(sectorIdMap).forEach(id => {
+                        const container = document.getElementById(id);
+                        if (container) {
+                        container.classList.remove('active');
+                        }
+                    });
+
+                    const activeContainer = getSectorContainer(normalized);
+                    if (activeContainer) {
+                        activeContainer.classList.add('active');
+                    }
+
+                    updateStatistics(normalized);
+                    renderDepartments(normalized);
+                }
+
+                async function fetchCourseData() {
+                    setLoadingState(true);
+                    try {
+                        const query = courseManagementState.includeInactive ? '?include_inactive=1' : '';
+                        const response = await fetch(`../../api/course_data.php${query}`, { credentials: 'include' });
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch course data.');
+                        }
+
+                        const payload = await response.json();
+                        if (!payload || payload.success !== true) {
+                            throw new Error((payload && payload.message) || 'Unable to load course data.');
+                        }
+
+                        courseManagementState.data = payload.data || null;
+                        setLoadingState(false);
+
+                        sectorOrder.forEach(sectorKey => {
+                            renderDepartments(sectorKey);
+                        });
+                        updateStatistics(courseManagementState.activeSector);
+                    } catch (error) {
+                        console.error('Error loading course data:', error);
+                        setLoadingState(false);
+                        showErrorState(error.message || 'Unable to load course data.');
+                    }
+                }
+
+                function setLoadingState(isLoading) {
+                    courseManagementState.loading = isLoading;
+                    sectorOrder.forEach(sectorKey => {
+                        const container = getSectorContainer(sectorKey);
+                        if (!container) {
+                            return;
+                        }
+
+                        if (isLoading) {
+                            showPlaceholder(container, 'fas fa-spinner fa-spin', 'Loading departments...');
+                        } else if (!courseManagementState.data) {
+                            showPlaceholder(container, 'fas fa-circle-exclamation', 'No data available.');
+                        }
+                    });
+                }
+
+                function showPlaceholder(container, iconClass, message) {
+                    container.innerHTML = `
+                        <div class="departments-placeholder">
+                            <i class="${iconClass}"></i> ${message}
+                        </div>
+                    `;
+                }
+
+                function showErrorState(message) {
+                    const activeContainer = getSectorContainer(courseManagementState.activeSector);
+                    if (activeContainer) {
+                        showPlaceholder(activeContainer, 'fas fa-triangle-exclamation', message);
+                    }
+                }
+
+                function getSectorContainer(sectorKey) {
+                    const elementId = sectorIdMap[sectorKey];
+                    return elementId ? document.getElementById(elementId) : null;
+                }
+
+                function getDepartmentsForSector(sectorKey) {
+                    if (!courseManagementState.data || !courseManagementState.data.departments) {
+                        return [];
+                    }
+                    return courseManagementState.data.departments[sectorKey] || [];
+                }
+
+                function renderDepartments(sectorKey) {
+                    const container = getSectorContainer(sectorKey);
+                    if (!container) {
+                        return;
+                    }
+
+                    if (courseManagementState.loading) {
+                        showPlaceholder(container, 'fas fa-spinner fa-spin', 'Loading departments...');
+                        return;
+                    }
+
+                    const departments = filterDepartments(
+                        getDepartmentsForSector(sectorKey),
+                        courseManagementState.searchTerm
+                    );
+
+                    if (!departments.length) {
+                        const message = courseManagementState.searchTerm
+                            ? 'No departments match your search.'
+                            : 'No departments available.';
+                        const icon = courseManagementState.searchTerm ? 'fas fa-search' : 'fas fa-inbox';
+                        showPlaceholder(container, icon, message);
+                        return;
+                    }
+
+                    const fragment = document.createDocumentFragment();
+                    departments.forEach(department => {
+                        fragment.appendChild(createDepartmentCard(department, sectorKey));
+                    });
+                    container.innerHTML = '';
+                    container.appendChild(fragment);
+                }
+
+                function filterDepartments(departments, searchTerm) {
+                    if (!searchTerm) {
+                        return departments;
+                    }
+
+                    const term = searchTerm.toLowerCase();
+                    return departments.filter(department => {
+                        const nameMatch = (department.department_name || '').toLowerCase().includes(term);
+                        const codeMatch = (department.department_code || '').toLowerCase().includes(term);
+                        const statusMatch = (department.status || '').toLowerCase().includes(term);
+
+                        const programMatch = (department.programs || []).some(program => {
+                            const programName = (program.program_name || '').toLowerCase();
+                            const programCode = (program.program_code || '').toLowerCase();
+                            return programName.includes(term) || programCode.includes(term);
+                        });
+
+                        return nameMatch || codeMatch || statusMatch || programMatch;
+                    });
+                }
+
+                function updateStatistics(sectorKey) {
+                    const departments = getDepartmentsForSector(sectorKey);
+                    const totalDepartments = departments.length;
+                    const totalCourses = departments.reduce((sum, department) => {
+                        return sum + ((department.programs || []).length);
+                    }, 0);
+                    const totalStudents = departments.reduce((sum, department) => {
+                        return sum + (department.total_students || 0);
+                    }, 0);
+                    const activeDepartments = departments.filter(dept => dept.is_active).length;
+
+                    const totalDepartmentsEl = document.getElementById('totalDepartments');
+                    const totalCoursesEl = document.getElementById('totalCourses');
+                    const totalStudentsEl = document.getElementById('totalStudents');
+                    const activeDepartmentsEl = document.getElementById('activeDepartments');
+
+                    if (totalDepartmentsEl) totalDepartmentsEl.textContent = totalDepartments;
+                    if (totalCoursesEl) totalCoursesEl.textContent = totalCourses;
+                    if (totalStudentsEl) totalStudentsEl.textContent = totalStudents;
+                    if (activeDepartmentsEl) activeDepartmentsEl.textContent = activeDepartments;
+                }
+
+                function createDepartmentCard(department, sectorKey) {
+                    const card = document.createElement('div');
+                    card.className = 'department-card';
+                    card.dataset.departmentId = department.department_id;
+                    card.dataset.departmentName = (department.department_name || '').toLowerCase();
+                    card.dataset.departmentCode = (department.department_code || '').toLowerCase();
+
+                    const header = document.createElement('div');
+                    header.className = 'department-card-header';
+
+                    const iconWrapper = document.createElement('span');
+                    iconWrapper.className = 'department-icon';
+                    iconWrapper.innerHTML = `<i class="${getDepartmentIconClass(sectorKey)}"></i>`;
+                    header.appendChild(iconWrapper);
+
+                    const idSpan = document.createElement('span');
+                    idSpan.className = 'department-id';
+                    idSpan.textContent = department.department_code || `ID-${department.department_id}`;
+                    header.appendChild(idSpan);
+
+                    card.appendChild(header);
+
+                    const body = document.createElement('div');
+                    body.className = 'department-card-body';
+
+                    const nameEl = document.createElement('h4');
+                    nameEl.className = 'department-name';
+                    nameEl.textContent = department.department_name || 'Unnamed Department';
+                    body.appendChild(nameEl);
+
+                    const programCount = (department.programs || []).length;
+                    const coursesEl = document.createElement('p');
+                    coursesEl.className = 'department-courses';
+                    coursesEl.textContent = `${programCount} ${programCount === 1 ? 'Course' : 'Courses'}`;
+                    body.appendChild(coursesEl);
+
+                    const statusEl = document.createElement('p');
+                    statusEl.className = 'department-status';
+                    statusEl.textContent = department.status || (department.is_active ? 'Active' : 'Inactive');
+                    body.appendChild(statusEl);
+
+                    const spacer = document.createElement('div');
+                    spacer.className = 'department-content-spacer';
+                    body.appendChild(spacer);
+
+                    card.appendChild(body);
+
+                    const actions = document.createElement('div');
+                    actions.className = 'department-card-actions';
+                    const departmentId = String(department.department_id);
+                    const departmentCode = department.department_code || departmentId;
+                    const sectorLabel = department.sector_label || getSectorLabel(sectorKey);
+
+                    if (sectorKey !== 'faculty') {
+                        actions.appendChild(createActionButton(
+                            'btn btn-sm btn-outline-primary',
+                            '<i class="fas fa-plus"></i> Add Course',
+                            () => openAddCourseModal(departmentId)
+                        ));
+                    }
+
+                    actions.appendChild(createActionButton(
+                        'btn btn-sm btn-outline-secondary',
+                        '<i class="fas fa-edit"></i> Edit',
+                        () => openEditDepartmentModal(departmentId)
+                    ));
+
+                    actions.appendChild(createActionButton(
+                        'btn btn-sm btn-outline-primary',
+                        '<i class="fas fa-user-tie"></i> Assign/Change Program Head',
+                        () => openAssignPHModal(sectorLabel, department.department_name, departmentCode)
+                    ));
+
+                    actions.appendChild(createActionButton(
+                        'btn btn-sm btn-outline-danger',
+                        '<i class="fas fa-trash"></i> Delete',
+                        () => deleteDepartment(departmentId, department.department_name)
+                    ));
+
+                    card.appendChild(actions);
+
+                    const coursePreview = document.createElement('div');
+                    coursePreview.className = 'course-preview';
+
+                    const previewContent = document.createElement('div');
+                    previewContent.className = 'course-preview-content';
+
+                    const previewTitle = document.createElement('div');
+                    previewTitle.className = 'course-preview-title';
+                    previewTitle.innerHTML = '<i class="fas fa-book"></i> Courses';
+                    previewContent.appendChild(previewTitle);
+
+                    const previewList = document.createElement('div');
+                    previewList.className = 'course-preview-list';
+
+                    if (programCount === 0) {
+                        const emptyItem = document.createElement('div');
+                        emptyItem.className = 'course-preview-item empty';
+                        emptyItem.innerHTML = '<i class="fas fa-circle-info"></i> No courses yet';
+                        previewList.appendChild(emptyItem);
+                    } else {
+                        department.programs.forEach(program => {
+                            const item = document.createElement('div');
+                            item.className = 'course-preview-item';
+                            item.dataset.programName = (program.program_name || '').toLowerCase();
+                            item.dataset.programCode = (program.program_code || '').toLowerCase();
+
+                            const icon = document.createElement('i');
+                            icon.className = 'fas fa-graduation-cap';
+                            item.appendChild(icon);
+
+                            if (program.program_code) {
+                                const codeSpan = document.createElement('span');
+                                codeSpan.className = 'course-code';
+                                codeSpan.textContent = program.program_code;
+                                item.appendChild(codeSpan);
+                            }
+
+                            const nameSpan = document.createElement('span');
+                            nameSpan.className = 'course-name';
+                            nameSpan.textContent = program.program_name || 'Unnamed Program';
+                            item.appendChild(nameSpan);
+
+                            previewList.appendChild(item);
+                        });
+                    }
+
+                    previewContent.appendChild(previewList);
+                    coursePreview.appendChild(previewContent);
+                    card.appendChild(coursePreview);
+
+                    attachPreviewInteractions(card);
+
+                    return card;
+                }
+
+                function createActionButton(className, html, handler) {
+                    const button = document.createElement('button');
+                    button.className = className;
+                    button.innerHTML = html;
+                    button.addEventListener('click', function(event) {
+                        event.stopPropagation();
+                        if (typeof handler === 'function') {
+                            handler();
+                        }
+                    });
+                    return button;
+                }
+
+                function getDepartmentIconClass(sectorKey) {
+                    switch (sectorKey) {
+                        case 'college':
+                            return 'fas fa-university';
+                        case 'senior_high':
+                            return 'fas fa-school';
+                        case 'faculty':
+                            return 'fas fa-chalkboard-teacher';
+                        default:
+                            return 'fas fa-building';
+                    }
+                }
+
+                function getSectorLabel(sectorKey) {
+                    switch (sectorKey) {
+                        case 'college':
+                            return 'College';
+                        case 'senior_high':
+                            return 'Senior High School';
+                        case 'faculty':
+                            return 'Faculty';
+                        default:
+                            return 'Department';
+                    }
+                }
+
+                function attachPreviewInteractions(card) {
+                    const preview = card.querySelector('.course-preview');
+                    if (!preview) {
+                        return;
+                    }
+
+                    card.addEventListener('click', function(event) {
+                        if (event.target.closest('.department-card-actions')) {
+                            return;
+                        }
+
+                        const isExpanded = preview.classList.contains('expanded');
+
+                        document.querySelectorAll('.department-card.expanded').forEach(otherCard => {
+                            if (otherCard !== card) {
+                                otherCard.classList.remove('expanded');
+                                const otherPreview = otherCard.querySelector('.course-preview');
+                                if (otherPreview) {
+                                    otherPreview.classList.remove('expanded');
+                                }
+                            }
+                        });
+
+                        if (!isExpanded) {
+                            card.classList.add('expanded');
+                            preview.classList.add('expanded');
+                        } else {
+                            card.classList.remove('expanded');
+                            preview.classList.remove('expanded');
+                        }
+                    });
+                }
+
+                document.addEventListener('click', function(event) {
+                    if (!event.target.closest('.department-card')) {
+                        document.querySelectorAll('.course-preview.expanded').forEach(preview => {
+                                preview.classList.remove('expanded');
+                            });
+                            document.querySelectorAll('.department-card.tapped').forEach(card => {
+                                card.classList.remove('tapped');
+                            });
+                    }
+                });
+
+                function deleteCourse(courseCode, courseName) {
+                    const targetLabel = courseName ? `${courseCode} — ${courseName}` : courseCode;
                     showConfirmationModal(
-                        `Are you sure you want to delete the course "${courseCode}"?`,
+                        `Are you sure you want to delete the course "${targetLabel}"?`,
                         'This action cannot be undone.',
                         () => {
-                            // Show loading notification
                             showToastNotification('Deleting course...', 'info', 1500);
-                            
-                            // Simulate API call
                             setTimeout(() => {
-                                showToastNotification(`Course ${courseCode} deleted successfully`, 'success', 3000);
+                                showToastNotification(`Course ${targetLabel} deleted successfully`, 'success', 3000);
                             }, 1000);
                         },
                         'Delete Course'
                     );
                 }
 
-                function deleteDepartment(departmentId) {
+                function deleteDepartment(departmentId, departmentName) {
+                    const label = departmentName ? `${departmentName} (ID: ${departmentId})` : departmentId;
                     showConfirmationModal(
-                        `Are you sure you want to delete the department "${departmentId}"?`,
+                        `Are you sure you want to delete the department "${label}"?`,
                         'This will also delete all courses under this department. This action cannot be undone.',
                         'Delete Department',
                         'Cancel',
                         () => {
-                            // Show loading notification
                             showToastNotification('Deleting department and all associated courses...', 'info', 2000);
-                            
-                            // Simulate API call
                             setTimeout(() => {
-                                showToastNotification(`Department ${departmentId} and all courses deleted successfully`, 'success', 3000);
+                                showToastNotification(`Department ${label} and all courses deleted successfully`, 'success', 3000);
+                                fetchCourseData();
                             }, 1500);
                         },
                         'danger'
                     );
-                }
-
-                // Hybrid Course Preview Functionality
-                document.addEventListener('DOMContentLoaded', function() {
-                    try {
-                        // Initialize statistics
-                    updateStatistics('college');
-                        
-                        // Initialize course preview
-                    initializeCoursePreview();
-                        
-                    } catch (error) {
-                        console.error('Error initializing Course Management page:', error);
-                    }
-                });
-                
-
-
-                // Initialize course preview functionality
-                function initializeCoursePreview() {
-                    try {
-                    const departmentCards = document.querySelectorAll('.department-card');
-                        
-                        if (departmentCards.length === 0) {
-                            return;
-                        }
-                    
-                    departmentCards.forEach(card => {
-                        // Desktop: Hover functionality
-                        if (window.matchMedia('(hover: hover)').matches) {
-                            card.addEventListener('mouseenter', function() {
-                                const preview = this.querySelector('.course-preview');
-                                if (preview) {
-                                    preview.classList.add('expanded');
-                                }
-                            });
-                            
-                            card.addEventListener('mouseleave', function() {
-                                const preview = this.querySelector('.course-preview');
-                                if (preview) {
-                                    preview.classList.remove('expanded');
-                                }
-                            });
-                        }
-                        
-                        // Mobile: Tap functionality
-                        if (window.matchMedia('(hover: none)').matches) {
-                            card.addEventListener('click', function(e) {
-                                // Don't trigger if clicking on buttons
-                                if (e.target.closest('.department-card-actions')) {
-                                    return;
-                                }
-                                
-                                const preview = this.querySelector('.course-preview');
-                                if (preview) {
-                                    // Close other expanded cards
-                                    document.querySelectorAll('.course-preview.expanded').forEach(p => {
-                                        if (p !== preview) {
-                                            p.classList.remove('expanded');
-                                        }
-                                    });
-                                    
-                                    // Toggle current card
-                                    preview.classList.toggle('expanded');
-                                    this.classList.toggle('tapped');
-                                }
-                            });
-                        }
-                    });
-                    
-                    // Close previews when clicking outside
-                    document.addEventListener('click', function(e) {
-                        if (!e.target.closest('.department-card')) {
-                                const expandedPreviews = document.querySelectorAll('.course-preview.expanded');
-                                if (expandedPreviews.length > 0) {
-                                    expandedPreviews.forEach(preview => {
-                                preview.classList.remove('expanded');
-                            });
-                            document.querySelectorAll('.department-card.tapped').forEach(card => {
-                                card.classList.remove('tapped');
-                            });
-                                }
-                            }
-                        });
-                    } catch (error) {
-                        console.error('Error initializing course preview:', error);
-                    }
                 }
 
                 // Initialize sidebar state on page load

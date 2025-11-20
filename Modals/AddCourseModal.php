@@ -142,25 +142,77 @@
 
 <script>
 function openAddCourseModalInternal(departmentId) {
-    // Set the department ID
-    document.getElementById('addCourseDepartmentId').value = departmentId;
-    
-    // Pre-select the department in dropdown
-    document.getElementById('courseDepartment').value = departmentId;
-    
-    // Reset form
-    document.getElementById('addCourseForm').reset();
-    
-    // Show modal
-    document.getElementById('addCourseModal').style.display = 'flex';
+    try {
+        const modal = document.getElementById('addCourseModal');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Add course modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        // Set the department ID
+        const deptIdField = document.getElementById('addCourseDepartmentId');
+        if (deptIdField && departmentId) {
+            deptIdField.value = departmentId;
+        }
+        
+        // Pre-select the department in dropdown
+        const deptSelect = document.getElementById('courseDepartment');
+        if (deptSelect && departmentId) {
+            deptSelect.value = departmentId;
+        }
+        
+        // Reset form
+        const form = document.getElementById('addCourseForm');
+        if (form) form.reset();
+        
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal('addCourseModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open add course modal. Please try again.', 'error');
+        }
+    }
 }
 
 // Global function for external access
 window.openAddCourseModalInternal = openAddCourseModalInternal;
 
-function closeAddCourseModal() {
-    document.getElementById('addCourseModal').style.display = 'none';
-}
+window.closeAddCourseModal = function() {
+    console.log('[AddCourseModal] closeAddCourseModal() called');
+    try {
+        const modal = document.getElementById('addCourseModal');
+        if (!modal) {
+            console.warn('[AddCourseModal] Modal not found');
+            return;
+        }
+        console.log('[AddCourseModal] Closing modal:', modal.id);
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('addCourseModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        // Silent error handling
+    }
+};
 
 function saveCourse() {
     const form = document.getElementById('addCourseForm');

@@ -62,7 +62,7 @@ $activity_types = getActivityTypes();
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
     
     <!-- Chart.js for statistics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -75,7 +75,7 @@ $activity_types = getActivityTypes();
     <?php include '../../includes/components/sidebar.php'; ?>
 
     <!-- Main Content -->
-    <main class="main-content">
+    <main class="main-content audit-trail-page">
         <div class="content-wrapper">
             <!-- Page Header -->
             <div class="page-header">

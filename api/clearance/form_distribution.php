@@ -110,7 +110,30 @@ function handleFormDistribution($connection) {
         // Step 2: Get sector signatory assignments
         $signatoryAssignments = getSectorSignatoryAssignments($connection, $clearanceType);
         error_log("📝 FORM DISTRIBUTION: Found " . count($signatoryAssignments) . " signatory assignments for $clearanceType");
+        $assistantPrincipal = null; // Initialize assistant principal variable
         
+        // Step 2.5: Check if Program Head should be dynamically added
+        $settingsStmt = $connection->prepare("SELECT include_program_head FROM sector_clearance_settings WHERE clearance_type = ?");
+        $settingsStmt->execute([$clearanceType]);
+        $settings = $settingsStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($settings && $settings['include_program_head'] == 1) {
+            error_log("🚀 FORM DISTRIBUTION: 'Include Program Head' is enabled for $clearanceType. Adding to signatories.");
+            // Get the designation_id for 'Program Head'
+            $phStmt = $connection->prepare("SELECT designation_id FROM designations WHERE designation_name = 'Program Head'");
+            $phStmt->execute();
+            $programHeadDesignationId = $phStmt->fetchColumn();
+
+            if ($programHeadDesignationId) {
+                // Add a placeholder for the dynamic Program Head signatory
+                $signatoryAssignments[] = [
+                    'designation_id' => $programHeadDesignationId,
+                    'designation_name' => 'Program Head',
+                    'is_program_head' => true // Custom flag to identify this special signatory
+                ];
+            }
+        }
+
         if (empty($signatoryAssignments)) {
             $connection->rollback();
             echo json_encode([
@@ -120,6 +143,19 @@ function handleFormDistribution($connection) {
             return;
         }
         
+        // De-duplicate signatory assignments to ensure one signatory per designation
+        $uniqueSignatoryAssignments = [];
+        $seenDesignations = [];
+        foreach ($signatoryAssignments as $assignment) {
+            if (!in_array($assignment['designation_id'], $seenDesignations)) {
+                $uniqueSignatoryAssignments[] = $assignment;
+                $seenDesignations[] = $assignment['designation_id'];
+            }
+        }
+        $signatoryAssignments = $uniqueSignatoryAssignments;
+        error_log("📝 FORM DISTRIBUTION: Found " . count($signatoryAssignments) . " unique signatory assignments for $clearanceType after de-duplication.");
+
+
         // Step 3: Create clearance forms for all eligible users
         $formsCreated = 0;
         $signatoriesAssigned = 0;
@@ -168,6 +204,20 @@ function handleFormDistribution($connection) {
             // Assign signatories to the form
             $assignedCount = assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssignmentsToProcess, $user, $clearanceType);
             $signatoriesAssigned += $assignedCount;
+
+            // Explicitly add Assistant Principal if found and not already on the form
+            if ($assistantPrincipal) {
+                $stmt = $connection->prepare("SELECT COUNT(*) FROM clearance_signatories WHERE clearance_form_id = ? AND designation_id = ?");
+                $stmt->execute([$clearanceFormId, $assistantPrincipal['designation_id']]);
+                if ($stmt->fetchColumn() == 0) {
+                    error_log("🏫 FORM DISTRIBUTION (SHS): Explicitly assigning Assistant Principal (user_id: {$assistantPrincipal['user_id']}) to form {$clearanceFormId}.");
+                    $stmt = $connection->prepare("INSERT INTO clearance_signatories (clearance_form_id, designation_id, actual_user_id, action, created_at) VALUES (?, ?, ?, 'Unapplied', NOW())");
+                    $stmt->execute([$clearanceFormId, $assistantPrincipal['designation_id'], $assistantPrincipal['user_id']]);
+                    $signatoriesAssigned++;
+                } else {
+                    error_log("🏫 FORM DISTRIBUTION (SHS): Assistant Principal already assigned to form {$clearanceFormId}. Skipping.");
+                }
+            }
             
             error_log("✅ FORM DISTRIBUTION: Processed form {$clearanceFormId} for {$user['first_name']} {$user['last_name']} with $assignedCount signatories");
         }
@@ -278,12 +328,13 @@ function getEligibleUsers($connection, $clearanceType) {
         case 'Faculty':
             $sql = "
                 SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
-                       f.employment_status, f.department_id, d.department_name
+                       f.employment_status, f.department_id, d.department_name,
+                       st.staff_category
                 FROM users u
                 INNER JOIN faculty f ON u.user_id = f.user_id
-                INNER JOIN departments d ON f.department_id = d.department_id
-                INNER JOIN sectors sec ON d.sector_id = sec.sector_id
-                WHERE sec.sector_name = 'Faculty' AND u.account_status = 'active'
+                LEFT JOIN departments d ON f.department_id = d.department_id
+                LEFT JOIN staff st ON u.user_id = st.user_id
+                WHERE u.account_status = 'active'
                 ORDER BY u.last_name, u.first_name
             ";
             break;
@@ -391,23 +442,48 @@ function assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssign
     
     foreach ($signatoryAssignments as $assignment) {
         
-        error_log("✅ Assigning designation '{$assignment['designation_name']}' to form {$clearanceFormId}");
+        $isProgramHeadSignatory = false;
+        if ($clearanceType === 'Senior High School') {
+            // For SHS, the "Assistant Principal" is the program head.
+            $isProgramHeadSignatory = (strcasecmp($assignment['designation_name'], 'Assistant Principal') === 0);
+        } else {
+            // For other sectors, the "Program Head" is the program head.
+            $isProgramHeadSignatory = (isset($assignment['is_program_head']) && $assignment['is_program_head'] === true);
+        }
+
+        $isUserAProgramHead = (isset($user['staff_category']) && strcasecmp($user['staff_category'], 'Program Head') === 0);
+
+        // If the signatory is 'Program Head' and the user is also a 'Program Head', auto-approve.
+        if ($clearanceType === 'Faculty' && $isProgramHeadSignatory && $isUserAProgramHead) {
+            error_log("✅ AUTO-APPROVING 'Program Head' for faculty member {$user['user_id']} who is also a Program Head.");
+            $action = 'Approved';
+            $actualUserId = $user['user_id']; // The user signs for themselves.
+            $dateSigned = 'NOW()';
+        } else {
+            error_log("✅ Assigning designation '{$assignment['designation_name']}' to form {$clearanceFormId}");
+            $action = 'Unapplied';
+            $actualUserId = null;
+            $dateSigned = 'NULL';
+        }
         
         // Create signatory entry
         $sql = "
             INSERT INTO clearance_signatories (
                 clearance_form_id,
                 designation_id,
-                actual_user_id, -- This should be NULL on creation
+                actual_user_id,
                 action,
-                created_at
-            ) VALUES (?, ?, NULL, 'Pending', NOW())
+                created_at,
+                date_signed
+            ) VALUES (?, ?, ?, ?, NOW(), $dateSigned)
         ";
         
         $stmt = $connection->prepare($sql);
         $stmt->execute([
             $clearanceFormId,
-            $assignment['designation_id']
+            $assignment['designation_id'],
+            $actualUserId,
+            $action
         ]);
         
         $assignedCount++;

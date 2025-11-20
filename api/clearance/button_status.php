@@ -33,10 +33,26 @@ try {
     $db = Database::getInstance();
     $pdo = $db->getConnection();
     
-    $userId = $auth->getUserId();
+    $actingUserId = $auth->getUserId(); // The user performing the check (the signatory)
+    $targetUserId = null; // The user whose status is being checked (the applicant)
+
     $clearanceType = $_GET['clearance_type'] ?? null;
     $includeGracePeriod = $_GET['include_grace_period'] ?? true;
     
+    // Determine the target user ID from the request
+    if (isset($_GET['faculty_id'])) {
+        // Resolve user_id from faculty employee_number
+        $facultyId = $_GET['faculty_id'];
+        $stmt = $pdo->prepare("SELECT user_id FROM faculty WHERE employee_number = ?");
+        $stmt->execute([$facultyId]);
+        $targetUserId = $stmt->fetchColumn();
+    } elseif (isset($_GET['student_id'])) {
+        // Student ID is the user_id in this context
+        $targetUserId = $_GET['student_id'];
+    } else {
+        $targetUserId = $actingUserId; // Default to self if no target is specified
+    }
+
     // Grace period duration in minutes
     $GRACE_PERIOD_MINUTES = 5;
     
@@ -49,7 +65,7 @@ try {
             WHERE u.user_id = ?
         ";
         $stmt = $pdo->prepare($userSql);
-        $stmt->execute([$userId]);
+        $stmt->execute([$targetUserId]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($user) {
@@ -65,7 +81,7 @@ try {
                     WHERE s.user_id = ?
                 ";
                 $stmt = $pdo->prepare($studentSql);
-                $stmt->execute([$userId]);
+                $stmt->execute([$targetUserId]);
                 $student = $stmt->fetch(PDO::FETCH_ASSOC);
                 $clearanceType = $student ? $student['sector_name'] : null;
             }
@@ -107,6 +123,10 @@ try {
             'period' => null,
             'grace_period' => null,
             'can_apply' => false,
+            'button_status' => [ // Add default button_status object
+                'buttons_enabled' => false,
+                'disabled_reasons' => ['No clearance period found for this sector']
+            ],
             'message' => 'No clearance period found for this sector',
             'button_states' => [],
             'summary' => [
@@ -195,7 +215,7 @@ try {
             COUNT(CASE WHEN cs.action = 'Unapplied' THEN 1 END) as unapplied_count
             FROM clearance_forms cf
         LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id
-        WHERE cf.user_id = ? 
+        WHERE cf.user_id = ?
         AND cf.academic_year_id = ? 
         AND cf.semester_id = ? 
         AND cf.clearance_type = ?
@@ -203,7 +223,7 @@ try {
         ";
         
         $stmt = $pdo->prepare($applicationSql);
-    $stmt->execute([$userId, $period['academic_year_id'], $period['semester_id'], $clearanceType]);
+    $stmt->execute([$targetUserId, $period['academic_year_id'], $period['semester_id'], $clearanceType]);
         $application = $stmt->fetch(PDO::FETCH_ASSOC);
         
     // Get detailed signatory statuses
@@ -254,7 +274,7 @@ try {
     
     echo json_encode([
         'success' => true,
-        'user_id' => $userId,
+        'user_id' => $targetUserId,
         'clearance_type' => $clearanceType,
         'period_status' => $effectiveStatus,
         'period' => $period,

@@ -46,7 +46,23 @@
                     <small class="form-help">Type to search existing designations or create a new one. Allowed: letters, numbers, space, - / & ' . (2–50 chars)</small>
                     <small id="designationCreateHint" class="form-help" style="display:none;color:var(--primary-color)"></small>
                 </div>
-                
+
+                                <!-- Additional Designations Section -->
+                                <div class="form-group">
+                                    <label>Additional Designations (Optional)</label>
+                                    <small class="form-help">Add secondary designations for this staff member</small>
+                                    <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+                                        <select id="additionalDesignationSelect" style="flex: 1; padding:6px;">
+                                            <option value="">Select a designation...</option>
+                                        </select>
+                                        <button type="button" id="addDesignationBtn" class="btn btn-sm btn-outline-primary" onclick="addAdditionalDesignation()">
+                                            <i class="fas fa-plus"></i> Add
+                                        </button>
+                                    </div>
+                                    <div id="designationsList" style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+                                        <!-- Additional designations will appear as chips here -->
+                                    </div>
+                                </div>
                 
                 
                 <!-- Program Head Assignment Section (Hidden by default) -->
@@ -92,22 +108,22 @@
                 
                 
                 
-                <!-- Faculty Section Divider -->
+                <!-- Faculty Section Divider 
                 <div class="form-section-divider">
                     <hr>
                     <span class="divider-text">Faculty Registration (Optional)</span>
-                </div>
+                </div -->
                 
-                <!-- Is also a faculty checkbox -->
+                <!-- Is also a faculty checkbox -
                 <div class="form-group">
                     <div class="checkbox-container">
                         <input type="checkbox" id="isAlsoFaculty" name="isAlsoFaculty" onchange="toggleFacultySection()">
                         <label for="isAlsoFaculty" class="checkbox-label">Is also a faculty</label>
                     </div>
                     <small class="form-help">Check this if the staff member should also have faculty access</small>
-                </div>
+</div -->
                 
-                <!-- Faculty Fields Section (Hidden by default) -->
+                <!-- Faculty Fields Section (Hidden by default) --
                 <div id="facultyFieldsSection" class="faculty-fields-section" style="display: none;">
                     <div class="form-group">
                         <label for="facultyEmploymentStatus">Faculty Employment Status <span class="required-asterisk">*</span></label>
@@ -126,7 +142,7 @@
                                style="background-color: #f8f9fa; color: #6c757d;">
                         <small class="form-help">Auto-filled from Employee ID (read-only)</small>
                     </div>
-                </div>
+                </div -->
             </form>
         </div>
         
@@ -141,38 +157,136 @@
 <script>
 // Make functions globally accessible
 window.closeStaffRegistrationModal = function() {
-    const modal = document.querySelector('.staff-registration-modal-overlay');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.classList.remove('modal-open');
+    console.log('[StaffRegistryModal] closeStaffRegistrationModal() called');
+    try {
+        const modal = document.querySelector('.staff-registration-modal-overlay');
+        if (!modal) {
+            console.warn('[StaffRegistryModal] Modal not found');
+            return;
+        }
+        console.log('[StaffRegistryModal] Closing modal');
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal(modal);
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+
         // Reset form
-        document.getElementById('staffRegistrationForm').reset();
+        const form = document.getElementById('staffRegistrationForm');
+        if (form) form.reset();
+        // Reset additional designations
+        window.additionalDesignations = [];
+        const designationsList = document.getElementById('designationsList');
+        if (designationsList) designationsList.innerHTML = '';
+        // Reset additional designation select if present
+        const addSel = document.getElementById('additionalDesignationSelect');
+        if (addSel) addSel.value = '';
+    } catch (error) {
+        // Silent error handling
     }
 };
 
+// Open Staff Registration Modal with initialization
+window.openStaffRegistrationModal = function() {
+    try {
+        const modal = document.querySelector('.staff-registration-modal-overlay');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Staff registration modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal(modal);
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
+        
+        // Initialize designations on first open
+        const designationOptions = document.getElementById('designationOptions');
+        if (designationOptions && !designationOptions.hasChildNodes()) {
+            fetchDesignations('');
+        }
+        // Ensure the additional-designation select is populated with the full list
+        populateAdditionalDesignationSelect();
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open staff registration modal. Please try again.', 'error');
+        }
+    }
+};
+
+// Alias for backward compatibility
+window.openStaffRegistrationModalWithInit = window.openStaffRegistrationModal;
+
 window.submitStaffRegistrationForm = function() {
-    const form = document.getElementById('staffRegistrationForm');
-    const formData = new FormData(form);
-    
-    // Handle designation (free-text with validation)
-    const designationInput = document.getElementById('designationInput');
-    const rawDesignation = (designationInput.value || '').trim();
-    const normalizedDesignation = normalizeDesignation(rawDesignation);
-    if (!isValidDesignation(normalizedDesignation)) {
-        showToast('Invalid designation. Use 2–50 allowed characters.', 'error');
-        designationInput.focus();
+    if (!validateStaffRegistrationForm()) {
+        showToast('Please correct the errors in the form.', 'error');
         return;
     }
-    // send under expected key for backend compatibility
-    formData.set('staffPosition', normalizedDesignation);
-    
-    // Handle faculty validation
+
+    // Generate credentials locally first
+    const form = document.getElementById('staffRegistrationForm');
+    const empId = form.employeeId.value.trim();
+    const lastName = form.lastName.value.trim().replace(/\s+/g, '');
+    const username = empId;
+    const password = `${lastName}${empId}`; // Case-sensitive as per previous request
+
+    // Prepare the data for the modal and the final submission
+    const credentialData = { username, password };
+
+    // The callback function that will be executed when "Confirm & Save" is clicked
+    const confirmCallback = () => {
+      confirmStaffCreation(credentialData);
+    };
+
+    // Open the unified credentials modal
+    openGeneratedCredentialsModal('newAccount', credentialData, confirmCallback);
+};
+
+function validateStaffRegistrationForm() {
+    const form = document.getElementById('staffRegistrationForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return false;
+    }
+
+    /*
+    // Temporarily disabled because the "Is also a faculty" UI is commented out.
     const isAlsoFaculty = document.getElementById('isAlsoFaculty').checked;
     const facultyEmploymentStatus = document.getElementById('facultyEmploymentStatus').value;
     
     if (isAlsoFaculty && !facultyEmploymentStatus) {
         showToast('Faculty Employment Status is required when "Is also a faculty" is checked.', 'error');
         document.getElementById('facultyEmploymentStatus').focus();
+        return false;
+    }
+    */
+
+    return true;
+}
+
+function confirmStaffCreation(credentialData) {
+    const form = document.getElementById('staffRegistrationForm');
+    const formData = new FormData(form);
+    const designationInput = document.getElementById('designationInput');
+    const rawDesignation = (designationInput.value || '').trim();
+    const normalizedDesignation = normalizeDesignation(rawDesignation);
+    if (!isValidDesignation(normalizedDesignation)) {
+        showToast('Invalid designation. Use 2–50 allowed characters.', 'error');
+        designationInput.focus();
         return;
     }
     
@@ -193,12 +307,6 @@ window.submitStaffRegistrationForm = function() {
         }
     }
     
-    // Validate form
-    if (!form.checkValidity()) {
-        form.reportValidity();
-        return;
-    }
-    
     // Convert to JSON
     const jsonData = {};
     formData.forEach((value, key) => {
@@ -206,6 +314,13 @@ window.submitStaffRegistrationForm = function() {
     });
 
     // Manually collect department assignments for Program Heads, as FormData doesn't handle array-like names well.
+    /*
+    // Temporarily disabled because the "Is also a faculty" UI is commented out.
+    const isAlsoFaculty = document.getElementById('isAlsoFaculty').checked;
+    const facultyEmploymentStatus = document.getElementById('facultyEmploymentStatus').value;
+    */
+    const isAlsoFaculty = false;
+
     if (normalizedDesignation.toLowerCase() === 'program head') {
         const assignedDeptCheckboxes = document.querySelectorAll('#staffRegistrationForm input[name="assignedDepartments[]"]:checked');
         if (assignedDeptCheckboxes.length > 0) {
@@ -226,10 +341,24 @@ window.submitStaffRegistrationForm = function() {
     jsonData['first_name'] = firstName;
     jsonData['last_name'] = lastName;
     if (middleName) jsonData['middle_name'] = middleName;
+
+    // Add generated credentials to the payload
+    jsonData['username'] = credentialData.username;
+    jsonData['password'] = credentialData.password;
+
     // Optional fields normalization
     if (!jsonData.staffEmail) delete jsonData.staffEmail;
     if (!jsonData.staffContact) delete jsonData.staffContact;
     
+    // Use the correct key for the backend to recognize the designation
+    jsonData['staffPosition'] = normalizedDesignation;
+    delete jsonData['designation']; // Remove the incorrect key
+
+    // Add additional designations if any (send as array of IDs)
+    if (window.additionalDesignations && window.additionalDesignations.length > 0) {
+        jsonData['assignedDesignations'] = window.additionalDesignations.map(d => d.designation_id);
+    }
+
     // Submit form
     fetch(form.dataset.endpoint, {
         method: 'POST',
@@ -240,6 +369,10 @@ window.submitStaffRegistrationForm = function() {
     })
     .then(response => response.json())
     .then(data => {
+        // Re-enable the primary button in the credentials modal
+        const confirmBtn = document.getElementById('credentialModalConfirmBtn');
+        if(confirmBtn) confirmBtn.disabled = false;
+
         if (data.status === 'success') {
             // Fire audit log (non-blocking)
             try{
@@ -282,7 +415,12 @@ window.submitStaffRegistrationForm = function() {
                     document.dispatchEvent(new CustomEvent('staff-added', { detail: payload }));
                 }catch(e){}
                 showToast('Staff member registered successfully!', 'success');
+                closeGeneratedCredentialsModal(); // Close the credentials modal
                 closeStaffRegistrationModal();
+                            // Reset additional designations
+                            window.additionalDesignations = [];
+                            const designationsList = document.getElementById('designationsList');
+                            if (designationsList) designationsList.innerHTML = '';
             };
 
             if (isPH && selectedDeptIds.length > 0) {
@@ -334,9 +472,16 @@ window.submitStaffRegistrationForm = function() {
         }
     })
     .catch(error => {
+        // Re-enable the primary button in the credentials modal on error
+        const confirmBtn = document.getElementById('credentialModalConfirmBtn');
+        if(confirmBtn) confirmBtn.disabled = false;
+
         console.error('Error:', error);
         showToast('An error occurred while registering staff member.', 'error');
     });
+    // Disable the primary button in the credentials modal to prevent double-clicks
+    const confirmBtn = document.getElementById('credentialModalConfirmBtn');
+    if(confirmBtn) confirmBtn.disabled = true;
 };
 
 async function onUserCreated(newUserId, userSector) {
@@ -378,6 +523,10 @@ async function onUserCreated(newUserId, userSector) {
         const facultyEmploymentStatus = document.getElementById('facultyEmploymentStatus');
         const employeeId = document.getElementById('employeeId');
         const facultyEmployeeNumber = document.getElementById('facultyEmployeeNumber');
+        
+        if (!isAlsoFaculty || !facultySection || !facultyEmploymentStatus || !facultyEmployeeNumber) {
+            return;
+        }
         
         if (isAlsoFaculty.checked) {
             // Show faculty section
@@ -566,6 +715,18 @@ async function createDesignation(name){
             opt.value = (data.designation && data.designation.designation_name) ? data.designation.designation_name : name;
             list.appendChild(opt);
         }
+        // Also add to additional-designation select if present
+        const addSel = document.getElementById('additionalDesignationSelect');
+        if (addSel && data.designation) {
+            // prevent duplicate
+            const exists = Array.from(addSel.options).some(o => (o.value+'') === (data.designation.designation_id+''));
+            if (!exists) {
+                const newOpt = document.createElement('option');
+                newOpt.value = data.designation.designation_id;
+                newOpt.text = data.designation.designation_name;
+                addSel.appendChild(newOpt);
+            }
+        }
         const designationInput = document.getElementById('designationInput');
         designationInput.value = (data.designation && data.designation.designation_name) ? data.designation.designation_name : name;
         updateCreateHint();
@@ -584,6 +745,7 @@ function fetchDesignations(q){
         .then(r=>r.json())
         .then(data=>{
             if (!data || data.success !== true) return;
+            // Populate datalist for primary designation (names)
             list.innerHTML = '';
             (data.designations || []).forEach(d => {
                 const opt = document.createElement('option');
@@ -593,6 +755,31 @@ function fetchDesignations(q){
             updateCreateHint();
         })
         .catch(()=>{});
+}
+
+// Populate the additional-designation select with a full (unfiltered) list
+function populateAdditionalDesignationSelect() {
+    const sel = document.getElementById('additionalDesignationSelect');
+    if (!sel) return;
+    const url = '../../api/users/designations.php';
+    fetch(url, { credentials: 'include' })
+        .then(r => r.json())
+        .then(data => {
+            if (!data || data.success !== true) return;
+            sel.innerHTML = '';
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.text = 'Select a designation...';
+            sel.appendChild(placeholderOption);
+            (data.designations || []).forEach(d => {
+                const o = document.createElement('option');
+                o.value = d.designation_id;
+                o.text = d.designation_name;
+                sel.appendChild(o);
+            });
+            sel.selectedIndex = 0;
+        })
+        .catch(() => {});
 }
 
 // Form validation
@@ -664,4 +851,54 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// --- Additional designation helpers (global) ---
+// additionalDesignations holds objects { designation_id, designation_name }
+window.additionalDesignations = [];
+
+window.addAdditionalDesignation = function() {
+    const sel = document.getElementById('additionalDesignationSelect');
+    if (!sel) return;
+    const val = sel.value;
+    const text = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+
+    if (!val) {
+        showToast('Please select a designation', 'error');
+        return;
+    }
+
+    const desigId = parseInt(val, 10);
+    if (isNaN(desigId)) {
+        showToast('Invalid designation selected', 'error');
+        return;
+    }
+
+    if (window.additionalDesignations.some(d => d.designation_id === desigId)) {
+        showToast('This designation is already added', 'warning');
+        return;
+    }
+
+    window.additionalDesignations.push({ designation_id: desigId, designation_name: text });
+    sel.value = '';
+    renderAdditionalDesignations();
+};
+
+window.removeAdditionalDesignation = function(designationName) {
+    window.additionalDesignations = window.additionalDesignations.filter(d => (d.designation_name || '') !== designationName);
+    renderAdditionalDesignations();
+};
+
+function renderAdditionalDesignations() {
+    const container = document.getElementById('designationsList');
+    if (!container) return;
+
+    container.innerHTML = window.additionalDesignations.map(d => `
+        <span class="chip" style="padding: 6px 12px; background: #e9ecef; border-radius: 20px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            ${d.designation_name}
+            <button type="button" onclick="removeAdditionalDesignation('${d.designation_name.replace(/'/g, "\\'") }')" style="background: none; border: none; cursor: pointer; color: #dc3545; font-size: 16px; padding: 0;">
+                ×
+            </button>
+        </span>
+    `).join('');
+}
 </script> 

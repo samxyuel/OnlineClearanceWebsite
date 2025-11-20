@@ -10,12 +10,13 @@
         <!-- Close Button -->
         <button class="modal-close" onclick="closeClearanceProgressModal()">&times;</button>
         
+        
         <!-- Modal Header -->
         <div class="modal-header">
             <h2 class="modal-title">
                 <i class="fas fa-tasks"></i> Clearance Progress Details - <span id="progressPersonName">Student Name</span>
             </h2>
-            <div class="modal-supporting-text">View detailed clearance progress and signatory status</div>
+            <div class="modal-supporting-text" id="progressSchoolTerm">View detailed clearance progress and signatory status</div>
         </div>
         
         <!-- Content Area -->
@@ -61,6 +62,17 @@
                 
                 <div class="signatories-list" id="signatoriesList">
                     <!-- Signatories will be populated dynamically -->
+                </div>
+            </div>
+            
+            <!-- Data Inconsistency Warning Section (shown conditionally) -->
+            <div class="data-inconsistency-warning" id="dataInconsistencyWarning" style="display: none;">
+                <div class="warning-content">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div class="warning-text">
+                        <strong>Data Consistency Notice</strong>
+                        <p id="inconsistencyMessage"></p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -261,6 +273,79 @@
     color: #4338ca;
 }
 
+/* Signatory Current User Highlighting */
+.signatory-item.signatory-current-user {
+    background: #f0f9ff;
+    border: 2px solid #0ea5e9;
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.15);
+}
+
+.signatory-item.signatory-current-user:hover {
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+    transform: translateY(-2px);
+}
+
+.signatory-you-indicator {
+    font-size: 0.85rem;
+    color: #059669;
+    margin-left: 0.5rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.you-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #059669;
+    flex-shrink: 0;
+}
+
+/* Data Inconsistency Warning */
+.data-inconsistency-warning {
+    margin-top: 1.5rem;
+    padding: 1rem 1.5rem;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    border-left: 4px solid #f59e0b;
+}
+
+.warning-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.warning-content i {
+    font-size: 1.5rem;
+    color: #f59e0b;
+    margin-top: 0.125rem;
+    flex-shrink: 0;
+}
+
+.warning-text {
+    flex: 1;
+}
+
+.warning-text strong {
+    display: block;
+    font-size: 1rem;
+    color: #92400e;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.warning-text p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #78350f;
+    line-height: 1.5;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .clearance-progress-modal-overlay .modal-window {
@@ -286,50 +371,160 @@
 
 <script>
 // Clearance Progress Modal Functions
-function openClearanceProgressModal(personId, personType, personName) {
-    const modal = document.getElementById('clearanceProgressModal');
-    const personNameElement = document.getElementById('progressPersonName');
-    
-    // Set the person name in the modal header
-    personNameElement.textContent = personName;
-    
-    // Load clearance progress data
-    loadClearanceProgressData(personId, personType);
-    
-    // Show the modal
-    modal.style.display = 'flex';
-    document.body.classList.add('modal-open');
-}
+window.openClearanceProgressModal = function(personId, personType, personName, schoolTerm = '') {
+    try {
+        const modal = document.getElementById('clearanceProgressModal');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Clearance progress modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
 
-function closeClearanceProgressModal() {
-    const modal = document.getElementById('clearanceProgressModal');
-    modal.style.display = 'none';
-    document.body.classList.remove('modal-open');
-}
+        const personNameElement = document.getElementById('progressPersonName');
+        if (personNameElement) {
+            personNameElement.textContent = personName;
+        }
+        
+        // Update school term display
+        const schoolTermElement = document.getElementById('progressSchoolTerm');
+        if (schoolTermElement) {
+            if (schoolTerm && schoolTerm.trim() !== '') {
+                schoolTermElement.textContent = `School Term: ${schoolTerm} - View detailed clearance progress and signatory status`;
+            } else {
+                schoolTermElement.textContent = 'View detailed clearance progress and signatory status (Current/Active Term)';
+            }
+        }
+        
+        // Load clearance progress data for the optional school term (if provided)
+        loadClearanceProgressData(personId, personType, schoolTerm);
+        
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal('clearanceProgressModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open clearance progress modal. Please try again.', 'error');
+        }
+    }
+};
 
-function loadClearanceProgressData(personId, personType) {
-    // Use different API endpoints based on person type
-    let apiUrl;
-    if (personType === 'faculty') {
-        apiUrl = `../../api/clearance/status_user.php?employee_number=${encodeURIComponent(personId)}&type=faculty`;
+window.closeClearanceProgressModal = function() {
+    console.log('[ClearanceProgressModal] closeClearanceProgressModal() called');
+    try {
+        const modal = document.getElementById('clearanceProgressModal');
+        if (!modal) {
+            console.warn('[ClearanceProgressModal] Modal not found');
+            return;
+        }
+        console.log('[ClearanceProgressModal] Closing modal:', modal.id);
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('clearanceProgressModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        // Silent error handling
+    }
+};
+
+function loadClearanceProgressData(personId, personType, schoolTerm = '') {
+    // The user_status.php API can handle students by student_id and faculty by employee_number.
+    // The personId from the management pages is student_id for students and employee_number for faculty.
+
+    const url = new URL('../../api/clearance/user_status.php', window.location.href);
+
+    // Use explicit parameters: student_id for students, employee_number for faculty
+    if (personType === 'student') {
+        url.searchParams.append('student_id', personId);
+        console.log('[ClearanceProgressModal] Loading clearance progress for student_id:', personId);
+    } else if (personType === 'faculty') {
+        url.searchParams.append('employee_number', personId);
+        console.log('[ClearanceProgressModal] Loading clearance progress for employee_number:', personId);
     } else {
-        apiUrl = `../../api/clearance/status_user.php?employee_number=${encodeURIComponent(personId)}`;
+        console.error('Invalid person type for clearance progress:', personType);
+        return; // Stop if the type is unknown
+    }
+
+    // If a specific school term was provided (from the filters), include it so
+    // the backend can scope the progress to that term.
+    // The school_term format should be "YEAR|semester_id" (e.g., "2024-2025|2")
+    if (schoolTerm && schoolTerm.trim() !== '') {
+        url.searchParams.append('school_term', schoolTerm.trim());
+        console.log('[ClearanceProgressModal] Loading clearance progress for term:', schoolTerm);
+    } else {
+        console.log('[ClearanceProgressModal] Loading clearance progress for current/active term');
     }
     
-    fetch(apiUrl, {credentials:'include'})
-        .then(r=>r.json())
+    // Show loading state
+    const signatoriesList = document.getElementById('signatoriesList');
+    if (signatoriesList) {
+        signatoriesList.innerHTML = '<div style="padding: 2rem; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Loading clearance progress...</div>';
+    }
+    
+    fetch(url.toString(), {credentials:'include'})
+        .then(r => {
+            if (!r.ok) throw new Error(`Network response was not ok, status: ${r.status}`);
+            return r.json();
+        })
         .then(res=>{
-            if(!res.success){throw new Error(res.message||'Failed to load progress');}
+            console.log('[ClearanceProgressModal] API Response:', res);
+            
+            if(!res.success){
+                throw new Error(res.message||'Failed to load progress');
+            }
 
-            const approved = res.approved || 0;
-            const total    = res.total   || 0;
-            const completionPercentage = total>0 ? Math.round((approved/total)*100) : 0;
+            // Handle empty response (no form found for selected term)
+            if (res.message && res.message.includes('No clearance forms found')) {
+                const signatoriesList = document.getElementById('signatoriesList');
+                if (signatoriesList) {
+                    signatoriesList.innerHTML = `
+                        <div style="padding: 2rem; text-align: center; color: var(--medium-muted-blue);">
+                            <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                            <p><strong>No Clearance Form Found</strong></p>
+                            <p>${res.message}</p>
+                        </div>
+                    `;
+                }
+                // Reset progress overview
+                updateProgressDisplay({
+                    signatories: [],
+                    completionPercentage: 0,
+                    completedCount: 0,
+                    totalCount: 0,
+                    overallStatus: 'no-form',
+                    dataInconsistency: null
+                });
+                return;
+            }
 
-            const signatories = (res.signatories||[]).map(s=>({
+            const approved = res.approved_count || 0;
+            const total    = res.total_signatories   || 0;
+            const completionPercentage = total > 0 ? Math.round((approved / total) * 100) : 0;
+
+            const loggedInUserId = res.logged_in_user_id || null;
+            const dataInconsistency = res.data_inconsistency || null;
+            
+            const signatories = (res.signatories || []).map(s => ({
                 position: s.designation_name,
                 name: s.signatory_name||'-',
-                status: (s.action||'unapplied').toLowerCase().replace(' ','-'),
-                statusText: s.action||'Unapplied'
+                status: (s.action || 'Unapplied').toLowerCase().replace(' ', '-'),
+                statusText: s.action || 'Unapplied',
+                actual_user_id: s.actual_user_id || null,
+                isCurrentUser: loggedInUserId && s.actual_user_id && parseInt(s.actual_user_id) === parseInt(loggedInUserId)
             }));
 
             const payload={
@@ -337,113 +532,27 @@ function loadClearanceProgressData(personId, personType) {
                 completionPercentage,
                 completedCount: approved,
                 totalCount: total,
-                overallStatus: (res.overall_status||'Unapplied').toLowerCase().replace(' ','-')
+                overallStatus: (res.overall_status||'Unapplied').toLowerCase().replace(' ','-'),
+                dataInconsistency: dataInconsistency
             };
             updateProgressDisplay(payload);
         })
         .catch(err=>{
-            console.error(err);
-            // If API fails, show mock data for demonstration
-            console.log('API failed, showing mock data for:', personId, personType);
-            const mockData = generateMockClearanceData(personId, personType);
-            updateProgressDisplay(mockData);
+            console.error('Failed to load clearance progress:', err);
+            const signatoriesList = document.getElementById('signatoriesList');
+            signatoriesList.innerHTML = `<div class="error-state" style="padding: 2rem; text-align: center; color: var(--danger-red);">
+                                            <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                                            <p>Could not load clearance progress.</p>
+                                            <small>${err.message}</small>
+                                         </div>`;
+            // Also reset the progress overview
+            updateProgressDisplay({
+                completionPercentage: 0,
+                completedCount: 0,
+                totalCount: 0,
+                overallStatus: 'error'
+            });
         });
-}
-
-function generateMockClearanceData(personId, personType) {
-    // Mock data structure - in a real application, this would come from the server
-    let signatories;
-    
-    if (personType === 'faculty') {
-        signatories = [
-            {
-                position: 'Department Head',
-                name: 'Dr. Maria Santos',
-                status: 'approved',
-                statusText: 'Approved'
-            },
-            {
-                position: 'Program Head',
-                name: 'Prof. Juan Dela Cruz',
-                status: 'pending',
-                statusText: 'Pending'
-            },
-            {
-                position: 'Library',
-                name: 'Ms. Ana Rodriguez',
-                status: 'approved',
-                statusText: 'Approved'
-            },
-            {
-                position: 'Accounting',
-                name: 'Mr. Carlos Lopez',
-                status: 'in-progress',
-                statusText: 'In Progress'
-            },
-            {
-                position: 'Registrar',
-                name: 'Ms. Sofia Martinez',
-                status: 'unapplied',
-                statusText: 'Unapplied'
-            }
-        ];
-    } else {
-        // Student signatories
-        signatories = [
-            {
-                position: 'Department Head',
-                name: 'Dr. Maria Santos',
-                status: 'approved',
-                statusText: 'Approved'
-            },
-            {
-                position: 'Program Head',
-                name: 'Prof. Juan Dela Cruz',
-                status: 'pending',
-                statusText: 'Pending'
-            },
-            {
-                position: 'Library',
-                name: 'Ms. Ana Rodriguez',
-                status: 'approved',
-                statusText: 'Approved'
-            },
-            {
-                position: 'Accounting',
-                name: 'Mr. Carlos Lopez',
-                status: 'in-progress',
-                statusText: 'In Progress'
-            },
-            {
-                position: 'Registrar',
-                name: 'Ms. Sofia Martinez',
-                status: 'unapplied',
-                statusText: 'Unapplied'
-            }
-        ];
-    }
-    
-    const completedCount = signatories.filter(s => s.status === 'approved').length;
-    const totalCount = signatories.length;
-    const completionPercentage = Math.round((completedCount / totalCount) * 100);
-    
-    // Determine overall status
-    let overallStatus = 'unapplied';
-    if (completedCount === totalCount) {
-        overallStatus = 'complete';
-    } else if (completedCount > 0) {
-        overallStatus = 'in-progress';
-    } else if (signatories.some(s => s.status === 'pending' || s.status === 'in-progress')) {
-        overallStatus = 'applied';
-    }
-    
-    return {
-        signatories,
-        completionPercentage,
-        completedCount,
-        totalCount,
-        overallStatus
-    };
 }
 
 function updateProgressDisplay(data) {
@@ -455,27 +564,45 @@ function updateProgressDisplay(data) {
     
     // Update overall status badge
     const overallStatusBadge = document.getElementById('overallStatusBadge');
-    overallStatusBadge.textContent = data.overallStatus.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
-    overallStatusBadge.className = `status-badge ${data.overallStatus}`;
+    const statusText = data.overallStatus === 'no-form' ? 'No Form' : data.overallStatus.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    overallStatusBadge.textContent = statusText;
+    overallStatusBadge.className = `status-badge ${data.overallStatus === 'no-form' ? 'unapplied' : data.overallStatus}`;
     
     // Update signatories list
     const signatoriesList = document.getElementById('signatoriesList');
-    signatoriesList.innerHTML = '';
     
-    data.signatories.forEach(signatory => {
-        const signatoryItem = document.createElement('div');
-        signatoryItem.className = 'signatory-item';
-        signatoryItem.innerHTML = `
-            <div class="signatory-info">
-                <div class="signatory-position">${signatory.position}</div>
-                <div class="signatory-name">${signatory.name}</div>
-            </div>
-            <div class="signatory-status">
-                <span class="status-badge ${signatory.status}">${signatory.statusText}</span>
-            </div>
-        `;
-        signatoriesList.appendChild(signatoryItem);
-    });
+    // If no signatories (empty array or no-form status), the list should already be set by loadClearanceProgressData
+    if (data.signatories && data.signatories.length > 0) {
+        signatoriesList.innerHTML = '';
+        
+        data.signatories.forEach(signatory => {
+            const signatoryItem = document.createElement('div');
+            signatoryItem.className = 'signatory-item' + (signatory.isCurrentUser ? ' signatory-current-user' : '');
+            signatoryItem.innerHTML = `
+                <div class="signatory-info">
+                    <div class="signatory-position">${signatory.position}</div>
+                    <div class="signatory-name">
+                        ${signatory.name}
+                        ${signatory.isCurrentUser ? '<span class="signatory-you-indicator" title="Your action status"><span class="you-dot"></span> You</span>' : ''}
+                    </div>
+                </div>
+                <div class="signatory-status">
+                    <span class="status-badge ${signatory.status}">${signatory.statusText}</span>
+                </div>
+            `;
+            signatoriesList.appendChild(signatoryItem);
+        });
+    }
+    
+    // Show/hide data inconsistency warning
+    const warningSection = document.getElementById('dataInconsistencyWarning');
+    const warningMessage = document.getElementById('inconsistencyMessage');
+    if (data.dataInconsistency && data.dataInconsistency.message) {
+        warningMessage.textContent = data.dataInconsistency.message;
+        warningSection.style.display = 'block';
+    } else {
+        warningSection.style.display = 'none';
+    }
 }
 
 function exportClearanceForm() {
@@ -485,8 +612,6 @@ function exportClearanceForm() {
     // This will be developed in the near future
 }
 
-// Make functions globally available
-window.openClearanceProgressModal = openClearanceProgressModal;
-window.closeClearanceProgressModal = closeClearanceProgressModal;
+// Make export function globally available
 window.exportClearanceForm = exportClearanceForm;
 </script>

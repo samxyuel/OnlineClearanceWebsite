@@ -84,10 +84,10 @@ try {
     if ($pdo === null) { $pdo = Database::getInstance()->getConnection(); }
 
     // Apply gate: active clearance period + user eligibility
-    // 1) Ensure an active clearance period with status 'active' exists and derive AY+semester
-    $cpStmt = $pdo->query("SELECT academic_year_id, semester_id, status FROM clearance_periods WHERE is_active=1 LIMIT 1");
+    // 1) Ensure an active clearance period with status 'Ongoing' exists and derive AY+semester
+    $cpStmt = $pdo->query("SELECT academic_year_id, semester_id, status FROM clearance_periods WHERE status = 'Ongoing' LIMIT 1");
     $cp = $cpStmt->fetch(PDO::FETCH_ASSOC);
-    if(!$cp || $cp['status'] !== 'active'){
+    if(!$cp){
         http_response_code(400); echo json_encode(['success'=>false,'message'=>'No active clearance period for applications']); exit;
     }
 
@@ -124,8 +124,8 @@ try {
     if(!$formId){
         $isNewForm = true;
         $ctype = ($auth->getRoleName()==='Faculty') ? 'Faculty' : 'Student';
-        $pdo->prepare("INSERT INTO clearance_forms (user_id, academic_year_id, semester_id, clearance_type, status, created_at, updated_at) VALUES (?,?,?,?, 'Unapplied', NOW(), NOW())")
-            ->execute([$userId,$ayId,$semId,$ctype]);
+        $pdo->prepare("INSERT INTO clearance_forms (user_id, academic_year_id, semester_id, clearance_type, clearance_form_progress, created_at, updated_at) VALUES (?,?,?,?, 'unapplied', NOW(), NOW())")
+            ->execute([$userId, $ayId, $semId, $ctype]);
         // Re-query to fetch the trigger-generated VARCHAR id
         $formStmt->execute([$userId,$ayId,$semId]);
         $formId = $formStmt->fetchColumn();
@@ -144,8 +144,8 @@ try {
         $pdo->prepare("INSERT INTO clearance_signatories (clearance_form_id,designation_id,action,created_at,updated_at) VALUES (?,?, 'Pending', NOW(), NOW())")->execute([$formId,$designationId]);
     }
 
-    // If form status is still Unapplied, bump it to Applied
-    $pdo->prepare("UPDATE clearance_forms SET status='Applied', updated_at=NOW() WHERE clearance_form_id=? AND status='Unapplied'")->execute([$formId]);
+    // If form progress is still 'unapplied', bump it to 'in-progress'
+    $pdo->prepare("UPDATE clearance_forms SET clearance_form_progress='in-progress', updated_at=NOW() WHERE clearance_form_id=? AND clearance_form_progress='unapplied'")->execute([$formId]);
 
     logActivity($userId,'Signatory Apply', ['form_id'=>$formId,'designation_id'=>$designationId]);
     echo json_encode(['success'=>true,'message'=>'Applied to signatory','clearance_form_id'=>$formId]);

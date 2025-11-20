@@ -10,7 +10,8 @@
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../../assets/css/components.css">
+    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
     <?php
@@ -40,26 +41,53 @@
                     <!-- Active Period Status -->
                     <div class="card active-period-status">
                         <div class="status-content">
-                            <div class="status-info">
-                                <h3><i class="fas fa-calendar-check"></i> 2024-2025 Term 1 (ACTIVE)</h3>
-                                <p>Duration: 45 days | Started: Jan 15, 2024</p>
-                                <div class="period-stats">
-                                    <span class="stat-item">
-                                        <i class="fas fa-user-graduate"></i> Students: 45 applied, 32 completed (71%)
-                                    </span>
-                                    <span class="stat-item">
-                                        <i class="fas fa-chalkboard-teacher"></i> Faculty: 12 applied, 8 completed (67%)
-                                    </span>
+                            <div class="status-header">
+                                <h3><i class="fas fa-calendar-check"></i> <span id="currentAcademicYear">Loading...</span> - <span id="currentActiveTerm">Loading...</span></h3>
+                                <p id="termDuration">Loading term information...</p>
+                                
+                                <!-- Sector Status Indicators -->
+                                <div class="sector-status-indicators">
+                                    <div class="sector-indicator college-sector">
+                                        <i class="fas fa-university"></i>
+                                        <span class="sector-name">College</span>
+                                        <span class="sector-status" id="college-status">Loading...</span>
+                                    </div>
+                                    <div class="sector-indicator shs-sector">
+                                        <i class="fas fa-graduation-cap"></i>
+                                        <span class="sector-name">Senior High School</span>
+                                        <span class="sector-status" id="shs-status">Loading...</span>
+                                    </div>
+                                    <div class="sector-indicator faculty-sector">
+                                        <i class="fas fa-chalkboard-teacher"></i>
+                                        <span class="sector-name">Faculty</span>
+                                        <span class="sector-status" id="faculty-status">Loading...</span>
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <div class="status-stats">
+                                <div class="stat-item">
+                                    <i class="fas fa-university"></i>
+                                    <span id="college-stats">College: 0 applied, 0 completed (0%)</span>
+                                </div>
+                                <div class="stat-item">
+                                    <i class="fas fa-graduation-cap"></i>
+                                    <span id="shs-stats">Senior High School: 0 applied, 0 completed (0%)</span>
+                                </div>
+                                <div class="stat-item">
+                                    <i class="fas fa-chalkboard-teacher"></i>
+                                    <span id="faculty-stats">Faculty: 0 applied, 0 completed (0%)</span>
+                                </div>
+                            </div>
+                            
                             <div class="status-actions">
-                                <button class="btn btn-warning" onclick="deactivateCurrentTerm()">
-                                    <i class="fas fa-pause"></i> Deactivate
+                                <button class="btn btn-success" onclick="showAddSchoolYearModal()" id="addSchoolYearBtn">
+                                    <i class="fas fa-plus"></i> Add School Year
                                 </button>
-                                <button class="btn btn-danger" onclick="endCurrentTerm()">
-                                    <i class="fa-solid fa-clipboard-check"></i> End Term
+                                <button class="btn btn-primary" onclick="toggleTermStatus()" id="termToggleBtn">
+                                    <i class="fas fa-play"></i> <span id="termToggleText">Activate Term</span>
                                 </button>
-                                <a href="ClearanceManagement.php" class="btn btn-primary">
+                                <a href="ClearanceManagement.php" class="btn btn-outline-primary">
                                     <i class="fas fa-cog"></i> Manage Clearance
                                 </a>
                             </div>
@@ -73,7 +101,7 @@
                                 <i class="fas fa-users"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>1,234</h3>
+                                <h3 id="totalStudentsStat">0</h3>
                                 <p>Total Students</p>
                             </div>
                         </div>
@@ -82,7 +110,7 @@
                                 <i class="fas fa-chalkboard-teacher"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>89</h3>
+                                <h3 id="totalFacultyStat">0</h3>
                                 <p>Total Faculty</p>
                             </div>
                         </div>
@@ -91,7 +119,7 @@
                                 <i class="fas fa-user-cog"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>26</h3>
+                                <h3 id="totalStaffStat">0</h3>
                                 <p>Total Staff</p>
                             </div>
                         </div>
@@ -100,105 +128,15 @@
                                 <i class="fas fa-clipboard-check"></i>
                             </div>
                             <div class="stat-content">
-                                <h3>57</h3>
+                                <h3 id="activeClearancesStat">0</h3>
                                 <p>Active Clearances</p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Quick Actions -->
-                    <div class="management-section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
-                        </div>
-                        <div class="quick-actions-grid">
-                            <a href="StudentManagement.php" class="action-card">
-                                <div class="action-icon">
-                                    <i class="fas fa-user-graduate"></i>
-                                </div>
-                                <div class="action-content">
-                                    <h4>Manage Students</h4>
-                                    <p>View and manage student accounts</p>
-                                </div>
-                            </a>
-                            <a href="FacultyManagement.php" class="action-card">
-                                <div class="action-icon">
-                                    <i class="fas fa-chalkboard-teacher"></i>
-                                </div>
-                                <div class="action-content">
-                                    <h4>Manage Faculty</h4>
-                                    <p>View and manage faculty accounts</p>
-                                </div>
-                            </a>
-                            <a href="StaffManagement.php" class="action-card">
-                                <div class="action-icon">
-                                    <i class="fas fa-user-cog"></i>
-                                </div>
-                                <div class="action-content">
-                                    <h4>Manage Staff</h4>
-                                    <p>View and manage staff accounts</p>
-                                </div>
-                            </a>
-                            <a href="ClearanceManagement.php" class="action-card">
-                                <div class="action-icon">
-                                    <i class="fas fa-clipboard-check"></i>
-                                </div>
-                                <div class="action-content">
-                                    <h4>Clearance Management</h4>
-                                    <p>Manage clearance periods and signatories</p>
-                                </div>
-                            </a>
-                        </div>
-                    </div>
 
                     <!-- Recent Activity -->
-                    <div class="management-section">
-                        <div class="section-header">
-                            <h3><i class="fas fa-history"></i> Recent Activity</h3>
-                        </div>
-                        <div class="activity-list">
-                            <div class="activity-item">
-                                <div class="activity-icon">
-                                    <i class="fas fa-user-plus"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <h4>New Student Registration</h4>
-                                    <p>John Smith registered for clearance</p>
-                                    <span class="activity-time">2 minutes ago</span>
-                                </div>
-                            </div>
-                            <div class="activity-item">
-                                <div class="activity-icon">
-                                    <i class="fas fa-check-circle"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <h4>Clearance Completed</h4>
-                                    <p>Maria Garcia completed her clearance</p>
-                                    <span class="activity-time">15 minutes ago</span>
-                                </div>
-                            </div>
-                            <div class="activity-item">
-                                <div class="activity-icon">
-                                    <i class="fas fa-pause-circle"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <h4>Term Deactivated</h4>
-                                    <p>2024-2025 Term 1 was deactivated</p>
-                                    <span class="activity-time">1 hour ago</span>
-                                </div>
-                            </div>
-                            <div class="activity-item">
-                                <div class="activity-icon">
-                                    <i class="fas fa-user-edit"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <h4>Staff Updated</h4>
-                                    <p>Dr. Emily Brown's information was updated</p>
-                                    <span class="activity-time">2 hours ago</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <?php include '../../includes/components/recent-activity.php'; ?>
                 </div>
                 </div>
                 
@@ -218,38 +156,287 @@
     <?php include '../../includes/functions/audit_functions.php'; ?>
     
     <script>
-        function deactivateCurrentTerm() {
-            showConfirmation(
-                'Deactivate Current Term',
-                'Are you sure you want to deactivate the current term? This will pause all clearance activities.',
-                'Deactivate',
-                'Cancel',
-                () => {
-                    showToast('Term deactivated successfully!', 'success');
-                    // Redirect to clearance management for further actions
-                    setTimeout(() => {
-                        window.location.href = 'ClearanceManagement.php';
-                    }, 1500);
-                },
-                'warning'
-            );
+        // Load dashboard data on page load
+        async function loadDashboardData() {
+            try {
+                // Load current academic context
+                const contextResponse = await fetch('../../api/clearance/context.php', {
+                    credentials: 'include'
+                });
+                const contextData = await contextResponse.json();
+                
+                if (contextData.success) {
+                    updateAcademicYearDisplay(contextData);
+                }
+                
+                // Load sector periods data
+                const periodsResponse = await fetch('../../api/clearance/sector-periods.php', {
+                    credentials: 'include'
+                });
+                const periodsData = await periodsResponse.json();
+                
+                if (periodsData.success) {
+                    updateSectorStatusDisplay(periodsData.periods_by_sector || {});
+                }
+                
+                // Load statistics
+                await loadDashboardStatistics();
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                showToast('Failed to load dashboard data', 'error');
+            }
         }
-
-        function endCurrentTerm() {
-            showConfirmation(
+        
+        // Update academic year and term display
+        function updateAcademicYearDisplay(contextData) {
+            const academicYear = contextData.academic_year;
+            const activeTerm = contextData.terms?.find(term => term.is_active === 1);
+            
+            if (academicYear) {
+                document.getElementById('currentAcademicYear').textContent = academicYear.year;
+            }
+            
+            if (activeTerm) {
+                document.getElementById('currentActiveTerm').textContent = activeTerm.semester_name;
+                document.getElementById('termDuration').textContent = `Active since: ${new Date(activeTerm.created_at).toLocaleDateString()}`;
+                
+                // Update term toggle button
+                const termToggleBtn = document.getElementById('termToggleBtn');
+                const termToggleText = document.getElementById('termToggleText');
+                
+                termToggleBtn.className = 'btn btn-danger';
+                termToggleBtn.innerHTML = '<i class="fas fa-stop"></i> <span id="termToggleText">End Term</span>';
+                termToggleBtn.onclick = () => endCurrentTerm();
+            } else {
+                document.getElementById('currentActiveTerm').textContent = 'No Active Term';
+                document.getElementById('termDuration').textContent = 'No active term found';
+                
+                // Update term toggle button
+                const termToggleBtn = document.getElementById('termToggleBtn');
+                termToggleBtn.className = 'btn btn-success';
+                termToggleBtn.innerHTML = '<i class="fas fa-play"></i> <span id="termToggleText">Activate Term</span>';
+                termToggleBtn.onclick = () => activateCurrentTerm();
+            }
+        }
+        
+        // Update sector status display
+        function updateSectorStatusDisplay(periodsBySector) {
+            const sectors = [
+                { key: 'College', id: 'college-status' },
+                { key: 'Senior High School', id: 'shs-status' },
+                { key: 'Faculty', id: 'faculty-status' }
+            ];
+            
+            sectors.forEach(sector => {
+                const statusElement = document.getElementById(sector.id);
+                const sectorPeriods = periodsBySector[sector.key];
+                
+                if (sectorPeriods && sectorPeriods.length > 0) {
+                    const latestPeriod = sectorPeriods[0];
+                    const status = latestPeriod.status || 'Not Started';
+                    statusElement.textContent = status;
+                    statusElement.className = `sector-status status-${status.toLowerCase().replace(' ', '-')}`;
+                } else {
+                    statusElement.textContent = 'Not Started';
+                    statusElement.className = 'sector-status status-not-started';
+                }
+            });
+        }
+        
+        // Load dashboard statistics
+        async function loadDashboardStatistics() {
+            try {
+                const response = await fetch('../../api/dashboard/admin_summary.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateStatisticsDisplay(data.data);
+                    updateQuickStats(data.data);
+                }
+            } catch (error) {
+                console.error('Error loading statistics:', error);
+                // Use fallback data
+                updateStatisticsDisplay({
+                    college: { applied: 0, completed: 0 },
+                    shs: { applied: 0, completed: 0 },
+                    faculty: { applied: 0, completed: 0 }
+                });
+                updateQuickStats({
+                    total_users: {
+                        total_students: 0,
+                        total_faculty: 0,
+                        total_staff: 0,
+                        active_clearances: 0
+                    }
+                });
+            }
+        }
+        
+        // Update statistics display
+        function updateStatisticsDisplay(stats) {
+            // College stats
+            const collegeApplied = stats.college?.applied || 0;
+            const collegeCompleted = stats.college?.completed || 0;
+            const collegeRate = collegeApplied > 0 ? Math.round((collegeCompleted / collegeApplied) * 100) : 0;
+            document.getElementById('college-stats').textContent = 
+                `College: ${collegeApplied} applied, ${collegeCompleted} completed (${collegeRate}%)`;
+            
+            // SHS stats
+            const shsApplied = stats.shs?.applied || 0;
+            const shsCompleted = stats.shs?.completed || 0;
+            const shsRate = shsApplied > 0 ? Math.round((shsCompleted / shsApplied) * 100) : 0;
+            document.getElementById('shs-stats').textContent = 
+                `Senior High School: ${shsApplied} applied, ${shsCompleted} completed (${shsRate}%)`;
+            
+            // Faculty stats
+            const facultyApplied = stats.faculty?.applied || 0;
+            const facultyCompleted = stats.faculty?.completed || 0;
+            const facultyRate = facultyApplied > 0 ? Math.round((facultyCompleted / facultyApplied) * 100) : 0;
+            document.getElementById('faculty-stats').textContent = 
+                `Faculty: ${facultyApplied} applied, ${facultyCompleted} completed (${facultyRate}%)`;
+        }
+        
+        // Update Quick Stats Dashboard
+        function updateQuickStats(data) {
+            const totalUsers = data.total_users || {};
+            
+            // Update Total Students
+            const totalStudentsEl = document.getElementById('totalStudentsStat');
+            if (totalStudentsEl) {
+                totalStudentsEl.textContent = (totalUsers.total_students || 0).toLocaleString();
+            }
+            
+            // Update Total Faculty
+            const totalFacultyEl = document.getElementById('totalFacultyStat');
+            if (totalFacultyEl) {
+                totalFacultyEl.textContent = (totalUsers.total_faculty || 0).toLocaleString();
+            }
+            
+            // Update Total Staff
+            const totalStaffEl = document.getElementById('totalStaffStat');
+            if (totalStaffEl) {
+                totalStaffEl.textContent = (totalUsers.total_staff || 0).toLocaleString();
+            }
+            
+            // Update Active Clearances
+            const activeClearancesEl = document.getElementById('activeClearancesStat');
+            if (activeClearancesEl) {
+                activeClearancesEl.textContent = (totalUsers.active_clearances || 0).toLocaleString();
+            }
+        }
+        
+        // Toggle term status (activate or end)
+        function toggleTermStatus() {
+            // This function will be overridden by the specific activate/end functions
+            console.log('Toggle term status called');
+        }
+        
+        // Activate current term
+        async function activateCurrentTerm() {
+            try {
+                showToast('Activating term...', 'info');
+                
+                // Get available terms
+                const response = await fetch('../../api/clearance/context.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success && data.terms) {
+                    // Find the first inactive term
+                    const inactiveTerm = data.terms.find(term => term.is_active === 0);
+                    
+                    if (inactiveTerm) {
+                        // Activate the term
+                        const activateResponse = await fetch('../../api/clearance/periods.php', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                semester_id: inactiveTerm.semester_id,
+                                action: 'activate_semester'
+                            })
+                        });
+                        
+                        const activateData = await activateResponse.json();
+                        
+                        if (activateData.success) {
+                            showToast('Term activated successfully!', 'success');
+                            // Reload dashboard data
+                            await loadDashboardData();
+                        } else {
+                            throw new Error(activateData.message || 'Failed to activate term');
+                        }
+                    } else {
+                        showToast('No inactive terms available to activate', 'warning');
+                    }
+                } else {
+                    throw new Error('Failed to load term data');
+                }
+            } catch (error) {
+                console.error('Error activating term:', error);
+                showToast(error.message || 'Failed to activate term', 'error');
+            }
+        }
+        
+        // End current term
+        async function endCurrentTerm() {
+            const confirmed = await showConfirmationModal(
                 'End Current Term',
                 'Are you sure you want to end the current term? This will permanently conclude all clearance activities.',
                 'End Term',
                 'Cancel',
-                () => {
-                    showToast('Term ended successfully!', 'success');
-                    // Redirect to clearance management for further actions
-                    setTimeout(() => {
-                        window.location.href = 'ClearanceManagement.php';
-                    }, 1500);
-                },
                 'danger'
             );
+            
+            if (confirmed) {
+                try {
+                    showToast('Ending term...', 'info');
+                    
+                    // Get current active term
+                    const response = await fetch('../../api/clearance/context.php', {
+                        credentials: 'include'
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success && data.terms) {
+                        const activeTerm = data.terms.find(term => term.is_active === 1);
+                        
+                        if (activeTerm) {
+                            // End the term
+                            const endResponse = await fetch('../../api/clearance/periods.php', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({
+                                    semester_id: activeTerm.semester_id,
+                                    action: 'end_semester'
+                                })
+                            });
+                            
+                            const endData = await endResponse.json();
+                            
+                            if (endData.success) {
+                                showToast('Term ended successfully!', 'success');
+                                // Reload dashboard data
+                                await loadDashboardData();
+                            } else {
+                                throw new Error(endData.message || 'Failed to end term');
+                            }
+                        } else {
+                            showToast('No active term found to end', 'warning');
+                        }
+                    } else {
+                        throw new Error('Failed to load term data');
+                    }
+                } catch (error) {
+                    console.error('Error ending term:', error);
+                    showToast(error.message || 'Failed to end term', 'error');
+                }
+            }
         }
 
         // Sidebar toggle function
@@ -318,6 +505,9 @@
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized');
             }
+            
+            // Load dashboard data
+            loadDashboardData();
             
             // Handle responsive sidebar behavior
             function handleResize() {

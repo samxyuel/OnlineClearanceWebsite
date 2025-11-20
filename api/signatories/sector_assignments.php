@@ -112,7 +112,7 @@ function assignSignatory($pdo, $data) {
     if (!validateClearanceType($data['clearance_type'])) {
         throw new Exception("Invalid clearance type");
     }
-    
+
     error_log("API: Attempting to assign signatory. Data: " . json_encode($data));
     
     // Check if assignment already exists (active or inactive)

@@ -1,11 +1,85 @@
-/* Dashboard Layout */
+/* Dashboard Layout - Updated for Fixed Activity Tracker */
+/* 
+ * IMPORTANT: Activity tracker now uses fixed positioning like the main sidebar
+ * - Top: 114px (102px header + 12px gap)
+ * - Height: calc(100vh - 126px) (114px top + 12px bottom gap)  
+ * - Right: 12px (consistent gap from screen edge)
+ * - No longer scrolls with page content
+ * - Zoom-resistant fonts applied throughout
+ * - All scrollbars completely hidden while maintaining scroll functionality
+ */
+
+/* FORCE HIDE ALL SCROLLBARS IN ACTIVITY TRACKER - AGGRESSIVE APPROACH */
+.dashboard-sidebar,
+.dashboard-sidebar * {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+.dashboard-sidebar::-webkit-scrollbar,
+.dashboard-sidebar *::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  display: none !important;
+}
+
+/* Additional webkit scrollbar component hiding */
+.dashboard-sidebar::-webkit-scrollbar-track,
+.dashboard-sidebar *::-webkit-scrollbar-track,
+.dashboard-sidebar::-webkit-scrollbar-thumb,
+.dashboard-sidebar *::-webkit-scrollbar-thumb,
+.dashboard-sidebar::-webkit-scrollbar-corner,
+.dashboard-sidebar *::-webkit-scrollbar-corner {
+  display: none !important;
+  background: transparent !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Nuclear option - Force hide all possible scrollbar variations */
+/* This aggressive approach targets all elements and IDs used in the activity tracker */
+#activityTracker,
+#activityTracker *,
+.activity-tracker,
+.activity-tracker *,
+.activity-list,
+.activity-list *,
+.activity-list-container,
+.activity-list-container * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  overflow: -moz-scrollbars-none !important; /* Older Firefox */
+}
+
+#activityTracker::-webkit-scrollbar,
+#activityTracker *::-webkit-scrollbar,
+.activity-tracker::-webkit-scrollbar,
+.activity-tracker *::-webkit-scrollbar,
+.activity-list::-webkit-scrollbar,
+.activity-list *::-webkit-scrollbar,
+.activity-list-container::-webkit-scrollbar,
+.activity-list-container *::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  background: none !important;
+  display: none !important;
+}
+
+/* 
+ * NOTE: If scrollbars still appear after these changes:
+ * 1. Hard refresh the browser (Ctrl+F5 or Cmd+Shift+R)
+ * 2. Clear browser cache
+ * 3. Check for any inline styles in the HTML that might override these rules
+ */
 .dashboard-layout {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  grid-template-columns: 1fr; /* Single column since activity tracker is now fixed positioned */
   gap: 20px;
   padding: 20px;
+  padding-right: 352px; /* Make room for fixed activity tracker: 320px width + 32px spacing */
   min-height: 100vh;
-  /* Ensure proper alignment for sticky sidebar */
+  /* Ensure proper alignment */
   align-items: start;
 }
 
@@ -19,16 +93,13 @@
 /* Ensure grid layout takes precedence over flexbox - DESKTOP ONLY */
 @media (min-width: 993px) {
   .dashboard-layout {
-    display: grid !important;
-    grid-template-columns: 1fr 320px !important;
-    gap: 20px !important;
+    display: block !important; /* Block layout since activity tracker is now fixed positioned */
     padding: 20px !important;
-    /* Force grid to maintain column widths */
+    padding-right: 352px !important; /* Make room for fixed activity tracker: 320px width + 32px spacing */
+    /* Force proper main content width */
     min-width: 0 !important;
     width: 100% !important;
-    /* Prevent grid columns from expanding beyond intended widths */
-    grid-auto-columns: min-content !important;
-    /* Ensure proper alignment for sticky sidebar */
+    /* Ensure proper alignment */
     align-items: start !important;
   }
 }
@@ -47,7 +118,7 @@
     margin-left: 0 !important;
     width: 100% !important;
     display: grid !important;
-    grid-template-columns: 1fr 320px !important;
+    /* grid-template-columns: 1fr 320px !important; */
   }
 
   /* Specific fix for clearance management content - DESKTOP ONLY */
@@ -83,11 +154,13 @@
     /* Force sidebar to maintain its width */
     max-width: 320px !important;
     flex-shrink: 0 !important;
-    /* Fixed height for desktop - prevent scrolling with main content */
-    height: calc(100vh - 120px) !important; /* Account for header and padding */
-    position: sticky !important;
-    top: 20px !important;
+    /* Fixed positioning with consistent gaps like main sidebar */
+    height: calc(100vh - 126px) !important; /* 114px top + 12px bottom gap */
+    position: fixed !important;
+    top: 114px !important; /* 102px header + 12px gap */
+    right: 12px !important; /* 12px gap from right edge */
     align-self: flex-start !important;
+    z-index: 999 !important; /* Below main sidebar but above content */
   }
 }
 
@@ -111,19 +184,32 @@
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-  /* Fixed height for desktop - prevent scrolling with main content */
-  height: calc(100vh - 120px); /* Account for header and padding */
-  position: sticky;
-  top: 20px;
+  overflow-y: auto;
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+  /* Default desktop positioning - will be overridden by media query */
+  height: calc(100vh - 126px); /* 114px top + 12px bottom gap */
+  position: fixed;
+  top: 114px; /* 102px header + 12px gap */
+  right: 12px; /* 12px gap from right edge */
   align-self: flex-start;
+  z-index: 999; /* Below main sidebar but above content */
+  /* Hide scrollbar for all browsers */
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+/* Hide scrollbar for webkit browsers on the main container */
+.dashboard-sidebar::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
 }
 
 /* Mobile Toggle Button - Fixed Position */
 .activity-tracker-toggle {
   margin-top: 12px;
   position: fixed;
-  top: 80px;
+  top: 126px; /* Below header with 12px gap: 102px header + 12px gap + 12px spacing */
   right: 20px;
   width: 56px;
   height: 40px;
@@ -138,7 +224,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1001;
-  font-size: 16px;
+  font-size: clamp(14px, 16px, 18px); /* Zoom-resistant button icon */
 }
 
 .activity-tracker-toggle:hover {
@@ -190,28 +276,40 @@
     grid-template-columns: 1fr;
     gap: 0;
     padding: 10px;
+    padding-right: 10px !important; /* Reset right padding on mobile */
     /* Ensure mobile layout works properly */
     display: block !important;
   }
 
   .dashboard-sidebar {
     position: fixed;
-    top: 80px;
+    top: 114px; /* Match desktop positioning: 102px header + 12px gap */
     right: 0;
     width: 280px;
-    height: calc(100vh - 80px);
+    height: calc(100vh - 126px); /* Match desktop: 114px top + 12px bottom */
     transform: translateX(100%);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1000;
     overflow-y: auto;
+    overflow-x: hidden; /* Prevent horizontal scrolling */
     border-left: 1px solid #e0e0e0;
     opacity: 0;
     visibility: hidden;
-    /* Reset desktop fixed height for mobile */
+    /* Use consistent mobile positioning */
     position: fixed !important;
-    top: 80px !important;
-    height: calc(100vh - 80px) !important;
+    top: 114px !important; /* Consistent with desktop */
+    height: calc(100vh - 126px) !important; /* Consistent gaps */
     align-self: auto !important;
+    /* Hide scrollbar for mobile */
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE and Edge */
+  }
+
+  /* Hide mobile scrollbar for webkit browsers */
+  .dashboard-sidebar::-webkit-scrollbar {
+    width: 0px !important;
+    height: 0px !important;
+    background: transparent !important;
   }
 
   .dashboard-sidebar.show {
@@ -294,7 +392,7 @@
   }
 
   .activity-tracker-header h3 {
-    font-size: 16px;
+    font-size: clamp(15px, 16px, 19px); /* Zoom-resistant mobile header */
   }
 }
 
@@ -310,11 +408,37 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   /* Ensure full height within fixed sidebar */
   min-height: 100%;
+  /* Hide scrollbar for all browsers */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Hide scrollbar for webkit browsers on activity tracker */
+.activity-tracker::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
+}
+
+/* Global scrollbar hiding for all elements within Activity Tracker */
+.dashboard-sidebar *,
+.activity-tracker *,
+.activity-list-container * {
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+.dashboard-sidebar *::-webkit-scrollbar,
+.activity-tracker *::-webkit-scrollbar,
+.activity-list-container *::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+  display: none !important;
 }
 
 .activity-tracker-header {
-  background: var(--deep-navy-blue);
-  color: white;
+  background: var(--very-light-off-white);
+  color: var(--deep-navy-blue);
   padding: 20px;
   display: flex;
   align-items: center;
@@ -326,7 +450,7 @@
 
 .activity-tracker-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: clamp(16px, 18px, 22px); /* Zoom-resistant header */
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -335,7 +459,7 @@
 
 .activity-tracker-header h3 i {
   color: var(--bright-golden-yellow);
-  font-size: 16px;
+  font-size: clamp(14px, 16px, 20px); /* Zoom-resistant icon */
 }
 
 /* Quick Stats Row */
@@ -345,6 +469,16 @@
   padding: 16px 20px;
   border-bottom: 1px solid #f0f0f0;
   overflow-x: auto;
+  /* Hide horizontal scrollbar */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Hide horizontal scrollbar for webkit browsers */
+.quick-stats-row::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  background: transparent;
 }
 
 .quick-stat-item {
@@ -368,14 +502,14 @@
 }
 
 .quick-stat-number {
-  font-size: 18px;
+  font-size: clamp(16px, 18px, 22px); /* Zoom-resistant stat numbers */
   font-weight: 700;
   color: var(--deep-navy-blue);
   line-height: 1;
 }
 
 .quick-stat-label {
-  font-size: 11px;
+  font-size: clamp(10px, 11px, 14px); /* Zoom-resistant stat labels */
   color: #6c757d;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -392,6 +526,16 @@
   display: flex;
   gap: 8px;
   overflow-x: auto;
+  /* Hide horizontal scrollbar */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Hide horizontal scrollbar for webkit browsers */
+.search-filter-chips::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  background: transparent;
 }
 
 .filter-chip {
@@ -399,7 +543,7 @@
   background: #f8f9fa;
   border: 1px solid #e9ecef;
   border-radius: 16px;
-  font-size: 12px;
+  font-size: clamp(11px, 12px, 15px); /* Zoom-resistant filter chips */
   color: #6c757d;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -428,30 +572,40 @@
   max-height: calc(
     100vh - 300px
   ); /* Account for header, stats, filters, footer */
+  /* Hide scrollbar for Firefox */
+  scrollbar-width: none;
+  /* Hide scrollbar for IE and Edge */
+  -ms-overflow-style: none;
 }
 
+/* Hide scrollbar for webkit browsers (Chrome, Safari, Edge) */
 .activity-list-container::-webkit-scrollbar {
-  width: 6px;
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+  display: none !important;
 }
 
 .activity-list-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent !important;
+  display: none !important;
 }
 
 .activity-list-container::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+  background: transparent !important;
+  display: none !important;
 }
 
 .activity-list-container::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: transparent !important;
+  display: none !important;
 }
 
 /* Activity Priority */
 .activity-priority {
   padding: 4px 8px;
   border-radius: 12px;
-  font-size: 10px;
+  font-size: clamp(9px, 10px, 13px); /* Zoom-resistant priority badges */
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -489,6 +643,7 @@
   cursor: pointer;
   min-height: 44px;
   position: relative;
+  overflow: hidden; /* Prevent any potential horizontal overflow */
 }
 
 .activity-item:hover {
@@ -545,13 +700,13 @@
   font-weight: 600;
   color: #212529;
   margin-bottom: 4px;
-  font-size: 14px;
+  font-size: clamp(13px, 14px, 17px); /* Zoom-resistant activity titles */
   line-height: 1.3;
 }
 
 .activity-description {
   color: #6c757d;
-  font-size: 12px;
+  font-size: clamp(11px, 12px, 15px); /* Zoom-resistant descriptions */
   line-height: 1.4;
   margin-bottom: 8px;
 }
@@ -560,7 +715,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 11px;
+  font-size: clamp(10px, 11px, 14px); /* Zoom-resistant meta info */
   color: #868e96;
 }
 
@@ -597,7 +752,7 @@
   border: 1px solid #dee2e6;
   border-radius: 6px;
   color: #6c757d;
-  font-size: 12px;
+  font-size: clamp(11px, 12px, 15px); /* Zoom-resistant action buttons */
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -624,6 +779,7 @@
   text-align: center;
   padding: 40px 20px;
   color: #6c757d;
+  overflow: hidden; /* Prevent any scrollbars */
 }
 
 .no-activities i {
@@ -634,7 +790,7 @@
 
 .no-activities p {
   margin: 0;
-  font-size: 14px;
+  font-size: clamp(13px, 14px, 17px); /* Zoom-resistant no activities text */
 }
 
 /* Loading Animation */
@@ -707,5 +863,672 @@
   .quick-action-btn {
     padding: 6px 10px;
     font-size: 11px;
+  }
+}
+
+/* =========================================================
+   Audit Trail Page Enhancements
+   ========================================================= */
+.audit-trail-page .content-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+  background: #f5f7fb;
+}
+
+.audit-trail-page .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(12, 85, 145, 0.12);
+  box-shadow: 0 12px 28px rgba(12, 85, 145, 0.08);
+  gap: 20px;
+}
+
+.audit-trail-page .page-header-content h2 {
+  margin: 0;
+  font-size: clamp(22px, 2.2vw, 28px);
+  color: var(--deep-navy-blue);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.audit-trail-page .page-header-content h2::before {
+  content: "\f187";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  font-size: 22px;
+  color: var(--bright-golden-yellow);
+}
+
+.audit-trail-page .page-header-content p {
+  margin: 6px 0 0;
+  color: rgba(12, 37, 64, 0.7);
+  font-size: 15px;
+  max-width: 560px;
+  line-height: 1.5;
+}
+
+.audit-trail-page .page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.audit-trail-page .page-header-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.audit-trail-page .page-header-actions .btn-primary {
+  background: var(--deep-navy-blue);
+  border: none;
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(12, 85, 145, 0.25);
+}
+
+.audit-trail-page .page-header-actions .btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(12, 85, 145, 0.28);
+}
+
+.audit-trail-page .page-header-actions .btn-secondary {
+  background: #fff;
+  border: 1px solid rgba(12, 85, 145, 0.18);
+  color: var(--deep-navy-blue);
+  box-shadow: 0 10px 20px rgba(12, 85, 145, 0.08);
+}
+
+.audit-trail-page .page-header-actions .btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(12, 85, 145, 0.14);
+}
+
+/* Stats */
+.audit-trail-page .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.audit-trail-page .stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 20px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(12, 85, 145, 0.08);
+  box-shadow: 0 8px 20px rgba(12, 85, 145, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.audit-trail-page .stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 30px rgba(12, 85, 145, 0.12);
+}
+
+.audit-trail-page .stat-card .stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(12, 85, 145, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--deep-navy-blue);
+  font-size: 20px;
+}
+
+.audit-trail-page .stat-card .stat-content h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--deep-navy-blue);
+}
+
+.audit-trail-page .stat-card .stat-content p {
+  margin: 4px 0 0;
+  color: rgba(12, 37, 64, 0.6);
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* Chart Container */
+.audit-trail-page .chart-container {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(12, 85, 145, 0.08);
+  box-shadow: 0 12px 28px rgba(12, 85, 145, 0.08);
+  overflow: hidden;
+}
+
+.audit-trail-page .chart-container .chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(12, 85, 145, 0.08);
+}
+
+.audit-trail-page .chart-container h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--deep-navy-blue);
+  font-weight: 600;
+}
+
+.audit-trail-page .chart-controls select {
+  border-radius: 8px;
+  padding: 10px 16px;
+  border: 1px solid rgba(12, 85, 145, 0.18);
+  background: #f9fbff;
+  color: var(--deep-navy-blue);
+  font-weight: 600;
+}
+
+.audit-trail-page .chart-wrapper {
+  height: 320px;
+  padding: 16px 20px 24px;
+}
+
+/* Filters Section */
+.audit-trail-page .filters-section {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(12, 85, 145, 0.08);
+  box-shadow: 0 12px 32px rgba(12, 85, 145, 0.1);
+  overflow: hidden;
+}
+
+.audit-trail-page .filters-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: rgba(12, 85, 145, 0.08);
+  color: var(--deep-navy-blue);
+}
+
+.audit-trail-page .filters-header h3 {
+  margin: 0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audit-trail-page .filters-header h3 i {
+  color: var(--bright-golden-yellow);
+}
+
+.audit-trail-page .filters-header .btn {
+  border-radius: 10px;
+  padding: 10px 18px;
+  background: #fff;
+  border: 1px solid rgba(12, 85, 145, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--deep-navy-blue);
+  font-weight: 600;
+}
+
+.audit-trail-page .filters-content {
+  padding: 22px 24px 24px;
+}
+
+.audit-trail-page .filters-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.audit-trail-page .filters-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.audit-trail-page .filter-group label {
+  display: block;
+  font-weight: 600;
+  color: rgba(12, 37, 64, 0.75);
+  margin-bottom: 6px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.audit-trail-page .filters-form input,
+.audit-trail-page .filters-form select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(12, 85, 145, 0.18);
+  background: #f9fbff;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--deep-navy-blue);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.audit-trail-page .filters-form input:focus,
+.audit-trail-page .filters-form select:focus {
+  outline: none;
+  border-color: var(--bright-golden-yellow);
+  box-shadow: 0 0 0 4px rgba(242, 186, 38, 0.2);
+}
+
+.audit-trail-page .filters-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.audit-trail-page .filters-actions .btn {
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.audit-trail-page .filters-actions .btn-primary {
+  background: var(--deep-navy-blue);
+  border: none;
+  color: #fff;
+}
+
+.audit-trail-page .filters-actions .btn-secondary {
+  background: transparent;
+  border: 1px solid rgba(12, 85, 145, 0.2);
+  color: var(--deep-navy-blue);
+}
+
+.audit-trail-page .filters-actions .btn:hover {
+  transform: translateY(-1px);
+}
+
+/* Activities Table */
+.audit-trail-page .activities-section {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(12, 85, 145, 0.08);
+  box-shadow: 0 18px 40px rgba(12, 85, 145, 0.08);
+  overflow: hidden;
+}
+
+.audit-trail-page .activities-section .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(12, 85, 145, 0.08);
+}
+
+.audit-trail-page .section-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--deep-navy-blue);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.audit-trail-page .section-header h3::before {
+  content: "\f0ca";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  color: var(--bright-golden-yellow);
+}
+
+.audit-trail-page .results-count {
+  font-size: 13px;
+  color: rgba(12, 37, 64, 0.6);
+  font-weight: 600;
+}
+
+.audit-trail-page .table-container {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(12, 85, 145, 0.3) transparent;
+}
+
+.audit-trail-page .table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.audit-trail-page .table-container::-webkit-scrollbar-thumb {
+  background: rgba(12, 85, 145, 0.3);
+  border-radius: 10px;
+}
+
+.audit-trail-page .activities-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+  color: var(--deep-navy-blue);
+}
+
+.audit-trail-page .activities-table thead {
+  background: rgba(12, 85, 145, 0.08);
+}
+
+.audit-trail-page .activities-table th {
+  padding: 16px 20px;
+  text-align: left;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  color: rgba(12, 37, 64, 0.75);
+  font-weight: 700;
+  border-bottom: 1px solid rgba(12, 85, 145, 0.12);
+}
+
+.audit-trail-page .activities-table td {
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(12, 85, 145, 0.08);
+  vertical-align: top;
+  background: #fff;
+}
+
+.audit-trail-page .activities-table tbody tr {
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.audit-trail-page .activities-table tbody tr:hover {
+  background: rgba(12, 85, 145, 0.04);
+  transform: translateY(-1px);
+}
+
+.audit-trail-page .activity-info {
+  display: flex;
+  gap: 14px;
+}
+
+.audit-trail-page .activity-info .activity-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(12, 85, 145, 0.12);
+  color: var(--deep-navy-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.audit-trail-page .activity-info .activity-details h4 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--deep-navy-blue);
+}
+
+.audit-trail-page .activity-info .activity-details p {
+  margin: 0;
+  color: rgba(12, 37, 64, 0.65);
+  line-height: 1.45;
+  font-size: 13px;
+}
+
+.audit-trail-page .user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.audit-trail-page .user-name {
+  font-weight: 600;
+  color: var(--deep-navy-blue);
+}
+
+.audit-trail-page .user-role {
+  color: rgba(12, 37, 64, 0.6);
+  font-size: 12px;
+}
+
+.audit-trail-page .activity-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12px;
+  background: rgba(12, 85, 145, 0.12);
+  color: var(--deep-navy-blue);
+}
+
+.audit-trail-page .priority-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.35px;
+}
+
+.audit-trail-page .priority-badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6);
+}
+
+.audit-trail-page .priority-high {
+  background: rgba(220, 53, 69, 0.12);
+  color: #c82333;
+}
+
+.audit-trail-page .priority-medium {
+  background: rgba(255, 193, 7, 0.18);
+  color: #b8860b;
+}
+
+.audit-trail-page .priority-low {
+  background: rgba(40, 167, 69, 0.12);
+  color: #1c7c3e;
+}
+
+.audit-trail-page .timestamp-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.audit-trail-page .timestamp {
+  font-weight: 600;
+  color: var(--deep-navy-blue);
+}
+
+.audit-trail-page .relative-time {
+  font-size: 12px;
+  color: rgba(12, 37, 64, 0.55);
+}
+
+.audit-trail-page .btn.btn-outline {
+  border: 1px solid rgba(12, 85, 145, 0.18);
+  background: #fff;
+  color: var(--deep-navy-blue);
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.audit-trail-page .btn.btn-outline:hover {
+  background: var(--deep-navy-blue);
+  color: #fff;
+  border-color: var(--deep-navy-blue);
+  transform: translateY(-1px);
+}
+
+.audit-trail-page .action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.audit-trail-page .pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: rgba(12, 85, 145, 0.04);
+}
+
+.audit-trail-page .pagination .page-link {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 10px 16px;
+  font-weight: 600;
+  color: var(--deep-navy-blue);
+  transition: all 0.2s ease;
+}
+
+.audit-trail-page .pagination .page-link:hover {
+  background: rgba(12, 85, 145, 0.08);
+}
+
+.audit-trail-page .pagination .page-link.active {
+  background: var(--deep-navy-blue);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 8px 16px rgba(12, 85, 145, 0.2);
+}
+
+.audit-trail-page .page-numbers {
+  display: flex;
+  gap: 8px;
+}
+
+.audit-trail-page .no-data {
+  padding: 60px 20px;
+}
+
+.audit-trail-page .no-data-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  color: rgba(12, 37, 64, 0.55);
+}
+
+.audit-trail-page .no-data-content i {
+  font-size: 40px;
+  color: var(--bright-golden-yellow);
+  opacity: 0.7;
+}
+
+.audit-trail-page .modal .modal-content {
+  border-radius: 16px;
+  border: 1px solid rgba(12, 85, 145, 0.12);
+  box-shadow: 0 18px 48px rgba(12, 85, 145, 0.18);
+}
+
+.audit-trail-page .modal-header {
+  background: rgba(12, 85, 145, 0.08);
+  border-bottom: 1px solid rgba(12, 85, 145, 0.12);
+  padding: 18px 24px;
+}
+
+.audit-trail-page .modal-header h3 {
+  margin: 0;
+  color: var(--deep-navy-blue);
+  font-weight: 700;
+}
+
+.audit-trail-page .modal-footer {
+  background: rgba(12, 85, 145, 0.04);
+  border-top: 1px solid rgba(12, 85, 145, 0.08);
+  padding: 16px 24px;
+}
+
+.audit-trail-page .modal-footer .btn {
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight: 600;
+}
+
+@media (max-width: 992px) {
+  .audit-trail-page .content-wrapper {
+    padding: 16px;
+  }
+
+  .audit-trail-page .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .audit-trail-page .page-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .audit-trail-page .filters-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .audit-trail-page .filters-actions .btn {
+    justify-content: center;
+  }
+
+  .audit-trail-page .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .audit-trail-page .pagination {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 576px) {
+  .audit-trail-page .page-header {
+    padding: 20px;
+  }
+
+  .audit-trail-page .filters-header,
+  .audit-trail-page .activities-section .section-header {
+    padding: 18px;
+  }
+
+  .audit-trail-page .activities-table th,
+  .audit-trail-page .activities-table td {
+    padding: 14px 16px;
+  }
+
+  .audit-trail-page .activity-info {
+    flex-direction: column;
+  }
+
+  .audit-trail-page .activity-info .activity-icon {
+    width: 40px;
+    height: 40px;
   }
 }

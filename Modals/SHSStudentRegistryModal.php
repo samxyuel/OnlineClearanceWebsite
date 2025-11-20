@@ -57,8 +57,7 @@
         <!-- Section -->
         <div class="form-group">
           <label for="section">Section *</label>
-          <input type="text" id="section" name="section" required 
-                 placeholder="e.g., 1/1-1" maxlength="10">
+          <input type="text" id="section" name="section" placeholder="e.g., 11/1-1" maxlength="10">
         </div>
         
         <!-- Student Names -->
@@ -84,9 +83,8 @@
         
         <!-- Contact Information -->
         <div class="form-group">
-          <label for="email">Email Address *</label>
-          <input type="email" id="email" name="email" required 
-                 placeholder="student@email.com" maxlength="100">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" placeholder="student@email.com" maxlength="100">
         </div>
         
         <div class="form-group">
@@ -94,49 +92,18 @@
           <input type="tel" id="phoneNumber" name="phoneNumber" 
                  placeholder="+63 9XX XXX XXXX" maxlength="15">
         </div>
-        
-        <!-- Address Information -->
-        <div class="form-group">
-          <label for="address">Address *</label>
-          <textarea id="address" name="address" required 
-                    placeholder="Enter complete address" rows="3" maxlength="200"></textarea>
-        </div>
-        
-        <!-- Account Settings -->
-        <div class="form-section">
-          <h3 class="form-section-title">Account Settings</h3>
-          
-          <div class="form-group">
-            <label for="password">Initial Password *</label>
-            <input type="password" id="password" name="password" required 
-                   placeholder="Enter initial password" minlength="8">
-            <small class="form-help">Minimum 8 characters</small>
-          </div>
-          
-          <div class="form-group">
-            <label for="confirmPassword">Confirm Password *</label>
-            <input type="password" id="confirmPassword" name="confirmPassword" required 
-                   placeholder="Confirm initial password" minlength="8">
-          </div>
-          
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="sendWelcomeEmail" name="sendWelcomeEmail" checked>
-              <span class="checkmark"></span>
-              Send welcome email with login credentials
-            </label>
-          </div>
-        </div>
       </form>
     </div>
     
     <!-- Modal Actions -->
     <div class="modal-actions">
       <button class="modal-action-secondary" onclick="closeStudentRegistrationModal()">Cancel</button>
-      <button class="modal-action-primary" onclick="submitStudentRegistrationForm()" id="submitBtn">Add Student</button>
+      <button class="modal-action-primary" onclick="submitStudentRegistrationForm()" id="submitBtn">Generate Credentials</button>
     </div>
   </div>
 </div>
+
+<?php include __DIR__ . '/GeneratedCredentialsModal.php'; ?>
 
 <script>
 // Fetch programs and year levels when the modal is opened
@@ -223,7 +190,7 @@ function validateStudentRegistrationForm() {
   const formData = new FormData(form);
   
   // Check required fields
-  const requiredFields = ['studentNumber', 'department', 'program', 'yearLevel', 'section', 'lastName', 'firstName', 'email', 'address', 'password', 'confirmPassword'];
+  const requiredFields = ['studentNumber', 'department', 'program', 'yearLevel', 'lastName', 'firstName'];
   
   for (const field of requiredFields) {
     const input = form.querySelector(`[name="${field}"]`);
@@ -234,23 +201,15 @@ function validateStudentRegistrationForm() {
     }
   }
   
-  // Validate password match
-  const password = formData.get('password');
-  const confirmPassword = formData.get('confirmPassword');
-  
-  if (password !== confirmPassword) {
-    showToast('Passwords do not match', 'error');
-    document.getElementById('confirmPassword').focus();
-    return false;
-  }
-  
   // Validate email format
   const email = formData.get('email');
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    showToast('Please enter a valid email address', 'error');
-    document.getElementById('email').focus();
-    return false;
+  if (email) { // Only validate if an email is provided
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showToast('Please enter a valid email address', 'error');
+      document.getElementById('email').focus();
+      return false;
+    }
   }
   
   return true;
@@ -260,78 +219,166 @@ function submitStudentRegistrationForm() {
   if (!validateStudentRegistrationForm()) {
     return;
   }
-  
-  const form = document.getElementById('studentRegistrationForm');
-  const formData = new FormData(form);
-  const submitBtn = document.getElementById('submitBtn');
-  
-  // Disable submit button
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Adding Student...';
-  
-  // Submit form
-  fetch(form.dataset.endpoint, {
-    method: 'POST',
-    body: formData,
-    credentials: 'include'
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      showToast(data.message || 'Student added successfully!', 'success');
-      const newUserId = data.user_id || null;
-      if (newUserId) {
-          // Trigger automatic clearance form creation
-          onUserCreated(newUserId, 'Senior High School').catch(console.error);
-      }
 
+  // Generate credentials locally first
+  const form = document.getElementById('studentRegistrationForm');
+  const studentId = form.studentNumber.value.trim();
+  const lastName = form.lastName.value.trim().replace(/\s+/g, '');
+  const username = studentId; // Use student number as username
+  const password = `${lastName}${studentId}`; // e.g., Doe02000288327
+
+  // Prepare the data for the modal and the final submission
+  const credentialData = { username, password };
+
+  // The callback function that will be executed when "Confirm & Save" is clicked
+  const confirmCallback = () => {
+    // Pass the generated credentials along with the form data
+    confirmStudentCreation(credentialData);
+  };
+
+  // Open the unified credentials modal
+  openGeneratedCredentialsModal('newAccount', credentialData, confirmCallback);
+}
+
+function confirmStudentCreation(credentialData) {
+  const form = document.getElementById('studentRegistrationForm');
+  const formData = {
+    studentNumber: form.studentNumber.value.trim(),
+    department: form.department.value,
+    program: form.program.value,
+    yearLevel: form.yearLevel.value,
+    section: form.section.value.trim(),
+    firstName: form.firstName.value.trim(),
+    lastName: form.lastName.value.trim(),
+    middleName: form.middleName.value.trim() || null,
+    email: form.email.value.trim() || null,
+    phoneNumber: form.phoneNumber.value.trim() || null,
+    username: credentialData.username,
+    password: credentialData.password,
+    confirmPassword: credentialData.password, // Add confirmPassword for validation
+    sector: 'senior_high'
+  };
+
+  const confirmBtn = document.getElementById('credentialModalConfirmBtn');
+  if(confirmBtn) confirmBtn.disabled = true;
+  const submitBtn = document.getElementById('submitBtn');
+  if(submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Adding Student...';
+  }
+
+  fetch('../../controllers/addUsers.php', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(Object.entries(formData))
+  })
+  .then(r => r.json())
+  .then(res => {
+    if(res.success){
+      showToastNotification('Student registered successfully!', 'success');
+      closeGeneratedCredentialsModal();
       closeStudentRegistrationModal();
-      form.reset();
       // Refresh the student list
       if (typeof loadStudentsData === 'function') {
         loadStudentsData();
       }
+      // Trigger automatic clearance form creation
+      const newUserId = res.user_id || null;
+      if (newUserId) {
+        onUserCreated(newUserId, 'Senior High School').catch(console.error);
+      }
+      // notify parent page
+      document.dispatchEvent(new CustomEvent('student-added', { detail: { student_number: formData.student_number } }));
     } else {
-      showToast(data.message || 'Failed to add student.', 'error');
+      showToastNotification(res.message || 'Error registering student', 'error');
+      if(confirmBtn) confirmBtn.disabled = false;
     }
   })
-  .catch(error => {
-    console.error('Error:', error);
-    showToast('An unexpected error occurred. Please check the console.', 'error');
+  .catch(err => {
+    console.error(err);
+    showToastNotification('Network error', 'error');
+    if(confirmBtn) confirmBtn.disabled = false;
   })
   .finally(() => {
-    // Re-enable submit button
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Add Student';
+    if(submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Generate Credentials';
+    }
   });
 }
 
-function closeStudentRegistrationModal() {
-  const modal = document.getElementById('studentRegistrationModal');
-  modal.style.display = 'none';
-  document.body.style.overflow = 'auto';
-  
-  // Reset form
-  const form = document.getElementById('studentRegistrationForm');
-  form.reset();
-  
-  // Clear dynamic dropdowns
-  document.getElementById('program').innerHTML = '<option value="">Select Program</option>';
-  document.getElementById('yearLevel').innerHTML = '<option value="">Select Year Level</option>';
-}
+window.closeStudentRegistrationModal = function() {
+  console.log('[SHSStudentRegistryModal] closeStudentRegistrationModal() called');
+  try {
+    const modal = document.getElementById('studentRegistrationModal');
+    if (!modal) {
+      console.warn('[SHSStudentRegistryModal] Modal not found');
+      return;
+    }
+    console.log('[SHSStudentRegistryModal] Closing modal:', modal.id);
 
-// Open modal function (called from parent page)
-function openStudentRegistrationModal() {
-  const modal = document.getElementById('studentRegistrationModal');
-  modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
+    // Use window.closeModal if available, otherwise fallback
+    if (typeof window.closeModal === 'function') {
+      window.closeModal('studentRegistrationModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'none';
+      document.body.style.overflow = 'auto';
+      document.body.classList.remove('modal-open');
+      modal.classList.remove('active');
+    }
+    
+    // Reset form
+    const form = document.getElementById('studentRegistrationForm');
+    if (form) form.reset();
+    
+    // Clear dynamic dropdowns
+    const programSelect = document.getElementById('program');
+    if (programSelect) programSelect.innerHTML = '<option value="">Select Program</option>';
+  } catch (error) {
+    // Silent error handling
+  }
+};
 
-  // Fetch programs as soon as the modal opens
-  updateProgramsAndYearLevels();
-  
-  // Focus on first input
-  setTimeout(() => {
-    document.getElementById('studentNumber').focus();
-  }, 100);
-}
+// Open modal function (called from parent page) - Make globally available
+window.openStudentRegistrationModal = function() {
+  try {
+    const modal = document.getElementById('studentRegistrationModal');
+    if (!modal) {
+      if (typeof showToastNotification === 'function') {
+        showToastNotification('Student registration modal not found. Please refresh the page.', 'error');
+      }
+      return;
+    }
+
+    // Use window.openModal if available, otherwise fallback
+    if (typeof window.openModal === 'function') {
+      window.openModal('studentRegistrationModal');
+    } else {
+      // Fallback to direct manipulation
+      modal.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
+      requestAnimationFrame(() => {
+        modal.classList.add('active');
+      });
+    }
+
+    // Fetch programs as soon as the modal opens
+    updateProgramsAndYearLevels();
+    
+    // Focus on first input
+    setTimeout(() => {
+      const firstInput = document.getElementById('studentNumber');
+      if (firstInput && typeof firstInput.focus === 'function') {
+        firstInput.focus();
+      }
+    }, 100);
+  } catch (error) {
+    if (typeof showToastNotification === 'function') {
+      showToastNotification('Unable to open student registration modal. Please try again.', 'error');
+    }
+  }
+};
 </script>

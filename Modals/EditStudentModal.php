@@ -8,7 +8,7 @@
 <div class="modal-overlay edit-student-modal-overlay" id="editStudentModal">
   <div class="modal-window">
     <!-- Close Button -->
-    <button class="modal-close" onclick="closeEditStudentModal()">&times;</button>
+    <button class="modal-close" onclick="window.closeEditStudentModal && window.closeEditStudentModal()">&times;</button>
     
     <!-- Modal Title -->
     <h2 class="modal-title">✏️ Edit Student Information</h2>
@@ -155,9 +155,11 @@
             <button type="button" class="modal-action-secondary" onclick="resetStudentPassword()" style="flex: 1;">
               <i class="fas fa-key"></i> Reset Password
             </button>
+            <!--
             <button type="button" class="modal-action-secondary" onclick="sendPasswordEmail()" style="flex: 1;">
               <i class="fas fa-envelope"></i> Send Email
             </button>
+            -->
           </div>
         </div>
       </form>
@@ -165,7 +167,7 @@
     
     <!-- Actions -->
     <div class="modal-actions">
-      <button class="modal-action-secondary" onclick="closeEditStudentModal()">Cancel</button>
+      <button class="modal-action-secondary" onclick="window.closeEditStudentModal && window.closeEditStudentModal()">Cancel</button>
       <button class="modal-action-primary" onclick="submitEditStudentForm()" id="editSubmitBtn">Update Student</button>
     </div>
   </div>
@@ -341,26 +343,39 @@ function showEditFieldSuccess(fieldId) {
   if (errorMsg) errorMsg.remove();
 }
 
-// Modal functions
-function openEditStudentModal(studentId) {
+// Modal functions - Make globally accessible
+window.openEditStudentModal = function(studentId) {
   // Fetch student data and populate form
   populateEditForm(studentId);
   
-  document.getElementById('editStudentModal').style.display = 'flex';
+  const modal = document.getElementById('editStudentModal');
+  if (!modal) {
+    console.error('EditStudentModal not found in DOM');
+    return;
+  }
+  
+  modal.style.display = 'flex';
   document.body.classList.add('modal-open');
   
   // Focus on first editable field
   setTimeout(() => {
-    document.getElementById('editDepartment').focus();
+    const deptField = document.getElementById('editDepartment');
+    if (deptField) deptField.focus();
   }, 100);
-}
+};
 
-function closeEditStudentModal() {
-  document.getElementById('editStudentModal').style.display = 'none';
+window.closeEditStudentModal = function() {
+  const modal = document.getElementById('editStudentModal');
+  if (!modal) {
+    return;
+  }
+  
+  modal.style.display = 'none';
   document.body.classList.remove('modal-open');
   
   // Reset form
-  document.getElementById('editStudentForm').reset();
+  const form = document.getElementById('editStudentForm');
+  if (form) form.reset();
   
   // Clear error states
   document.querySelectorAll('.form-group').forEach(group => {
@@ -368,108 +383,116 @@ function closeEditStudentModal() {
     const errorMsg = group.querySelector('.error-message');
     if (errorMsg) errorMsg.remove();
   });
-}
+};
 
-function populateEditForm(studentId) {
-  // This would typically fetch data from the server
-  // For demo purposes, we'll use sample data
-  const sampleStudentData = {
-    '02000288322': {
-      studentNumber: '02000288322',
-      department: 'Information, Communication, and Technology',
-      program: 'BS in Information Technology (BSIT)',
-      yearLevel: '3rd Year',
-      section: 'A',
-      lastName: 'Lee',
-      firstName: 'Zinzu Chan',
-      middleName: '',
-      email: 'zinzu.lee@student.sti.edu.ph',
-      contactNumber: '+63 912 345 6789',
-      accountStatus: 'active'
-    },
-    '02000288323': {
-      studentNumber: '02000288323',
-      department: 'Business, Arts, and Science',
-      program: 'BS in Business Administration (BSBA)',
-      yearLevel: '2nd Year',
-      section: '2/1-2',
-      lastName: 'Garcia',
-      firstName: 'Maria Santos',
-      middleName: 'Cruz',
-      email: 'maria.garcia@student.sti.edu.ph',
-      contactNumber: '+63 923 456 7890',
-      accountStatus: 'active'
-    },
-    '02000288324': {
-      studentNumber: '02000288324',
-      department: 'Tourism and Hospitality Management',
-      program: 'BS in Tourism Management (BSTM)',
-      yearLevel: '4th Year',
-      section: '4/1-3',
-      lastName: 'Santos',
-      firstName: 'Juan Carlos',
-      middleName: 'Reyes',
-      email: 'juan.santos@student.sti.edu.ph',
-      contactNumber: '+63 934 567 8901',
-      accountStatus: 'inactive'
-    },
-    '02000288325': {
-      studentNumber: '02000288325',
-      department: 'Senior High School',
-      program: 'Science, Technology, Engineering and Mathematics (STEM)',
-      yearLevel: 'Grade 12',
-      section: '3/2-1',
-      lastName: 'Martinez',
-      firstName: 'Ana Sofia',
-      middleName: 'Lopez',
-      email: 'ana.martinez@student.sti.edu.ph',
-      contactNumber: '+63 945 678 9012',
-      accountStatus: 'active'
-    }
-  };
+// Load student data for editing
+async function populateEditForm(userId) {
+  const form = document.getElementById('editStudentForm');
+  const submitBtn = document.getElementById('editSubmitBtn');
   
-  const studentData = sampleStudentData[studentId] || {};
-  
-  // Populate form fields
-  document.getElementById('editStudentId').value = studentId;
-  document.getElementById('editStudentNumber').value = studentData.studentNumber || '';
-  document.getElementById('editDepartment').value = studentData.department || '';
-  document.getElementById('editProgram').value = studentData.program || '';
-  document.getElementById('editYearLevel').value = studentData.yearLevel || '';
-  // Parse section format and populate section fields
-  const sectionValue = studentData.section || '';
-  if (sectionValue && sectionValue.includes('/')) {
-    const parts = sectionValue.split('/');
-    const yearLevel = parts[0];
-    const termSection = parts[1].split('-');
-    const term = termSection[0];
-    const sectionNumber = termSection[1];
+  if (form) form.classList.add('loading');
+  if (submitBtn) submitBtn.disabled = true;
+  if (submitBtn) submitBtn.textContent = 'Loading...';
+
+  try {
+    // Ensure dropdowns are populated before setting values
+    await updateEditProgramsAndYearLevels();
+
+    // Fetch student data from the API using the user_id
+    const response = await fetch(`../../api/users/get_student.php?user_id=${userId}`, {
+      credentials: 'include'
+    });
     
-    document.getElementById('editSectionYearLevel').value = yearLevel;
-    document.getElementById('editSectionTerm').value = term;
-    document.getElementById('editSectionNumber').value = sectionNumber;
-    document.getElementById('editGeneratedSection').value = sectionValue;
-  } else {
-    document.getElementById('editSectionYearLevel').value = '';
-    document.getElementById('editSectionTerm').value = '';
-    document.getElementById('editSectionNumber').value = '';
-    document.getElementById('editGeneratedSection').value = '';
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+
+    if (data.success && data.student) {
+      const student = data.student;
+
+      // Populate form fields
+      document.getElementById('editStudentId').value = student.user_id;
+      document.getElementById('editStudentNumber').value = student.student_id || '';
+      document.getElementById('editLastName').value = student.last_name || '';
+      document.getElementById('editFirstName').value = student.first_name || '';
+      document.getElementById('editMiddleName').value = student.middle_name || '';
+      document.getElementById('editEmail').value = student.email || '';
+      document.getElementById('editContactNumber').value = student.contact_number || '';
+      document.getElementById('editAccountStatus').value = student.account_status || 'active';
+
+      // Populate and select department, then trigger program/year update
+      // The dropdown uses department names as values, so match by name
+      const departmentSelect = document.getElementById('editDepartment');
+      if (departmentSelect && student.department_name) {
+        // Try to find matching option by text content or value
+        const options = Array.from(departmentSelect.options);
+        const matchingOption = options.find(opt => 
+          opt.value === student.department_name || 
+          opt.textContent.trim() === student.department_name.trim()
+        );
+        if (matchingOption) {
+          departmentSelect.value = matchingOption.value;
+        } else {
+          // If no exact match, try to set by value directly
+          departmentSelect.value = student.department_name;
+        }
+        await updateEditProgramsAndYearLevels(); // Wait for programs to load based on the department
+      }
+
+      // Set program and year level after options are loaded
+      setTimeout(() => {
+        const programSelect = document.getElementById('editProgram');
+        const yearLevelSelect = document.getElementById('editYearLevel');
+        
+        if (programSelect && student.program_name) {
+          programSelect.value = student.program_name;
+        }
+        if (yearLevelSelect && student.year_level) {
+          yearLevelSelect.value = student.year_level;
+        }
+      }, 100);
+
+      // Parse section format and populate section fields
+      const sectionValue = student.section || '';
+      if (sectionValue && sectionValue.includes('/')) {
+        const parts = sectionValue.split('/');
+        const yearLevel = parts[0];
+        const termSection = parts[1].split('-');
+        const term = termSection[0];
+        const sectionNumber = termSection[1];
+        
+        document.getElementById('editSectionYearLevel').value = yearLevel;
+        document.getElementById('editSectionTerm').value = term;
+        document.getElementById('editSectionNumber').value = sectionNumber;
+        document.getElementById('editGeneratedSection').value = sectionValue;
+      } else {
+        document.getElementById('editSectionYearLevel').value = '';
+        document.getElementById('editSectionTerm').value = '';
+        document.getElementById('editSectionNumber').value = '';
+        document.getElementById('editGeneratedSection').value = '';
+      }
+    } else {
+      throw new Error(data.message || 'Student not found');
+    }
+  } catch (error) {
+    console.error('Error loading student data:', error);
+    if (typeof showToast === 'function') {
+      showToast(`Error loading student data: ${error.message}`, 'error');
+    } else if (typeof showNotification === 'function') {
+      showNotification(`Error loading student data: ${error.message}`, 'error');
+    } else {
+      alert(`Error loading student data: ${error.message}`);
+    }
+    window.closeEditStudentModal();
+  } finally {
+    if (form) form.classList.remove('loading');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Update Student';
+    }
   }
-  document.getElementById('editLastName').value = studentData.lastName || '';
-  document.getElementById('editFirstName').value = studentData.firstName || '';
-  document.getElementById('editMiddleName').value = studentData.middleName || '';
-  document.getElementById('editEmail').value = studentData.email || '';
-  document.getElementById('editContactNumber').value = studentData.contactNumber || '';
-  document.getElementById('editAccountStatus').value = studentData.accountStatus || '';
-  
-  // Update cascading dropdowns
-  updateEditProgramsAndYearLevels();
-  
-  // Set the correct values after dropdowns are populated
-  setTimeout(() => {
-    document.getElementById('editProgram').value = studentData.program || '';
-    document.getElementById('editYearLevel').value = studentData.yearLevel || '';
-  }, 100);
 }
 
 function submitEditStudentForm() {
@@ -485,28 +508,50 @@ function submitEditStudentForm() {
   submitBtn.textContent = 'Updating...';
   form.classList.add('modal-loading');
   
+  // Use FormData for proper form submission (the controller expects POST form data, not JSON)
   const formData = new FormData(form);
-  const jsonData = {};
-  formData.forEach((value, key) => { 
-    jsonData[key] = value; 
-  });
   
   fetch(form.dataset.endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(jsonData)
+    credentials: 'include',
+    body: formData
   })
   .then(response => response.json())
   .then(data => {
-    if (data.status === 'success') {
-      showNotification(data.message || 'Student updated successfully!', 'success');
-      closeEditStudentModal();
+    if (data.status === 'success' || data.success) {
+      const message = data.message || 'Student updated successfully!';
+      if (typeof showToast === 'function') {
+        showToast(message, 'success');
+      } else if (typeof showNotification === 'function') {
+        showNotification(message, 'success');
+      }
+      window.closeEditStudentModal();
+      // Refresh graduated students list if available
+      if (typeof loadGraduatedStudentsData === 'function') {
+        // Determine which sector to refresh based on current tab
+        const collegeTab = document.querySelector('.graduated-sector-tab[data-sector="college"]');
+        const shsTab = document.querySelector('.graduated-sector-tab[data-sector="shs"]');
+        if (collegeTab && collegeTab.classList.contains('active')) {
+          loadGraduatedStudentsData('college');
+        } else if (shsTab && shsTab.classList.contains('active')) {
+          loadGraduatedStudentsData('shs');
+        } else {
+          // Refresh both if we can't determine
+          loadGraduatedStudentsData('college');
+          loadGraduatedStudentsData('shs');
+        }
+      }
       // Optionally reload table or update UI dynamically here
       if (typeof fetchSortedData === 'function') {
         fetchSortedData();
       }
     } else {
-      showNotification(data.message || 'Error updating student', 'error');
+      const errorMsg = data.message || 'Error updating student';
+      if (typeof showToast === 'function') {
+        showToast(errorMsg, 'error');
+      } else if (typeof showNotification === 'function') {
+        showNotification(errorMsg, 'error');
+      }
     }
   })
   .catch(error => {

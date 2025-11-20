@@ -36,18 +36,19 @@ try {
 
     $pdo = Database::getInstance()->getConnection();
     
-    // Check if user is assigned as signatory for this sector
+    // A user is a signatory for a sector if they have an active assignment
+    // for that clearance_type. This check is primarily for Program Heads.
     $sql = "SELECT COUNT(*) as count 
-            FROM signatory_assignments sa
-            JOIN designations d ON sa.designation_id = d.designation_id
-            JOIN departments dept ON sa.department_id = dept.department_id
-            JOIN sectors s ON dept.sector_id = s.sector_id
-            WHERE sa.user_id = ? 
-            AND sa.is_active = 1 
-            AND s.sector_name = ?";
+            FROM sector_signatory_assignments ssa
+            JOIN designations d ON ssa.designation_id = d.designation_id
+            WHERE ssa.user_id = ? 
+              AND ssa.is_active = 1 
+              AND d.designation_name = 'Program Head' 
+              AND ssa.clearance_type = ?";
+    $params = [$userId, $sector];
     
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$userId, $sector]);
+    $stmt->execute($params);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     
     $isSignatory = (int)$result['count'] > 0;

@@ -88,6 +88,11 @@ class ActivityTracker {
       backdrop: !!this.backdrop,
     });
 
+    // Log positioning for debugging
+    console.log(
+      "Fixed positioning applied - Activity tracker uses same approach as main sidebar"
+    );
+
     this.currentFilters = {
       type: "",
       priority: "",

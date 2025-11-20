@@ -44,11 +44,11 @@ try {
                       cp.start_date,
                       cp.end_date,
                       cp.status as period_status,
-                      cp.is_active
+                      (cp.status = 'Ongoing') as is_active
                   FROM clearance_periods cp
                   JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id
                   JOIN semesters s ON cp.semester_id = s.semester_id
-                  WHERE cp.is_active = 1
+                  WHERE cp.status = 'Ongoing'
                   LIMIT 1";
     
     $activeStmt = $pdo->query($activeSql);
@@ -92,7 +92,7 @@ try {
                         cp.start_date,
                         cp.end_date,
                         cp.status as period_status,
-                        cp.is_active
+                        (cp.status = 'Ongoing') as is_active
                     FROM clearance_forms cf
                     JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
                     JOIN semesters s ON cf.semester_id = s.semester_id
@@ -100,7 +100,7 @@ try {
                         AND cp.semester_id = cf.semester_id
                     WHERE cf.user_id = ? AND (cp.is_active = 0 OR cp.is_active IS NULL)
                     ORDER BY cf.created_at DESC";
-    
+
     $historicalStmt = $pdo->prepare($historicalSql);
     $historicalStmt->execute([$userId]);
     $historicalPeriods = $historicalStmt->fetchAll(PDO::FETCH_ASSOC);

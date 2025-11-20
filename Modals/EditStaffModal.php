@@ -69,6 +69,23 @@
                         <input type="text" id="editCustomPosition" name="editCustomPosition" 
                                placeholder="Type custom position if not in standard list above...">
                         <small class="form-help">Only fill this if you didn't select a standard position above</small>
+
+                                    <!-- Additional Designations Section -->
+                                    <div class="form-group">
+                                        <label>Additional Designations (Optional)</label>
+                                        <small class="form-help">Add secondary designations for this staff member</small>
+                                        <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+                                                <select id="editAdditionalDesignationSelect" style="flex: 1; padding:6px;">
+                                                    <option value="">Select a designation...</option>
+                                                </select>
+                                                <button type="button" id="editAddDesignationBtn" class="btn btn-sm btn-outline-primary" onclick="addEditAdditionalDesignation()">
+                                                <i class="fas fa-plus"></i> Add
+                                            </button>
+                                        </div>
+                                        <div id="editDesignationsList" style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+                                            <!-- Additional designations will appear as chips here -->
+                                        </div>
+                                    </div>
                     </div>
                 </div>
                 
@@ -103,6 +120,13 @@
                         <div id="editDepartmentCheckboxesList" class="checkbox-group">
                             <!-- Checkboxes will be populated dynamically -->
                         </div>
+                        <div class="form-group" style="margin-top:10px;">
+                            <label class="checkbox-label" style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" id="editPhTransferToggle" checked>
+                                <span>Transfer existing Program Head if a department is already assigned</span>
+                            </label>
+                            <small class="form-help">When checked, assigning will replace the current Program Head for occupied departments.</small>
+                        </div>
                     </div>
                 </div>
                 
@@ -115,17 +139,7 @@
                 <div class="form-group">
                     <label for="editStaffContact">Contact Number</label>
                     <input type="tel" id="editStaffContact" name="staffContact" 
-                           placeholder="+63 912 345 6789" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="editStaffStatus">Staff Status</label>
-                    <select id="editStaffStatus" name="staffStatus" required>
-                        <option value="">Select Status</option>
-                        <option value="essential">Essential Staff</option>
-                        <option value="optional">Optional Staff</option>
-                    </select>
-                    <small class="form-help">Essential staff cannot be deleted and are critical for clearance workflow.</small>
+                           placeholder="+63 912 345 6789">
                 </div>
                 
                 <!-- Faculty Section Divider -->
@@ -163,6 +177,19 @@
                         <small class="form-help">Auto-filled from Employee ID (read-only)</small>
                     </div>
                 </div>
+
+                <!-- Password Management Section -->
+                <div class="form-section-divider">
+                    <hr>
+                    <span class="divider-text">Password Management</span>
+                </div>
+                <div class="form-group">
+                    <label>Password Actions</label>
+                    <button type="button" class="btn btn-outline-warning" onclick="handlePasswordReset()">
+                        <i class="fas fa-key"></i> Reset Password
+                    </button>
+                    <small class="form-help">This will generate a new secure password for the user. The new password will be displayed for you to copy.</small>
+                </div>
             </form>
         </div>
         
@@ -177,10 +204,24 @@
 <script>
 // Make functions globally accessible
 window.closeEditStaffModal = function() {
-    const modal = document.querySelector('.edit-staff-modal-overlay');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.classList.remove('modal-open');
+    console.log('[EditStaffModal] closeEditStaffModal() called');
+    try {
+        const modal = document.querySelector('.edit-staff-modal-overlay');
+        if (!modal) {
+            console.warn('[EditStaffModal] Modal not found');
+            return;
+        }
+        console.log('[EditStaffModal] Closing modal');
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal(modal);
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
         // Reset form
         document.getElementById('editStaffForm').reset();
         // Clear current assignments data
@@ -196,9 +237,21 @@ window.closeEditStaffModal = function() {
         if (existingWarning) {
             existingWarning.remove();
         }
+    } catch (error) {
+        console.error('[EditStaffModal] Error closing modal:', error);
     }
 };
 
+// Also reset additional designations when closing
+const originalCloseFunc = window.closeEditStaffModal;
+window.closeEditStaffModal = function() {
+    window.editAdditionalDesignations = [];
+    const editDesignationsList = document.getElementById('editDesignationsList');
+    if (editDesignationsList) editDesignationsList.innerHTML = '';
+    const sel = document.getElementById('editAdditionalDesignationSelect');
+    if (sel) sel.value = '';
+    return originalCloseFunc();
+};
 // Function to populate edit form with existing data
 window.populateEditStaffForm = function(staffData) {
     // Populate basic fields
@@ -208,7 +261,6 @@ window.populateEditStaffForm = function(staffData) {
     document.getElementById('editMiddleName').value = staffData.middle_name || '';
     document.getElementById('editStaffEmail').value = staffData.email || '';
     document.getElementById('editStaffContact').value = staffData.contact_number || '';
-    document.getElementById('editStaffStatus').value = staffData.staff_status || '';
     
     // Handle position/designation
     const positionSelect = document.getElementById('editStaffPosition');
@@ -229,7 +281,7 @@ window.populateEditStaffForm = function(staffData) {
     const isAlsoFaculty = staffData.is_also_faculty || false;
     document.getElementById('editIsAlsoFaculty').checked = isAlsoFaculty;
     if (isAlsoFaculty) {
-        document.getElementById('editFacultyEmploymentStatus').value = staffData.faculty_employment_status || '';
+        document.getElementById('editFacultyEmploymentStatus').value = staffData.employment_status || staffData.faculty_employment_status || '';
         document.getElementById('editFacultyEmployeeNumber').value = staffData.employee_number || staffData.employeeId || '';
     }
     toggleEditFacultySection();
@@ -244,42 +296,56 @@ window.populateEditStaffForm = function(staffData) {
         // Check for signatory assignments and show warnings
         checkSignatoryAssignments(staffData);
     }
+    // Clear previous designations and reset chips
+    window.editAdditionalDesignations = [];
+    const editDesignationsList = document.getElementById('editDesignationsList');
+    if (editDesignationsList) editDesignationsList.innerHTML = '';
+    
+    // Populate edit-designation select
+    try { fetchEditDesignations(); } catch(e){}
+
+    // Fetch existing designation assignments for this user and render them
+    try {
+        const userId = staffData.user_id || staffData.id;
+        if (userId) {
+            // Fire-and-forget async loader; it will populate window.editAdditionalDesignations and render chips
+            fetchEditDesignationAssignments(userId);
+        }
+    } catch (e) {
+        console.error('Failed to initiate fetchEditDesignationAssignments', e);
+    }
 };
 
 // Load existing department assignments for Program Head
-window.loadExistingAssignments = function(staffData) {
+window.loadExistingAssignments = async function(staffData) {
     const userId = staffData.user_id || staffData.id;
     if (!userId) {
         console.error('No user ID found for loading assignments');
         return;
     }
 
-    // Fetch existing assignments
-    fetch(`../../api/staff/assignments.php?staff_id=${userId}`, {
-        credentials: 'include'
-    })
-    .then(response => response.json())
-    .then(data => {
+    try {
+        // Fetch existing assignments (API accepts both staff_id and user_id)
+        const response = await fetch(`../../api/staff/assignments.php?user_id=${userId}`, { credentials: 'include' });
+        const data = await response.json();
+
         if (data.success && data.assignments) {
             // Store existing assignments for later use
             window.currentAssignments = data.assignments;
-            
+
             // Display current assignments
             displayCurrentAssignments(data.assignments);
-            
+
             // Determine the sector from existing assignments
-            const sectors = [...new Set(data.assignments.map(a => a.sector_name))];
+            const sectors = [...new Set(data.assignments.map(a => a.sector_name || a.department_type))];
             if (sectors.length > 0) {
-                // Set the sector (assuming single sector for now)
+                // Set the sector
                 const sectorSelect = document.getElementById('editProgramHeadCategory');
                 if (sectorSelect) {
                     sectorSelect.value = sectors[0];
-                    updateEditDepartmentCheckboxes();
-                    
-                    // After checkboxes are loaded, mark existing assignments
-                    setTimeout(() => {
-                        markExistingAssignments(data.assignments);
-                    }, 200);
+                    // Wait for checkboxes to be loaded, then mark existing assignments
+                    await updateEditDepartmentCheckboxes();
+                    markExistingAssignments(data.assignments);
                 }
             }
         } else {
@@ -287,12 +353,11 @@ window.loadExistingAssignments = function(staffData) {
             hideCurrentAssignments();
             updateEditDepartmentCheckboxes();
         }
-    })
-    .catch(error => {
+    } catch (error) {
         console.error('Error loading assignments:', error);
         hideCurrentAssignments();
         updateEditDepartmentCheckboxes();
-    });
+    }
 };
 
 // Display current assignments
@@ -550,6 +615,11 @@ window.submitEditStaffForm = function() {
     
     jsonData['role_id'] = 7; // Regular Staff role
     jsonData['is_also_faculty'] = isAlsoFaculty;
+
+        // Add additional designations if any (send as array of IDs)
+        if (window.editAdditionalDesignations && window.editAdditionalDesignations.length > 0) {
+            jsonData['assignedDesignations'] = window.editAdditionalDesignations.map(d => d.designation_id);
+        }
     
     // Submit form
     fetch(form.dataset.endpoint, {
@@ -625,7 +695,7 @@ window.updateProgramHeadAssignments = function(userId) {
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
                     body: JSON.stringify({
-                        staff_id: userId,
+                        user_id: userId,
                         department_id: departmentId
                     })
                 })
@@ -641,7 +711,7 @@ window.updateProgramHeadAssignments = function(userId) {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                    staff_id: userId,
+                    user_id: userId,
                     department_id: departmentId,
                     is_primary: false // Default to non-primary
                 })
@@ -692,7 +762,7 @@ window.removeAllAssignments = function(userId) {
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
             body: JSON.stringify({
-                staff_id: userId,
+                user_id: userId,
                 department_id: assignment.department_id
             })
         })
@@ -804,95 +874,85 @@ window.removeAllAssignments = function(userId) {
         const selectedCategory = categorySelect.value;
         
         if (!selectedCategory) {
-            checkboxesContainer.style.display = 'none';
-            return;
+            checkboxesContainer.style.display = 'none'; 
+            return Promise.resolve(); // Return a resolved promise
         }
         
-        // Load departments from API filtered by sector/category
-        const url = `../../api/departments/list.php?sector=${encodeURIComponent(selectedCategory)}&include_ph=1&limit=500`;
-        checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">Loading departments...</div>';
-        
-        fetch(url, { credentials: 'include' })
-            .then(r => r.json())
-            .then(resp => {
-                checkboxesList.innerHTML = '';
-                if (!resp || resp.success !== true) {
-                    checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Failed to load departments</div>';
-                    return;
-                }
-                const departments = resp.departments || [];
-                if (departments.length === 0) {
-                    checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">No departments found for this sector</div>';
-                }
-                
-                departments.forEach(dep => {
-                    const depId = dep.department_id;
-                    const depName = dep.department_name;
-                    const phUserId = dep.current_program_head_user_id || null;
-                    const phName = dep.current_program_head_name || '';
-                    const phEmployeeNumber = dep.current_program_head_employee_number || '';
-                    
-                    const disabled = !!phUserId; // lock if already has a PH
-                    const option = document.createElement('div');
-                    option.className = 'checkbox-option';
-                    const inputId = `edit_dept_${depId}`;
-                    
-                    // Create enhanced label with Program Head info
-                    let phInfo = '';
-                    if (disabled) {
-                        phInfo = `
-                            <div class="current-ph-info">
-                                <span class="ph-assigned-label">Currently assigned to:</span>
-                                <span class="ph-name">${phName}</span>
-                                <span class="ph-employee">(${phEmployeeNumber})</span>
-                            </div>
-                        `;
+        return new Promise((resolve, reject) => {
+            // Load departments from API filtered by sector/category
+            const url = `../../api/departments/list.php?sector=${encodeURIComponent(selectedCategory)}&include_ph=1&limit=500`;
+            checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">Loading departments...</div>';
+            
+            fetch(url, { credentials: 'include' })
+                .then(r => r.json())
+                .then(resp => {
+                    checkboxesList.innerHTML = '';
+                    if (!resp || resp.success !== true) {
+                        checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Failed to load departments</div>';
+                        reject(new Error('Failed to load departments'));
+                        return;
+                    }
+                    const departments = resp.departments || [];
+                    if (departments.length === 0) {
+                        checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">No departments found for this sector</div>';
                     }
                     
-                    option.innerHTML = `
-                        <input type="checkbox" id="${inputId}" name="assignedDepartments[]" value="${depId}" ${disabled ? 'disabled' : ''}>
-                        <label for="${inputId}">
-                            <div class="dept-label-main">${depName}</div>
-                            ${phInfo}
-                        </label>
-                    `;
-                    checkboxesList.appendChild(option);
-                });
+                    departments.forEach(dep => {
+                        const depId = dep.department_id;
+                        const depName = dep.department_name;
+                        const phUserId = dep.current_program_head_user_id || null;
+                        const phName = dep.current_program_head_name || '';
+                        const phEmployeeNumber = dep.current_program_head_employee_number || '';
+                        
+                        const disabled = false; // Always allow selection, transfer toggle will handle logic
+                        const option = document.createElement('div');
+                        option.className = 'checkbox-option';
+                        const inputId = `edit_dept_${depId}`;
+                        
+                        // Create enhanced label with Program Head info
+                        let phInfo = '';
+                        if (phUserId) { // Show info if a PH is assigned
+                            phInfo = `
+                                <div class="current-ph-info">
+                                    <span class="ph-assigned-label">Currently assigned to:</span>
+                                    <span class="ph-name">${phName}</span>
+                                    <span class="ph-employee">(${phEmployeeNumber})</span>
+                                </div>
+                            `;
+                        }
+                        
+                        option.innerHTML = `
+                            <input type="checkbox" id="${inputId}" name="assignedDepartments[]" value="${depId}" ${disabled ? 'disabled' : ''}>
+                            <label for="${inputId}">
+                                <div class="dept-label-main">${depName}</div>
+                                ${phInfo}
+                            </label>
+                        `;
+                        checkboxesList.appendChild(option);
+                    });
 
-                // Sync visual selection state with checked state (multi-select)
-                const syncSelectedClass = () => {
-                    const allOptions = checkboxesList.querySelectorAll('.checkbox-option');
-                    allOptions.forEach(opt => {
-                        const cb = opt.querySelector('input[type="checkbox"]');
-                        if (cb && cb.checked) {
-                            opt.classList.add('selected');
-                        } else {
-                            opt.classList.remove('selected');
+                    // Sync visual selection state with checked state (multi-select)
+                    checkboxesList.addEventListener('change', function(e){
+                        if (e.target && e.target.matches('input[type="checkbox"]')) {
+                            const container = e.target.closest('.checkbox-option');
+                            if (container) {
+                                if (e.target.checked) container.classList.add('selected');
+                                else container.classList.remove('selected');
+                            }
                         }
                     });
-                };
-                checkboxesList.addEventListener('change', function(e){
-                    if (e.target && e.target.matches('input[type="checkbox"]')) {
-                        const container = e.target.closest('.checkbox-option');
-                        if (container) {
-                            if (e.target.checked) container.classList.add('selected');
-                            else container.classList.remove('selected');
-                        }
-                    }
+                    resolve(); // Resolve the promise when done
+                })
+                .catch((err) => {
+                    checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Error loading departments</div>';
+                    reject(err); // Reject the promise on error
+                })
+                .finally(() => {
+                    checkboxesContainer.style.display = 'block';
+                    checkboxesContainer.style.opacity = '0';
+                    setTimeout(() => { checkboxesContainer.style.opacity = '1'; }, 10);
                 });
-                // initial sync
-                syncSelectedClass();
-            })
-            .catch(() => {
-                checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Error loading departments</div>';
-            })
-            .finally(() => {
-        checkboxesContainer.style.display = 'block';
-        checkboxesContainer.style.opacity = '0';
-                setTimeout(() => { checkboxesContainer.style.opacity = '1'; }, 10);
-            });
-        
-        // Container visibility is handled in the fetch finally block
+        });
     };
 
     // Clear edit Program Head fields
@@ -946,4 +1006,187 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// --- Password Reset Logic ---
+
+function handlePasswordReset() {
+    const userId = document.getElementById('editStaffForm').dataset.userId;
+    const username = document.getElementById('editEmployeeId').value;
+
+    if (!userId) {
+        showToastNotification('Cannot reset password. User ID is missing.', 'error');
+        return;
+    }
+
+    showConfirmationModal(
+        'Reset Password',
+        `Are you sure you want to reset the password for ${username}? A new password will be generated.`,
+        'Reset',
+        'Cancel',
+        async () => {
+            try {
+                // Generate a new secure password on the client-side for immediate display
+                const newPassword = generateSecurePassword();
+
+                const response = await fetch('../../api/users/password.php', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        user_id: userId,
+                        new_password: newPassword
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred.' }));
+                    throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+                }
+
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Use the new unified GeneratedCredentialsModal
+                    openGeneratedCredentialsModal('passwordReset', { username: username, password: newPassword });
+                } else {
+                    throw new Error(data.message || 'Failed to reset password.');
+                }
+            } catch (error) {
+                showToastNotification(error.message, 'error');
+            }
+        },
+        'warning'
+    );
+}
+
+function generateSecurePassword(length = 12) {
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()";
+    let password = "";
+    for (let i = 0, n = charset.length; i < length; ++i) {
+        password += charset.charAt(Math.floor(Math.random() * n));
+    }
+    return password;
+}
+
+// Store additional designations for edit form
+// Each item: { designation_id, designation_name }
+window.editAdditionalDesignations = [];
+
+// Helper functions for designation normalization
+function normalizeEditDesignation(name) {
+    name = (name || '').trim();
+    return name.replace(/\s+/g, ' ');
+}
+
+function isValidEditDesignation(name) {
+    if (name.length < 2 || name.length > 50) return false;
+    return /^[A-Za-z0-9 \-\/&'.\.]+$/.test(name);
+}
+
+// Add additional designation in edit form (resolve name -> id, create if needed)
+// Add additional designation in edit form (select from dropdown)
+window.addEditAdditionalDesignation = function() {
+    const sel = document.getElementById('editAdditionalDesignationSelect');
+    if (!sel) return;
+    const val = sel.value;
+    const text = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+
+    if (!val) {
+        showToastNotification('Please select a designation', 'error');
+        return;
+    }
+
+    const desigId = parseInt(val, 10);
+    if (isNaN(desigId)) {
+        showToastNotification('Invalid designation selected', 'error');
+        return;
+    }
+
+    // Prevent duplicates by id
+    if (window.editAdditionalDesignations.some(d => d.designation_id === desigId)) {
+        showToastNotification('This designation is already added', 'warning');
+        return;
+    }
+
+    window.editAdditionalDesignations.push({ designation_id: desigId, designation_name: text });
+    sel.value = '';
+    renderEditAdditionalDesignations();
+};
+
+// Remove additional designation from edit form
+window.removeEditAdditionalDesignation = function(designationName) {
+    window.editAdditionalDesignations = window.editAdditionalDesignations.filter(d => (d.designation_name || '') !== designationName);
+    renderEditAdditionalDesignations();
+};
+
+// Render additional designations as chips in edit form
+function renderEditAdditionalDesignations() {
+    const container = document.getElementById('editDesignationsList');
+    if (!container) return;
+
+    container.innerHTML = window.editAdditionalDesignations.map(d => `
+        <span class="chip" style="padding: 6px 12px; background: #e9ecef; border-radius: 20px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+            ${d.designation_name}
+            <button type="button" onclick="removeEditAdditionalDesignation('${d.designation_name.replace(/'/g, "\\'") }')" style="background: none; border: none; cursor: pointer; color: #dc3545; font-size: 16px; padding: 0;">
+                ×
+            </button>
+        </span>
+    `).join('');
+}
+
+// Fetch designations and populate edit additional-designation select
+function fetchEditDesignations(q) {
+    const sel = document.getElementById('editAdditionalDesignationSelect');
+    if (!sel) return;
+    const url = '../../api/users/designations.php' + (q ? ('?q=' + encodeURIComponent(q)) : '');
+    fetch(url, { credentials: 'include' })
+        .then(r => r.json())
+        .then(data => {
+            if (!data || data.success !== true) return;
+            // clear and add placeholder
+            sel.innerHTML = '';
+            const ph = document.createElement('option');
+            ph.value = '';
+            ph.text = 'Select a designation...';
+            sel.appendChild(ph);
+            (data.designations || []).forEach(d => {
+                const o = document.createElement('option');
+                o.value = d.designation_id;
+                o.text = d.designation_name;
+                sel.appendChild(o);
+            });
+            sel.selectedIndex = 0;
+        })
+        .catch(() => {});
+}
+
+// Fetch existing designation assignments for a user and populate editAdditionalDesignations
+async function fetchEditDesignationAssignments(userId) {
+    try {
+        const url = `../../api/staff/designation_assignments.php?user_id=${encodeURIComponent(userId)}`;
+        console.log(`Fetching designations from: ${url}`);
+        const res = await fetch(url, { credentials: 'include' });
+        const data = await res.json();
+        console.log('Designation assignments response:', data);
+        
+        if (data && data.success === true && Array.isArray(data.designations)) {
+            console.log('Setting editAdditionalDesignations:', data.designations);
+            window.editAdditionalDesignations = data.designations.map(d => ({
+                designation_id: parseInt(d.designation_id, 10),
+                designation_name: d.designation_name
+            }));
+            renderEditAdditionalDesignations();
+        } else {
+            console.warn('API response not successful or no designations array:', data);
+            // Ensure array is initialized
+            window.editAdditionalDesignations = window.editAdditionalDesignations || [];
+            renderEditAdditionalDesignations();
+        }
+    } catch (err) {
+        console.error('Error fetching designation assignments:', err);
+        window.editAdditionalDesignations = window.editAdditionalDesignations || [];
+        renderEditAdditionalDesignations();
+    }
+}
 </script> 

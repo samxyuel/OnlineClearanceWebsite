@@ -307,16 +307,58 @@
 
 <script>
 function openExportModalInternal() {
-    document.getElementById('courseExportModal').style.display = 'flex';
-    updateExportPreview();
+    try {
+        const modal = document.getElementById('courseExportModal');
+        if (!modal) {
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('Course export modal not found. Please refresh the page.', 'error');
+            }
+            return;
+        }
+
+        // Use window.openModal if available, otherwise fallback
+        if (typeof window.openModal === 'function') {
+            window.openModal('courseExportModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            document.body.classList.add('modal-open');
+            requestAnimationFrame(() => {
+                modal.classList.add('active');
+            });
+        }
+
+        updateExportPreview();
+    } catch (error) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Unable to open course export modal. Please try again.', 'error');
+        }
+    }
 }
 
 // Global function for external access
 window.openExportModalInternal = openExportModalInternal;
 
-function closeCourseExportModal() {
-    document.getElementById('courseExportModal').style.display = 'none';
-}
+window.closeCourseExportModal = function() {
+    try {
+        const modal = document.getElementById('courseExportModal');
+        if (!modal) return;
+
+        // Use window.closeModal if available, otherwise fallback
+        if (typeof window.closeModal === 'function') {
+            window.closeModal('courseExportModal');
+        } else {
+            // Fallback to direct manipulation
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
+            modal.classList.remove('active');
+        }
+    } catch (error) {
+        // Silent error handling
+    }
+};
 
 function updateExportPreview() {
     const format = document.getElementById('exportFormat').value;
