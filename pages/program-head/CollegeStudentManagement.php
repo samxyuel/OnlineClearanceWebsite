@@ -69,15 +69,20 @@ try {
     error_log("DEPARTMENT_ID_DEBUG: Query executed with userId = $userId");
     error_log("DEPARTMENT_ID_DEBUG: Resulting departmentId = " . json_encode($departmentId));
 
-    if (!$departmentId) {
-        throw new Exception('No department assigned to this Program Head.');
-    }
+    // NOTE: Department ID is optional - the API (signatoryList.php) automatically handles
+    // Program Head scoping via user_department_assignments table (supports multiple departments).
+    // The frontend department_id parameter is only for additional filtering, not required.
+    // If no department is found here, the API will still work correctly by using
+    // user_department_assignments to scope the results.
 
     $canTakeAction = $hasStudentSector; // Only true if user is an active signatory for this sector/department
 
 } catch (Throwable $e) {
-    header('HTTP/1.1 403 Forbidden');
-    echo 'Access denied.';
+    // Log the error for debugging but don't block access
+    error_log("Program Head CollegeStudentManagement access check error: " . $e->getMessage());
+    // Redirect to dashboard instead of showing "Access denied"
+    // The API will handle permission checks and return empty results if needed
+    header('Location: ../../pages/program-head/dashboard.php');
     exit;
 }
 ?>
@@ -343,7 +348,7 @@ try {
     </main>
 
     <script>
-        // Make the department ID available to JavaScript
+        // Make the department ID available to JavaScript (may be null - API handles scoping)
         const DEPARTMENT_ID = <?php echo json_encode($departmentId); ?>;
         // Default until we query the central assignment API
         window.CAN_TAKE_ACTION = false;
@@ -1452,7 +1457,10 @@ try {
             url.searchParams.append('sector', 'College');
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
-            url.searchParams.append('department_id', DEPARTMENT_ID); // Pass the department_id
+            // Only append department_id if it exists - API handles scoping automatically via user_department_assignments
+            if (DEPARTMENT_ID) {
+                url.searchParams.append('department_id', DEPARTMENT_ID);
+            }
 
             if (search) url.searchParams.append('search', search);
             if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
@@ -1702,7 +1710,7 @@ try {
                 <td data-label="Clearance Status:" class="clearance-status-cell">${clearanceStatusContent}</td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
                             <i class="fas fa-tasks"></i>
                         </button>
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.id}')" title="Edit Student">
@@ -1840,9 +1848,34 @@ try {
             await populateFilter('accountStatusFilter', url, 'All Account Statuses');
         }
 
-        async function loadSchoolTerms() {
-            const url = `../../api/clearance/get_filter_options.php?type=school_terms`;
-            await populateFilter('schoolTermFilter', url, 'All School Terms');
+        async function loadSchoolTermsFilter() {
+            const termSelect = document.getElementById('schoolTermFilter');
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+
+                termSelect.innerHTML = '<option value="">All School Terms</option>';
+                
+                // Use all_terms if available (includes terms without clearance_periods), 
+                // otherwise fall back to periods (for backward compatibility)
+                const termsToUse = data.all_terms || data.periods || [];
+                
+                if (data.success && termsToUse.length > 0) {
+                    const uniqueTerms = [...new Map(termsToUse.map(item => [
+                        `${item.academic_year}-${item.semester_name}`, 
+                        item
+                    ])).values()];
+                    
+                    uniqueTerms.forEach(period => {
+                        const option = document.createElement('option');
+                        option.value = `${period.academic_year}|${period.semester_id}`; // Use a format the backend can parse
+                        option.textContent = `${period.academic_year} - ${period.semester_name}`;
+                        termSelect.appendChild(option);
+                    });
+                }
+            } catch (error) { 
+                console.error('Error loading school terms:', error); 
+            }
         }
 
         async function loadYearLevel() {
@@ -1859,20 +1892,38 @@ try {
             try {
                 const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
                 const data = await response.json();
+                
+                const schoolTermFilter = document.getElementById('schoolTermFilter');
+                if (!schoolTermFilter) return;
+                
                 if (data.success && data.active_periods && data.active_periods.length > 0) {
                     // Find the active period specifically for the 'College' sector
-                    const activeCollegePeriod = data.active_periods.find(p => p.sector === 'College');
+                    const activePeriod = data.active_periods.find(p => p.sector === 'College');
 
-                    if (activeCollegePeriod) {
-                        const schoolTermFilter = document.getElementById('schoolTermFilter');
-                        // The value format for the filter is 'YYYY-YYYY|period_id'
-                        const termValue = `${activeCollegePeriod.school_year}|${activeCollegePeriod.semester_id}`;
+                    if (activePeriod) {
+                        const termValue = `${activePeriod.school_year}|${activePeriod.semester_id}`;
                         // Check if the option exists before setting it
                         if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
                             schoolTermFilter.value = termValue;
                             console.log('Default school term set to:', termValue);
                         } else {
                             console.warn('Default school term option not found in filter:', termValue);
+                        }
+                    }
+                } else {
+                    // No active clearance period - try to set to most recent term with data
+                    // This helps when viewing historical data after a new term is activated
+                    const termsToUse = data.all_terms || data.periods || [];
+                    if (termsToUse.length > 0) {
+                        // Find the most recent term that has clearance_periods (has actual data)
+                        const termsWithData = termsToUse.filter(t => t.has_clearance_period !== false);
+                        if (termsWithData.length > 0) {
+                            const mostRecentTerm = termsWithData[0]; // Already sorted DESC
+                            const termValue = `${mostRecentTerm.academic_year}|${mostRecentTerm.semester_id}`;
+                            if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
+                                schoolTermFilter.value = termValue;
+                                console.log('Default school term set to most recent term with data:', termValue);
+                            }
                         }
                     }
                 }
@@ -1910,7 +1961,7 @@ try {
             // 2. Load general data and options for filters and modals
             await Promise.all([
             loadRejectionReasons(),
-            loadSchoolTerms(),
+            loadSchoolTermsFilter(),
             loadClearanceStatuses(),
             loadYearLevel(),
             loadAccountStatuses(),

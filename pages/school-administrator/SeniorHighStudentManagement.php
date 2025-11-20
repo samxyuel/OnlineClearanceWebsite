@@ -1278,7 +1278,7 @@ if (session_status() == PHP_SESSION_NONE) {
                 <td data-label="Clearance Status:" class="clearance-status-cell">${clearanceStatusContent}</td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
                             <i class="fas fa-tasks"></i>
                         </button>
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.user_id}')" title="Edit Student">
@@ -2562,20 +2562,38 @@ if (session_status() == PHP_SESSION_NONE) {
             try {
                 const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
                 const data = await response.json();
+                
+                const schoolTermFilter = document.getElementById('schoolTermFilter');
+                if (!schoolTermFilter) return;
+                
                 if (data.success && data.active_periods && data.active_periods.length > 0) {
-                    // Find the active period specifically for the 'College' sector
-                    const activeCollegePeriod = data.active_periods.find(p => p.sector === 'College');
+                    // Find the active period specifically for the 'Senior High School' sector
+                    const activePeriod = data.active_periods.find(p => p.sector === 'Senior High School');
 
-                    if (activeCollegePeriod) {
-                        const schoolTermFilter = document.getElementById('schoolTermFilter');
-                        // The value format for the filter is 'YYYY-YYYY|period_id'
-                        const termValue = `${activeCollegePeriod.school_year}|${activeCollegePeriod.semester_id}`;
+                    if (activePeriod) {
+                        const termValue = `${activePeriod.school_year}|${activePeriod.semester_id}`;
                         // Check if the option exists before setting it
                         if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
                             schoolTermFilter.value = termValue;
                             console.log('Default school term set to:', termValue);
                         } else {
                             console.warn('Default school term option not found in filter:', termValue);
+                        }
+                    }
+                } else {
+                    // No active clearance period - try to set to most recent term with data
+                    // This helps when viewing historical data after a new term is activated
+                    const termsToUse = data.all_terms || data.periods || [];
+                    if (termsToUse.length > 0) {
+                        // Find the most recent term that has clearance_periods (has actual data)
+                        const termsWithData = termsToUse.filter(t => t.has_clearance_period !== false);
+                        if (termsWithData.length > 0) {
+                            const mostRecentTerm = termsWithData[0]; // Already sorted DESC
+                            const termValue = `${mostRecentTerm.academic_year}|${mostRecentTerm.semester_id}`;
+                            if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
+                                schoolTermFilter.value = termValue;
+                                console.log('Default school term set to most recent term with data:', termValue);
+                            }
                         }
                     }
                 }
@@ -2591,8 +2609,16 @@ if (session_status() == PHP_SESSION_NONE) {
                 const data = await response.json();
 
                 termSelect.innerHTML = '<option value="">All School Terms</option>';
-                if (data.success && data.periods) {
-                    const uniqueTerms = [...new Map(data.periods.map(item => [`${item.academic_year}-${item.semester_name}`, item])).values()];
+                
+                // Use all_terms if available (includes terms without clearance_periods), 
+                // otherwise fall back to periods (for backward compatibility)
+                const termsToUse = data.all_terms || data.periods || [];
+                
+                if (data.success && termsToUse.length > 0) {
+                    const uniqueTerms = [...new Map(termsToUse.map(item => [
+                        `${item.academic_year}-${item.semester_name}`, 
+                        item
+                    ])).values()];
                     
                     uniqueTerms.forEach(period => {
                         const option = document.createElement('option');
@@ -2601,7 +2627,9 @@ if (session_status() == PHP_SESSION_NONE) {
                         termSelect.appendChild(option);
                     });
                 }
-            } catch (error) { console.error('Error loading school terms:', error); }
+            } catch (error) { 
+                console.error('Error loading school terms:', error); 
+            }
         }
 
 

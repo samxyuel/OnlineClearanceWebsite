@@ -1042,7 +1042,7 @@ try {
                         <td class="clearance-status-cell">${clearanceStatusContent}</td>
                         <td>
                             <div class="action-buttons">
-                                <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
+                                <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
                                     <i class="fas fa-tasks"></i>
                                 </button>
                                 <button class="btn-icon approve-btn" onclick="approveStudentClearance('${student.id}')" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>

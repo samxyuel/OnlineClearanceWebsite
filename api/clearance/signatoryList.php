@@ -94,10 +94,19 @@ try {
 
     // If a school term is selected, look for periods within that term (Ongoing or Closed)
     // Otherwise, default to the current 'Ongoing' period.
+    $selectedAcademicYearId = null;
+    $selectedSemesterId = null;
+    
     if (!empty($schoolTerm)) {
         $termParts = explode('|', $schoolTerm);
         $yearName = $termParts[0] ?? '';
         $semesterId = $termParts[1] ?? 0;
+
+        // Get academic_year_id for the selected term
+        $ayStmt = $pdo->prepare("SELECT academic_year_id FROM academic_years WHERE year = :yearName LIMIT 1");
+        $ayStmt->execute([':yearName' => $yearName]);
+        $selectedAcademicYearId = $ayStmt->fetchColumn();
+        $selectedSemesterId = (int)$semesterId;
 
         $periodQuery = "SELECT cp.period_id FROM clearance_periods cp JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id WHERE ay.year = :yearName AND cp.semester_id = :semesterId AND cp.status IN ('Ongoing', 'Closed')";
         $periodParams = [':yearName' => $yearName, ':semesterId' => $semesterId];
@@ -130,6 +139,9 @@ try {
         echo json_encode(['success' => true, 'total' => 0, $responseKey => [], 'page' => 1, 'limit' => 10, 'stats' => ['total' => 0, 'active' => 0, 'inactive' => 0, 'graduated' => 0]]);
         exit;
     }
+    
+    // Flag to indicate if we should query clearance_forms directly (when schoolTerm provided but no period_id found)
+    $queryDirectByTerm = (!empty($schoolTerm) && !$activePeriodId && $selectedAcademicYearId && $selectedSemesterId);
 
     // 4. Build the query based on type
     $params = [];
@@ -143,7 +155,11 @@ try {
 
     // Build the clearance_periods JOIN condition based on whether we have a specific period_id
     // When $activePeriodId is set (from school_term filter), use it to ensure we query the correct period
-    if ($activePeriodId) {
+    // When schoolTerm is provided but no period_id found, query clearance_forms directly by academic_year_id and semester_id
+    if ($queryDirectByTerm) {
+        // Query clearance_forms directly by academic_year_id and semester_id (no clearance_period required)
+        $periodJoinCondition = "1=1"; // Dummy condition, won't be used
+    } else if ($activePeriodId) {
         // Use the specific period_id when available (from school_term filter)
         $periodJoinCondition = "cp.period_id = :activePeriodId";
         $params[':activePeriodId'] = $activePeriodId;
@@ -167,21 +183,41 @@ try {
                 cs.action as clearance_status,
                 cs.signatory_id,
                 cf.clearance_form_id,
+                cf.clearance_form_progress,
                 CONCAT(ay.year, ' ', sem.semester_name) as school_term,
                 d_sig.designation_name as required_designation
         ";
-        $from = "
-            FROM faculty f
-            JOIN users u ON f.user_id = u.user_id
-            LEFT JOIN user_department_assignments uda ON u.user_id = uda.user_id
-            LEFT JOIN departments d ON uda.department_id = d.department_id
-            JOIN clearance_periods cp ON cp.sector = 'Faculty' AND ($periodJoinCondition)
-            LEFT JOIN clearance_forms cf ON f.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id 
-            LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
-            LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
-            LEFT JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
-            LEFT JOIN semesters sem ON cf.semester_id = sem.semester_id
-        ";
+        
+        if ($queryDirectByTerm) {
+            // Query clearance_forms directly by academic_year_id and semester_id (no clearance_period required)
+            $from = "
+                FROM faculty f
+                JOIN users u ON f.user_id = u.user_id
+                LEFT JOIN user_department_assignments uda ON u.user_id = uda.user_id
+                LEFT JOIN departments d ON uda.department_id = d.department_id
+                LEFT JOIN clearance_forms cf ON f.user_id = cf.user_id AND cf.academic_year_id = :selectedAcademicYearId AND cf.semester_id = :selectedSemesterId
+                LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
+                LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
+                LEFT JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
+                LEFT JOIN semesters sem ON cf.semester_id = sem.semester_id
+            ";
+            $params[':selectedAcademicYearId'] = $selectedAcademicYearId;
+            $params[':selectedSemesterId'] = $selectedSemesterId;
+        } else {
+            // Normal query with clearance_periods
+            $from = "
+                FROM faculty f
+                JOIN users u ON f.user_id = u.user_id
+                LEFT JOIN user_department_assignments uda ON u.user_id = uda.user_id
+                LEFT JOIN departments d ON uda.department_id = d.department_id
+                LEFT JOIN clearance_periods cp ON cp.sector = 'Faculty' AND ($periodJoinCondition)
+                LEFT JOIN clearance_forms cf ON f.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id 
+                LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
+                LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
+                LEFT JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
+                LEFT JOIN semesters sem ON cf.semester_id = sem.semester_id
+            ";
+        }
         $searchFields = ['u.first_name', 'u.last_name', 'f.employee_number', 'd.department_name', 'f.employment_status', 'd_sig.designation_name'];
     } else { // Default to student
         $select = "
@@ -197,18 +233,39 @@ try {
                 cs.action as clearance_status,
                 cs.signatory_id,
                 cf.clearance_form_id,
+                cf.clearance_form_progress,
                 d_sig.designation_name as required_designation
         ";
-        $from = "
-            FROM students s
-            JOIN users u ON s.user_id = u.user_id
-            LEFT JOIN programs p ON s.program_id = p.program_id
-            LEFT JOIN departments d ON s.department_id = d.department_id
-            LEFT JOIN clearance_periods cp ON cp.sector = s.sector AND ($periodJoinCondition)
-            LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id 
-            LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
-            LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
-        ";
+        
+        if ($queryDirectByTerm) {
+            // Query clearance_forms directly by academic_year_id and semester_id (no clearance_period required)
+            $from = "
+                FROM students s
+                JOIN users u ON s.user_id = u.user_id
+                LEFT JOIN programs p ON s.program_id = p.program_id
+                LEFT JOIN departments d ON s.department_id = d.department_id
+                LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id AND cf.academic_year_id = :selectedAcademicYearId AND cf.semester_id = :selectedSemesterId
+                LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
+                LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
+            ";
+            // Add params if not already added (for faculty case)
+            if (!isset($params[':selectedAcademicYearId'])) {
+                $params[':selectedAcademicYearId'] = $selectedAcademicYearId;
+                $params[':selectedSemesterId'] = $selectedSemesterId;
+            }
+        } else {
+            // Normal query with clearance_periods
+            $from = "
+                FROM students s
+                JOIN users u ON s.user_id = u.user_id
+                LEFT JOIN programs p ON s.program_id = p.program_id
+                LEFT JOIN departments d ON s.department_id = d.department_id
+                LEFT JOIN clearance_periods cp ON cp.sector = s.sector AND ($periodJoinCondition)
+                LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id 
+                LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
+                LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
+            ";
+        }
         $searchFields = ['u.first_name', 'u.last_name', 's.student_id', 'p.program_code', 'year_level', 'd_sig.designation_name'];
     }
 
@@ -299,21 +356,10 @@ try {
         $params[':accountStatus'] = $accountStatus;
     }
 
-    // Note: school_term filtering is already handled by $activePeriodId in the JOIN
-    // Additional WHERE clause filtering is redundant but kept for safety
-    if (!empty($schoolTerm) && !$activePeriodId) {
-        // Only apply this if we didn't already filter by period_id in the JOIN
-        $termParts = explode('|', $schoolTerm);
-        if (count($termParts) === 2) {
-            $yearName = $termParts[0];
-            $semesterId = $termParts[1];
-            
-            $where .= " AND cp.academic_year_id = (SELECT academic_year_id FROM academic_years WHERE year = :yearName LIMIT 1)";
-            $where .= " AND cp.semester_id = :semesterId";
-            $params[':yearName'] = $yearName;
-            $params[':semesterId'] = $semesterId;
-        }
-    }
+    // Note: school_term filtering is handled by:
+    // 1. $activePeriodId in the JOIN (when clearance_period exists)
+    // 2. Direct filtering by academic_year_id and semester_id in the clearance_forms JOIN (when queryDirectByTerm is true)
+    // No additional WHERE clause filtering needed
 
     if (!empty($programId)) {
         $where .= " AND p.program_id = :programId";
@@ -396,6 +442,16 @@ try {
         'limit' => $limit,
         'stats' => $stats,
         $responseKey => array_map(function ($item) use ($type) {
+            // Map clearance_form_progress to proper format (unapplied -> Unapplied, in-progress -> In Progress, complete -> Completed)
+            $progress = $item['clearance_form_progress'] ?? 'unapplied';
+            $progressMap = [
+                'unapplied' => 'Unapplied',
+                'in-progress' => 'In Progress',
+                'complete' => 'Completed',
+                'rejected' => 'Rejected'
+            ];
+            $clearanceFormProgress = $progressMap[strtolower($progress)] ?? ucfirst(str_replace('-', ' ', $progress));
+            
             $mappedItem = [
                 'id' => $item['id'],
                 'user_id' => $item['user_id'],
@@ -404,6 +460,7 @@ try {
                 'section' => $item['section'],
                 'account_status' => $item['account_status'],
                 'clearance_status' => $item['clearance_status'] ?? 'Unapplied',
+                'clearance_form_progress' => $clearanceFormProgress,
                 'clearance_form_id' => $item['clearance_form_id'],
                 'signatory_id' => $item['signatory_id'],
                 'required_designation' => $item['required_designation']

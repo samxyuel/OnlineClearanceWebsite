@@ -592,7 +592,7 @@ if (session_status() == PHP_SESSION_NONE) {
                 <td data-label="Clearance Progress:" class="clearance-status-cell">${clearanceStatusContent}</td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name || 'Student')}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.id}', '${escapeHtml(student.name || 'Student')}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
                             <i class="fas fa-tasks"></i>
                         </button>
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.user_id}')" title="Edit">

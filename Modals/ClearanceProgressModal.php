@@ -442,15 +442,18 @@ window.closeClearanceProgressModal = function() {
 };
 
 function loadClearanceProgressData(personId, personType, schoolTerm = '') {
-    // The user_status.php API can handle both students and faculty by user_id.
-    // The personId from the management pages is the user_id.
+    // The user_status.php API can handle students by student_id and faculty by employee_number.
+    // The personId from the management pages is student_id for students and employee_number for faculty.
 
     const url = new URL('../../api/clearance/user_status.php', window.location.href);
 
+    // Use explicit parameters: student_id for students, employee_number for faculty
     if (personType === 'student') {
-        url.searchParams.append('user_id', personId);
+        url.searchParams.append('student_id', personId);
+        console.log('[ClearanceProgressModal] Loading clearance progress for student_id:', personId);
     } else if (personType === 'faculty') {
         url.searchParams.append('employee_number', personId);
+        console.log('[ClearanceProgressModal] Loading clearance progress for employee_number:', personId);
     } else {
         console.error('Invalid person type for clearance progress:', personType);
         return; // Stop if the type is unknown
@@ -458,7 +461,7 @@ function loadClearanceProgressData(personId, personType, schoolTerm = '') {
 
     // If a specific school term was provided (from the filters), include it so
     // the backend can scope the progress to that term.
-    // The school_term format should be like "2024-2025 - 1st Semester" or similar
+    // The school_term format should be "YEAR|semester_id" (e.g., "2024-2025|2")
     if (schoolTerm && schoolTerm.trim() !== '') {
         url.searchParams.append('school_term', schoolTerm.trim());
         console.log('[ClearanceProgressModal] Loading clearance progress for term:', schoolTerm);
@@ -478,7 +481,35 @@ function loadClearanceProgressData(personId, personType, schoolTerm = '') {
             return r.json();
         })
         .then(res=>{
-            if(!res.success){throw new Error(res.message||'Failed to load progress');}
+            console.log('[ClearanceProgressModal] API Response:', res);
+            
+            if(!res.success){
+                throw new Error(res.message||'Failed to load progress');
+            }
+
+            // Handle empty response (no form found for selected term)
+            if (res.message && res.message.includes('No clearance forms found')) {
+                const signatoriesList = document.getElementById('signatoriesList');
+                if (signatoriesList) {
+                    signatoriesList.innerHTML = `
+                        <div style="padding: 2rem; text-align: center; color: var(--medium-muted-blue);">
+                            <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
+                            <p><strong>No Clearance Form Found</strong></p>
+                            <p>${res.message}</p>
+                        </div>
+                    `;
+                }
+                // Reset progress overview
+                updateProgressDisplay({
+                    signatories: [],
+                    completionPercentage: 0,
+                    completedCount: 0,
+                    totalCount: 0,
+                    overallStatus: 'no-form',
+                    dataInconsistency: null
+                });
+                return;
+            }
 
             const approved = res.approved_count || 0;
             const total    = res.total_signatories   || 0;
@@ -533,30 +564,35 @@ function updateProgressDisplay(data) {
     
     // Update overall status badge
     const overallStatusBadge = document.getElementById('overallStatusBadge');
-    overallStatusBadge.textContent = data.overallStatus.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
-    overallStatusBadge.className = `status-badge ${data.overallStatus}`;
+    const statusText = data.overallStatus === 'no-form' ? 'No Form' : data.overallStatus.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    overallStatusBadge.textContent = statusText;
+    overallStatusBadge.className = `status-badge ${data.overallStatus === 'no-form' ? 'unapplied' : data.overallStatus}`;
     
     // Update signatories list
     const signatoriesList = document.getElementById('signatoriesList');
-    signatoriesList.innerHTML = '';
     
-    data.signatories.forEach(signatory => {
-        const signatoryItem = document.createElement('div');
-        signatoryItem.className = 'signatory-item' + (signatory.isCurrentUser ? ' signatory-current-user' : '');
-        signatoryItem.innerHTML = `
-            <div class="signatory-info">
-                <div class="signatory-position">${signatory.position}</div>
-                <div class="signatory-name">
-                    ${signatory.name}
-                    ${signatory.isCurrentUser ? '<span class="signatory-you-indicator" title="Your action status"><span class="you-dot"></span> You</span>' : ''}
+    // If no signatories (empty array or no-form status), the list should already be set by loadClearanceProgressData
+    if (data.signatories && data.signatories.length > 0) {
+        signatoriesList.innerHTML = '';
+        
+        data.signatories.forEach(signatory => {
+            const signatoryItem = document.createElement('div');
+            signatoryItem.className = 'signatory-item' + (signatory.isCurrentUser ? ' signatory-current-user' : '');
+            signatoryItem.innerHTML = `
+                <div class="signatory-info">
+                    <div class="signatory-position">${signatory.position}</div>
+                    <div class="signatory-name">
+                        ${signatory.name}
+                        ${signatory.isCurrentUser ? '<span class="signatory-you-indicator" title="Your action status"><span class="you-dot"></span> You</span>' : ''}
+                    </div>
                 </div>
-            </div>
-            <div class="signatory-status">
-                <span class="status-badge ${signatory.status}">${signatory.statusText}</span>
-            </div>
-        `;
-        signatoriesList.appendChild(signatoryItem);
-    });
+                <div class="signatory-status">
+                    <span class="status-badge ${signatory.status}">${signatory.statusText}</span>
+                </div>
+            `;
+            signatoriesList.appendChild(signatoryItem);
+        });
+    }
     
     // Show/hide data inconsistency warning
     const warningSection = document.getElementById('dataInconsistencyWarning');

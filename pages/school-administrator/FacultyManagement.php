@@ -868,15 +868,54 @@ handleFacultyManagementPageRequest();
         // Individual faculty actions - School Administrator as Signatory
 
         async function approveFacultyClearance(employeeId) {
+            // DEBUG: Log function call
+            console.log('[School Admin - Approve Faculty] Function called with employeeId:', employeeId);
+            
             const row = document.querySelector(`.faculty-checkbox[data-id="${employeeId}"]`).closest('tr');
+            if (!row) {
+                console.error('[School Admin - Approve Faculty] Row not found for employeeId:', employeeId);
+                showToastNotification('Could not find faculty record', 'error');
+                return;
+            }
+            
+            console.log('[School Admin - Approve Faculty] Row found:', row);
+            
             const facultyUserId = row.getAttribute('data-faculty-id');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
+            
+            // DEBUG: Log row data
+            console.log('[School Admin - Approve Faculty] Row data:', {
+                employeeId: employeeId,
+                facultyUserId: facultyUserId,
+                facultyName: facultyName,
+                rowAttributes: {
+                    'data-faculty-id': row.getAttribute('data-faculty-id'),
+                    'data-signatory-id': row.getAttribute('data-signatory-id')
+                }
+            });
+            
+            // FIX: Use correct selector - status badge has class "status-badge-compact signatory-pending" not "status-badge clearance-pending"
+            const clearanceBadge = row.querySelector('.status-badge-compact.signatory-pending, .status-badge-compact.signatory-rejected');
+            
+            // DEBUG: Log badge search result
+            const allBadges = Array.from(row.querySelectorAll('.status-badge-compact'));
+            console.log('[School Admin - Approve Faculty] Badge search result:', {
+                found: !!clearanceBadge,
+                badgeClass: clearanceBadge ? clearanceBadge.className : 'NOT FOUND',
+                badgeText: clearanceBadge ? clearanceBadge.textContent : 'NOT FOUND',
+                allBadgesInRow: allBadges.map(b => ({
+                    class: b.className,
+                    text: b.textContent.trim()
+                }))
+            });
             
             if (!clearanceBadge) {
+                console.error('[School Admin - Approve Faculty] Badge not found - Invalid clearance status to approve');
                 showToastNotification('Invalid clearance status to approve', 'warning');
                 return;
             }
+            
+            console.log('[School Admin - Approve Faculty] Opening confirmation modal');
             
             showConfirmationModal(
                 'Approve Faculty Clearance',
@@ -884,7 +923,9 @@ handleFacultyManagementPageRequest();
                 'Approve',
                 'Cancel',
                 async () => {
+                    console.log('[School Admin - Approve Faculty] User confirmed approval, calling sendSignatoryAction');
                     const result = await sendSignatoryAction(facultyUserId, 'Approved');
+                    console.log('[School Admin - Approve Faculty] sendSignatoryAction result:', result);
                     if (result.success) {
                         showToastNotification('Faculty clearance approved successfully', 'success');
                         fetchFaculty(); // Refresh data
@@ -897,17 +938,55 @@ handleFacultyManagementPageRequest();
         }
 
         async function rejectFacultyClearance(employeeId) {
+            // DEBUG: Log function call
+            console.log('[School Admin - Reject Faculty] Function called with employeeId:', employeeId);
+            
             if (!canPerformActions) {
+                console.warn('[School Admin - Reject Faculty] canPerformActions is false');
                 showToastNotification('You do not have permission to perform this action.', 'warning');
                 return;
             }
 
             const row = document.querySelector(`.faculty-checkbox[data-id="${employeeId}"]`).closest('tr');
+            if (!row) {
+                console.error('[School Admin - Reject Faculty] Row not found for employeeId:', employeeId);
+                showToastNotification('Could not find faculty record', 'error');
+                return;
+            }
+            
+            console.log('[School Admin - Reject Faculty] Row found:', row);
+            
             const facultyUserId = row.getAttribute('data-faculty-id');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-rejected, .status-badge.clearance-pending');
+            
+            // DEBUG: Log row data
+            console.log('[School Admin - Reject Faculty] Row data:', {
+                employeeId: employeeId,
+                facultyUserId: facultyUserId,
+                facultyName: facultyName,
+                rowAttributes: {
+                    'data-faculty-id': row.getAttribute('data-faculty-id'),
+                    'data-signatory-id': row.getAttribute('data-signatory-id')
+                }
+            });
+            
+            // FIX: Use correct selector - status badge has class "status-badge-compact signatory-pending" not "status-badge clearance-pending"
+            const clearanceBadge = row.querySelector('.status-badge-compact.signatory-rejected, .status-badge-compact.signatory-pending');
+            
+            // DEBUG: Log badge search result
+            const allBadges = Array.from(row.querySelectorAll('.status-badge-compact'));
+            console.log('[School Admin - Reject Faculty] Badge search result:', {
+                found: !!clearanceBadge,
+                badgeClass: clearanceBadge ? clearanceBadge.className : 'NOT FOUND',
+                badgeText: clearanceBadge ? clearanceBadge.textContent : 'NOT FOUND',
+                allBadgesInRow: allBadges.map(b => ({
+                    class: b.className,
+                    text: b.textContent.trim()
+                }))
+            });
 
             if (!clearanceBadge) {
+                console.error('[School Admin - Reject Faculty] Badge not found - Invalid clearance status to reject');
                 showToastNotification('Invalid clearance status to reject', 'warning');
                 return;
             }
@@ -1599,20 +1678,38 @@ handleFacultyManagementPageRequest();
             try {
                 const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
                 const data = await response.json();
+                
+                const schoolTermFilter = document.getElementById('schoolTermFilter');
+                if (!schoolTermFilter) return;
+                
                 if (data.success && data.active_periods && data.active_periods.length > 0) {
-                    // Find the active period specifically for the 'College' sector
-                    const activeCollegePeriod = data.active_periods.find(p => p.sector === 'College');
+                    // Find the active period specifically for the 'Faculty' sector
+                    const activePeriod = data.active_periods.find(p => p.sector === 'Faculty');
 
-                    if (activeCollegePeriod) {
-                        const schoolTermFilter = document.getElementById('schoolTermFilter');
-                        // The value format for the filter is 'YYYY-YYYY|period_id'
-                        const termValue = `${activeCollegePeriod.school_year}|${activeCollegePeriod.semester_id}`;
+                    if (activePeriod) {
+                        const termValue = `${activePeriod.school_year}|${activePeriod.semester_id}`;
                         // Check if the option exists before setting it
                         if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
                             schoolTermFilter.value = termValue;
                             console.log('Default school term set to:', termValue);
                         } else {
                             console.warn('Default school term option not found in filter:', termValue);
+                        }
+                    }
+                } else {
+                    // No active clearance period - try to set to most recent term with data
+                    // This helps when viewing historical data after a new term is activated
+                    const termsToUse = data.all_terms || data.periods || [];
+                    if (termsToUse.length > 0) {
+                        // Find the most recent term that has clearance_periods (has actual data)
+                        const termsWithData = termsToUse.filter(t => t.has_clearance_period !== false);
+                        if (termsWithData.length > 0) {
+                            const mostRecentTerm = termsWithData[0]; // Already sorted DESC
+                            const termValue = `${mostRecentTerm.academic_year}|${mostRecentTerm.semester_id}`;
+                            if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
+                                schoolTermFilter.value = termValue;
+                                console.log('Default school term set to most recent term with data:', termValue);
+                            }
                         }
                     }
                 }
@@ -2291,8 +2388,16 @@ handleFacultyManagementPageRequest();
                 const data = await response.json();
 
                 termSelect.innerHTML = '<option value="">All School Terms</option>';
-                if (data.success && data.periods) {
-                    const uniqueTerms = [...new Map(data.periods.map(item => [`${item.academic_year}-${item.semester_name}`, item])).values()];
+                
+                // Use all_terms if available (includes terms without clearance_periods), 
+                // otherwise fall back to periods (for backward compatibility)
+                const termsToUse = data.all_terms || data.periods || [];
+                
+                if (data.success && termsToUse.length > 0) {
+                    const uniqueTerms = [...new Map(termsToUse.map(item => [
+                        `${item.academic_year}-${item.semester_name}`, 
+                        item
+                    ])).values()];
                     
                     uniqueTerms.forEach(period => {
                         const option = document.createElement('option');
@@ -2301,7 +2406,9 @@ handleFacultyManagementPageRequest();
                         termSelect.appendChild(option);
                     });
                 }
-            } catch (error) { console.error('Error loading school terms:', error); }
+            } catch (error) { 
+                console.error('Error loading school terms:', error); 
+            }
         }
     </script>
     

@@ -6,6 +6,13 @@
  * integrating with the automatic form distribution system.
  */
 
+// Start output buffering to prevent any HTML/warnings from breaking JSON
+ob_start();
+
+// Suppress warnings/notices that might output HTML (but log them)
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Don't display errors, we'll handle them in JSON
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET');
@@ -17,6 +24,7 @@ require_once '../../includes/classes/Auth.php';
 // Check if user is authenticated
 $auth = new Auth();
 if (!$auth->isLoggedIn()) {
+    ob_clean();
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Authentication required']);
     exit;
@@ -28,33 +36,67 @@ try {
     // Determine target user
     $targetUserIdParam = $_GET['user_id'] ?? null;
     $employeeNumberParam = $_GET['employee_number'] ?? null;
-    $userRole = $auth->getRoleName(); // Assuming getRoleName() returns the user's role name string.
+    $studentIdParam = $_GET['student_id'] ?? null; // NEW: Explicit student_id parameter
+    $userRole = $auth->getRoleName();
     $userId = null;
 
     // Check if an admin/staff is looking up another user
-    if (($targetUserIdParam || $employeeNumberParam) && in_array($userRole, ['Admin', 'School Administrator', 'Regular Staff', 'Program Head'])) {
+    if (($targetUserIdParam || $employeeNumberParam || $studentIdParam) && in_array($userRole, ['Admin', 'School Administrator', 'Regular Staff', 'Program Head'])) {
         if ($targetUserIdParam) {
+            // Direct user_id lookup
             $userId = (int)$targetUserIdParam;
+        } elseif ($studentIdParam) {
+            // Resolve student_id to user_id
+            try {
+                $stmt = $connection->prepare("SELECT user_id FROM students WHERE student_id = ? LIMIT 1");
+                if (!$stmt) {
+                    throw new Exception("Failed to prepare statement: " . implode(", ", $connection->errorInfo()));
+                }
+                $stmt->execute([$studentIdParam]);
+                $userId = $stmt->fetchColumn();
+                
+                if (!$userId) {
+                    // Clear any output buffer before sending JSON
+                    ob_clean();
+                    echo json_encode(['success' => false, 'message' => 'Student not found for the given student ID.']);
+                    exit;
+                }
+            } catch (PDOException $e) {
+                error_log("USER_STATUS_DEBUG: PDO Error resolving student_id: " . $e->getMessage());
+                ob_clean();
+                echo json_encode(['success' => false, 'message' => 'Database error while looking up student.']);
+                exit;
+            } catch (Exception $e) {
+                error_log("USER_STATUS_DEBUG: Error resolving student_id: " . $e->getMessage());
+                ob_clean();
+                echo json_encode(['success' => false, 'message' => 'Error while looking up student.']);
+                exit;
+            }
         } elseif ($employeeNumberParam) {
-            // Resolve employee_number to user_id
-            // It could be a faculty or a student, so we check both tables.
-            $stmt = $connection->prepare("
-                SELECT user_id FROM faculty WHERE employee_number = :identifier1
-                UNION
-                SELECT user_id FROM students WHERE student_id = :identifier2
-                UNION
-                SELECT user_id FROM users WHERE username = :identifier3
-                LIMIT 1
-            ");
-            $stmt->execute([
-                ':identifier1' => $employeeNumberParam,
-                ':identifier2' => $employeeNumberParam,
-                ':identifier3' => $employeeNumberParam
-            ]);
-            $userId = $stmt->fetchColumn();
-
-            if (!$userId) {
-                echo json_encode(['success' => false, 'message' => 'User not found for the given employee number.']);
+            // Resolve employee_number to user_id (faculty/staff)
+            try {
+                $stmt = $connection->prepare("SELECT user_id FROM faculty WHERE employee_number = ? LIMIT 1");
+                if (!$stmt) {
+                    throw new Exception("Failed to prepare statement: " . implode(", ", $connection->errorInfo()));
+                }
+                $stmt->execute([$employeeNumberParam]);
+                $userId = $stmt->fetchColumn();
+                
+                if (!$userId) {
+                    // Clear any output buffer before sending JSON
+                    ob_clean();
+                    echo json_encode(['success' => false, 'message' => 'Faculty not found for the given employee number.']);
+                    exit;
+                }
+            } catch (PDOException $e) {
+                error_log("USER_STATUS_DEBUG: PDO Error resolving employee_number: " . $e->getMessage());
+                ob_clean();
+                echo json_encode(['success' => false, 'message' => 'Database error while looking up faculty.']);
+                exit;
+            } catch (Exception $e) {
+                error_log("USER_STATUS_DEBUG: Error resolving employee_number: " . $e->getMessage());
+                ob_clean();
+                echo json_encode(['success' => false, 'message' => 'Error while looking up faculty.']);
                 exit;
             }
         }
@@ -64,6 +106,7 @@ try {
     }
     
     if (!$userId) {
+        ob_clean();
         echo json_encode(['success' => false, 'message' => 'Could not determine the target user.']);
         exit;
     }
@@ -96,6 +139,7 @@ try {
         $form = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$form) {
+            ob_clean();
             http_response_code(404);
             echo json_encode(['success' => false, 'message' => 'Clearance form not found']);
             exit;
@@ -117,6 +161,10 @@ try {
             $academicYearStr = isset($parts[0]) ? trim($parts[0]) : '';
             $requestedSemesterId = isset($parts[1]) ? (int)trim($parts[1]) : null;
 
+            // DEBUG: Log school term parsing
+            error_log("USER_STATUS_DEBUG: school_term parameter = " . $schoolTermParam);
+            error_log("USER_STATUS_DEBUG: parsed academic_year = '" . $academicYearStr . "', semester_id = " . ($requestedSemesterId ?? 'NULL'));
+
             if ($academicYearStr !== '' && $requestedSemesterId) {
                 // Resolve academic_year_id from the academic_years table using the year string
                 $ayStmt = $connection->prepare("SELECT academic_year_id FROM academic_years WHERE year = ? LIMIT 1");
@@ -129,6 +177,9 @@ try {
                     $ayStmt2->execute(["%" . $academicYearStr . "%"]);
                     $resolvedAcademicYearId = $ayStmt2->fetchColumn();
                 }
+
+                // DEBUG: Log resolution result
+                error_log("USER_STATUS_DEBUG: resolved academic_year_id = " . ($resolvedAcademicYearId ?: 'NULL'));
 
                 if ($resolvedAcademicYearId) {
                     $sql = "
@@ -155,8 +206,12 @@ try {
                     $stmt->execute([$userId, $resolvedAcademicYearId, $requestedSemesterId]);
                     $form = $stmt->fetch(PDO::FETCH_ASSOC);
 
+                    // DEBUG: Log form lookup result
+                    error_log("USER_STATUS_DEBUG: form lookup for user_id=$userId, academic_year_id=$resolvedAcademicYearId, semester_id=$requestedSemesterId: " . ($form ? 'FOUND' : 'NOT FOUND'));
+
                     if (!$form) {
                         // No form found for that specific term — return a successful empty response
+                        ob_clean();
                         echo json_encode([
                             'success' => true,
                             'applied' => false,
@@ -172,9 +227,11 @@ try {
                     $clearanceType = $form['clearance_type'];
                 } else {
                     // Could not resolve academic year string passed — fall back to most recent form
-                    // (we'll reuse the fallback block below)
+                    error_log("USER_STATUS_DEBUG: Could not resolve academic year, falling back to most recent form");
                     $form = null;
                 }
+            } else {
+                error_log("USER_STATUS_DEBUG: Invalid school_term format - missing academic_year or semester_id");
             }
         }
 
@@ -205,6 +262,7 @@ try {
             $form = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$form) {
+                ob_clean();
                 echo json_encode([
                     'success' => true,
                     'applied' => false,
@@ -386,6 +444,9 @@ try {
         }
     }
     
+    // Clear any output buffer before sending JSON
+    ob_clean();
+    
     echo json_encode([
         'success' => true,
         'applied' => $form['form_status'] !== 'Unapplied',
@@ -415,10 +476,30 @@ try {
     
 } catch (Exception $e) {
     error_log("User Status API Error: " . $e->getMessage());
+    error_log("User Status API Stack Trace: " . $e->getTraceAsString());
+    
+    // Clear any output buffer before sending JSON
+    ob_clean();
+    
     http_response_code(500);
     echo json_encode([
         'success' => false, 
         'message' => 'Server error: ' . $e->getMessage()
     ]);
+} catch (Error $e) {
+    error_log("User Status API Fatal Error: " . $e->getMessage());
+    error_log("User Status API Stack Trace: " . $e->getTraceAsString());
+    
+    // Clear any output buffer before sending JSON
+    ob_clean();
+    
+    http_response_code(500);
+    echo json_encode([
+        'success' => false, 
+        'message' => 'Fatal error occurred. Please check server logs.'
+    ]);
+} finally {
+    // End output buffering and send output
+    ob_end_flush();
 }
 ?>

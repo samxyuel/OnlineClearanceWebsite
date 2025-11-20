@@ -125,6 +125,51 @@ function handleGetPeriods($connection) {
         $stmt->execute($params);
         
         $periods = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // NEW: Also fetch all academic years and semesters (even without clearance_periods)
+        // This ensures historical data is available even when no clearance periods exist
+        $academicTermsSql = "SELECT 
+                                ay.academic_year_id,
+                                ay.year as academic_year,
+                                s.semester_id,
+                                s.semester_name,
+                                s.is_active as semester_is_active,
+                                ay.is_active as academic_year_is_active
+                            FROM academic_years ay
+                            JOIN semesters s ON ay.academic_year_id = s.academic_year_id
+                            ORDER BY ay.year DESC, s.semester_id DESC";
+        
+        $academicTermsStmt = $connection->query($academicTermsSql);
+        $academicTerms = $academicTermsStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Merge periods and academic terms, deduplicating by academic_year + semester_id
+        $allTerms = [];
+        $termKeys = [];
+        
+        // First, add periods (these take priority as they have clearance_periods data)
+        foreach ($periods as $period) {
+            $key = $period['academic_year'] . '|' . $period['semester_id'];
+            if (!isset($termKeys[$key])) {
+                $allTerms[] = $period;
+                $termKeys[$key] = true;
+            }
+        }
+        
+        // Then, add academic terms that don't have clearance_periods
+        foreach ($academicTerms as $term) {
+            $key = $term['academic_year'] . '|' . $term['semester_id'];
+            if (!isset($termKeys[$key])) {
+                // Format to match periods structure
+                $allTerms[] = [
+                    'academic_year' => $term['academic_year'],
+                    'semester_id' => $term['semester_id'],
+                    'semester_name' => $term['semester_name'],
+                    'academic_year_id' => $term['academic_year_id'],
+                    'has_clearance_period' => false // Flag to indicate no clearance_period exists
+                ];
+                $termKeys[$key] = true;
+            }
+        }
         
         // Group periods by sector for better organization
         $periodsBySector = [];
@@ -139,7 +184,8 @@ function handleGetPeriods($connection) {
         echo json_encode([
             'success' => true,
             'active_periods' => $activePeriods,
-            'periods' => $periods,
+            'periods' => $periods, // Keep for backward compatibility
+            'all_terms' => $allTerms, // NEW: Combined list with all terms (with and without clearance_periods)
             'periods_by_sector' => $periodsBySector,
             'total' => count($periods)
         ]);
