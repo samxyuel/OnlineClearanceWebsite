@@ -297,7 +297,7 @@ if ($isUserLoggedIn) {
     </div>
     <div class="sidebar-credit">Online Clearance Website - A goSTI project
         <br>
-        This is a test version of the Online Clearance System as a thesis project for the degree of Bachelor of Science in Information Technology. <br> All rights reserved.<br>
+        This is a test version of the Online Clearance System as a thesis project by students of STI College Lucena for the degree of Bachelor of Science in Computer Science. <br> All rights reserved.<br>
     </div>
 </aside>
 
