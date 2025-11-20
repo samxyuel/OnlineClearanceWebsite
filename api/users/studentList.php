@@ -6,9 +6,13 @@
  * Designed for administrative views.
  */
 
+require_once __DIR__ . '/../../includes/config/database.php';
+
+// Set dynamic CORS headers (works for both localhost and production)
+setCorsHeaders(true, ['GET', 'OPTIONS'], ['Content-Type']);
+
 header('Content-Type: application/json');
 
-require_once __DIR__ . '/../../includes/config/database.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
 
 /**

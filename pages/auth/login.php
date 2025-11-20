@@ -109,7 +109,8 @@ color: var(--deep-navy-blue); padding: 0.5rem; margin: 1rem; border-radius: 5px;
 
             <!-- Footer -->
             <div class="login-footer">
-                Powered by goSTI · © 2025
+                Powered by goSTI · © 2025 <br>
+                This is a test version of the Online Clearance System as a thesis project for the degree of Bachelor of Science in Information Technology. <br> All rights reserved.<br>
             </div>
         </div>
     </main>
