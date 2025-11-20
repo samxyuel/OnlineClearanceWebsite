@@ -8,6 +8,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Online Clearance System</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
+    <script src="../../assets/js/base-path.js"></script>
     <style>
         .login-logo img {
             width: 50%;
@@ -157,8 +158,8 @@ color: var(--deep-navy-blue); padding: 0.5rem; margin: 1rem; border-radius: 5px;
                 if (loginResult) loginResult.style.display = 'none';
                 
                 try {
-                    // Use absolute path to avoid any path resolution issues
-                    const apiUrl = window.location.origin + '/OnlineClearanceWebsite/api/auth/login.php';
+                    // Use dynamic base path based on protocol (HTTP includes /OnlineClearanceWebsite/, HTTPS excludes it)
+                    const apiUrl = window.location.origin + getApiUrl('api/auth/login.php');
                     
                     // Fetch with proper error handling - handle all HTTP status codes gracefully
                     let response;
