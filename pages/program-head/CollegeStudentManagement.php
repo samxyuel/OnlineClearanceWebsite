@@ -20,50 +20,78 @@ try {
     $pdo = Database::getInstance()->getConnection();
     // Verify role Program Head (TEMPORARILY RELAXED FOR TESTING)
     $roleOk = false;
-    $rs = $pdo->prepare("SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id=r.role_id WHERE ur.user_id=? LIMIT 1");
-    $rs->execute([$userId]);
-    $rn = strtolower((string)$rs->fetchColumn());
-    // Allow Admin or Program Head access
-    if ($rn === 'program head' || $rn === 'admin') { $roleOk = true; }
-
-    // Check student-sector assignment - COMMENTED OUT TO ALLOW ALL PROGRAM HEADS ACCESS
-    $sql = "SELECT COUNT(*) FROM signatory_assignments sa
-            JOIN designations des ON sa.designation_id=des.designation_id
-            JOIN departments d ON sa.department_id=d.department_id
-            JOIN sectors s ON d.sector_id=s.sector_id
-            WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name IN ('College','Senior High School')";
-    $st = $pdo->prepare($sql);
-    $st->execute([$userId]);
-    $hasStudentSector = ((int)$st->fetchColumn()) > 0;
-
-    if (!$roleOk) {
-        // If PH has faculty only, redirect to PH FacultyManagement; else to PH dashboard
-        $sf = $pdo->prepare("SELECT COUNT(*) FROM signatory_assignments sa JOIN designations des ON sa.designation_id=des.designation_id JOIN departments d ON sa.department_id=d.department_id JOIN sectors s ON d.sector_id=s.sector_id WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name='Faculty'");
-        $sf->execute([$userId]);
-        $hasFacultySector = ((int)$sf->fetchColumn()) > 0;
-        if ($hasFacultySector) {
-            header('Location: ../../pages/program-head/FacultyManagement.php');
-        } else {
-            header('Location: ../../pages/program-head/dashboard.php');
-        }
-        exit;
+    $rn = null; // Initialize to track if role check was successful
+    try {
+        $rs = $pdo->prepare("SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id=r.role_id WHERE ur.user_id=? LIMIT 1");
+        $rs->execute([$userId]);
+        $rn = strtolower((string)$rs->fetchColumn());
+        // Allow Admin or Program Head access
+        if ($rn === 'program head' || $rn === 'admin') { $roleOk = true; }
+    } catch (Exception $e) {
+        error_log("Error checking role: " . $e->getMessage());
+        // If role check fails, allow access - API will handle permissions
+        $roleOk = true; // Default to allowing access if we can't verify
     }
 
-    $deptStmt = $pdo->prepare("
-    SELECT COALESCE(
-        (SELECT sa.department_id
-         FROM signatory_assignments sa
-         JOIN designations des ON sa.designation_id = des.designation_id
-         WHERE sa.user_id = ? AND sa.is_active = 1 AND des.designation_name = 'Program Head'
-         LIMIT 1),
-        (SELECT s.department_id
-         FROM staff s
-         WHERE s.user_id = ? AND s.designation_id = 8 AND s.is_active = 1
-         LIMIT 1)
-        ) AS department_id
-    ");
-    $deptStmt->execute([$userId, $userId]);
-    $departmentId = $deptStmt->fetchColumn();
+    // Check student-sector assignment - Optional check, don't block if it fails
+    $hasStudentSector = false;
+    try {
+        $sql = "SELECT COUNT(*) FROM signatory_assignments sa
+                JOIN designations des ON sa.designation_id=des.designation_id
+                JOIN departments d ON sa.department_id=d.department_id
+                JOIN sectors s ON d.sector_id=s.sector_id
+                WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name IN ('College','Senior High School')";
+        $st = $pdo->prepare($sql);
+        $st->execute([$userId]);
+        $hasStudentSector = ((int)$st->fetchColumn()) > 0;
+    } catch (Exception $e) {
+        error_log("Error checking student sector assignment: " . $e->getMessage());
+        // Don't block access - API will handle scoping
+    }
+
+    // Only redirect if we successfully verified the role is NOT Program Head or Admin
+    // If role check failed (exception), allow access - API will handle permissions
+    if (!$roleOk && isset($rn)) {
+        // Role was checked and is not Program Head or Admin - redirect based on assignments
+        try {
+            $sf = $pdo->prepare("SELECT COUNT(*) FROM signatory_assignments sa JOIN designations des ON sa.designation_id=des.designation_id JOIN departments d ON sa.department_id=d.department_id JOIN sectors s ON d.sector_id=s.sector_id WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name='Faculty'");
+            $sf->execute([$userId]);
+            $hasFacultySector = ((int)$sf->fetchColumn()) > 0;
+            if ($hasFacultySector) {
+                header('Location: ../../pages/program-head/FacultyManagement.php');
+            } else {
+                header('Location: ../../pages/program-head/dashboard.php');
+            }
+            exit;
+        } catch (Exception $e) {
+            error_log("Error checking faculty sector: " . $e->getMessage());
+            // If we can't verify assignments, allow access - API will handle permissions
+        }
+    }
+    // If roleOk is false but $rn is not set (query failed), allow access anyway
+
+    // Try to get department ID, but don't require it
+    $departmentId = null;
+    try {
+        $deptStmt = $pdo->prepare("
+        SELECT COALESCE(
+            (SELECT sa.department_id
+             FROM signatory_assignments sa
+             JOIN designations des ON sa.designation_id = des.designation_id
+             WHERE sa.user_id = ? AND sa.is_active = 1 AND des.designation_name = 'Program Head'
+             LIMIT 1),
+            (SELECT s.department_id
+             FROM staff s
+             WHERE s.user_id = ? AND s.designation_id = 8 AND s.is_active = 1
+             LIMIT 1)
+            ) AS department_id
+        ");
+        $deptStmt->execute([$userId, $userId]);
+        $departmentId = $deptStmt->fetchColumn();
+    } catch (Exception $e) {
+        error_log("Error getting department ID: " . $e->getMessage());
+        // Department ID is optional - API handles scoping via user_department_assignments
+    }
 
     // Debug log for department ID query
     error_log("DEPARTMENT_ID_DEBUG: Query executed with userId = $userId");
@@ -80,10 +108,11 @@ try {
 } catch (Throwable $e) {
     // Log the error for debugging but don't block access
     error_log("Program Head CollegeStudentManagement access check error: " . $e->getMessage());
-    // Redirect to dashboard instead of showing "Access denied"
-    // The API will handle permission checks and return empty results if needed
-    header('Location: ../../pages/program-head/dashboard.php');
-    exit;
+    error_log("Stack trace: " . $e->getTraceAsString());
+    // Allow access - the API will handle permission checks and return empty results if needed
+    // Don't redirect - let the page load and show appropriate message if needed
+    $departmentId = null;
+    $canTakeAction = false;
 }
 ?>
 <!DOCTYPE html>
