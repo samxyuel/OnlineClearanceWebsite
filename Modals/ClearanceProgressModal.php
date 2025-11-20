@@ -16,7 +16,7 @@
             <h2 class="modal-title">
                 <i class="fas fa-tasks"></i> Clearance Progress Details - <span id="progressPersonName">Student Name</span>
             </h2>
-            <div class="modal-supporting-text">View detailed clearance progress and signatory status</div>
+            <div class="modal-supporting-text" id="progressSchoolTerm">View detailed clearance progress and signatory status</div>
         </div>
         
         <!-- Content Area -->
@@ -62,6 +62,17 @@
                 
                 <div class="signatories-list" id="signatoriesList">
                     <!-- Signatories will be populated dynamically -->
+                </div>
+            </div>
+            
+            <!-- Data Inconsistency Warning Section (shown conditionally) -->
+            <div class="data-inconsistency-warning" id="dataInconsistencyWarning" style="display: none;">
+                <div class="warning-content">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div class="warning-text">
+                        <strong>Data Consistency Notice</strong>
+                        <p id="inconsistencyMessage"></p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -262,6 +273,79 @@
     color: #4338ca;
 }
 
+/* Signatory Current User Highlighting */
+.signatory-item.signatory-current-user {
+    background: #f0f9ff;
+    border: 2px solid #0ea5e9;
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.15);
+}
+
+.signatory-item.signatory-current-user:hover {
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25);
+    transform: translateY(-2px);
+}
+
+.signatory-you-indicator {
+    font-size: 0.85rem;
+    color: #059669;
+    margin-left: 0.5rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.you-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #059669;
+    flex-shrink: 0;
+}
+
+/* Data Inconsistency Warning */
+.data-inconsistency-warning {
+    margin-top: 1.5rem;
+    padding: 1rem 1.5rem;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    border-left: 4px solid #f59e0b;
+}
+
+.warning-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.warning-content i {
+    font-size: 1.5rem;
+    color: #f59e0b;
+    margin-top: 0.125rem;
+    flex-shrink: 0;
+}
+
+.warning-text {
+    flex: 1;
+}
+
+.warning-text strong {
+    display: block;
+    font-size: 1rem;
+    color: #92400e;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.warning-text p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #78350f;
+    line-height: 1.5;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .clearance-progress-modal-overlay .modal-window {
@@ -300,6 +384,16 @@ window.openClearanceProgressModal = function(personId, personType, personName, s
         const personNameElement = document.getElementById('progressPersonName');
         if (personNameElement) {
             personNameElement.textContent = personName;
+        }
+        
+        // Update school term display
+        const schoolTermElement = document.getElementById('progressSchoolTerm');
+        if (schoolTermElement) {
+            if (schoolTerm && schoolTerm.trim() !== '') {
+                schoolTermElement.textContent = `School Term: ${schoolTerm} - View detailed clearance progress and signatory status`;
+            } else {
+                schoolTermElement.textContent = 'View detailed clearance progress and signatory status (Current/Active Term)';
+            }
         }
         
         // Load clearance progress data for the optional school term (if provided)
@@ -351,7 +445,6 @@ function loadClearanceProgressData(personId, personType, schoolTerm = '') {
     // The user_status.php API can handle both students and faculty by user_id.
     // The personId from the management pages is the user_id.
 
-    
     const url = new URL('../../api/clearance/user_status.php', window.location.href);
 
     if (personType === 'student') {
@@ -365,10 +458,19 @@ function loadClearanceProgressData(personId, personType, schoolTerm = '') {
 
     // If a specific school term was provided (from the filters), include it so
     // the backend can scope the progress to that term.
-    if (schoolTerm) {
-        url.searchParams.append('school_term', schoolTerm);
+    // The school_term format should be like "2024-2025 - 1st Semester" or similar
+    if (schoolTerm && schoolTerm.trim() !== '') {
+        url.searchParams.append('school_term', schoolTerm.trim());
+        console.log('[ClearanceProgressModal] Loading clearance progress for term:', schoolTerm);
+    } else {
+        console.log('[ClearanceProgressModal] Loading clearance progress for current/active term');
     }
     
+    // Show loading state
+    const signatoriesList = document.getElementById('signatoriesList');
+    if (signatoriesList) {
+        signatoriesList.innerHTML = '<div style="padding: 2rem; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Loading clearance progress...</div>';
+    }
     
     fetch(url.toString(), {credentials:'include'})
         .then(r => {
@@ -382,11 +484,16 @@ function loadClearanceProgressData(personId, personType, schoolTerm = '') {
             const total    = res.total_signatories   || 0;
             const completionPercentage = total > 0 ? Math.round((approved / total) * 100) : 0;
 
+            const loggedInUserId = res.logged_in_user_id || null;
+            const dataInconsistency = res.data_inconsistency || null;
+            
             const signatories = (res.signatories || []).map(s => ({
                 position: s.designation_name,
                 name: s.signatory_name||'-',
                 status: (s.action || 'Unapplied').toLowerCase().replace(' ', '-'),
-                statusText: s.action || 'Unapplied'
+                statusText: s.action || 'Unapplied',
+                actual_user_id: s.actual_user_id || null,
+                isCurrentUser: loggedInUserId && s.actual_user_id && parseInt(s.actual_user_id) === parseInt(loggedInUserId)
             }));
 
             const payload={
@@ -394,7 +501,8 @@ function loadClearanceProgressData(personId, personType, schoolTerm = '') {
                 completionPercentage,
                 completedCount: approved,
                 totalCount: total,
-                overallStatus: (res.overall_status||'Unapplied').toLowerCase().replace(' ','-')
+                overallStatus: (res.overall_status||'Unapplied').toLowerCase().replace(' ','-'),
+                dataInconsistency: dataInconsistency
             };
             updateProgressDisplay(payload);
         })
@@ -434,11 +542,14 @@ function updateProgressDisplay(data) {
     
     data.signatories.forEach(signatory => {
         const signatoryItem = document.createElement('div');
-        signatoryItem.className = 'signatory-item';
+        signatoryItem.className = 'signatory-item' + (signatory.isCurrentUser ? ' signatory-current-user' : '');
         signatoryItem.innerHTML = `
             <div class="signatory-info">
                 <div class="signatory-position">${signatory.position}</div>
-                <div class="signatory-name">${signatory.name}</div>
+                <div class="signatory-name">
+                    ${signatory.name}
+                    ${signatory.isCurrentUser ? '<span class="signatory-you-indicator" title="Your action status"><span class="you-dot"></span> You</span>' : ''}
+                </div>
             </div>
             <div class="signatory-status">
                 <span class="status-badge ${signatory.status}">${signatory.statusText}</span>
@@ -446,6 +557,16 @@ function updateProgressDisplay(data) {
         `;
         signatoriesList.appendChild(signatoryItem);
     });
+    
+    // Show/hide data inconsistency warning
+    const warningSection = document.getElementById('dataInconsistencyWarning');
+    const warningMessage = document.getElementById('inconsistencyMessage');
+    if (data.dataInconsistency && data.dataInconsistency.message) {
+        warningMessage.textContent = data.dataInconsistency.message;
+        warningSection.style.display = 'block';
+    } else {
+        warningSection.style.display = 'none';
+    }
 }
 
 function exportClearanceForm() {

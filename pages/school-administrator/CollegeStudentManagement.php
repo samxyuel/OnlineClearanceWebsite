@@ -106,6 +106,9 @@ if (session_status() == PHP_SESSION_NONE) {
                             </span>
                         </div>
 
+                        <!-- Term Indicator Banner (shown when historical term is selected) -->
+                        <div id="termIndicatorBanner" class="term-indicator-banner" style="display: none;"></div>
+
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
@@ -658,17 +661,27 @@ if (session_status() == PHP_SESSION_NONE) {
                         return;
                     }
 
+                    // Get the currently selected school term from the filter
+                    const schoolTermFilter = document.getElementById('schoolTermFilter');
+                    const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
+
                     try {
+                        const bulkPayload = {
+                            applicant_user_ids: userIds,
+                            action: 'Approved',
+                            designation_name: CURRENT_STAFF_POSITION,
+                            remarks: `Approved by ${CURRENT_STAFF_POSITION}`
+                        };
+                        // Include school_term if a specific term is selected
+                        if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
+                            bulkPayload.school_term = currentSchoolTerm.trim();
+                        }
+
                         const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             credentials: 'include',
-                            body: JSON.stringify({
-                                applicant_user_ids: userIds,
-                                action: 'Approved',
-                                designation_name: CURRENT_STAFF_POSITION,
-                                remarks: `Approved by ${CURRENT_STAFF_POSITION}`
-                            })
+                            body: JSON.stringify(bulkPayload)
                         });
                         const result = await response.json();
                         if (result.success) {
@@ -841,8 +854,42 @@ if (session_status() == PHP_SESSION_NONE) {
             openRejectionRemarksModal(studentId, studentName, 'student', false);
         }
 
+        // Update term indicator banner
+        function updateTermIndicatorBanner() {
+            const banner = document.getElementById('termIndicatorBanner');
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            
+            if (!banner || !schoolTermFilter) return;
+            
+            const selectedValue = schoolTermFilter.value;
+            
+            if (!selectedValue) {
+                banner.style.display = 'none';
+                return;
+            }
+            
+            const selectedOption = schoolTermFilter.options[schoolTermFilter.selectedIndex];
+            const termText = selectedOption.text;
+            
+            // Check if this is a historical term (not current/ongoing)
+            const isHistorical = true; // TODO: Implement logic to check if term is historical
+            
+            banner.className = isHistorical ? 'term-indicator-banner historical' : 'term-indicator-banner';
+            banner.innerHTML = `
+                <i class="fas fa-calendar-alt term-icon"></i>
+                <div class="term-text">
+                    <strong>Viewing:</strong> ${termText}
+                </div>
+                <div class="term-label">
+                    ${isHistorical ? 'Historical Term' : 'Current Term'}
+                </div>
+            `;
+            banner.style.display = 'flex';
+        }
+
         function applyFilters() {
             currentPage = 1;
+            updateTermIndicatorBanner();
             loadStudentsData();
         }
 
@@ -1176,15 +1223,29 @@ if (session_status() == PHP_SESSION_NONE) {
             const accountStatusClass = `account-${student.account_status || 'inactive'}`;
             const accountStatusText = student.account_status ? student.account_status.charAt(0).toUpperCase() + student.account_status.slice(1) : 'Inactive';
 
+            // Check if user existed during the selected term
+            const userExisted = student.user_existed_during_term !== false; // Default to true if not provided
+            
+            // Clearance Form Progress (end user's overall progress)
+            let clearanceProgress = student.clearance_form_progress || 'Unapplied';
+            if (!userExisted) {
+                clearanceProgress = 'N/A';
+            }
+            const clearanceProgressClass = `clearance-${clearanceProgress.toLowerCase().replace(/ /g, '-')}`;
+            
+            // Clearance Status (signatory's action status)
             let clearanceStatus = student.clearance_status || 'Unapplied';
-            const clearanceStatusClass = `clearance-${clearanceStatus.toLowerCase().replace(/ /g, '-')}`;
+            if (!userExisted) {
+                clearanceStatus = 'N/A';
+            }
+            const clearanceStatusClass = `signatory-${clearanceStatus.toLowerCase().replace(/ /g, '-')}`;
 
             // Capture the currently selected school term from the filters so we can
             // display clearance progress scoped to that term when the user opens the modal.
             const currentSchoolTerm = document.getElementById('schoolTermFilter') ? document.getElementById('schoolTermFilter').value : '';
 
             // Determine button titles and states based on clearance status
-            const isActionable = ['Pending', 'Rejected'].includes(clearanceStatus);
+            const isActionable = ['Pending', 'Rejected'].includes(clearanceStatus) && userExisted;
             const rejectButtonTitle = clearanceStatus === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Signatory';
 
             const row = document.createElement('tr');
@@ -1192,6 +1253,45 @@ if (session_status() == PHP_SESSION_NONE) {
             row.setAttribute('data-student-id', student.id);
             row.setAttribute('data-form-id', student.clearance_form_id);
             row.setAttribute('data-signatory-id', student.signatory_id);
+            
+            // Add class for non-existent users
+            if (!userExisted) {
+                row.classList.add('user-not-existed');
+            }
+
+            // Build clearance progress cell content (end user's form progress)
+            let clearanceProgressContent = '';
+            if (!userExisted) {
+                clearanceProgressContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceProgressClass}">N/A</span>
+                        </div>
+                        <div class="clearance-status-secondary">User did not exist during this term</div>
+                `;
+            } else {
+                clearanceProgressContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceProgressClass}">${clearanceProgress}</span>
+                        </div>
+                `;
+            }
+
+            // Build clearance status cell content (signatory's action)
+            let clearanceStatusContent = '';
+            if (!userExisted) {
+                clearanceStatusContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceStatusClass}">N/A</span>
+                        </div>
+                        <div class="clearance-status-secondary">User did not exist during this term</div>
+                `;
+            } else {
+                clearanceStatusContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceStatusClass}">${clearanceStatus}</span>
+                        </div>
+                `;
+            }
 
             row.innerHTML = `
                 <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.id}"  ${!isActionable ? 'disabled' : ''}></td>
@@ -1201,8 +1301,8 @@ if (session_status() == PHP_SESSION_NONE) {
                 <td data-label="Year Level:">${student.year_level || 'N/A'}</td>
                 <td data-label="Section:">${student.section || 'N/A'}</td>
                 <td data-label="Account Status:"><span class="status-badge ${accountStatusClass}">${accountStatusText}</span></td>
-                <td data-label="Clearance Progress:"><span class="status-badge clearance-unapplied">Unapplied</span></td>
-                <td data-label="Clearance Status:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
+                <td data-label="Clearance Progress:" class="clearance-status-cell">${clearanceProgressContent}</td>
+                <td data-label="Clearance Status:" class="clearance-status-cell">${clearanceStatusContent}</td>
                 <td class="action-buttons">
                     <div class="action-buttons">
                         <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
@@ -1783,8 +1883,16 @@ if (session_status() == PHP_SESSION_NONE) {
             }catch(e){ return null; }
         }
         async function sendSignatoryAction(applicantUserId, designationName, action, remarks){
+            // Get the currently selected school term from the filter to ensure approval goes to the correct period
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
+
             const payload = { applicant_user_id: applicantUserId, designation_name: designationName, action: action };
             if (remarks && remarks.length) payload.remarks = remarks;
+            // Include school_term if a specific term is selected
+            if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
+                payload.school_term = currentSchoolTerm.trim();
+            }
             await fetch('../../api/clearance/signatory_action.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)}).then(r=>r.json()).catch(()=>null);
         }
     </script>
@@ -2120,39 +2228,88 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         // Signatory Action Functions
-        async function approveSignatory(userId, clearanceFormId, signatoryId) {
+        async function approveSignatory(userId, clearanceFormId = null, signatoryId = null) {
+            // If clearanceFormId and signatoryId are not provided, get them from the row
+            if (!clearanceFormId || !signatoryId) {
+                const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+                if (row) {
+                    clearanceFormId = row.getAttribute('data-form-id') || clearanceFormId;
+                    signatoryId = row.getAttribute('data-signatory-id') || signatoryId;
+                }
+            }
+
+            // Get the currently selected school term from the filter
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
+
+            // DEBUG: Log approval action details
+            console.log('[School Admin - Approve] Debug Info:', {
+                userId: userId,
+                clearanceFormId: clearanceFormId,
+                signatoryId: signatoryId,
+                currentSchoolTerm: currentSchoolTerm,
+                rowData: {
+                    formId: document.querySelector(`tr[data-user-id="${userId}"]`)?.getAttribute('data-form-id'),
+                    signatoryId: document.querySelector(`tr[data-user-id="${userId}"]`)?.getAttribute('data-signatory-id')
+                }
+            });
+
             try {
+                const approvalPayload = {
+                    operation: 'approve',
+                    target_user_id: userId,
+                    signatory_id: signatoryId,
+                    clearance_form_id: clearanceFormId,
+                    remarks: 'Approved by School Administrator'
+                };
+                // Include school_term if a specific term is selected
+                // Note: apply_signatory.php uses clearance_form_id directly, but school_term helps ensure consistency
+                if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
+                    approvalPayload.school_term = currentSchoolTerm.trim();
+                }
+
+                console.log('[School Admin - Approve] Payload being sent:', approvalPayload);
+                console.log('[School Admin - Approve] API Endpoint: apply_signatory.php');
+
                 const response = await fetch('../../api/clearance/apply_signatory.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     credentials: 'include',
-                    body: JSON.stringify({
-                        operation: 'approve',
-                        target_user_id: userId,
-                        signatory_id: signatoryId,
-                        clearance_form_id: clearanceFormId,
-                        remarks: 'Approved by School Administrator'
-                    })
+                    body: JSON.stringify(approvalPayload)
                 });
                 
                 const result = await response.json();
                 
+                console.log('[School Admin - Approve] API Response:', result);
+                
                 if (result.success) {
+                    console.log('[School Admin - Approve] Success! Refreshing table...');
                     showToastNotification('Signatory approved successfully', 'success');
                     // Update UI to reflect approval
                     updateSignatoryActionUI(userId, 'Approved');
+                    // Refresh the table to show updated status
+                    loadStudentsData();
                 } else {
+                    console.error('[School Admin - Approve] Failed:', result.message);
                     showToastNotification('Failed to approve signatory: ' + result.message, 'error');
                 }
             } catch (error) {
-                console.error('Error approving signatory:', error);
+                console.error('[School Admin - Approve] Exception:', error);
                 showToastNotification('Error approving signatory: ' + error.message, 'error');
             }
         }
 
-        async function rejectSignatory(userId, clearanceFormId, signatoryId) {
+        async function rejectSignatory(userId, clearanceFormId = null, signatoryId = null) {
+            // If clearanceFormId and signatoryId are not provided, get them from the row
+            if (!clearanceFormId || !signatoryId) {
+                const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+                if (row) {
+                    clearanceFormId = row.getAttribute('data-form-id') || clearanceFormId;
+                    signatoryId = row.getAttribute('data-signatory-id') || signatoryId;
+                }
+            }
             // Open rejection modal for remarks
             openRejectionModal(userId, clearanceFormId, signatoryId);
         }
@@ -2186,33 +2343,66 @@ if (session_status() == PHP_SESSION_NONE) {
             
             const { userId, clearanceFormId, signatoryId } = window.pendingRejection;
             
+            // Get the currently selected school term from the filter
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
+
+            // DEBUG: Log rejection action details
+            console.log('[School Admin - Reject] Debug Info:', {
+                userId: userId,
+                clearanceFormId: clearanceFormId,
+                signatoryId: signatoryId,
+                remarks: remarks,
+                currentSchoolTerm: currentSchoolTerm,
+                rowData: {
+                    formId: document.querySelector(`tr[data-user-id="${userId}"]`)?.getAttribute('data-form-id'),
+                    signatoryId: document.querySelector(`tr[data-user-id="${userId}"]`)?.getAttribute('data-signatory-id')
+                }
+            });
+
             try {
+                const rejectionPayload = {
+                    operation: 'reject',
+                    target_user_id: userId,
+                    signatory_id: signatoryId,
+                    clearance_form_id: clearanceFormId,
+                    remarks: remarks
+                };
+                // Include school_term if a specific term is selected
+                // Note: apply_signatory.php uses clearance_form_id directly, but school_term helps ensure consistency
+                if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
+                    rejectionPayload.school_term = currentSchoolTerm.trim();
+                }
+
+                console.log('[School Admin - Reject] Payload being sent:', rejectionPayload);
+                console.log('[School Admin - Reject] API Endpoint: apply_signatory.php');
+
                 const response = await fetch('../../api/clearance/apply_signatory.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     credentials: 'include',
-                    body: JSON.stringify({
-                        operation: 'reject',
-                        target_user_id: userId,
-                        signatory_id: signatoryId,
-                        clearance_form_id: clearanceFormId,
-                        remarks: remarks
-                    })
+                    body: JSON.stringify(rejectionPayload)
                 });
                 
                 const result = await response.json();
                 
+                console.log('[School Admin - Reject] API Response:', result);
+                
                 if (result.success) {
+                    console.log('[School Admin - Reject] Success! Refreshing table...');
                     showToastNotification('Signatory rejected successfully', 'success');
                     // Update UI to reflect rejection
                     updateSignatoryActionUI(userId, 'Rejected');
+                    // Refresh the table to show updated status
+                    loadStudentsData();
                 } else {
+                    console.error('[School Admin - Reject] Failed:', result.message);
                     showToastNotification('Failed to reject signatory: ' + result.message, 'error');
                 }
             } catch (error) {
-                console.error('Error rejecting signatory:', error);
+                console.error('[School Admin - Reject] Exception:', error);
                 showToastNotification('Error rejecting signatory: ' + error.message, 'error');
             } finally {
                 // Clear pending rejection data
@@ -2478,6 +2668,8 @@ if (session_status() == PHP_SESSION_NONE) {
                 window.activityTrackerInstance = new ActivityTracker();
                 console.log('Activity Tracker initialized for School Administrator Student Management');
             }
+            
+            updateTermIndicatorBanner();
 
             // 1. Load the rest of the filter options.
             await Promise.all([

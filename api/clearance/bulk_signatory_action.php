@@ -82,8 +82,40 @@ try {
     }
 
     // --- Get Active Period ---
-    $periodStmt = $pdo->query("SELECT academic_year_id, semester_id FROM clearance_periods WHERE status = 'Ongoing' LIMIT 1");
-    $activePeriod = $periodStmt->fetch(PDO::FETCH_ASSOC);
+    // Check if school_term parameter is provided to use specific period
+    $schoolTerm = isset($input['school_term']) ? trim($input['school_term']) : '';
+    $activePeriod = null;
+    
+    if (!empty($schoolTerm)) {
+        // Parse school_term format: "YEAR|semester_id" (e.g., "2024-2025|2")
+        $termParts = explode('|', $schoolTerm);
+        $yearName = $termParts[0] ?? '';
+        $semesterId = isset($termParts[1]) ? (int)trim($termParts[1]) : null;
+        
+        if ($yearName && $semesterId) {
+            // Find the period for the specified term (can be Ongoing or Closed)
+            $periodStmt = $pdo->prepare("
+                SELECT cp.academic_year_id, cp.semester_id 
+                FROM clearance_periods cp
+                JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id
+                WHERE ay.year = ? AND cp.semester_id = ? AND cp.status IN ('Ongoing', 'Closed')
+                ORDER BY 
+                    CASE cp.status
+                        WHEN 'Ongoing' THEN 1
+                        WHEN 'Closed' THEN 2
+                    END
+                LIMIT 1
+            ");
+            $periodStmt->execute([$yearName, $semesterId]);
+            $activePeriod = $periodStmt->fetch(PDO::FETCH_ASSOC);
+        }
+    }
+    
+    // Fallback to Ongoing period if no school_term provided or if lookup failed
+    if (!$activePeriod) {
+        $periodStmt = $pdo->query("SELECT academic_year_id, semester_id FROM clearance_periods WHERE status = 'Ongoing' LIMIT 1");
+        $activePeriod = $periodStmt->fetch(PDO::FETCH_ASSOC);
+    }
 
     if (!$activePeriod) {
         throw new Exception("No active clearance period found.");

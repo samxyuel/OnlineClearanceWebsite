@@ -110,6 +110,9 @@ if (session_status() == PHP_SESSION_NONE) {
                             </span>
                         </div>
 
+                        <!-- Term Indicator Banner (shown when historical term is selected) -->
+                        <div id="termIndicatorBanner" class="term-indicator-banner" style="display: none;"></div>
+
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
@@ -529,13 +532,54 @@ if (session_status() == PHP_SESSION_NONE) {
             const accountStatusClass = `account-${student.account_status || 'inactive'}`;
             const accountStatusText = student.account_status ? student.account_status.charAt(0).toUpperCase() + student.account_status.slice(1) : 'Inactive';
 
+            // Check if user existed during the selected term
+            const userExisted = student.user_existed_during_term !== false; // Default to true if not provided
             let clearanceStatus = student.clearance_status || 'Unapplied';
+            
+            // If user didn't exist during term, show N/A
+            if (!userExisted) {
+                clearanceStatus = 'N/A';
+            }
+            
             const clearanceStatusClass = `clearance-${clearanceStatus.toLowerCase().replace(/ /g, '-')}`;
+            
+            // Capture the currently selected school term from the filters
+            const currentSchoolTerm = document.getElementById('schoolTermFilter')?.value || '';
+            
+            // Escape HTML for safe insertion
+            const escapeHtml = (text) => {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            };
             
             const row = document.createElement('tr');
             row.setAttribute('data-user-id', student.user_id);
             row.setAttribute('data-student-id', student.id);
             row.setAttribute('data-form-id', student.clearance_form_id);
+            
+            // Add class for non-existent users
+            if (!userExisted) {
+                row.classList.add('user-not-existed');
+            }
+
+            // Build clearance status cell content (without td tags)
+            let clearanceStatusContent = '';
+            if (!userExisted) {
+                clearanceStatusContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceStatusClass}">N/A</span>
+                        </div>
+                        <div class="clearance-status-secondary">User did not exist during this term</div>
+                `;
+            } else {
+                clearanceStatusContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceStatusClass}">${clearanceStatus}</span>
+                        </div>
+                `;
+            }
 
             row.innerHTML = `
                 <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.id}"></td>
@@ -545,10 +589,10 @@ if (session_status() == PHP_SESSION_NONE) {
                 <td data-label="Year Level:">${student.year_level || 'N/A'}</td>
                 <td data-label="Section:">${student.section || 'N/A'}</td>
                 <td data-label="Account Status:"><span class="status-badge ${accountStatusClass}">${accountStatusText}</span></td>
-                <td data-label="Clearance Progress:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
+                <td data-label="Clearance Progress:" class="clearance-status-cell">${clearanceStatusContent}</td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name || 'Student')}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
                             <i class="fas fa-tasks"></i>
                         </button>
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.user_id}')" title="Edit">
@@ -821,13 +865,64 @@ if (session_status() == PHP_SESSION_NONE) {
             );
         }
 
-        function viewClearanceProgress(studentId) {
-            openClearanceProgressModal(studentId, 'student', 'Student Name');
+        function viewClearanceProgress(studentId, studentName = '', schoolTerm = '') {
+            // If studentName not provided, try to get it from the table row
+            if (!studentName) {
+                const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`)?.closest('tr');
+                if (row) {
+                    const nameCell = row.querySelector('td:nth-child(3)');
+                    studentName = nameCell ? nameCell.textContent.trim() : 'Student';
+                } else {
+                    studentName = 'Student';
+                }
+            }
+            
+            // If schoolTerm not provided, get it from the filter
+            if (!schoolTerm) {
+                schoolTerm = document.getElementById('schoolTermFilter')?.value || '';
+            }
+            
+            // Open the clearance progress modal with school term
+            openClearanceProgressModal(studentId, 'student', studentName, schoolTerm);
+        }
+
+        // Update term indicator banner
+        function updateTermIndicatorBanner() {
+            const banner = document.getElementById('termIndicatorBanner');
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            
+            if (!banner || !schoolTermFilter) return;
+            
+            const selectedValue = schoolTermFilter.value;
+            
+            if (!selectedValue) {
+                banner.style.display = 'none';
+                return;
+            }
+            
+            const selectedOption = schoolTermFilter.options[schoolTermFilter.selectedIndex];
+            const termText = selectedOption.text;
+            
+            // Check if this is a historical term (not current/ongoing)
+            const isHistorical = true; // TODO: Implement logic to check if term is historical
+            
+            banner.className = isHistorical ? 'term-indicator-banner historical' : 'term-indicator-banner';
+            banner.innerHTML = `
+                <i class="fas fa-calendar-alt term-icon"></i>
+                <div class="term-text">
+                    <strong>Viewing:</strong> ${termText}
+                </div>
+                <div class="term-label">
+                    ${isHistorical ? 'Historical Term' : 'Current Term'}
+                </div>
+            `;
+            banner.style.display = 'flex';
         }
 
         function applyFilters() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             currentPage = 1;
+            updateTermIndicatorBanner();
             loadStudentsData();
         }
 
@@ -1125,6 +1220,7 @@ if (session_status() == PHP_SESSION_NONE) {
             loadYearLevels();
             loadPeriods();
             loadPrograms();
+            updateTermIndicatorBanner();
             loadSchoolTerms();
             loadClearanceStatuses();
             loadAccountStatuses();  
@@ -1393,6 +1489,9 @@ if (session_status() == PHP_SESSION_NONE) {
                 yearEl.textContent = 'Select a term';
                 semesterEl.textContent = 'N/A';
             }
+            
+            // Also update term indicator banner
+            updateTermIndicatorBanner();
         }
     </script>
     

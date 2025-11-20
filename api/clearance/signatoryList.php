@@ -141,6 +141,17 @@ try {
     }
     $designationInClause = implode(',', $designationPlaceholders);
 
+    // Build the clearance_periods JOIN condition based on whether we have a specific period_id
+    // When $activePeriodId is set (from school_term filter), use it to ensure we query the correct period
+    if ($activePeriodId) {
+        // Use the specific period_id when available (from school_term filter)
+        $periodJoinCondition = "cp.period_id = :activePeriodId";
+        $params[':activePeriodId'] = $activePeriodId;
+    } else {
+        // Fallback to status-based matching when no specific period is selected
+        $periodJoinCondition = "cp.status IN ('Ongoing', 'Closed')";
+    }
+
     if (strtolower($type) === 'faculty') {
         $select = "
             SELECT SQL_CALC_FOUND_ROWS
@@ -164,7 +175,7 @@ try {
             JOIN users u ON f.user_id = u.user_id
             LEFT JOIN user_department_assignments uda ON u.user_id = uda.user_id
             LEFT JOIN departments d ON uda.department_id = d.department_id
-            JOIN clearance_periods cp ON cp.sector = 'Faculty' AND cp.status IN ('Ongoing', 'Closed')
+            JOIN clearance_periods cp ON cp.sector = 'Faculty' AND ($periodJoinCondition)
             LEFT JOIN clearance_forms cf ON f.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id 
             LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
             LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
@@ -193,7 +204,7 @@ try {
             JOIN users u ON s.user_id = u.user_id
             LEFT JOIN programs p ON s.program_id = p.program_id
             LEFT JOIN departments d ON s.department_id = d.department_id
-            LEFT JOIN clearance_periods cp ON cp.sector = s.sector AND cp.status IN ('Ongoing', 'Closed')
+            LEFT JOIN clearance_periods cp ON cp.sector = s.sector AND ($periodJoinCondition)
             LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id 
             LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
             LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
@@ -288,7 +299,10 @@ try {
         $params[':accountStatus'] = $accountStatus;
     }
 
-    if (!empty($schoolTerm)) {
+    // Note: school_term filtering is already handled by $activePeriodId in the JOIN
+    // Additional WHERE clause filtering is redundant but kept for safety
+    if (!empty($schoolTerm) && !$activePeriodId) {
+        // Only apply this if we didn't already filter by period_id in the JOIN
         $termParts = explode('|', $schoolTerm);
         if (count($termParts) === 2) {
             $yearName = $termParts[0];

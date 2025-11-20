@@ -199,6 +199,9 @@ handleFacultyManagementPageRequest();
                             </span>
                         </div>
 
+                        <!-- Term Indicator Banner (shown when historical term is selected) -->
+                        <div id="termIndicatorBanner" class="term-indicator-banner" style="display: none;"></div>
+
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
@@ -290,6 +293,7 @@ handleFacultyManagementPageRequest();
                                                 <th>Name</th>
                                                 <th>Employment Status</th>
                                                 <th>Account Status</th>
+                                                <th>Clearance Form Progress</th>
                                                 <th>Clearance Status</th>
                                                 <th>Actions</th>
                                             </tr>
@@ -731,17 +735,27 @@ handleFacultyManagementPageRequest();
                         return;
                     }
 
+                    // Get the currently selected school term from the filter
+                    const schoolTermFilter = document.getElementById('schoolTermFilter');
+                    const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
+
                     try {
+                        const bulkPayload = {
+                            applicant_user_ids: userIds,
+                            action: 'Approved',
+                            designation_name: CURRENT_STAFF_POSITION,
+                            remarks: `Approved by ${CURRENT_STAFF_POSITION}`
+                        };
+                        // Include school_term if a specific term is selected
+                        if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
+                            bulkPayload.school_term = currentSchoolTerm.trim();
+                        }
+
                         const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             credentials: 'include',
-                            body: JSON.stringify({
-                                applicant_user_ids: userIds,
-                                action: 'Approved',
-                                designation_name: CURRENT_STAFF_POSITION,
-                                remarks: `Approved by ${CURRENT_STAFF_POSITION}`
-                            })
+                            body: JSON.stringify(bulkPayload)
                         });
                         const result = await response.json();
                         if (result.success) {
@@ -922,8 +936,42 @@ handleFacultyManagementPageRequest();
         }
 
         // Filter functions
+        // Update term indicator banner
+        function updateTermIndicatorBanner() {
+            const banner = document.getElementById('termIndicatorBanner');
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            
+            if (!banner || !schoolTermFilter) return;
+            
+            const selectedValue = schoolTermFilter.value;
+            
+            if (!selectedValue) {
+                banner.style.display = 'none';
+                return;
+            }
+            
+            const selectedOption = schoolTermFilter.options[schoolTermFilter.selectedIndex];
+            const termText = selectedOption.text;
+            
+            // Check if this is a historical term (not current/ongoing)
+            const isHistorical = true; // TODO: Implement logic to check if term is historical
+            
+            banner.className = isHistorical ? 'term-indicator-banner historical' : 'term-indicator-banner';
+            banner.innerHTML = `
+                <i class="fas fa-calendar-alt term-icon"></i>
+                <div class="term-text">
+                    <strong>Viewing:</strong> ${termText}
+                </div>
+                <div class="term-label">
+                    ${isHistorical ? 'Historical Term' : 'Current Term'}
+                </div>
+            `;
+            banner.style.display = 'flex';
+        }
+
         function applyFilters() {
             currentPage = 1;
+            updateTermIndicatorBanner();
             fetchFaculty();
 
             showToastNotification(`Filters applied. Fetching updated data...`, 'info');
@@ -1173,20 +1221,74 @@ handleFacultyManagementPageRequest();
             tr.setAttribute('data-faculty-id', faculty.user_id);
             tr.setAttribute('data-signatory-id', faculty.signatory_id);
             
-            const statusRaw = faculty.clearance_status;
-            const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
+            // Check if user existed during the selected term
+            const userExisted = faculty.user_existed_during_term !== false; // Default to true if not provided
+            
+            // Clearance Form Progress (end user's overall progress)
+            let clearanceProgress = faculty.clearance_form_progress || 'Unapplied';
+            if (!userExisted) {
+                clearanceProgress = 'N/A';
+            }
+            const clearanceProgressClass = `clearance-${clearanceProgress.toLowerCase().replace(/ /g, '-')}`;
+            
+            // Clearance Status (signatory's action status)
+            let clearanceStatus = faculty.clearance_status || 'Unapplied';
+            if (!userExisted) {
+                clearanceStatus = 'N/A';
+            }
+            const clearanceStatusClass = `signatory-${clearanceStatus.toLowerCase().replace(/ /g, '-')}`;
+            
             const accountStatus = (faculty.account_status || 'inactive').toLowerCase();
             
-            let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
+            let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
             // Enable reject button for 'Pending' and 'Rejected' statuses to allow for edits.
-            let rejectBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
-            let checkboxDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(faculty.clearance_status);
+            let rejectBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
+            let checkboxDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
             let approveTitle = 'Approve Clearance';
             // Change button title if the faculty member is already rejected.
-            let rejectTitle = faculty.clearance_status === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Clearance';
+            let rejectTitle = clearanceStatus === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Clearance';
 
             if (!canPerformActions) {
                 approveTitle = rejectTitle = '<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a faculty signatory."; ?>';
+            }
+            
+            // Add class for non-existent users
+            if (!userExisted) {
+                tr.classList.add('user-not-existed');
+            }
+
+            // Build clearance progress cell content (end user's form progress)
+            let clearanceProgressContent = '';
+            if (!userExisted) {
+                clearanceProgressContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceProgressClass}">N/A</span>
+                        </div>
+                        <div class="clearance-status-secondary">User did not exist during this term</div>
+                `;
+            } else {
+                clearanceProgressContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceProgressClass}">${clearanceProgress}</span>
+                        </div>
+                `;
+            }
+
+            // Build clearance status cell content (signatory's action)
+            let clearanceStatusContent = '';
+            if (!userExisted) {
+                clearanceStatusContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceStatusClass}">N/A</span>
+                        </div>
+                        <div class="clearance-status-secondary">User did not exist during this term</div>
+                `;
+            } else {
+                clearanceStatusContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceStatusClass}">${clearanceStatus}</span>
+                        </div>
+                `;
             }
             
             tr.innerHTML = `
@@ -1195,7 +1297,8 @@ handleFacultyManagementPageRequest();
                 <td data-label="Name:">${escapeHtml(faculty.name)}</td>
                 <td data-label="Employment Status:"><span class="status-badge employment-${(faculty.employment_status || '').toLowerCase().replace(/ /g, '-')}">${escapeHtml(faculty.employment_status || 'N/A')}</span></td>
                 <td data-label="Account Status:"><span class="status-badge account-${accountStatus}">${faculty.account_status || 'N/A'}</span></td>
-                <td data-label="Clearance Progress:"><span class="status-badge clearance-${clearanceKey}">${faculty.clearance_status || 'N/A'}</span></td>
+                <td data-label="Clearance Form Progress:" class="clearance-status-cell">${clearanceProgressContent}</td>
+                <td data-label="Clearance Status:" class="clearance-status-cell">${clearanceStatusContent}</td>
                 <td class="action-buttons">
                     <div class="action-buttons">
                         <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${faculty.id}')" title="View Clearance Progress"><i class="fas fa-tasks"></i></button>
@@ -1558,6 +1661,8 @@ handleFacultyManagementPageRequest();
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', async function() {
+            
+            updateTermIndicatorBanner();
 
             await Promise.all ([
                 loadRejectionReasons(),
@@ -2110,6 +2215,20 @@ handleFacultyManagementPageRequest();
             }catch(e){ return null; }
         }
         async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null){
+            // Get the currently selected school term from the filter to ensure approval goes to the correct period
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
+
+            // DEBUG: Log signatory action details
+            console.log('[School Admin - Signatory Action] Debug Info:', {
+                applicantUserId: applicantUserId,
+                action: action,
+                remarks: remarks,
+                reasonId: reasonId,
+                currentSchoolTerm: currentSchoolTerm,
+                designationName: CURRENT_STAFF_POSITION
+            });
+
             const payload = { 
                 applicant_user_id: applicantUserId, 
                 action: action,
@@ -2117,11 +2236,20 @@ handleFacultyManagementPageRequest();
             };
             if (remarks && remarks.length) payload.remarks = remarks;
             if (reasonId) payload.reason_id = reasonId;
+            // Include school_term if a specific term is selected
+            if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
+                payload.school_term = currentSchoolTerm.trim();
+            }
+
+            console.log('[School Admin - Signatory Action] Payload being sent:', payload);
+            console.log('[School Admin - Signatory Action] API Endpoint: signatory_action.php');
 
             const response = await fetch('../../api/clearance/signatory_action.php', {
                 method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
             });
-            return await response.json();
+            const result = await response.json();
+            console.log('[School Admin - Signatory Action] API Response:', result);
+            return result;
         }
 
         let searchTimeout;

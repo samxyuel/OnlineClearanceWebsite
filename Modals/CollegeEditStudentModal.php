@@ -144,18 +144,6 @@
           <small class="form-help">This will generate a new secure password for the user. The new password will be displayed for you to copy.</small>
         </div>
         
-        <!-- Account Actions -->
-        <div class="form-section">
-          <h3 class="form-section-title">Account Actions</h3>
-          
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="editSendNotification" name="sendNotification">
-              <span class="checkmark"></span>
-              Send notification email about changes
-            </label>
-          </div>
-        </div>
       </form>
     </div>
     

@@ -256,6 +256,7 @@ try {
             cs.signatory_id,
             cs.action,
             cs.designation_id,
+            cs.actual_user_id,
             cs.remarks,
             cs.additional_remarks,
             cs.date_signed,
@@ -304,6 +305,7 @@ try {
             'signatory_id' => $signatory['signatory_id'],
             'designation_id' => $signatory['designation_id'],
             'designation_name' => $signatory['designation_name'],
+            'actual_user_id' => $signatory['actual_user_id'] ?? null,
             'action' => $action,
             'remarks' => $signatory['remarks'],
             'additional_remarks' => $signatory['additional_remarks'],
@@ -342,6 +344,48 @@ try {
         $overallStatus = 'Unapplied';
     }
     
+    // Get logged-in user's ID for signatory highlighting
+    $loggedInUserId = $auth->getUserId();
+    
+    // Data inconsistency detection: Check if there's a mismatch between form progress and signatory actions
+    // This is useful when viewing from a signatory perspective
+    $dataInconsistency = null;
+    if ($loggedInUserId && in_array($userRole, ['School Administrator', 'Regular Staff', 'Program Head'])) {
+        // Find the logged-in user's signatory entry
+        $loggedInUserSignatory = null;
+        foreach ($processedSignatories as $sig) {
+            if ($sig['actual_user_id'] == $loggedInUserId) {
+                $loggedInUserSignatory = $sig;
+                break;
+            }
+        }
+        
+        // If logged-in user is a signatory, check for inconsistencies
+        if ($loggedInUserSignatory) {
+            $signatoryAction = strtolower($loggedInUserSignatory['action'] ?? 'unapplied');
+            $formProgress = strtolower($clearanceFormProgress);
+            
+            // Inconsistency: Form shows "unapplied" but signatory has "approved" or "rejected"
+            if ($formProgress === 'unapplied' && in_array($signatoryAction, ['approved', 'rejected'])) {
+                $dataInconsistency = [
+                    'type' => 'form_unapplied_but_signatory_acted',
+                    'message' => 'Form shows "Unapplied" but your status is "' . ucfirst($signatoryAction) . '". This may indicate a data sync issue.',
+                    'form_progress' => $formProgress,
+                    'signatory_action' => $signatoryAction
+                ];
+            }
+            // Inconsistency: Form shows "complete" but signatory hasn't approved
+            elseif ($formProgress === 'complete' && $signatoryAction !== 'approved') {
+                $dataInconsistency = [
+                    'type' => 'form_complete_but_signatory_not_approved',
+                    'message' => 'Form shows "Completed" but your status is "' . ucfirst($signatoryAction) . '". This may indicate a data sync issue.',
+                    'form_progress' => $formProgress,
+                    'signatory_action' => $signatoryAction
+                ];
+            }
+        }
+    }
+    
     echo json_encode([
         'success' => true,
         'applied' => $form['form_status'] !== 'Unapplied',
@@ -364,7 +408,9 @@ try {
         'approved_count' => count(array_filter($processedSignatories, fn($s) => $s['action'] === 'Approved')),
         'pending_count' => count(array_filter($processedSignatories, fn($s) => $s['action'] === 'Pending')),
         'rejected_count' => count(array_filter($processedSignatories, fn($s) => $s['action'] === 'Rejected')),
-        'unapplied_count' => count(array_filter($processedSignatories, fn($s) => $s['action'] === 'Unapplied'))
+        'unapplied_count' => count(array_filter($processedSignatories, fn($s) => $s['action'] === 'Unapplied')),
+        'logged_in_user_id' => $loggedInUserId, // For signatory highlighting
+        'data_inconsistency' => $dataInconsistency // Data inconsistency warning if applicable
     ]);
     
 } catch (Exception $e) {

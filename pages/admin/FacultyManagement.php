@@ -106,6 +106,9 @@ ob_start();
                             </span>
                         </div>
 
+                        <!-- Term Indicator Banner (shown when historical term is selected) -->
+                        <div id="termIndicatorBanner" class="term-indicator-banner" style="display: none;"></div>
+
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
@@ -1078,8 +1081,42 @@ ob_start();
             // Keeping it for compatibility if the file is copied.
         }
 
+        // Update term indicator banner
+        function updateTermIndicatorBanner() {
+            const banner = document.getElementById('termIndicatorBanner');
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            
+            if (!banner || !schoolTermFilter) return;
+            
+            const selectedValue = schoolTermFilter.value;
+            
+            if (!selectedValue) {
+                banner.style.display = 'none';
+                return;
+            }
+            
+            const selectedOption = schoolTermFilter.options[schoolTermFilter.selectedIndex];
+            const termText = selectedOption.text;
+            
+            // Check if this is a historical term (not current/ongoing)
+            const isHistorical = true; // TODO: Implement logic to check if term is historical
+            
+            banner.className = isHistorical ? 'term-indicator-banner historical' : 'term-indicator-banner';
+            banner.innerHTML = `
+                <i class="fas fa-calendar-alt term-icon"></i>
+                <div class="term-text">
+                    <strong>Viewing:</strong> ${termText}
+                </div>
+                <div class="term-label">
+                    ${isHistorical ? 'Historical Term' : 'Current Term'}
+                </div>
+            `;
+            banner.style.display = 'flex';
+        }
+
         function applyFilters() {
             currentPage = 1;
+            updateTermIndicatorBanner();
             refreshFacultyTable();
         }
 
@@ -1166,16 +1203,47 @@ ob_start();
                     const tr=document.createElement('tr');
                     tr.setAttribute('data-term',''); // term unknown for now
                     tr.setAttribute('data-faculty-id', f.user_id); // Add faculty ID for button manager
-                    const statusRaw = f.clearance_status;
+                    
+                    // Check if user existed during the selected term
+                    const userExisted = f.user_existed_during_term !== false; // Default to true if not provided
+                    let statusRaw = f.clearance_status;
+                    
+                    // If user didn't exist during term, show N/A
+                    if (!userExisted) {
+                        statusRaw = 'N/A';
+                    }
+                    
                     const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
                     const accountStatus = (f.account_status || 'inactive').toLowerCase();
+                    
+                    // Add class for non-existent users
+                    if (!userExisted) {
+                        tr.classList.add('user-not-existed');
+                    }
+
+                    // Build clearance status cell content (without td tags)
+                    let clearanceStatusContent = '';
+                    if (!userExisted) {
+                        clearanceStatusContent = `
+                                <div class="clearance-status-primary">
+                                    <span class="status-badge-compact clearance-${clearanceKey}">N/A</span>
+                                </div>
+                                <div class="clearance-status-secondary">User did not exist during this term</div>
+                        `;
+                    } else {
+                        clearanceStatusContent = `
+                                <div class="clearance-status-primary">
+                                    <span class="status-badge-compact clearance-${clearanceKey}">${statusRaw}</span>
+                                </div>
+                        `;
+                    }
 
                     tr.innerHTML=`<td class="checkbox-column"><input type=\"checkbox\" class=\"faculty-checkbox\" data-id=\"${f.employee_number}\"></td>
                                 <td data-label="Employee Number:">${f.employee_number}</td>
                                 <td data-label="Name:">${f.first_name} ${f.last_name}</td>
                                 <td data-label="Employment Status:"><span class="status-badge employment-${(f.employment_status || '').toLowerCase().replace(/ /g,'-')}">${f.employment_status}</span></td>
                                 <td data-label="Account Status:"><span class="status-badge account-${accountStatus}">${f.account_status || 'N/A'}</span></td>
-                                <td data-label="Clearance Progress:"><span class="status-badge clearance-${clearanceKey}">${statusRaw}</span></td>
+                                <td data-label="Clearance Progress:" class="clearance-status-cell">${clearanceStatusContent}</td>
                                 <td class="action-buttons"><div class="action-buttons">
                                         <button class=\"btn-icon view-progress-btn\" onclick=\"viewClearanceProgress('${f.employee_number}')\" title=\"View Clearance Progress\"><i class=\"fas fa-tasks\"></i></button>
                                         <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
@@ -1738,10 +1806,13 @@ ob_start();
         function viewClearanceProgress(facultyId) {
             // Get faculty name from the table row
             const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
-            const facultyName = row.querySelector('td:nth-child(3)').textContent;
+            const facultyName = row ? row.querySelector('td:nth-child(3)').textContent : 'Faculty';
             
-            // Open the clearance progress modal
-            openClearanceProgressModal(facultyId, 'faculty', facultyName);
+            // Get the current school term filter value
+            const schoolTerm = document.getElementById('schoolTermFilter')?.value || '';
+            
+            // Open the clearance progress modal with school term
+            openClearanceProgressModal(facultyId, 'faculty', facultyName, schoolTerm);
         }
 
         // Rejection Remarks Modal Functions
@@ -1839,6 +1910,7 @@ ob_start();
             loadEmploymentStatuses();
             loadAccountStatuses();
             loadClearanceStatuses();
+            updateTermIndicatorBanner();
             loadSchoolTerms();
 
             // load faculty table

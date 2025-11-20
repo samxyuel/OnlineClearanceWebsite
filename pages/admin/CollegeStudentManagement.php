@@ -110,6 +110,9 @@ if (session_status() == PHP_SESSION_NONE) {
                             </span>
                         </div>
 
+                        <!-- Term Indicator Banner (shown when historical term is selected) -->
+                        <div id="termIndicatorBanner" class="term-indicator-banner" style="display: none;"></div>
+
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
                             <div class="search-box">
@@ -516,6 +519,7 @@ if (session_status() == PHP_SESSION_NONE) {
             const programId = document.getElementById('programFilter').value;
             const yearLevel = document.getElementById('yearLevelFilter').value;
             const departments = document.getElementById('departmentFilter').value;
+            const schoolTerm = document.getElementById('schoolTermFilter').value;
 
             // Use the general-purpose user list API for admin views.
             const url = new URL('../../api/users/studentList.php', window.location.href);
@@ -530,6 +534,7 @@ if (session_status() == PHP_SESSION_NONE) {
             if (yearLevel) url.searchParams.append('year_level', yearLevel);
             if (accountStatus) url.searchParams.append('account_status', accountStatus);
             if (departments) url.searchParams.append('departments', departments);
+            if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
 
             try {
                 const response = await fetch(url.toString(), {
@@ -542,6 +547,32 @@ if (session_status() == PHP_SESSION_NONE) {
 
                 const data = await response.json();
                 console.log('College students API response:', data);
+                
+                // Temporary debugging for historical filtering
+                const schoolTermValue = document.getElementById('schoolTermFilter')?.value || '';
+                console.log('=== HISTORICAL FILTERING DEBUG ===');
+                console.log('School Term Filter Value:', schoolTermValue);
+                console.log('Full API URL:', url.toString());
+                console.log('API Debug Info:', data._debug || 'Not available');
+                console.log('Student Details:', data.students?.map(s => ({
+                    name: s.name,
+                    id: s.id,
+                    user_existed_during_term: s.user_existed_during_term,
+                    clearance_status: s.clearance_status,
+                    user_created_at: s.user_created_at,
+                    user_id: s.user_id
+                })) || []);
+                console.log('Total students returned:', data.students?.length || 0);
+                if (data._debug) {
+                    console.log('API Processing:');
+                    console.log('  - school_term received:', data._debug.school_term_received);
+                    console.log('  - targetAcademicYearId:', data._debug.targetAcademicYearId);
+                    console.log('  - targetSemesterId:', data._debug.targetSemesterId);
+                    console.log('  - targetPeriodEndDate:', data._debug.targetPeriodEndDate);
+                    console.log('  - Users existed:', data._debug.existed_count);
+                    console.log('  - Users NOT existed:', data._debug.not_existed_count);
+                }
+                console.log('=== END DEBUG ===');
                 
                 if (data.success) {
                     populateStudentsTable(data.students);
@@ -618,13 +649,54 @@ if (session_status() == PHP_SESSION_NONE) {
             const accountStatusClass = `account-${student.account_status || 'inactive'}`;
             const accountStatusText = student.account_status ? student.account_status.charAt(0).toUpperCase() + student.account_status.slice(1) : 'Inactive';
 
+            // Check if user existed during the selected term
+            const userExisted = student.user_existed_during_term !== false; // Default to true if not provided
             let clearanceStatus = student.clearance_status || 'Unapplied';
+            
+            // If user didn't exist during term, show N/A
+            if (!userExisted) {
+                clearanceStatus = 'N/A';
+            }
+            
             const clearanceStatusClass = `clearance-${clearanceStatus.toLowerCase().replace(/ /g, '-')}`;
+            
+            // Capture the currently selected school term from the filters
+            const currentSchoolTerm = document.getElementById('schoolTermFilter')?.value || '';
+            
+            // Escape HTML for safe insertion
+            const escapeHtml = (text) => {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            };
             
             const row = document.createElement('tr');
             row.setAttribute('data-user-id', student.user_id);
             row.setAttribute('data-student-id', student.id);
             row.setAttribute('data-form-id', student.clearance_form_id);
+            
+            // Add class for non-existent users
+            if (!userExisted) {
+                row.classList.add('user-not-existed');
+            }
+
+            // Build clearance status cell content (without td tags)
+            let clearanceStatusContent = '';
+            if (!userExisted) {
+                clearanceStatusContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceStatusClass}">N/A</span>
+                        </div>
+                        <div class="clearance-status-secondary">User did not exist during this term</div>
+                `;
+            } else {
+                clearanceStatusContent = `
+                        <div class="clearance-status-primary">
+                            <span class="status-badge-compact ${clearanceStatusClass}">${clearanceStatus}</span>
+                        </div>
+                `;
+            }
 
             row.innerHTML = `
                 <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.id}"></td>
@@ -634,10 +706,10 @@ if (session_status() == PHP_SESSION_NONE) {
                 <td data-label="Year Level:">${student.year_level || 'N/A'}</td>
                 <td data-label="Section:">${student.section || 'N/A'}</td>
                 <td data-label="Account Status:"><span class="status-badge ${accountStatusClass}">${accountStatusText}</span></td>
-                <td data-label="Clearance Progress:"><span class="status-badge ${clearanceStatusClass}">${clearanceStatus}</span></td>
+                <td data-label="Clearance Progress:" class="clearance-status-cell">${clearanceStatusContent}</td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}')" title="View Clearance Progress">
+                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${student.user_id}', '${escapeHtml(student.name || 'Student')}', '${escapeHtml(currentSchoolTerm)}')" title="View Clearance Progress">
                             <i class="fas fa-tasks"></i>
                         </button>
                         <button class="btn-icon edit-btn" onclick="editStudent('${student.user_id}')" title="Edit">
@@ -900,8 +972,25 @@ if (session_status() == PHP_SESSION_NONE) {
             );
         }
 
-        function viewClearanceProgress(studentId) {
-            openClearanceProgressModal(studentId, 'student', 'Student Name');
+        function viewClearanceProgress(studentId, studentName = '', schoolTerm = '') {
+            // If studentName not provided, try to get it from the table row
+            if (!studentName) {
+                const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`)?.closest('tr');
+                if (row) {
+                    const nameCell = row.querySelector('td:nth-child(3)');
+                    studentName = nameCell ? nameCell.textContent.trim() : 'Student';
+                } else {
+                    studentName = 'Student';
+                }
+            }
+            
+            // If schoolTerm not provided, get it from the filter
+            if (!schoolTerm) {
+                schoolTerm = document.getElementById('schoolTermFilter')?.value || '';
+            }
+            
+            // Open the clearance progress modal with school term
+            openClearanceProgressModal(studentId, 'student', studentName, schoolTerm);
         }
 
         // Filter functions
@@ -955,6 +1044,8 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         function applyFilters() {
+            // Update term indicator banner when filters change
+            updateTermIndicatorBanner();
             currentPage = 1;
             loadStudentsData();
         }
@@ -1373,8 +1464,9 @@ if (session_status() == PHP_SESSION_NONE) {
                 console.log('Activity Tracker initialized for College Student Management');
             }
             
-            // Initialize current period banner
+            // Initialize current period banner and term indicator
             updateCurrentPeriodBanner();
+            updateTermIndicatorBanner();
         });
 
         // Bulk Selection Modal Functions
@@ -1775,6 +1867,41 @@ if (session_status() == PHP_SESSION_NONE) {
             applyFilters();
         }
 
+        // Update term indicator banner
+        function updateTermIndicatorBanner() {
+            const banner = document.getElementById('termIndicatorBanner');
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            
+            if (!banner || !schoolTermFilter) return;
+            
+            const selectedValue = schoolTermFilter.value;
+            
+            if (!selectedValue) {
+                banner.style.display = 'none';
+                return;
+            }
+            
+            const selectedOption = schoolTermFilter.options[schoolTermFilter.selectedIndex];
+            const termText = selectedOption.text;
+            
+            // Check if this is a historical term (not current/ongoing)
+            // For now, we'll show the banner for any selected term
+            // In the future, we could check against current term to determine if it's historical
+            const isHistorical = true; // TODO: Implement logic to check if term is historical
+            
+            banner.className = isHistorical ? 'term-indicator-banner historical' : 'term-indicator-banner';
+            banner.innerHTML = `
+                <i class="fas fa-calendar-alt term-icon"></i>
+                <div class="term-text">
+                    <strong>Viewing:</strong> ${termText}
+                </div>
+                <div class="term-label">
+                    ${isHistorical ? 'Historical Term' : 'Current Term'}
+                </div>
+            `;
+            banner.style.display = 'flex';
+        }
+
         // Update current period banner
         function updateCurrentPeriodBanner() {
             // Update period banner based on selected school term
@@ -1798,6 +1925,9 @@ if (session_status() == PHP_SESSION_NONE) {
                 yearEl.textContent = 'Select a term';
                 semesterEl.textContent = 'N/A';
             }
+            
+            // Also update term indicator banner
+            updateTermIndicatorBanner();
         }
         
         console.log('CollegeStudentManagement.php script loaded completely');

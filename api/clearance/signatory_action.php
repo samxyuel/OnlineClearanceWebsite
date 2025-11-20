@@ -75,9 +75,45 @@ try {
         $designationId = $desigIdStmt->fetchColumn();
     }
 
-    // Active period
-    $cp = $pdo->query("SELECT academic_year_id, semester_id, status FROM clearance_periods WHERE status = 'Ongoing' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-    if (!$cp) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'No active clearance period']); exit; }
+    // Active period - check if school_term parameter is provided to use specific period
+    $schoolTerm = isset($input['school_term']) ? trim($input['school_term']) : '';
+    $cp = null;
+    
+    if (!empty($schoolTerm)) {
+        // Parse school_term format: "YEAR|semester_id" (e.g., "2024-2025|2")
+        $termParts = explode('|', $schoolTerm);
+        $yearName = $termParts[0] ?? '';
+        $semesterId = isset($termParts[1]) ? (int)trim($termParts[1]) : null;
+        
+        if ($yearName && $semesterId) {
+            // Find the period for the specified term (can be Ongoing or Closed)
+            $cpStmt = $pdo->prepare("
+                SELECT cp.academic_year_id, cp.semester_id, cp.status 
+                FROM clearance_periods cp
+                JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id
+                WHERE ay.year = ? AND cp.semester_id = ? AND cp.status IN ('Ongoing', 'Closed')
+                ORDER BY 
+                    CASE cp.status
+                        WHEN 'Ongoing' THEN 1
+                        WHEN 'Closed' THEN 2
+                    END
+                LIMIT 1
+            ");
+            $cpStmt->execute([$yearName, $semesterId]);
+            $cp = $cpStmt->fetch(PDO::FETCH_ASSOC);
+        }
+    }
+    
+    // Fallback to Ongoing period if no school_term provided or if lookup failed
+    if (!$cp) {
+        $cp = $pdo->query("SELECT academic_year_id, semester_id, status FROM clearance_periods WHERE status = 'Ongoing' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    if (!$cp) { 
+        http_response_code(400); 
+        echo json_encode(['success'=>false,'message'=>'No active clearance period found']); 
+        exit; 
+    }
     $ayId  = (int)$cp['academic_year_id'];
     $semId = (int)$cp['semester_id'];
 

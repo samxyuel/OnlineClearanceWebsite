@@ -1,4 +1,7 @@
 <?php
+// Set default timezone to Asia/Manila
+date_default_timezone_set('Asia/Manila');
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: http://localhost');
 header('Access-Control-Allow-Credentials: true');
@@ -660,6 +663,10 @@ function handleUpdatePeriod($connection) {
             
             $semesterId = (int)$input['semester_id'];
             
+            // Set timezone to Asia/Manila (already set at top, but ensure it's set here too)
+            date_default_timezone_set('Asia/Manila');
+            $endedAt = date('Y-m-d H:i:s');
+            
             // Check if semester exists
             $stmt = $connection->prepare("SELECT * FROM semesters WHERE semester_id = ?");
             $stmt->execute([$semesterId]);
@@ -671,11 +678,52 @@ function handleUpdatePeriod($connection) {
                 return;
             }
             
-            // Deactivate the semester
-            $stmt = $connection->prepare("UPDATE semesters SET is_active = 0 WHERE semester_id = ?");
-            $stmt->execute([$semesterId]);
+            // Update semester: deactivate and set ended_at
+            $stmt = $connection->prepare("UPDATE semesters SET is_active = 0, ended_at = ? WHERE semester_id = ?");
+            $stmt->execute([$endedAt, $semesterId]);
             
-            echo json_encode(['success' => true, 'message' => 'Semester ended successfully']);
+            // Check if this is Term 2 (2nd Semester)
+            $isTerm2 = (strtolower($semester['semester_name']) === '2nd' || 
+                        strtolower($semester['semester_name']) === 'second');
+            
+            $response = [
+                'success' => true, 
+                'message' => 'Semester ended successfully',
+                'is_term2' => $isTerm2
+            ];
+            
+            // If this is Term 2, check if we should end the academic year
+            if ($isTerm2) {
+                $academicYearId = (int)$semester['academic_year_id'];
+                
+                // Check if all semesters in this academic year are ended
+                $stmt = $connection->prepare("
+                    SELECT COUNT(*) as total, 
+                           SUM(CASE WHEN ended_at IS NOT NULL THEN 1 ELSE 0 END) as ended_count
+                    FROM semesters 
+                    WHERE academic_year_id = ?
+                ");
+                $stmt->execute([$academicYearId]);
+                $semesterStats = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                // End academic year if all semesters are ended
+                if ($semesterStats['total'] > 0 && 
+                    $semesterStats['ended_count'] == $semesterStats['total']) {
+                    
+                    // Deactivate academic year and set ended_at
+                    $stmt = $connection->prepare("
+                        UPDATE academic_years 
+                        SET is_active = 0, ended_at = ? 
+                        WHERE academic_year_id = ?
+                    ");
+                    $stmt->execute([$endedAt, $academicYearId]);
+                    
+                    $response['academic_year_ended'] = true;
+                    $response['message'] = 'Term 2 ended successfully. Academic year has been ended.';
+                }
+            }
+            
+            echo json_encode($response);
             return;
         }
         
@@ -689,9 +737,17 @@ function handleUpdatePeriod($connection) {
             
             $semesterId = (int)$input['semester_id'];
             
-            // Close all clearance periods under this semester
-            $stmt = $connection->prepare("UPDATE clearance_periods SET status = 'Closed', end_date = NOW() WHERE semester_id = ? AND status IN ('Ongoing', 'Not Started')");
-            $stmt->execute([$semesterId]);
+            // Set timezone to Asia/Manila (already set at top, but ensure it's set here too)
+            date_default_timezone_set('Asia/Manila');
+            $endedAt = date('Y-m-d H:i:s');
+            
+            // Close all clearance periods under this semester and set ended_at
+            $stmt = $connection->prepare("
+                UPDATE clearance_periods 
+                SET status = 'Closed', end_date = CURDATE(), ended_at = ? 
+                WHERE semester_id = ? AND status IN ('Ongoing', 'Not Started')
+            ");
+            $stmt->execute([$endedAt, $semesterId]);
             $closedCount = $stmt->rowCount();
             
             echo json_encode([
@@ -773,8 +829,16 @@ function handleUpdatePeriod($connection) {
                 echo json_encode(['success' => true, 'message' => 'Period deactivated']);
                 return;
             } elseif ($action === 'end') {
-                $stmt = $connection->prepare("UPDATE clearance_periods SET is_active = 0, status = 'ended', ended_at = NOW(), end_date = CURDATE() WHERE period_id = ?");
-                $stmt->execute([$periodId]);
+                // Set timezone to Asia/Manila (already set at top, but ensure it's set here too)
+                date_default_timezone_set('Asia/Manila');
+                $endedAt = date('Y-m-d H:i:s');
+                
+                $stmt = $connection->prepare("
+                    UPDATE clearance_periods 
+                    SET is_active = 0, status = 'ended', ended_at = ?, end_date = CURDATE() 
+                    WHERE period_id = ?
+                ");
+                $stmt->execute([$endedAt, $periodId]);
                 echo json_encode(['success' => true, 'message' => 'Period ended']);
                 return;
             }
