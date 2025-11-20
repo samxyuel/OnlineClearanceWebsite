@@ -80,4 +80,63 @@ function getApiBaseUrl($endpoint) {
     $cleanEndpoint = ltrim($endpoint, '/');
     return $protocol . '://' . $host . $basePath . '/' . $cleanEndpoint;
 }
+
+/**
+ * Set dynamic CORS headers - echoes back the request origin if allowed
+ * Works for both localhost (HTTP) and production (HTTPS)
+ * 
+ * @param bool $allowCredentials Whether to allow credentials (cookies, auth headers)
+ * @param array $allowedMethods Allowed HTTP methods
+ * @param array $allowedHeaders Allowed request headers
+ */
+function setCorsHeaders($allowCredentials = true, $allowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], $allowedHeaders = ['Content-Type', 'Authorization']) {
+    // Get the origin from the request
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    
+    // Define allowed origins (whitelist)
+    $allowedOrigins = [
+        'http://localhost',
+        'http://127.0.0.1',
+        'https://www.clearance-gosti.online',
+        'https://clearance-gosti.online',
+    ];
+    
+    // Check if origin is in whitelist
+    $isAllowed = false;
+    foreach ($allowedOrigins as $allowed) {
+        // Check exact match or if origin contains allowed origin (for ports)
+        if ($origin === $allowed || strpos($origin, $allowed . ':') === 0) {
+            $isAllowed = true;
+            break;
+        }
+    }
+    
+    // For localhost development, be more lenient
+    if (!$isAllowed && (strpos($origin, 'localhost') !== false || strpos($origin, '127.0.0.1') !== false)) {
+        $isAllowed = true;
+    }
+    
+    // Set CORS headers
+    if ($isAllowed && !empty($origin)) {
+        header('Access-Control-Allow-Origin: ' . $origin);
+    } else {
+        // Default: allow same-origin requests
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        header('Access-Control-Allow-Origin: ' . $protocol . '://' . $host);
+    }
+    
+    if ($allowCredentials) {
+        header('Access-Control-Allow-Credentials: true');
+    }
+    
+    header('Access-Control-Allow-Methods: ' . implode(', ', $allowedMethods));
+    header('Access-Control-Allow-Headers: ' . implode(', ', $allowedHeaders));
+    
+    // Handle preflight OPTIONS request
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(204);
+        exit;
+    }
+}
 ?>

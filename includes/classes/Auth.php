@@ -92,6 +92,12 @@ class Auth {
     // Ensure session is started without causing conflicts
     private function ensureSessionStarted() {
         if (session_status() === PHP_SESSION_NONE) {
+            // Configure session cookie for HTTPS in production
+            if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+                ini_set('session.cookie_secure', '1');
+                ini_set('session.cookie_samesite', 'None');
+            }
+            ini_set('session.cookie_httponly', '1');
             @session_start();
         }
     }
