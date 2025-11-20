@@ -174,6 +174,7 @@
         </div>
     </main>
 
+    <script src="../../assets/js/base-path.js"></script>
     <script>
     // --- Dashboard Data Loading ---
     async function loadDashboardData() {
@@ -431,7 +432,7 @@
         
         try {
             // Test periods API only
-            const periodsRes = await fetch(`/OnlineClearanceWebsite/api/clearance/periods.php?sector=${userInfo.sector}`, {credentials: 'same-origin'});
+            const periodsRes = await fetch(`${getApiUrl('api/clearance/periods.php')}?sector=${userInfo.sector}`, {credentials: 'same-origin'});
             const periodsData = await periodsRes.json();
             debugOutput.innerHTML += `<p><strong>Periods API:</strong> ${JSON.stringify(periodsData, null, 2)}</p>`;
             
@@ -446,7 +447,7 @@
         debugOutput.innerHTML = '<p>Checking period status...</p>';
         
         try {
-            const res = await fetch(`/OnlineClearanceWebsite/api/clearance/periods.php?sector=${userInfo.sector}`, {credentials: 'same-origin'});
+            const res = await fetch(`${getApiUrl('api/clearance/periods.php')}?sector=${userInfo.sector}`, {credentials: 'same-origin'});
             const json = await res.json();
             
             if (json.success && json.total > 0) {

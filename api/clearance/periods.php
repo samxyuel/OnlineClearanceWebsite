@@ -389,7 +389,7 @@ function handleUpdatePeriod($connection) {
                     error_log("🚀 API DEBUG: Periods after update: " . json_encode($afterUpdate));
                     
                     // NEW: Trigger form distribution by calling the new dedicated API endpoint
-                    $distributionUrl = "http://localhost/OnlineClearanceWebsite/api/clearance/form_distribution.php";
+                    $distributionUrl = getApiBaseUrl('api/clearance/form_distribution.php');
                     $distributionData = [
                         'clearance_type' => $sector,
                         'academic_year_id' => $academicYearId,
@@ -424,7 +424,7 @@ function handleUpdatePeriod($connection) {
                     error_log("✅ API DEBUG: Period resumed successfully");
 
                     // NEW: Trigger form distribution when resuming, just in case it failed before.
-                    $distributionUrl = "http://localhost/OnlineClearanceWebsite/api/clearance/form_distribution.php";
+                    $distributionUrl = getApiBaseUrl('api/clearance/form_distribution.php');
                     $distributionData = [
                         'clearance_type' => $sector,
                         'academic_year_id' => $academicYearId,
@@ -464,7 +464,7 @@ function handleUpdatePeriod($connection) {
                 error_log("✅ API DEBUG: New period created successfully with ID: $periodId");
                 
                 // NEW: Trigger form distribution by calling the new dedicated API endpoint
-                $distributionUrl = "http://localhost/OnlineClearanceWebsite/api/clearance/form_distribution.php";
+                $distributionUrl = getApiBaseUrl('api/clearance/form_distribution.php');
                 $distributionData = [
                     'clearance_type' => $sector,
                     'academic_year_id' => $academicYearId,

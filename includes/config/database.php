@@ -56,4 +56,28 @@ class Database {
         return DB_NAME;
     }
 }
+
+/**
+ * Get base URL for API calls
+ * Returns /OnlineClearanceWebsite for HTTP (localhost) or empty string for HTTPS (production)
+ */
+function getBaseUrl() {
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    // If HTTPS (production), return empty string (root deployment)
+    // If HTTP (localhost), return /OnlineClearanceWebsite
+    return $protocol === 'https' ? '' : '/OnlineClearanceWebsite';
+}
+
+/**
+ * Get full API URL for server-side HTTP requests
+ * @param string $endpoint - API endpoint path (e.g., 'api/clearance/form_distribution.php')
+ * @return string Full API URL
+ */
+function getApiBaseUrl($endpoint) {
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $basePath = getBaseUrl();
+    $cleanEndpoint = ltrim($endpoint, '/');
+    return $protocol . '://' . $host . $basePath . '/' . $cleanEndpoint;
+}
 ?>

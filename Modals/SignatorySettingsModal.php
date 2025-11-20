@@ -85,6 +85,7 @@
     </div>
 </div>
 
+<script src="../../assets/js/base-path.js"></script>
 <script>
 // Global variable to track current clearance type and designations
 if (typeof window.currentClearanceType === 'undefined') {
@@ -190,7 +191,7 @@ async function loadDesignations() {
         const clearanceType = window.currentClearanceType;
         
         // Fetch assigned signatories for this specific scope using sector-based API
-        const response = await fetch(`/OnlineClearanceWebsite/api/signatories/sector_assignments.php?clearance_type=${clearanceType}`);
+        const response = await fetch(`${getApiUrl('api/signatories/sector_assignments.php')}?clearance_type=${clearanceType}`);
         if (!response.ok) throw new Error('Failed to fetch signatories');
         
         const data = await response.json();
@@ -248,7 +249,7 @@ async function loadSignatorySettings(clearanceType) {
     try {
         console.log('🔧 loadSignatorySettings called for:', clearanceType);
         
-        const response = await fetch(`/OnlineClearanceWebsite/api/signatories/sector_settings.php?clearance_type=${clearanceType}`);
+        const response = await fetch(`${getApiUrl('api/signatories/sector_settings.php')}?clearance_type=${clearanceType}`);
         if (!response.ok) throw new Error('Failed to fetch settings');
         
         const data = await response.json();
@@ -339,7 +340,7 @@ async function saveSignatorySettings() {
         
         try {
             // Fetch current settings to get the include_program_head value
-            const currentSettingsResponse = await fetch(`/OnlineClearanceWebsite/api/signatories/sector_settings.php?clearance_type=${window.currentClearanceType}`);
+            const currentSettingsResponse = await fetch(`${getApiUrl('api/signatories/sector_settings.php')}?clearance_type=${window.currentClearanceType}`);
             const currentSettingsData = await currentSettingsResponse.json();
             const currentSettings = currentSettingsData.settings && currentSettingsData.settings[0] ? currentSettingsData.settings[0] : {};
             const includeProgramHead = currentSettings.include_program_head == 1;
@@ -354,7 +355,7 @@ async function saveSignatorySettings() {
             };
             
             // Send to API
-            const response = await fetch('/OnlineClearanceWebsite/api/signatories/sector_settings.php', {
+            const response = await fetch(getApiUrl('api/signatories/sector_settings.php'), {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
