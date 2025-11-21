@@ -5,115 +5,15 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 // Page guard: Program Head must have student-sector assignment (College/SHS)
-require_once __DIR__ . '/../../includes/config/database.php';
-require_once __DIR__ . '/../../includes/classes/Auth.php';
+// Include the controller logic which handles all authorization and data fetching.
+require_once __DIR__ . '/../../controllers/StudentManagementController.php';
 
-$auth = new Auth();
-if (!$auth->isLoggedIn()) {
-    header('Location: ../../pages/auth/login.php');
-    exit;
-}
+// The controller function acts as a "gatekeeper". If it doesn't exit, the user is authorized.
+handleStudentManagementPageRequest('College');
 
-$userId = (int)$auth->getUserId();
+// Now that the controller has run, we can access the global variables it set.
+$departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
 
-try {
-    $pdo = Database::getInstance()->getConnection();
-    // Verify role Program Head (TEMPORARILY RELAXED FOR TESTING)
-    $roleOk = false;
-    $rn = null; // Initialize to track if role check was successful
-    try {
-        $rs = $pdo->prepare("SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id=r.role_id WHERE ur.user_id=? LIMIT 1");
-        $rs->execute([$userId]);
-        $rn = strtolower((string)$rs->fetchColumn());
-        // Allow Admin or Program Head access
-        if ($rn === 'program head' || $rn === 'admin') { $roleOk = true; }
-    } catch (Exception $e) {
-        error_log("Error checking role: " . $e->getMessage());
-        // If role check fails, allow access - API will handle permissions
-        $roleOk = true; // Default to allowing access if we can't verify
-    }
-
-    // Check student-sector assignment - Optional check, don't block if it fails
-    $hasStudentSector = false;
-    try {
-        $sql = "SELECT COUNT(*) FROM signatory_assignments sa
-                JOIN designations des ON sa.designation_id=des.designation_id
-                JOIN departments d ON sa.department_id=d.department_id
-                JOIN sectors s ON d.sector_id=s.sector_id
-                WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name IN ('College','Senior High School')";
-        $st = $pdo->prepare($sql);
-        $st->execute([$userId]);
-        $hasStudentSector = ((int)$st->fetchColumn()) > 0;
-    } catch (Exception $e) {
-        error_log("Error checking student sector assignment: " . $e->getMessage());
-        // Don't block access - API will handle scoping
-    }
-
-    // Only redirect if we successfully verified the role is NOT Program Head or Admin
-    // If role check failed (exception), allow access - API will handle permissions
-    if (!$roleOk && isset($rn)) {
-        // Role was checked and is not Program Head or Admin - redirect based on assignments
-        try {
-            $sf = $pdo->prepare("SELECT COUNT(*) FROM signatory_assignments sa JOIN designations des ON sa.designation_id=des.designation_id JOIN departments d ON sa.department_id=d.department_id JOIN sectors s ON d.sector_id=s.sector_id WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name='Faculty'");
-            $sf->execute([$userId]);
-            $hasFacultySector = ((int)$sf->fetchColumn()) > 0;
-            if ($hasFacultySector) {
-                header('Location: ../../pages/program-head/FacultyManagement.php');
-            } else {
-                header('Location: ../../pages/program-head/dashboard.php');
-            }
-            exit;
-        } catch (Exception $e) {
-            error_log("Error checking faculty sector: " . $e->getMessage());
-            // If we can't verify assignments, allow access - API will handle permissions
-        }
-    }
-    // If roleOk is false but $rn is not set (query failed), allow access anyway
-
-    // Try to get department ID, but don't require it
-    $departmentId = null;
-    try {
-        $deptStmt = $pdo->prepare("
-        SELECT COALESCE(
-            (SELECT sa.department_id
-             FROM signatory_assignments sa
-             JOIN designations des ON sa.designation_id = des.designation_id
-             WHERE sa.user_id = ? AND sa.is_active = 1 AND des.designation_name = 'Program Head'
-             LIMIT 1),
-            (SELECT s.department_id
-             FROM staff s
-             WHERE s.user_id = ? AND s.designation_id = 8 AND s.is_active = 1
-             LIMIT 1)
-            ) AS department_id
-        ");
-        $deptStmt->execute([$userId, $userId]);
-        $departmentId = $deptStmt->fetchColumn();
-    } catch (Exception $e) {
-        error_log("Error getting department ID: " . $e->getMessage());
-        // Department ID is optional - API handles scoping via user_department_assignments
-    }
-
-    // Debug log for department ID query
-    error_log("DEPARTMENT_ID_DEBUG: Query executed with userId = $userId");
-    error_log("DEPARTMENT_ID_DEBUG: Resulting departmentId = " . json_encode($departmentId));
-
-    // NOTE: Department ID is optional - the API (signatoryList.php) automatically handles
-    // Program Head scoping via user_department_assignments table (supports multiple departments).
-    // The frontend department_id parameter is only for additional filtering, not required.
-    // If no department is found here, the API will still work correctly by using
-    // user_department_assignments to scope the results.
-
-    $canTakeAction = $hasStudentSector; // Only true if user is an active signatory for this sector/department
-
-} catch (Throwable $e) {
-    // Log the error for debugging but don't block access
-    error_log("Program Head CollegeStudentManagement access check error: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
-    // Allow access - the API will handle permission checks and return empty results if needed
-    // Don't redirect - let the page load and show appropriate message if needed
-    $departmentId = null;
-    $canTakeAction = false;
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -150,6 +50,28 @@ try {
                                 <span id="departmentScopeText">Loading department scope...</span>
                             </div>
                         </div>
+
+                        <!-- Role Selector for Multi-Designation Users -->
+                            <div class="role-selector-container">
+                                <i class="fas fa-user-tag"></i>
+                                <label for="roleSelector">Viewing as:</label>
+                                <?php 
+                                $signatoryDesignations = $GLOBALS['userSignatoryDesignations'];
+                                if (count($signatoryDesignations) > 1): ?>
+                                    <select id="roleSelector" class="filter-select" onchange="handleRoleChange()">
+                                        <?php foreach ($signatoryDesignations as $designation): ?>
+                                            <option value="<?php echo htmlspecialchars($designation['designation_name']); ?>">
+                                                <?php echo htmlspecialchars($designation['designation_name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                <?php elseif (count($signatoryDesignations) === 1): ?>
+                                    <span class="single-role-display"><?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?></span>
+                                    <input type="hidden" id="roleSelector" value="<?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?>">
+                                <?php else: ?>
+                                    <span class="single-role-display">No active signatory roles</span>
+                                <?php endif; ?>
+                            </div>
 
                         <!-- Statistics Dashboard -->
                         <div class="stats-dashboard">
@@ -377,10 +299,30 @@ try {
     </main>
 
     <script>
-        // Make the department ID available to JavaScript (may be null - API handles scoping)
-        const DEPARTMENT_ID = <?php echo json_encode($departmentId); ?>;
-        // Default until we query the central assignment API
-        window.CAN_TAKE_ACTION = false;
+        const DEPARTMENT_IDS = <?php echo json_encode($departmentIds); ?>;
+        // For backwards compatibility, if a single ID is needed, use the first one.
+        const DEPARTMENT_ID = DEPARTMENT_IDS.length > 0 ? DEPARTMENT_IDS[0] : null;
+
+        // This will be dynamically updated by the role selector
+        let CURRENT_STAFF_POSITION = '';
+        
+        // On page load, ensure CURRENT_STAFF_POSITION is synced with the dropdown
+        document.addEventListener('DOMContentLoaded', function() {
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector && roleSelector.value) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+            }
+        });
+
+        // Handle role changes by re-applying all filters, which triggers a fetch
+        function handleRoleChange() {
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+                // Re-fetch data from server with the new role
+                applyFilters(); 
+            }
+        }
 
         async function fetchCanTakeAction() {
             try {
@@ -520,6 +462,7 @@ try {
     </div>
 
     <script>
+
         // Program Head specific variables
         const assignedDepartments = ['Information, Communication, and Technology'];
         const departmentPrograms = {
@@ -788,7 +731,7 @@ try {
             );
         }
 
-        function rejectStudent(button) {
+        async function rejectStudent(button) {
             const row = button.closest('tr');
             const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-in-progress, .status-badge.clearance-approved');
             
@@ -806,11 +749,31 @@ try {
                 return;
             }
             
+            let existingRemarks = '';
+            let existingReasonId = '';
+            const signatoryId = row.getAttribute('data-signatory-id');
+
+            try {
+                const response = await fetch(`../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`, { credentials: 'include' });
+                const data = await response.json();
+                if (data.success && data.details) {
+                    existingRemarks = data.details.additional_remarks || '';
+                    existingReasonId = data.details.reason_id || '';
+                }
+            } catch (error) {
+                console.error("Error fetching rejection details:", error);
+                showToastNotification('Could not load existing rejection details.', 'error');
+            }
+        
+            console.log('Opening rejection modal for', studentName);
+            console.log('Existing reason ID:', existingReasonId);
+            console.log('Existing remarks:', existingRemarks);
+            
             // Get student ID from the checkbox
             const userId = row.getAttribute('data-user-id');
             
             // Open rejection remarks modal for individual rejection
-            openRejectionRemarksModal(userId, clearanceFormId, signatoryId, studentName);
+            openRejectionRemarksModal(userId, studentName, 'student', false, [], existingRemarks, existingReasonId);
         }
 
         // Individual Delete with Confirmation
@@ -1486,6 +1449,8 @@ try {
             url.searchParams.append('sector', 'College');
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
+            url.searchParams.append('department_ids', DEPARTMENT_IDS.join(','));
+            
             // Only append department_id if it exists - API handles scoping automatically via user_department_assignments
             if (DEPARTMENT_ID) {
                 url.searchParams.append('department_id', DEPARTMENT_ID);
@@ -1497,6 +1462,9 @@ try {
             if (yearLevel) url.searchParams.append('year_level', yearLevel);
             if (accountStatus) url.searchParams.append('account_status', accountStatus);
             if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+
+            // Pass the current role/designation for filtering
+            if (CURRENT_STAFF_POSITION) url.searchParams.append('designation_filter', CURRENT_STAFF_POSITION);
 
             try {
                 const response = await fetch(url.toString(), {
@@ -1748,7 +1716,7 @@ try {
                         <button class="btn-icon approve-btn" onclick="approveSignatory('${student.user_id}')" title="Approve Signatory" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-check"></i>
                         </button>
-                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}', '${student.clearance_form_id}', '${student.signatory_id}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
+                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(student.signatory_id)}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-times"></i>
                         </button>
                         <button class="btn-icon delete-btn" onclick="deleteStudent('${student.id}')" title="Delete Student">
@@ -1767,6 +1735,9 @@ try {
         }
 
         function escapeHtml(unsafe) {
+            if (unsafe === null || typeof unsafe === 'undefined') {
+                return '';
+            }
             return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
@@ -2266,43 +2237,42 @@ try {
             }
         }
 
-        // Signatory Action Functions
         async function approveSignatory(targetUserId, clearanceFormId, signatoryId) {
-            try {
-                // Get the currently selected school term from the filter
-                const schoolTermFilter = document.getElementById('schoolTermFilter');
-                const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
+            const row = document.querySelector(`tr[data-user-id="${targetUserId}"]`);
+            const studentName = row ? row.cells[2].textContent : 'this student';
 
-                const approvalPayload = {
-                    applicant_user_id: targetUserId,
-                    action: 'Approved',
-                    remarks: 'Approved by Program Head',
-                    designation_name: 'Program Head' // Add designation for routing
-                };
-                // Include school_term if a specific term is selected
-                if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
-                    approvalPayload.school_term = currentSchoolTerm.trim();
-                }
-
-                const response = await fetch('../../api/clearance/signatory_action.php', {
-                    method: 'POST', // Corrected to POST
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(approvalPayload)
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    showToastNotification('Signatory approved successfully', 'success');
-                    updateSignatoryActionUI(targetUserId, 'Approved');
-                } else {
-                    showToastNotification('Failed to approve signatory: ' + result.message, 'error');
-                }
-            } catch (error) {
-                console.error('Error approving signatory:', error);
-                showToastNotification('Error approving signatory: ' + error.message, 'error');
-            }
+            showConfirmationModal(
+                'Approve Clearance',
+                `Are you sure you want to approve clearance for ${studentName}?`,
+                'Approve',
+                'Cancel',
+                async () => {
+                    try {
+                        const response = await fetch('../../api/clearance/signatory_action.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                applicant_user_id: targetUserId,
+                                action: 'Approved',
+                                remarks: 'Approved by Program Head',
+                                designation_name: 'Program Head'
+                            })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            showToastNotification(`Clearance for ${studentName} has been approved.`, 'success');
+                            loadStudentsData(); // Refresh data to show updated status
+                        } else {
+                            showToastNotification('Failed to approve: ' + result.message, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error approving signatory:', error);
+                        showToastNotification('An error occurred during approval.', 'error');
+                    }
+                },
+                'success'
+            );
         }
 
         async function rejectSignatory(targetUserId, clearanceFormId, signatoryId) {

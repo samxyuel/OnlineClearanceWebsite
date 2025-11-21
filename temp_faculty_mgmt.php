@@ -17,7 +17,7 @@ handleFacultyManagementPageRequest();
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
-    <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Disabled button styling for signatory actions */
         .btn-icon:disabled {
@@ -251,17 +251,30 @@ handleFacultyManagementPageRequest();
                             </div>
                         </div>
                         
-                        <!-- Current Period Wrapper -->
+                        <!-- Tabs + Current Period Wrapper -->
                         <div class="tab-banner-wrapper">
+                            <!-- Tab Navigation for quick status views -->
+                            <div class="tab-nav" id="studentTabNav">
+                                <button class="tab-pill active" data-status="" onclick="switchStudentTab(this)">Overall</button>
+                                <button class="tab-pill" data-status="active" onclick="switchStudentTab(this)">Active</button>
+                                <button class="tab-pill" data-status="inactive" onclick="switchStudentTab(this)">Inactive</button>
+                                <button class="tab-pill" data-status="graduated" onclick="switchStudentTab(this)">Graduated</button>
+                            </div>
+                            <!-- Mobile dropdown alternative -->
+                            <div class="tab-nav-mobile" id="studentTabSelectWrapper">
+                                <select id="studentTabSelect" class="tab-select" onchange="handleTabSelectChange(this)">
+                                    <option value="" selected>Overall</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="graduated">Graduated</option>
+                                </select>
+                            </div>
                             <!-- Current Period Banner -->
                             <span class="academic-year-semester">
                                 <i class="fas fa-calendar-check"></i> 
                                 <span id="currentAcademicYear">Loading...</span> - <span id="currentSemester">Loading...</span>
                             </span>
                         </div>
-
-                        <!-- Term Indicator Banner (shown when historical term is selected) -->
-                        <div id="termIndicatorBanner" class="term-indicator-banner" style="display: none;"></div>
 
                         <!-- Search and Filters Section -->
                         <div class="search-filters-section">
@@ -354,7 +367,6 @@ handleFacultyManagementPageRequest();
                                                 <th>Name</th>
                                                 <th>Employment Status</th>
                                                 <th>Account Status</th>
-                                                <th>Clearance Form Progress</th>
                                                 <th>Clearance Status</th>
                                                 <th>Actions</th>
                                             </tr>
@@ -452,34 +464,14 @@ handleFacultyManagementPageRequest();
     <?php include '../../includes/functions/audit_functions.php'; ?>
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     <script>
-        // --- State Management ---
         let currentPage = 1;
         let entriesPerPage = 20;
         let currentSearch = '';
-        
-        // Initialize CURRENT_STAFF_POSITION from the role selector dropdown
-        // This ensures we use the correct filtered role, not the primary designation
-        let CURRENT_STAFF_POSITION = '';
-        
-        // Try to get the value from the dropdown immediately (in case it's already rendered)
-        const roleSelectorElement = document.getElementById('roleSelector');
-        if (roleSelectorElement && roleSelectorElement.value) {
-            CURRENT_STAFF_POSITION = roleSelectorElement.value;
-        } else {
-            // Fallback to PHP value if dropdown isn't available yet
-            CURRENT_STAFF_POSITION = '<?php echo !empty($GLOBALS['userSignatoryDesignations']) ? addslashes($GLOBALS['userSignatoryDesignations'][0]['designation_name']) : 'Staff'; ?>';
-        }
-        
+        let currentFilters = {};
+        let totalEntries = 0;
+
+        let CURRENT_STAFF_POSITION = '<?php echo !empty($GLOBALS['userSignatoryDesignations']) ? addslashes($GLOBALS['userSignatoryDesignations'][0]['designation_name']) : 'Staff'; ?>';
         let canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
-        
-        // On page load, ensure CURRENT_STAFF_POSITION is synced with the dropdown
-        document.addEventListener('DOMContentLoaded', function() {
-            const roleSelector = document.getElementById('roleSelector');
-            if (roleSelector && roleSelector.value) {
-                CURRENT_STAFF_POSITION = roleSelector.value;
-                console.log('Initialized CURRENT_STAFF_POSITION to:', CURRENT_STAFF_POSITION);
-            }
-        });
 
         // Handle role changes by re-applying all filters, which triggers a fetch
         function handleRoleChange() {
@@ -487,21 +479,14 @@ handleFacultyManagementPageRequest();
             if (roleSelector) {
                 CURRENT_STAFF_POSITION = roleSelector.value;
                 console.log("Role changed to:", CURRENT_STAFF_POSITION);
-                
-                // Update the position display
-                const positionElement = document.getElementById('staffPositionInfo');
-                if (positionElement) {
-                    positionElement.textContent = `Position: ${CURRENT_STAFF_POSITION}`;
-                }
-                
                 applyFilters(); // Re-fetch data from server with the new role
             }
         }
-
+        
         // Toggle sidebar
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
-            const mainContent = document.getElementById('main-content');
+            const mainContent = document.querySelector('.dashboard-main');
             const backdrop = document.getElementById('sidebar-backdrop');
             
             if (window.innerWidth <= 768) {
@@ -522,7 +507,6 @@ handleFacultyManagementPageRequest();
                 }
             }
         }
-
 
         // Select all functionality
         function toggleSelectAll(checked) {
@@ -578,28 +562,18 @@ handleFacultyManagementPageRequest();
                         return;
                     }
 
-                    // Get the currently selected school term from the filter
-                    const schoolTermFilter = document.getElementById('schoolTermFilter');
-                    const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
-
                     // Single API call to the new bulk endpoint
                     try {
-                        const bulkPayload = {
-                            applicant_user_ids: applicantUserIds,
-                            action: 'Approved',
-                            designation_name: CURRENT_STAFF_POSITION,
-                            remarks: `Approved by ${CURRENT_STAFF_POSITION}`
-                        };
-                        // Include school_term if a specific term is selected
-                        if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
-                            bulkPayload.school_term = currentSchoolTerm.trim();
-                        }
-
                         const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             credentials: 'include',
-                            body: JSON.stringify(bulkPayload)
+                            body: JSON.stringify({
+                                applicant_user_ids: applicantUserIds,
+                                action: 'Approved',
+                                designation_name: CURRENT_STAFF_POSITION,
+                                remarks: `Approved by ${CURRENT_STAFF_POSITION}`
+                            })
                         });
 
                         const result = await response.json();
@@ -650,6 +624,7 @@ handleFacultyManagementPageRequest();
             const employmentStatus = document.getElementById('employmentStatusFilter').value;
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value;
+            const roleFilter = document.getElementById('roleSelector').value;
 
             const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
 
@@ -658,14 +633,17 @@ handleFacultyManagementPageRequest();
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
 
+            // Append role filter
+            if (roleFilter) {
+                url.searchParams.append('designation_filter', roleFilter);
+            }
+
             // Optional filters
             if (search) url.searchParams.append('search', search);
             if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
             if (accountStatus) url.searchParams.append('account_status', accountStatus);
             if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
             if (employmentStatus) url.searchParams.append('employment_status', employmentStatus);
-            
-            if (CURRENT_STAFF_POSITION) url.searchParams.append('designation_filter', CURRENT_STAFF_POSITION);
             
             try {
                 const response = await fetch(url.toString(), { credentials: 'include' });
@@ -691,72 +669,18 @@ handleFacultyManagementPageRequest();
             tr.setAttribute('data-faculty-id', faculty.user_id);
             tr.setAttribute('data-signatory-id', faculty.signatory_id);
             
-            // Check if user existed during the selected term
-            const userExisted = faculty.user_existed_during_term !== false; // Default to true if not provided
-            
-            // Clearance Form Progress (end user's overall progress)
-            let clearanceProgress = faculty.clearance_form_progress || 'Unapplied';
-            if (!userExisted) {
-                clearanceProgress = 'N/A';
-            }
-            const clearanceProgressClass = `clearance-${clearanceProgress.toLowerCase().replace(/ /g, '-')}`;
-            
-            // Clearance Status (signatory's action status)
-            let clearanceStatus = faculty.clearance_status || 'Unapplied';
-            if (!userExisted) {
-                clearanceStatus = 'N/A';
-            }
-            const clearanceStatusClass = `signatory-${clearanceStatus.toLowerCase().replace(/ /g, '-')}`;
-            
+            const statusRaw = faculty.clearance_status;
+            const clearanceKey = (statusRaw || 'unapplied').toLowerCase().replace(/ /g, '-');
             const accountStatus = (faculty.account_status || 'inactive').toLowerCase();
             
-            let approveBtnDisabled = (clearanceStatus === 'Unapplied' || clearanceStatus === 'Approved' || clearanceStatus === '' || !canPerformActions || !userExisted);
-            let rejectBtnDisabled = (clearanceStatus === 'Unapplied' || clearanceStatus === 'Approved' || clearanceStatus === '' || !canPerformActions || !userExisted);
+            let approveBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || faculty.clearance_status === '' || !canPerformActions;
+            let rejectBtnDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || faculty.clearance_status === '' || !canPerformActions;
             // Disable checkbox for 'Unapplied' and 'Approved' statuses (same logic as buttons)
-            let checkboxDisabled = (clearanceStatus === 'Unapplied' || clearanceStatus === 'Approved' || clearanceStatus === '' || !canPerformActions || !userExisted);
+            let checkboxDisabled = faculty.clearance_status === 'Unapplied' || faculty.clearance_status === 'Approved' || faculty.clearance_status === '' || !canPerformActions;
             let approveTitle = 'Approve Clearance';
             let rejectTitle = 'Reject Clearance';
             if (!canPerformActions) {
                 approveTitle = rejectTitle = '<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a faculty signatory."; ?>';
-            }
-            
-            // Add class for non-existent users
-            if (!userExisted) {
-                tr.classList.add('user-not-existed');
-            }
-
-            // Build clearance progress cell content (end user's form progress)
-            let clearanceProgressContent = '';
-            if (!userExisted) {
-                clearanceProgressContent = `
-                        <div class="clearance-status-primary">
-                            <span class="status-badge-compact ${clearanceProgressClass}">N/A</span>
-                        </div>
-                        <div class="clearance-status-secondary">User did not exist during this term</div>
-                `;
-            } else {
-                clearanceProgressContent = `
-                        <div class="clearance-status-primary">
-                            <span class="status-badge-compact ${clearanceProgressClass}">${clearanceProgress}</span>
-                        </div>
-                `;
-            }
-
-            // Build clearance status cell content (signatory's action)
-            let clearanceStatusContent = '';
-            if (!userExisted) {
-                clearanceStatusContent = `
-                        <div class="clearance-status-primary">
-                            <span class="status-badge-compact ${clearanceStatusClass}">N/A</span>
-                        </div>
-                        <div class="clearance-status-secondary">User did not exist during this term</div>
-                `;
-            } else {
-                clearanceStatusContent = `
-                        <div class="clearance-status-primary">
-                            <span class="status-badge-compact ${clearanceStatusClass}">${clearanceStatus}</span>
-                        </div>
-                `;
             }
             
             tr.innerHTML = `
@@ -765,11 +689,10 @@ handleFacultyManagementPageRequest();
                 <td data-label="Name:">${escapeHtml(faculty.name)}</td>
                 <td data-label="Employment Status:"><span class="status-badge employment-${(faculty.employment_status || '').toLowerCase().replace(/ /g, '-')}">${escapeHtml(faculty.employment_status || 'N/A')}</span></td>
                 <td data-label="Account Status:"><span class="status-badge account-${accountStatus}">${faculty.account_status || 'N/A'}</span></td>
-                <td data-label="Clearance Form Progress:" class="clearance-status-cell">${clearanceProgressContent}</td>
-                <td data-label="Clearance Status:" class="clearance-status-cell">${clearanceStatusContent}</td>
+                <td data-label="Clearance Progress:"><span class="status-badge clearance-${clearanceKey}">${faculty.clearance_status || 'N/A'}</span></td>
                 <td class="action-buttons">
                     <div class="action-buttons">
-                        <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${faculty.id}')" title="View Clearance Progress">
+                        <button class="bt   n-icon view-progress-btn" onclick="viewClearanceProgress('${faculty.id}')" title="View Clearance Progress">
                             <i class="fas fa-tasks"></i>
                         </button>
                         <button class="btn-icon approve-btn" onclick="approveFacultyClearance(this)" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>
@@ -881,85 +804,29 @@ handleFacultyManagementPageRequest();
 
         function renderPagination(total, page, limit) {
             const totalPages = Math.ceil(total / limit);
-            const startEntry = total === 0 ? 0 : (page - 1) * limit + 1;
+            const startEntry = (page - 1) * limit + 1;
             const endEntry = Math.min(page * limit, total);
 
-            document.getElementById('paginationInfo').textContent = 
-                `Showing ${startEntry} to ${endEntry} of ${total} entries`;
+            document.getElementById('paginationInfo').textContent = `Showing ${total > 0 ? startEntry : 0} to ${endEntry} of ${total} entries`;
             
             const pageNumbersContainer = document.getElementById('pageNumbers');
-            pageNumbersContainer.innerHTML = '';
+            pageNumbersContainer.innerHTML = ''; // Clear old page numbers
 
-            // Smart pagination logic (max 7 page numbers shown)
-            if (totalPages <= 7) {
-                for (let i = 1; i <= totalPages; i++) {
-                    addPageButton(i, i === page);
-                }
-            } else {
-                if (page <= 4) {
-                    for (let i = 1; i <= 5; i++) {
-                        addPageButton(i, i === page);
-                    }
-                    addEllipsis();
-                    addPageButton(totalPages, false);
-                } else if (page >= totalPages - 3) {
-                    addPageButton(1, false);
-                    addEllipsis();
-                    for (let i = totalPages - 4; i <= totalPages; i++) {
-                        addPageButton(i, i === page);
-                    }
-                } else {
-                    addPageButton(1, false);
-                    addEllipsis();
-                    for (let i = page - 1; i <= page + 1; i++) {
-                        addPageButton(i, i === page);
-                    }
-                    addEllipsis();
-                    addPageButton(totalPages, false);
-                }
+            // Simplified pagination buttons for this example
+            for (let i = 1; i <= totalPages; i++) {
+                const button = document.createElement('button');
+                button.className = `pagination-btn ${i === page ? 'active' : ''}`;
+                button.textContent = i;                button.onclick = () => goToPage(i);
+                pageNumbersContainer.appendChild(button);
             }
 
             document.getElementById('prevPage').disabled = page === 1;
-            document.getElementById('nextPage').disabled = page >= totalPages;
+            document.getElementById('nextPage').disabled = page === totalPages;
         }
         
         // Filter functions (simplified for now)
-        // Update term indicator banner
-        function updateTermIndicatorBanner() {
-            const banner = document.getElementById('termIndicatorBanner');
-            const schoolTermFilter = document.getElementById('schoolTermFilter');
-            
-            if (!banner || !schoolTermFilter) return;
-            
-            const selectedValue = schoolTermFilter.value;
-            
-            if (!selectedValue) {
-                banner.style.display = 'none';
-                return;
-            }
-            
-            const selectedOption = schoolTermFilter.options[schoolTermFilter.selectedIndex];
-            const termText = selectedOption.text;
-            
-            // Check if this is a historical term (not current/ongoing)
-            const isHistorical = true; // TODO: Implement logic to check if term is historical
-            
-            banner.className = isHistorical ? 'term-indicator-banner historical' : 'term-indicator-banner';
-            banner.innerHTML = `
-                <i class="fas fa-calendar-alt term-icon"></i>
-                <div class="term-text">
-                    <strong>Viewing:</strong> ${termText}
-                </div>
-                <div class="term-label">
-                    ${isHistorical ? 'Historical Term' : 'Current Term'}
-                </div>
-            `;
-            banner.style.display = 'flex';
-        }
-
         function applyFilters() {
             currentPage = 1;
-            updateTermIndicatorBanner();
             fetchFaculty();
         }
         
@@ -985,7 +852,7 @@ handleFacultyManagementPageRequest();
                 
                 if (data.success) {
                     console.log('Current staff position:', data.designation_name);
-                    
+                                        
                     // Update the position info in the header
                     const positionInfo = document.getElementById('staffPositionInfo');
                     if (positionInfo) {
@@ -994,7 +861,6 @@ handleFacultyManagementPageRequest();
                     }
                 } else {
                     console.error('Failed to load staff designation:', data.message);
-                    
                     const positionInfo = document.getElementById('staffPositionInfo');
                     if (positionInfo) {
                         positionInfo.textContent = 'Position: Unknown';
@@ -1007,7 +873,7 @@ handleFacultyManagementPageRequest();
 
         async function populateFilter(selectId, url, placeholder, valueField = 'value', textField = 'text') {
             const select = document.getElementById(selectId);
-                try {
+            try {
                 const response = await fetch(url, { credentials: 'include' });
                 const data = await response.json();
 
@@ -1055,55 +921,74 @@ handleFacultyManagementPageRequest();
             await populateFilter('accountStatusFilter', url.toString(), 'All Account Statuses');
         }
 
+        // Tab navigation functions
+        function switchFacultyTab(button) {
+            const status = button.getAttribute('data-status');
+            window.currentTabStatus = status;
+            
+            // Update tab appearance
+            document.querySelectorAll('.tab-pill').forEach(pill => {
+                pill.classList.remove('active');
+            });
+            button.classList.add('active');
+            
+            // Update mobile select
+            const mobileSelect = document.getElementById('facultyTabSelect');
+            if (mobileSelect) {
+                mobileSelect.value = status;
+            }
+            
+            // Apply tab filter
+            applyTabFilter(status);
+        }
 
+        function handleTabSelectChange(select) {
+            const status = select.value;
+            window.currentTabStatus = status;
+            
+            // Update tab pills
+            document.querySelectorAll('.tab-pill').forEach(pill => {
+                pill.classList.remove('active');
+                if (pill.getAttribute('data-status') === status) {
+                    pill.classList.add('active');
+                }
+            });
+            
+            // Apply tab filter
+            applyTabFilter(status);
+        }
+
+        function applyTabFilter(status) {
+            const tableRows = document.querySelectorAll('#facultyTableBody tr');
+            
+            tableRows.forEach(row => {
+                const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
+                
+                if (!status || status === '') {
+                    // Show all rows
+                    row.style.display = '';
+                } else {
+                    // Filter by status
+                    if (accountBadge && accountBadge.classList.contains(`account-${status}`)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
 
         // Bulk selection functions
         function openBulkSelectionModal() {
-            try {
-                if (typeof window.openModal === "function") {
-                    window.openModal("bulkSelectionModal");
-                } else {
-                    // Fallback to direct manipulation if openModal not available
-                    const modal = document.getElementById('bulkSelectionModal');
-                    if (modal) {
-                        modal.style.display = 'flex';
-                        document.body.style.overflow = 'hidden';
-                        document.body.classList.add('modal-open');
-                        requestAnimationFrame(() => {
-                            modal.classList.add('active');
-                        });
-                    } else {
-                        if (typeof showToastNotification === 'function') {
-                            showToastNotification('Selection filters are temporarily unavailable.', 'error');
-                        }
-                    }
-                }
-            } catch (error) {
-                if (typeof showToastNotification === 'function') {
-                    showToastNotification('Unable to open selection filters. Please try again.', 'error');
-                }
-            }
+            const modal = document.getElementById('bulkSelectionModal');
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
         }
 
         function closeBulkSelectionModal() {
-            try {
-                if (typeof window.closeModal === "function") {
-                    window.closeModal("bulkSelectionModal");
-                } else {
-                    // Fallback to direct manipulation if closeModal not available
-                    const modal = document.getElementById('bulkSelectionModal');
-                    if (modal) {
-                        modal.classList.remove('active');
-                        setTimeout(() => {
-                            modal.style.display = 'none';
-                            document.body.style.overflow = 'auto';
-                            document.body.classList.remove('modal-open');
-                        }, 300);
-                    }
-                }
-            } catch (error) {
-                // Silent error handling
-            }
+            const modal = document.getElementById('bulkSelectionModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
         }
 
         function applyBulkSelection() {
@@ -1461,7 +1346,6 @@ handleFacultyManagementPageRequest();
         // Initialize page
         document.addEventListener('DOMContentLoaded', async function() {
             // Initialize bulk buttons state
-            updateTermIndicatorBanner();
             updateBulkButtons();
             
             document.addEventListener('change', function(e) {
@@ -1487,7 +1371,15 @@ handleFacultyManagementPageRequest();
             loadEmploymentStatuses(),
             loadRejectionReasons()
             ])
-
+            
+            // --- FIX for Race Condition ---
+            // After all async operations, definitively set the CURRENT_STAFF_POSITION 
+            // from the role selector's current value to ensure it's correct on initial load.
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+                console.log("Initial role set to:", CURRENT_STAFF_POSITION);
+            }
             await setDefaultSchoolTerm();
             fetchFaculty();
             
@@ -1514,107 +1406,61 @@ handleFacultyManagementPageRequest();
         };
 
         function openRejectionRemarksModal(targetId, targetName, targetType = 'faculty', isBulk = false, targetIds = [], existingRemarks = '', existingReasonId = '') {
-            try {
-                const modal = document.getElementById('rejectionRemarksModal');
-                if (!modal) {
-                    if (typeof showToastNotification === 'function') {
-                        showToastNotification('Rejection feature is temporarily unavailable.', 'error');
-                    }
-                    return;
-                }
+            currentRejectionData = { // Note: targetId is now userId for individual, or null for bulk
+                targetId: targetId,
+                targetName: targetName,
+                targetType: targetType,
+                isBulk: isBulk,
+                targetIds: targetIds,
+                existingRemarks: existingRemarks,
+                existingReasonId: existingReasonId
+            };
 
-                currentRejectionData = { // Note: targetId is now userId for individual, or null for bulk
-                    targetId: targetId,
-                    targetName: targetName,
-                    targetType: targetType,
-                    isBulk: isBulk,
-                    targetIds: targetIds,
-                    existingRemarks: existingRemarks,
-                    existingReasonId: existingReasonId
-                };
+            // Update modal content based on target type
+            const modal = document.getElementById('rejectionRemarksModal');
+            const targetNameElement = document.getElementById('rejectionTargetName');
+            const targetTypeElement = document.getElementById('rejectionType');
+            const submitButton = modal.querySelector('.modal-action-primary');
+            const reasonSelect = document.getElementById('rejectionReason');
+            const remarksTextarea = document.getElementById('additionalRemarks');
 
-                // Update modal content based on target type
-                const targetNameElement = document.getElementById('rejectionTargetName');
-                const targetTypeElement = document.getElementById('rejectionType');
-                const submitButton = modal.querySelector('.modal-action-primary');
-                const reasonSelect = document.getElementById('rejectionReason');
-                const remarksTextarea = document.getElementById('additionalRemarks');
+            // Pre-fill form if data exists, otherwise reset
+            reasonSelect.value = existingReasonId || '';
+            remarksTextarea.value = existingRemarks || '';
 
-                if (!targetNameElement || !targetTypeElement || !reasonSelect || !remarksTextarea) {
-                    if (typeof showToastNotification === 'function') {
-                        showToastNotification('Rejection modal elements not found. Please refresh the page.', 'error');
-                    }
-                    return;
-                }
-
-                // Pre-fill form if data exists, otherwise reset
-                reasonSelect.value = existingReasonId || '';
-                remarksTextarea.value = existingRemarks || '';
-
-                // Update display
-                if (isBulk) {
-                    targetNameElement.textContent = `Rejecting: ${targetIds.length} Selected ${targetType === 'student' ? 'Students' : 'Faculty'}`;
-                } else {
-                    targetNameElement.textContent = `Rejecting: ${targetName}`;
-                }
-
-                // Update button text if editing
-                if (submitButton) {
-                    if (existingReasonId || existingRemarks) {
-                        submitButton.textContent = 'Update Rejection';
-                    } else {
-                        submitButton.textContent = 'Close Clearance';
-                    }
-                }
-                targetTypeElement.textContent = targetType === 'student' ? 'Student' : 'Faculty';
-
-                // Show modal
-                if (typeof window.openModal === "function") {
-                    window.openModal("rejectionRemarksModal");
-                } else {
-                    // Fallback to direct manipulation if openModal not available
-                    modal.style.display = 'flex';
-                    document.body.style.overflow = 'hidden';
-                    document.body.classList.add('modal-open');
-                    requestAnimationFrame(() => {
-                        modal.classList.add('active');
-                    });
-                }
-            } catch (error) {
-                if (typeof showToastNotification === 'function') {
-                    showToastNotification('Unable to open rejection modal. Please try again.', 'error');
-                }
+            // Update display
+            if (isBulk) {
+                targetNameElement.textContent = `Rejecting: ${targetIds.length} Selected ${targetType === 'student' ? 'Students' : 'Faculty'}`;
+            } else {
+                targetNameElement.textContent = `Rejecting: ${targetName}`;
             }
+
+            // Update button text if editing
+            if (existingReasonId || existingRemarks) {
+                submitButton.textContent = 'Update Rejection';
+            } else {
+                submitButton.textContent = 'Close Clearance';
+            }
+            targetTypeElement.textContent = targetType === 'student' ? 'Student' : 'Faculty';
+
+            // Show modal
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
         }
 
         function closeRejectionRemarksModal() {
-            try {
-                if (typeof window.closeModal === "function") {
-                    window.closeModal("rejectionRemarksModal");
-                } else {
-                    // Fallback to direct manipulation if closeModal not available
-                    const modal = document.getElementById('rejectionRemarksModal');
-                    if (modal) {
-                        modal.classList.remove('active');
-                        setTimeout(() => {
-                            modal.style.display = 'none';
-                            document.body.style.overflow = 'auto';
-                            document.body.classList.remove('modal-open');
-                        }, 300);
-                    }
-                }
-                
-                // Reset current rejection data
-                currentRejectionData = { // Reset to initial state
-                    userId: null,
-                    targetName: null,
-                    targetType: 'faculty',
-                    isBulk: false,
-                    targetIds: []
-                };
-            } catch (error) {
-                // Silent error handling
-            }
+            const modal = document.getElementById('rejectionRemarksModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+            
+            // Reset current rejection data
+            currentRejectionData = { // Reset to initial state
+                userId: null,
+                targetName: null,
+                targetType: 'faculty',
+                isBulk: false,
+                targetIds: []
+            };
         }
 
         async function rejectFacultyClearance(button) {
@@ -1710,28 +1556,18 @@ handleFacultyManagementPageRequest();
                     return;
                 }
 
-                // Get the currently selected school term from the filter
-                const schoolTermFilter = document.getElementById('schoolTermFilter');
-                const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
-
                 try {
-                    const bulkPayload = {
-                        applicant_user_ids: userIds,
-                        action: 'Rejected',
-                        designation_name: CURRENT_STAFF_POSITION,
-                        remarks: additionalRemarks,
-                        reason_id: reasonId
-                    };
-                    // Include school_term if a specific term is selected
-                    if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
-                        bulkPayload.school_term = currentSchoolTerm.trim();
-                    }
-
                     const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'include',
-                        body: JSON.stringify(bulkPayload)
+                        body: JSON.stringify({
+                            applicant_user_ids: userIds,
+                            action: 'Rejected',
+                            designation_name: CURRENT_STAFF_POSITION,
+                            remarks: additionalRemarks,
+                            reason_id: reasonId
+                        })
                     });
                     const result = await response.json();
                     if (result.success) {
@@ -1775,32 +1611,15 @@ handleFacultyManagementPageRequest();
             }catch(e){ return null; }
         }
         async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null) {
-            // Fetch the current staff's actual designation from the API to ensure accuracy.
-            let designationName = CURRENT_STAFF_POSITION; // Fallback
-            try {
-                const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
-                const desigData = await desigResponse.json();
-                if (desigData.success) {
-                    designationName = desigData.designation_name;
-                }
-            } catch (e) { /* Ignore error, use fallback */ }
-
-            // Get the currently selected school term from the filter to ensure approval goes to the correct period
-            const schoolTermFilter = document.getElementById('schoolTermFilter');
-            const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
-
             const payload = { 
                 applicant_user_id: applicantUserId, 
                 action: action,
-                designation_name: designationName
+                designation_name: CURRENT_STAFF_POSITION // Use the role selected in the dropdown
             };
             if (remarks && remarks.length) payload.remarks = remarks;
             if (reasonId) payload.reason_id = reasonId;
-            // Include school_term if a specific term is selected
-            if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
-                payload.school_term = currentSchoolTerm.trim();
-            }
 
+            console.log("Sending signatory action with payload:", payload); // For debugging
             const response = await fetch('../../api/clearance/signatory_action.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)});
             return await response.json();
         }

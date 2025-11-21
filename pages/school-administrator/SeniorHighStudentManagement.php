@@ -4,7 +4,11 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// Session data is handled by authentication system
+// Include the controller logic which handles all authorization and data fetching.
+require_once __DIR__ . '/../../controllers/StudentManagementController.php';
+
+// The controller function acts as a "gatekeeper". If it doesn't exit, the user is authorized.
+handleStudentManagementPageRequest('Senior High School');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -38,6 +42,28 @@ if (session_status() == PHP_SESSION_NONE) {
                             <div class="department-scope-info">
                                 <i class="fas fa-shield-alt"></i>
                                 <span>Scope: Senior High School Departments (School-wide Access)</span>
+                            </div>
+
+                            <!-- Role Selector for Multi-Designation Users -->
+                            <div class="role-selector-container">
+                                <i class="fas fa-user-tag"></i>
+                                <label for="roleSelector">Viewing as:</label>
+                                <?php 
+                                $signatoryDesignations = $GLOBALS['userSignatoryDesignations'];
+                                if (count($signatoryDesignations) > 1): ?>
+                                    <select id="roleSelector" class="filter-select" onchange="handleRoleChange()">
+                                        <?php foreach ($signatoryDesignations as $designation): ?>
+                                            <option value="<?php echo htmlspecialchars($designation['designation_name']); ?>">
+                                                <?php echo htmlspecialchars($designation['designation_name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                <?php elseif (count($signatoryDesignations) === 1): ?>
+                                    <span class="single-role-display"><?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?></span>
+                                    <input type="hidden" id="roleSelector" value="<?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?>">
+                                <?php else: ?>
+                                    <span class="single-role-display">No active signatory roles</span>
+                                <?php endif; ?>
                             </div>
                         </div>
 
@@ -531,6 +557,21 @@ if (session_status() == PHP_SESSION_NONE) {
     <?php */ ?>
 
     <script>
+        // --- State Management ---
+        let currentFilters = {};
+        // This will be dynamically updated by the role selector
+        let CURRENT_STAFF_POSITION = '<?php echo !empty($GLOBALS['userSignatoryDesignations']) ? addslashes($GLOBALS['userSignatoryDesignations'][0]['designation_name']) : ''; ?>';
+
+        // Handle role changes by re-applying all filters, which triggers a fetch
+        function handleRoleChange() {
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+                console.log("Role changed to:", CURRENT_STAFF_POSITION);
+                applyFilters(); // Re-fetch data from server with the new role
+            }
+        }
+
         // Toggle sidebar
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
@@ -1153,6 +1194,9 @@ if (session_status() == PHP_SESSION_NONE) {
             if (accountStatus) url.searchParams.append('account_status', accountStatus);
             if (departments) url.searchParams.append('departments', departments);
             if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+
+            // Pass the current role/designation for filtering
+            if (CURRENT_STAFF_POSITION) url.searchParams.append('designation_filter', CURRENT_STAFF_POSITION);
 
             try {
                 const response = await fetch(url.toString(), {

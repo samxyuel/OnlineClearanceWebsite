@@ -5,57 +5,14 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 // Page guard: Program Head must have student-sector assignment (College/SHS)
-require_once __DIR__ . '/../../includes/config/database.php';
-require_once __DIR__ . '/../../includes/classes/Auth.php';
+// Include the controller logic which handles all authorization and data fetching.
+require_once __DIR__ . '/../../controllers/StudentManagementController.php';
 
-$auth = new Auth();
-if (!$auth->isLoggedIn()) {
-    header('Location: ../../pages/auth/login.php');
-    exit;
-}
+// The controller function acts as a "gatekeeper". If it doesn't exit, the user is authorized.
+handleStudentManagementPageRequest('Senior High School');
 
-$userId = (int)$auth->getUserId();
-
-try {
-    $pdo = Database::getInstance()->getConnection();
-    // Verify role Program Head (TEMPORARILY RELAXED FOR TESTING)
-    $roleOk = false;
-    $rs = $pdo->prepare("SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id=r.role_id WHERE ur.user_id=? LIMIT 1");
-    $rs->execute([$userId]);
-    $rn = strtolower((string)$rs->fetchColumn());
-    // Allow Admin or Program Head access
-    if ($rn === 'program head' || $rn === 'admin') { $roleOk = true; }
-
-    // Check student-sector assignment - COMMENTED OUT TO ALLOW ALL PROGRAM HEADS ACCESS
-    // $sql = "SELECT COUNT(*) FROM signatory_assignments sa
-    //         JOIN designations des ON sa.designation_id=des.designation_id
-    //         JOIN departments d ON sa.department_id=d.department_id
-    //         JOIN sectors s ON d.sector_id=s.sector_id
-    //         WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name IN ('College','Senior High School')";
-    // $st = $pdo->prepare($sql);
-    // $st->execute([$userId]);
-    // $hasStudentSector = ((int)$st->fetchColumn()) > 0;
-
-    if (!$roleOk) {
-        // If PH has faculty only, redirect to PH FacultyManagement; else to PH dashboard
-        $sf = $pdo->prepare("SELECT COUNT(*) FROM signatory_assignments sa JOIN designations des ON sa.designation_id=des.designation_id JOIN departments d ON sa.department_id=d.department_id JOIN sectors s ON d.sector_id=s.sector_id WHERE sa.user_id=? AND sa.is_active=1 AND des.designation_name='Program Head' AND s.sector_name='Faculty'");
-        $sf->execute([$userId]);
-        $hasFacultySector = ((int)$sf->fetchColumn()) > 0;
-        if ($hasFacultySector) {
-            header('Location: ../../pages/program-head/FacultyManagement.php');
-        } else {
-            header('Location: ../../pages/program-head/dashboard.php');
-        }
-        exit;
-    }
-
-        // NOTE: Permission check moved to centralized API (api/program-head/is_assigned.php)
-        // Client-side will call the API to determine CAN_TAKE_ACTION for the given clearance_type.
-} catch (Throwable $e) {
-    header('HTTP/1.1 403 Forbidden');
-    echo 'Access denied.';
-    exit;
-}
+// For SHS, we do not filter by department ID. This is intentionally left empty.
+$departmentIds = [];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -90,6 +47,28 @@ try {
                             <div class="department-scope-info">
                                 <i class="fas fa-shield-alt"></i>
                                 <span id="departmentScopeText">Loading department scope...</span>
+                            </div>
+
+                            <!-- Role Selector for Multi-Designation Users -->
+                            <div class="role-selector-container">
+                                <i class="fas fa-user-tag"></i>
+                                <label for="roleSelector">Viewing as:</label>
+                                <?php 
+                                $signatoryDesignations = $GLOBALS['userSignatoryDesignations'];
+                                if (count($signatoryDesignations) > 1): ?>
+                                    <select id="roleSelector" class="filter-select" onchange="handleRoleChange()">
+                                        <?php foreach ($signatoryDesignations as $designation): ?>
+                                            <option value="<?php echo htmlspecialchars($designation['designation_name']); ?>">
+                                                <?php echo htmlspecialchars($designation['designation_name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                <?php elseif (count($signatoryDesignations) === 1): ?>
+                                    <span class="single-role-display"><?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?></span>
+                                    <input type="hidden" id="roleSelector" value="<?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?>">
+                                <?php else: ?>
+                                    <span class="single-role-display">No active signatory roles</span>
+                                <?php endif; ?>
                             </div>
                         </div>
 
@@ -323,6 +302,45 @@ try {
     </main>
 
     <script>
+        const DEPARTMENT_IDS = <?php echo json_encode($departmentIds); ?>;
+        // This will be dynamically updated by the role selector
+        let CURRENT_STAFF_POSITION = '';
+        
+        // Try to get the value from the dropdown immediately (in case it's already rendered)
+        const roleSelectorElement = document.getElementById('roleSelector');
+        if (roleSelectorElement && roleSelectorElement.value) {
+            CURRENT_STAFF_POSITION = roleSelectorElement.value;
+        } else {
+            // Fallback to PHP value if dropdown isn't available yet
+            CURRENT_STAFF_POSITION = '<?php echo !empty($GLOBALS['userSignatoryDesignations']) ? addslashes($GLOBALS['userSignatoryDesignations'][0]['designation_name']) : 'Program Head'; ?>';
+        }
+        
+        // On page load, ensure CURRENT_STAFF_POSITION is synced with the dropdown
+        document.addEventListener('DOMContentLoaded', function() {
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector && roleSelector.value) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+                console.log('Initialized CURRENT_STAFF_POSITION to:', CURRENT_STAFF_POSITION);
+            }
+        });
+
+        // Handle role changes by re-applying all filters, which triggers a fetch
+        function handleRoleChange() {
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+                console.log("Role changed to:", CURRENT_STAFF_POSITION);
+                
+                // Update the position display
+                const positionElement = document.getElementById('staffPositionInfo');
+                if (positionElement) {
+                    positionElement.textContent = `Position: ${CURRENT_STAFF_POSITION}`;
+                }
+                
+                applyFilters(); // Re-fetch data from server with the new role
+            }
+        }
+
         // Default until we query the centralized assignment API
         window.CAN_TAKE_ACTION = false;
 
@@ -1325,12 +1343,20 @@ try {
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
 
+            // Conditionally add department_ids if they exist (for consistency with College page)
+            if (typeof DEPARTMENT_IDS !== 'undefined' && DEPARTMENT_IDS.length > 0) {
+                url.searchParams.append('department_ids', DEPARTMENT_IDS.join(','));
+            }
+
             if (search) url.searchParams.append('search', search);
             if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
             if (accountStatus) url.searchParams.append('account_status', accountStatus);
             if (programId) url.searchParams.append('program_id', programId);
             if (yearLevel) url.searchParams.append('year_level', yearLevel);
             if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+            
+            // Pass the current role/designation for filtering
+            if (CURRENT_STAFF_POSITION) url.searchParams.append('designation_filter', CURRENT_STAFF_POSITION);
 
             try {
                 console.log('Loading senior high students data...');

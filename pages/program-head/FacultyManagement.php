@@ -6,7 +6,9 @@ require_once __DIR__ . '/../../controllers/FacultyManagementController.php';
 
 // The controller function acts as a "gatekeeper". If it doesn't exit, the user is authorized.
 handleFacultyManagementPageRequest();
-// handleFacultyManagementPageRequest(); // Authorization check disabled for now.
+
+// Now that the controller has run, we can access the global variables it set.
+$departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -105,6 +107,28 @@ handleFacultyManagementPageRequest();
                             <div class="department-scope-info">
                                 <i class="fas fa-user-shield"></i>
                                 <span id="staffPositionInfo">Loading position...</span>
+                            </div>
+
+                            <!-- Role Selector for Multi-Designation Users -->
+                            <div class="role-selector-container">
+                                <i class="fas fa-user-tag"></i>
+                                <label for="roleSelector">Viewing as:</label>
+                                <?php 
+                                $signatoryDesignations = $GLOBALS['userSignatoryDesignations'];
+                                if (count($signatoryDesignations) > 1): ?>
+                                    <select id="roleSelector" class="filter-select" onchange="handleRoleChange()">
+                                        <?php foreach ($signatoryDesignations as $designation): ?>
+                                            <option value="<?php echo htmlspecialchars($designation['designation_name']); ?>">
+                                                <?php echo htmlspecialchars($designation['designation_name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                <?php elseif (count($signatoryDesignations) === 1): ?>
+                                    <span class="single-role-display"><?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?></span>
+                                    <input type="hidden" id="roleSelector" value="<?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?>">
+                                <?php else: ?>
+                                    <span class="single-role-display">No active signatory roles</span>
+                                <?php endif; ?>
                             </div>
 
                             <!-- Permission Status Alerts -->
@@ -384,6 +408,28 @@ handleFacultyManagementPageRequest();
 
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     <script>
+        const DEPARTMENT_IDS = <?php echo json_encode($departmentIds); ?>;
+
+        const DEPARTMENT_ID = DEPARTMENT_IDS.length > 0 ? DEPARTMENT_IDS[0] : null;
+
+        // On page load, ensure CURRENT_STAFF_POSITION is synced with the dropdown
+        document.addEventListener('DOMContentLoaded', function() {
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector && roleSelector.value) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+            }
+        });
+
+        // Handle role changes by re-applying all filters, which triggers a fetch
+        function handleRoleChange() {
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+                // Re-fetch data from server with the new role
+                applyFilters(); 
+            }
+        }
+
         let currentPage = 1;
         let entriesPerPage = 20;
         let currentSearch = '';
@@ -824,6 +870,7 @@ handleFacultyManagementPageRequest();
 
             const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
             url.searchParams.append('type', 'faculty'); 
+            url.searchParams.append('department_ids', DEPARTMENT_IDS.join(','));
             url.searchParams.append('page', currentPage);
             url.searchParams.append('limit', entriesPerPage);
 
@@ -831,6 +878,9 @@ handleFacultyManagementPageRequest();
             if (employmentStatus) url.searchParams.append('employment_status', employmentStatus);
             if (accountStatus) url.searchParams.append('account_status', accountStatus);
             if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+
+            // Pass the current role/designation for filtering
+            if (CURRENT_STAFF_POSITION) url.searchParams.append('designation_filter', CURRENT_STAFF_POSITION);
 
 
             try {
@@ -1869,7 +1919,6 @@ handleFacultyManagementPageRequest();
             return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
     </script>
-    <script src="../../assets/js/alerts.js"></script>
     
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
@@ -1965,16 +2014,6 @@ handleFacultyManagementPageRequest();
     <?php include '../../Modals/ExportModal.php'; ?>
 </body>
 </html>
-    <script src="../../assets/js/alerts.js"></script>
-    
-    <!-- Bulk Selection Filters Modal -->
-    <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
-        <div class="modal-window bulk-selection-modal">
-            <div class="modal-header">
-                <h3 class="modal-title"><i class="fas fa-filter"></i> Bulk Selection Filters</h3>
-                <button class="modal-close" onclick="closeBulkSelectionModal()">
-                    <i class="fas fa-times"></i>
-                </button>
             </div>
             <div class="modal-content-area">
                 <div class="filter-sections">
@@ -2054,41 +2093,7 @@ handleFacultyManagementPageRequest();
         </div>
     </div>
     
-    <!-- Include Faculty Batch Update Modal -->
-    <?php include '../../Modals/FacultyBatchUpdateModal.php'; ?>
     
-    <!-- Include Export Modal -->
-    <?php include '../../Modals/ExportModal.php'; ?>
     
-    <!-- Include Import Modal -->
-    <?php include '../../Modals/ImportModal.php'; ?>
-    
-    <script>
-        // Import Modal function for Program Head - Faculty Management
-        function triggerImportModal() {
-            console.log('triggerImportModal function called (Program Head - Faculty)');
-            console.log('Checking window.openImportModal:', typeof window.openImportModal);
-            
-            // Wait a bit if function not immediately available (script loading race condition)
-            if (typeof window.openImportModal !== 'function') {
-                console.warn('window.openImportModal not found immediately, waiting 100ms...');
-                setTimeout(() => {
-                    if (typeof window.openImportModal === 'function') {
-                        window.openImportModal('faculty', 'faculty_import', 'Program Head');
-                        console.log('Import modal opened successfully (delayed)');
-                    } else {
-                        console.error('Import modal function still not found after delay');
-                        console.error('Debug - window object keys:', Object.keys(window).filter(k => k.includes('Import') || k.includes('Modal')).slice(0, 20));
-                        showToastNotification('Import modal not available. Please refresh the page.', 'error');
-                    }
-                }, 100);
-                return;
-            }
-            
-            // Initialize modal with page context: faculty import for Program Head
-            window.openImportModal('faculty', 'faculty_import', 'Program Head');
-            console.log('Import modal opened successfully');
-        }
-    </script>
 </body>
 </html>

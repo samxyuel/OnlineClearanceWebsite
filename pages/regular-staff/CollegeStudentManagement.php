@@ -1,48 +1,11 @@
 <?php
 // Online Clearance Website - Regular Staff College Student Management
 
-// Include necessary files for authentication and database connection
-require_once __DIR__ . '/../../includes/config/database.php';
-require_once __DIR__ . '/../../includes/classes/Auth.php';
+// Include the controller logic which handles all authorization and data fetching.
+require_once __DIR__ . '/../../controllers/StudentManagementController.php';
 
-$auth = new Auth();
-if (!$auth->isLoggedIn()) {
-    header('Location: ../../pages/auth/login.php');
-    exit;
-}
-$userId = (int)$auth->getUserId();
-
-try {
-    $pdo = Database::getInstance()->getConnection();
-
-    // 1. Get the staff member's designation ID
-    $staffDesignationStmt = $pdo->prepare("SELECT designation_id FROM staff WHERE user_id = ? AND is_active = 1");
-    $staffDesignationStmt->execute([$userId]);
-    $designationId = $staffDesignationStmt->fetchColumn();
-
-    // Check permission flags (for conditional UI behavior)
-    $hasActivePeriod = (int)$pdo->query("SELECT COUNT(*) FROM clearance_periods WHERE status = 'Ongoing' AND sector = 'College'")->fetchColumn() > 0;
-
-    $hasStudentSignatoryAccess = false;
-    if ($designationId) {
-        // 2. Check if this designation is assigned to sign for 'College' students
-        $studentSignatoryCheck = $pdo->prepare("SELECT COUNT(*) FROM sector_signatory_assignments WHERE designation_id = ? AND clearance_type = 'College' AND is_active = 1");
-        $studentSignatoryCheck->execute([$designationId]);
-        $hasStudentSignatoryAccess = (int)$studentSignatoryCheck->fetchColumn() > 0;
-    }
-    
-    $canPerformSignatoryActions = $hasActivePeriod && $hasStudentSignatoryAccess;
-
-    // Store permission flags for use in the page
-    $GLOBALS['hasActivePeriod'] = $hasActivePeriod;
-    $GLOBALS['hasStudentSignatoryAccess'] = $hasStudentSignatoryAccess;
-    $GLOBALS['canPerformSignatoryActions'] = $canPerformSignatoryActions;
-    
-} catch (Throwable $e) {
-    header('HTTP/1.1 500 Internal Server Error'); 
-    echo 'System error. Please try again later.'; 
-    exit;
-}
+// The controller function acts as a "gatekeeper". If it doesn't exit, the user is authorized.
+handleStudentManagementPageRequest('College');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -155,6 +118,28 @@ try {
                             <div class="department-scope-info">
                                 <i class="fas fa-user-shield"></i>                                
                                 <span id="positionInfo">Loading position...</span>
+                            </div>
+
+                            <!-- Role Selector for Multi-Designation Users -->
+                            <div class="role-selector-container">
+                                <i class="fas fa-user-tag"></i>
+                                <label for="roleSelector">Viewing as:</label>
+                                <?php 
+                                $signatoryDesignations = $GLOBALS['userSignatoryDesignations'];
+                                if (count($signatoryDesignations) > 1): ?>
+                                    <select id="roleSelector" class="filter-select" onchange="handleRoleChange()">
+                                        <?php foreach ($signatoryDesignations as $designation): ?>
+                                            <option value="<?php echo htmlspecialchars($designation['designation_name']); ?>">
+                                                <?php echo htmlspecialchars($designation['designation_name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                <?php elseif (count($signatoryDesignations) === 1): ?>
+                                    <span class="single-role-display"><?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?></span>
+                                    <input type="hidden" id="roleSelector" value="<?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?>">
+                                <?php else: ?>
+                                    <span class="single-role-display">No active signatory roles</span>
+                                <?php endif; ?>
                             </div>
 
                             <!-- Permission Status Alerts -->
@@ -492,7 +477,45 @@ try {
         let entriesPerPage = 20;
         let currentSearch = '';
         let currentFilters = {};
-        let CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'Staff'; ?>';
+        
+        // Initialize CURRENT_STAFF_POSITION from the role selector dropdown
+        // This ensures we use the correct filtered role, not the primary designation
+        let CURRENT_STAFF_POSITION = '';
+        
+        // Try to get the value from the dropdown immediately (in case it's already rendered)
+        const roleSelectorElement = document.getElementById('roleSelector');
+        if (roleSelectorElement && roleSelectorElement.value) {
+            CURRENT_STAFF_POSITION = roleSelectorElement.value;
+        } else {
+            // Fallback to PHP value if dropdown isn't available yet
+            CURRENT_STAFF_POSITION = '<?php echo !empty($GLOBALS['userSignatoryDesignations']) ? addslashes($GLOBALS['userSignatoryDesignations'][0]['designation_name']) : 'Staff'; ?>';
+        }
+        
+        // On page load, ensure CURRENT_STAFF_POSITION is synced with the dropdown
+        document.addEventListener('DOMContentLoaded', function() {
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector && roleSelector.value) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+                console.log('Initialized CURRENT_STAFF_POSITION to:', CURRENT_STAFF_POSITION);
+            }
+        });
+
+        // Handle role changes by re-applying all filters, which triggers a fetch
+        function handleRoleChange() {
+            const roleSelector = document.getElementById('roleSelector');
+            if (roleSelector) {
+                CURRENT_STAFF_POSITION = roleSelector.value;
+                console.log("Role changed to:", CURRENT_STAFF_POSITION);
+                
+                // Update the position display
+                const positionElement = document.getElementById('positionInfo');
+                if (positionElement) {
+                    positionElement.textContent = `Position: ${CURRENT_STAFF_POSITION} - Clearance Signatory`;
+                }
+                
+                applyFilters(); // Re-fetch data from server with the new role
+            }
+        }
 
         // Select all functionality
         function toggleSelectAll(checked) {
@@ -933,6 +956,9 @@ try {
             if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
             if (accountStatus) url.searchParams.append('account_status', accountStatus);
             if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
+            
+            // Pass the current role/designation for filtering
+            if (CURRENT_STAFF_POSITION) url.searchParams.append('designation_filter', CURRENT_STAFF_POSITION);
 
             try {
                 const response = await fetch(url.toString(), { credentials: 'include' });
@@ -1272,14 +1298,13 @@ try {
         // Load staff position information
         async function loadStaffPosition() {
             try {
-                const response = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
-                const data = await response.json();
                 const positionElement = document.getElementById('positionInfo');
+                const roleSelector = document.getElementById('roleSelector');
                 
                 if (positionElement) {
-                    if (data.success && data.designation_name) {
-                        positionElement.textContent = `Position: ${data.designation_name} - Clearance Signatory`;
-                        CURRENT_STAFF_POSITION = data.designation_name; // Update the global variable
+                    // Display the currently selected role from the dropdown
+                    if (roleSelector && roleSelector.value) {
+                        positionElement.textContent = `Position: ${roleSelector.value} - Clearance Signatory`;
                     } else {
                         positionElement.textContent = 'Position: Staff - Clearance Signatory';
                     }
@@ -1357,7 +1382,7 @@ try {
             ]);
 
             await setDefaultSchoolTerm();
-            fetchStudents();
+            await fetchStudents();
 
             document.getElementById('searchInput').addEventListener('keydown', function(event) {
                 if (event.key === 'Enter') {

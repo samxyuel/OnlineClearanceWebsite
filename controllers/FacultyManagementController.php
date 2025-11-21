@@ -71,6 +71,28 @@ function handleFacultyManagementPageRequest() {
         $GLOBALS['canPerformSignatoryActions'] = $canPerformSignatoryActions;
         $GLOBALS['userSignatoryDesignations'] = $userSignatoryDesignations; // Make designations available to the page
 
+        // 3. Get all department assignments for the user.
+        $departmentIds = [];
+        // a) Get primary department from staff table
+        $primaryDeptStmt = $pdo->prepare("
+            SELECT department_id FROM staff WHERE user_id = ? AND department_id IS NOT NULL AND is_active = 1
+        ");
+        $primaryDeptStmt->execute([$userId]);
+        $primaryDeptId = $primaryDeptStmt->fetchColumn();
+        if ($primaryDeptId) {
+            $departmentIds[] = $primaryDeptId;
+        }
+        // b) Get all departments from user_department_assignments
+        $multiDeptStmt = $pdo->prepare("
+            SELECT department_id FROM user_department_assignments WHERE user_id = ? AND is_active = 1
+        ");
+        $multiDeptStmt->execute([$userId]);
+        $multiDepartmentIds = $multiDeptStmt->fetchAll(PDO::FETCH_COLUMN);
+        $departmentIds = array_merge($departmentIds, $multiDepartmentIds);
+        
+        // Store the unique list of department IDs in the global scope
+        $GLOBALS['userDepartmentIds'] = array_unique(array_map('intval', $departmentIds));
+
     } catch (Throwable $e) {
         // In a real app, you'd log this and show a user-friendly error page.
         die('System error. Please try again later.');
