@@ -16,7 +16,6 @@ handleFacultyManagementPageRequest();
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
     <style>
         /* Disabled button styling for signatory actions */
@@ -399,9 +398,6 @@ handleFacultyManagementPageRequest();
                 </div>
                 
                 <!-- RIGHT SIDE: Activity Tracker -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
         </div>
     </main>
@@ -444,8 +440,6 @@ handleFacultyManagementPageRequest();
         </div>
     </div>
 
-    <script src="../../assets/js/activity-tracker.js"></script>
-    
     <!-- Include Clearance Button Manager -->
     <script src="../../assets/js/clearance-button-manager.js"></script>
     
@@ -1474,7 +1468,6 @@ handleFacultyManagementPageRequest();
 
             // Initialize Activity Tracker
             window.sidebarHandledByPage = true;
-            window.activityTrackerInstance = new ActivityTracker();
             
             loadCurrentStaffDesignation();
             loadCurrentPeriod();

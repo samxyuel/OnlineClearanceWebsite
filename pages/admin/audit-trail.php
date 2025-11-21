@@ -57,7 +57,6 @@ $activity_types = getActivityTypes();
     
     <!-- CSS Files -->
     <link rel="stylesheet" href="../../assets/css/styles.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
     

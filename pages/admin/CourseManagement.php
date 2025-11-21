@@ -15,7 +15,6 @@
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -160,10 +159,6 @@
                     </div>
                 </div> <!-- Close departments-scrollable-card -->
             </div> <!-- Close content-wrapper -->
-             <!-- RIGHT SIDE: Activity Tracker -->
-             <div class="dashboard-sidebar">
-                        <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
         </div> <!-- Close dashboard-main or dashboard-layout rather -->
 
        
@@ -328,7 +323,6 @@
             </div> <!-- Close dashboard-layout -->
 
             <script src="../../assets/js/alerts.js"></script>
-            <script src="../../assets/js/activity-tracker.js"></script>
             
             <!-- Include Audit Functions -->
             <?php include '../../includes/functions/audit_functions.php'; ?>
@@ -342,9 +336,6 @@
                 document.addEventListener('DOMContentLoaded', function() {
                     console.log('Alerts system initialized successfully');
                     
-                    // Initialize Activity Tracker (only if not already initialized)
-                    if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-                        window.activityTrackerInstance = new ActivityTracker();
                         console.log('Activity Tracker initialized');
                     }
                 });

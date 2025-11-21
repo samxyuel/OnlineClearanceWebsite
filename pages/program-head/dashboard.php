@@ -10,7 +10,6 @@
     <title>Program Head Dashboard - Online Clearance System</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/css/components.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
@@ -154,17 +153,12 @@
                     </div>
                 </div>
                 
-                <!-- Activity Tracker Sidebar -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
         </div>
     </main>
 
     <!-- Scripts -->
     <script src="../../assets/js/alerts.js"></script>
-    <script src="../../assets/js/activity-tracker.js"></script>
     <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
         function viewPendingClearances() {
@@ -442,11 +436,6 @@
             // Load dynamic content
             loadDashboardData();
 
-            // Initialize Activity Tracker
-            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-                window.activityTrackerInstance = new ActivityTracker();
-                console.log('Activity Tracker initialized for Program Head Dashboard');
-            }
         });
     </script>
 </body>

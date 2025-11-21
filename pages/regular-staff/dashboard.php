@@ -10,7 +10,6 @@
     <title>Staff Dashboard - Online Clearance System</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/css/components.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
@@ -135,18 +134,12 @@
 
                     </div>
                 </div>
-                
-                <!-- RIGHT SIDE: Activity Tracker -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
         </div>
     </main>
 
     <!-- Scripts -->
     <script src="../../assets/js/alerts.js"></script>
-    <script src="../../assets/js/activity-tracker.js"></script>
     <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
         function viewPendingClearances() {
@@ -212,9 +205,7 @@
             // Load user information dynamically
             loadUserInfo();
             
-            // Initialize Activity Tracker
             window.sidebarHandledByPage = true;
-            window.activityTrackerInstance = new ActivityTracker();
         });
 
         // Load user information from session/API

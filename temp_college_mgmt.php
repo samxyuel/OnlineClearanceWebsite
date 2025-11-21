@@ -78,7 +78,6 @@ try {
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Disabled button styling for signatory actions */
@@ -425,10 +424,6 @@ try {
                     </div>
                 </div>
                 
-                <!-- RIGHT SIDE: Activity Tracker -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
         </div>
     </main>
@@ -543,7 +538,6 @@ try {
         </div>
     </div>
 
-    <script src="../../assets/js/activity-tracker.js"></script>
     <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
         // --- State Management ---
@@ -1242,9 +1236,7 @@ try {
                 }
             });
 
-            // Initialize Activity Tracker
             window.sidebarHandledByPage = true;
-            window.activityTrackerInstance = new ActivityTracker();
 
             // --- New Initializer Logic ---
             // Wait for all filters to be populated before setting defaults and loading data.

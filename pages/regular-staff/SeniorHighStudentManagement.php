@@ -16,7 +16,6 @@ handleStudentManagementPageRequest('Senior High School');
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
     <style>
         /* Disabled button styling for signatory actions */
@@ -351,9 +350,6 @@ handleStudentManagementPageRequest('Senior High School');
                 </div>
                 
                 <!-- RIGHT SIDE: Activity Tracker -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
         </div>
     </main>
@@ -468,7 +464,6 @@ handleStudentManagementPageRequest('Senior High School');
         </div>
     </div>
 
-    <script src="../../assets/js/activity-tracker.js"></script>
     <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
         // --- State Management ---
@@ -1418,7 +1413,6 @@ handleStudentManagementPageRequest('Senior High School');
             
             // Initialize Activity Tracker
             window.sidebarHandledByPage = true;
-            window.activityTrackerInstance = new ActivityTracker();
 
             // Initial data fetch
             await Promise.all([

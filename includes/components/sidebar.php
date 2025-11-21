@@ -134,7 +134,7 @@ $sidebarLinks = [
             ['icon' => 'fas fa-book', 'text' => 'Departments Management', 'link' => '../../pages/admin/CourseManagement.php'],
             // ['icon' => 'fas fa-comment-dots', 'text' => 'Feedback', 'link' => '../../pages/admin/feedback.php'],
             // ['icon' => 'fas fa-user-plus', 'text' => 'Create Users', 'link' => '../../pages/admin/create-users.php'],
-            ['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
+            //['icon' => 'fas fa-history', 'text' => 'Audit Trail', 'link' => '../../pages/admin/audit-trail.php']
         ],
         'bottom' => [
             ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],

@@ -9,7 +9,6 @@
     <title>Admin Dashboard - Online Clearance System</title>
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/css/components.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
@@ -139,18 +138,12 @@
                     <?php include '../../includes/components/recent-activity.php'; ?>
                 </div>
                 </div>
-                
-                <!-- RIGHT SIDE: Activity Tracker -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
         </div>
     </main>
 
     <!-- Scripts -->
     <script src="../../assets/js/alerts.js"></script>
-    <script src="../../assets/js/activity-tracker.js"></script>
     
     <!-- Include Audit Functions -->
     <?php include '../../includes/functions/audit_functions.php'; ?>
@@ -499,12 +492,6 @@
 
             // Mark that this page handles sidebar functionality
             window.sidebarHandledByPage = true;
-
-            // Initialize Activity Tracker (only if not already initialized)
-            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-                window.activityTrackerInstance = new ActivityTracker();
-                console.log('Activity Tracker initialized');
-            }
             
             // Load dashboard data
             loadDashboardData();

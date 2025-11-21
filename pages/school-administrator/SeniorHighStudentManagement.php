@@ -19,7 +19,6 @@ handleStudentManagementPageRequest('Senior High School');
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -284,10 +283,6 @@ handleStudentManagementPageRequest('Senior High School');
                     </div>
                 </div>
 
-                <!-- RIGHT SIDE: Activity Tracker -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
         </div>
     </main>
@@ -2014,7 +2009,6 @@ handleStudentManagementPageRequest('Senior High School');
         }
     </script>
     <script src="../../assets/js/alerts.js"></script>
-    <script src="../../assets/js/activity-tracker.js"></script>
     
     <!-- Include Audit Functions -->
     <?php include '../../includes/functions/audit_functions.php'; ?>
@@ -2678,9 +2672,6 @@ handleStudentManagementPageRequest('Senior High School');
 
 
         document.addEventListener('DOMContentLoaded', async function() {
-            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-                window.activityTrackerInstance = new ActivityTracker();
-                console.log('Activity Tracker initialized for School Administrator Student Management');
             }
             
             updateTermIndicatorBanner();

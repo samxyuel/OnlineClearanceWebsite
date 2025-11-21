@@ -15,7 +15,6 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -327,10 +326,6 @@ if (session_status() == PHP_SESSION_NONE) {
                     </div>
                 </div>
 
-                <!-- RIGHT SIDE: Activity Tracker -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
         </div>
     </main>
@@ -1248,12 +1243,6 @@ if (session_status() == PHP_SESSION_NONE) {
                 });
             }
             
-            // Initialize Activity Tracker
-            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-                window.activityTrackerInstance = new ActivityTracker();
-                console.log('Activity Tracker initialized for Senior High Student Management');
-            }
-            
             // Initialize current period banner
             updateCurrentPeriodBanner();
         });
@@ -1497,9 +1486,6 @@ if (session_status() == PHP_SESSION_NONE) {
     
     <!-- Include Alert System JavaScript -->
     <script src="../../assets/js/alerts.js"></script>
-    
-    <!-- Include Activity Tracker JavaScript -->
-    <script src="../../assets/js/activity-tracker.js"></script>
     
     <!-- Include Clearance Button Manager -->
     <script src="../../assets/js/clearance-button-manager.js"></script>

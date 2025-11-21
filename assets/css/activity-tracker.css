@@ -77,7 +77,6 @@
   grid-template-columns: 1fr; /* Single column since activity tracker is now fixed positioned */
   gap: 20px;
   padding: 20px;
-  padding-right: 352px; /* Make room for fixed activity tracker: 320px width + 32px spacing */
   min-height: 100vh;
   /* Ensure proper alignment */
   align-items: start;
@@ -95,7 +94,6 @@
   .dashboard-layout {
     display: block !important; /* Block layout since activity tracker is now fixed positioned */
     padding: 20px !important;
-    padding-right: 352px !important; /* Make room for fixed activity tracker: 320px width + 32px spacing */
     /* Force proper main content width */
     min-width: 0 !important;
     width: 100% !important;

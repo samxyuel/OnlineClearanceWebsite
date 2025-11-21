@@ -15,7 +15,6 @@ if (session_status() == PHP_SESSION_NONE) {
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/css/sector-clearance.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
@@ -630,9 +629,6 @@ if (session_status() == PHP_SESSION_NONE) {
                     <!-- End of .content-wrapper -->
                 </div>
                 <!-- End of .dashboard-main -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
             <!-- End of .dashboard-layout -->
         </div>
@@ -654,7 +650,6 @@ if (session_status() == PHP_SESSION_NONE) {
     <?php include '../../Modals/EditStudentModal.php'; ?>
 
     <!-- Scripts -->
-    <script src="../../assets/js/activity-tracker.js"></script>
     
     <!-- Include Audit Functions -->
     <?php include '../../includes/functions/audit_functions.php'; ?>
@@ -4405,12 +4400,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             accordions.forEach(accordion => {
                 accordion.style.display = 'block';
             });
-            
-            // Initialize Activity Tracker (only if not already initialized)
-            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-                window.activityTrackerInstance = new ActivityTracker();
-                console.log('Activity Tracker initialized');
-            }
             
             // Test if modal HTML is loaded
             const modal = document.querySelector('.signatory-settings-modal-overlay');

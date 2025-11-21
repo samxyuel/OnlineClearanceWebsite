@@ -19,7 +19,6 @@ handleStudentManagementPageRequest('College');
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -284,10 +283,6 @@ handleStudentManagementPageRequest('College');
                     </div>
                 </div>
 
-                <!-- RIGHT SIDE: Activity Tracker -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
         </div>
     </main>
@@ -2712,9 +2707,6 @@ handleStudentManagementPageRequest('College');
         }
 
         document.addEventListener('DOMContentLoaded', async function() {
-            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-                window.activityTrackerInstance = new ActivityTracker();
-                console.log('Activity Tracker initialized for School Administrator Student Management');
             }
             
             updateTermIndicatorBanner();

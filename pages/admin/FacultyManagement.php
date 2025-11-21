@@ -13,7 +13,6 @@ ob_start();
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -374,10 +373,6 @@ ob_start();
                     </div>
                 </div>
 
-                <!-- RIGHT SIDE: Activity Tracker -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
         </div>
     </main>
@@ -1916,11 +1911,6 @@ ob_start();
             // load faculty table
             refreshFacultyTable();
 
-            // Initialize Activity Tracker
-            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-                window.activityTrackerInstance = new ActivityTracker();
-                console.log('Activity Tracker initialized');
-            }
 
             // Add event listeners for checkboxes
             document.addEventListener('change', function(e) {
@@ -2313,9 +2303,6 @@ ob_start();
     </script>
     <!-- Include Alert System JavaScript -->
     <script src="../../assets/js/alerts.js"></script>
-    
-    <!-- Include Activity Tracker JavaScript -->
-    <script src="../../assets/js/activity-tracker.js"></script>
     
     <!-- Include Clearance Button Manager -->
     <script src="../../assets/js/clearance-button-manager.js"></script>

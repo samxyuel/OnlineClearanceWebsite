@@ -23,7 +23,6 @@ $departmentIds = [];
     <link rel="stylesheet" href="../../assets/css/styles.css">
     <link rel="stylesheet" href="../../assets/css/modals.css">
     <link rel="stylesheet" href="../../assets/css/alerts.css">
-    <link rel="stylesheet" href="../../assets/css/activity-tracker.css">
     <link rel="stylesheet" href="../../assets/fontawesome/css/all.min.css">
 </head>
 <body>
@@ -293,10 +292,6 @@ $departmentIds = [];
                     </div>
                 </div>
                 
-                <!-- Activity Tracker Sidebar -->
-                <div class="dashboard-sidebar">
-                    <?php include '../../includes/components/activity-tracker.php'; ?>
-                </div>
             </div>
         </div>
     </main>
@@ -1613,11 +1608,6 @@ $departmentIds = [];
                 tableWrapper.addEventListener('scroll', handleTableScroll);
             }
 
-            // Initialize Activity Tracker
-            if (typeof ActivityTracker !== 'undefined' && !window.activityTrackerInstance) {
-                window.activityTrackerInstance = new ActivityTracker({
-                    userRole: 'Program Head'
-                });
             }
 
             updateActionButtonsState();
@@ -2339,7 +2329,6 @@ $departmentIds = [];
     
     <!-- Include Alert System JavaScript -->
     <script src="../../assets/js/alerts.js"></script>
-    <script src="../../assets/js/activity-tracker.js"></script>
     <?php include '../../includes/functions/audit_functions.php'; ?>
 </body>
 </html>
