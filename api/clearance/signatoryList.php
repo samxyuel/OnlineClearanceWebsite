@@ -133,12 +133,12 @@ try {
     $activePeriodsStmt->execute($periodParams);
     $activePeriodId = $activePeriodsStmt->fetchColumn();
 
-    if (!$activePeriodId && empty($schoolTerm)) {
-        // Return an empty list if no period is active, which is not an error.
-        $responseKey = ($type === 'faculty') ? 'faculty' : 'students';
-        echo json_encode(['success' => true, 'total' => 0, $responseKey => [], 'page' => 1, 'limit' => 10, 'stats' => ['total' => 0, 'active' => 0, 'inactive' => 0, 'graduated' => 0]]);
-        exit;
-    }
+    // if (!$activePeriodId && empty($schoolTerm)) {
+    //     // Return an empty list if no period is active, which is not an error.
+    //     $responseKey = ($type === 'faculty') ? 'faculty' : 'students';
+    //     echo json_encode(['success' => true, 'total' => 0, $responseKey => [], 'page' => 1, 'limit' => 10, 'stats' => ['total' => 0, 'active' => 0, 'inactive' => 0, 'graduated' => 0]]);
+    //     exit;
+    // }
     
     // Flag to indicate if we should query clearance_forms directly (when schoolTerm provided but no period_id found)
     $queryDirectByTerm = (!empty($schoolTerm) && !$activePeriodId && $selectedAcademicYearId && $selectedSemesterId);
@@ -274,7 +274,7 @@ try {
     
     // Apply designation filter if provided (for role switching)
     if (!empty($designationFilter)) {
-        $where .= " AND d_sig.designation_name = :designationFilter";
+        $where .= " AND (d_sig.designation_name = :designationFilter OR cf.clearance_form_id IS NULL)";
         $params[':designationFilter'] = $designationFilter;
     }
 

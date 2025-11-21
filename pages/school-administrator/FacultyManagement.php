@@ -108,7 +108,29 @@ handleFacultyManagementPageRequest();
                             <p>Edit faculty records and sign their clearances across all departments</p>
                             <div class="department-scope-info">
                                 <i class="fas fa-user-shield"></i>
-                                <span id="staffPositionInfo">Scope: All Departments (School-wide Access)</span>
+                                <span id="staffPositionInfo">Loading position...</span>
+                            </div>
+
+                            <!-- Role Selector for Multi-Designation Users -->
+                            <div class="role-selector-container">
+                                <i class="fas fa-user-tag"></i>
+                                <label for="roleSelector">Viewing as:</label>
+                                <?php
+                                $signatoryDesignations = $GLOBALS['userSignatoryDesignations'];
+                                if (count($signatoryDesignations) > 1): ?>
+                                    <select id="roleSelector" class="filter-select" onchange="handleRoleChange()">
+                                        <?php foreach ($signatoryDesignations as $designation): ?>
+                                            <option value="<?php echo htmlspecialchars($designation['designation_name']); ?>">
+                                                <?php echo htmlspecialchars($designation['designation_name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                <?php elseif (count($signatoryDesignations) === 1): ?>
+                                    <span class="single-role-display"><?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?></span>
+                                    <input type="hidden" id="roleSelector" value="<?php echo htmlspecialchars($signatoryDesignations[0]['designation_name']); ?>">
+                                <?php else: ?>
+                                    <span class="single-role-display">No active signatory roles</span>
+                                <?php endif; ?>
                             </div>
 
                             <!-- Permission Status Alerts -->
@@ -621,16 +643,13 @@ handleFacultyManagementPageRequest();
     </div>
     <?php */ ?>
 
-    <script src="../../assets/js/activity-tracker.js"></script>
-    <script src="../../assets/js/clearance-button-manager.js"></script>
-    <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
         let currentPage = 1;
         let entriesPerPage = 20;
         let currentSearch = '';
         let totalEntries = 0;
         let currentTabStatus = '';
-        let CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'School Administrator'; ?>';
+        let CURRENT_STAFF_POSITION = '<?php echo !empty($GLOBALS['userSignatoryDesignations']) ? addslashes($GLOBALS['userSignatoryDesignations'][0]['designation_name']) : ''; ?>';
         let canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
 
         // Toggle sidebar
@@ -1238,6 +1257,8 @@ handleFacultyManagementPageRequest();
             if (schoolTerm) url.searchParams.append('school_term', schoolTerm);
             if (clearanceStatus) url.searchParams.append('clearance_status', clearanceStatus);
 
+            // Pass the current role/designation for filtering
+            if (CURRENT_STAFF_POSITION) url.searchParams.append('designation_filter', CURRENT_STAFF_POSITION);
 
             try {
                 const response = await fetch(url, { credentials: 'include' });
