@@ -402,10 +402,11 @@ function checkExistingForm($connection, $userId, $academicYearId, $semesterId, $
 function createClearanceForm($connection, $user, $academicYearId, $semesterId, $clearanceType) {
     // Generate a unique clearance form ID
     $year = date('Y');
-    // Use CONCAT to build the pattern in SQL, which respects connection collation
-    // Apply COLLATE to both sides of LIKE to ensure matching collations
-    $stmt = $connection->prepare("SELECT clearance_form_id FROM clearance_forms WHERE clearance_form_id COLLATE utf8mb4_unicode_ci LIKE CONCAT('CF-', ?, '-%') COLLATE utf8mb4_unicode_ci ORDER BY clearance_form_id DESC LIMIT 1");
-    $stmt->execute([$year]);
+    // Build pattern in PHP to avoid server collation issues with string literals in CONCAT
+    // This ensures the parameter binding respects connection collation
+    $pattern = "CF-$year-%";
+    $stmt = $connection->prepare("SELECT clearance_form_id FROM clearance_forms WHERE clearance_form_id COLLATE utf8mb4_general_ci LIKE ? COLLATE utf8mb4_general_ci ORDER BY clearance_form_id DESC LIMIT 1");
+    $stmt->execute([$pattern]);
     $lastId = $stmt->fetchColumn();
     $nextNum = $lastId ? (int)substr($lastId, -5) + 1 : 1;
     $clearanceFormId = "CF-$year-" . str_pad($nextNum, 5, '0', STR_PAD_LEFT);

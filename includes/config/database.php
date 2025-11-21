@@ -20,10 +20,10 @@ class Database {
     
     private function __construct() {
         try {
-            // Remove charset from DSN to avoid implicit collation setting
-            // We'll set it explicitly after connection
+            // Add charset back to DSN, then override collation to unicode_ci
+            // This ensures connection uses utf8mb4, but we'll force unicode_ci collation
             $this->connection = new PDO(
-                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME,
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
                 DB_USER,
                 DB_PASS,
                 [
@@ -33,12 +33,13 @@ class Database {
                 ]
             );
             
-            // Set charset and collation explicitly BEFORE any other operations
-            // This ensures all string operations use the correct collation
-            $this->connection->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
-            $this->connection->exec("SET collation_connection = 'utf8mb4_unicode_ci'");
-            $this->connection->exec("SET collation_database = 'utf8mb4_unicode_ci'");
+            // CRITICAL: Override default collation immediately after connection
+            // Set general_ci to match our table collations (matches server default)
+            $this->connection->exec("SET NAMES utf8mb4 COLLATE utf8mb4_general_ci");
+            $this->connection->exec("SET collation_connection = 'utf8mb4_general_ci'");
+            $this->connection->exec("SET collation_database = 'utf8mb4_general_ci'");
             $this->connection->exec("SET character_set_connection = 'utf8mb4'");
+            // Note: collation_server cannot be changed (requires SUPER privilege), but it's already utf8mb4_general_ci
             
         } catch (PDOException $e) {
             die("Connection failed: " . $e->getMessage());

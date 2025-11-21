@@ -404,7 +404,11 @@ function handleDeleteForm($connection) {
 // Helper function to generate clearance form ID
 function generateClearanceFormId($connection) {
     $year = date('Y');
-    $stmt = $connection->query("SELECT COUNT(*) + 1 as next_id FROM clearance_forms WHERE clearance_form_id COLLATE utf8mb4_unicode_ci LIKE 'CF-$year-%'");
+    // Build pattern in PHP to avoid server collation issues with string literals in CONCAT
+    // This ensures the parameter binding respects connection collation
+    $pattern = "CF-$year-%";
+    $stmt = $connection->prepare("SELECT COUNT(*) + 1 as next_id FROM clearance_forms WHERE clearance_form_id COLLATE utf8mb4_general_ci LIKE ? COLLATE utf8mb4_general_ci");
+    $stmt->execute([$pattern]);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     $nextId = str_pad($result['next_id'], 5, '0', STR_PAD_LEFT);
     return "CF-$year-$nextId";
