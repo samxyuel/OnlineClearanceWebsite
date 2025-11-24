@@ -395,17 +395,57 @@ function handleUpdatePeriod($connection) {
                         'academic_year_id' => $academicYearId,
                         'semester_id' => $semesterId
                     ];
+                    
+                    // DIAGNOSTIC LOGGING
+                    error_log("🌐 FORM DISTRIBUTION: Attempting to call URL: " . $distributionUrl);
+                    error_log("🌐 FORM DISTRIBUTION: Request data: " . json_encode($distributionData));
+                    error_log("🔍 SERVER VARS: HTTPS=" . ($_SERVER['HTTPS'] ?? 'not set') . ", HTTP_HOST=" . ($_SERVER['HTTP_HOST'] ?? 'not set'));
+                    error_log("🔍 allow_url_fopen: " . (ini_get('allow_url_fopen') ? 'enabled' : 'disabled'));
+                    
                     $options = [
                         'http' => [
                             'header'  => "Content-type: application/json\r\n",
                             'method'  => 'POST',
                             'content' => json_encode($distributionData),
-                            'ignore_errors' => true // To read response body on error
+                            'ignore_errors' => true,
+                            'timeout' => 30  // Add timeout
                         ],
                     ];
-                    $context  = stream_context_create($options);
-                    $result = file_get_contents($distributionUrl, false, $context);
-                    $formDistributionResult = json_decode($result, true);
+                    $context = stream_context_create($options);
+                    
+                    $startTime = microtime(true);
+                    $result = @file_get_contents($distributionUrl, false, $context);
+                    $duration = round((microtime(true) - $startTime) * 1000, 2);
+                    
+                    if ($result === false) {
+                        $error = error_get_last();
+                        $errorMsg = $error ? $error['message'] : 'Unknown error';
+                        error_log("❌ FORM DISTRIBUTION FAILED after {$duration}ms");
+                        error_log("❌ ERROR: " . $errorMsg);
+                        error_log("❌ URL: " . $distributionUrl);
+                        
+                        $formDistributionResult = [
+                            'success' => false,
+                            'message' => 'Failed to call form distribution API',
+                            'error' => $errorMsg,
+                            'url' => $distributionUrl,
+                            'duration_ms' => $duration
+                        ];
+                    } else {
+                        error_log("✅ FORM DISTRIBUTION: Response received in {$duration}ms");
+                        error_log("✅ RESPONSE PREVIEW: " . substr($result, 0, 200));
+                        
+                        $formDistributionResult = json_decode($result, true);
+                        
+                        if (json_last_error() !== JSON_ERROR_NONE) {
+                            error_log("❌ JSON DECODE ERROR: " . json_last_error_msg());
+                            $formDistributionResult = [
+                                'success' => false,
+                                'message' => 'Invalid JSON response: ' . json_last_error_msg(),
+                                'raw_preview' => substr($result, 0, 500)
+                            ];
+                        }
+                    }
 
                     $response = [
                         'success' => true, 
@@ -430,17 +470,57 @@ function handleUpdatePeriod($connection) {
                         'academic_year_id' => $academicYearId,
                         'semester_id' => $semesterId
                     ];
+                    
+                    // DIAGNOSTIC LOGGING
+                    error_log("🌐 FORM DISTRIBUTION (RESUME): Attempting to call URL: " . $distributionUrl);
+                    error_log("🌐 FORM DISTRIBUTION (RESUME): Request data: " . json_encode($distributionData));
+                    error_log("🔍 SERVER VARS: HTTPS=" . ($_SERVER['HTTPS'] ?? 'not set') . ", HTTP_HOST=" . ($_SERVER['HTTP_HOST'] ?? 'not set'));
+                    error_log("🔍 allow_url_fopen: " . (ini_get('allow_url_fopen') ? 'enabled' : 'disabled'));
+                    
                     $options = [
                         'http' => [
                             'header'  => "Content-type: application/json\r\n",
                             'method'  => 'POST',
                             'content' => json_encode($distributionData),
-                            'ignore_errors' => true
+                            'ignore_errors' => true,
+                            'timeout' => 30  // Add timeout
                         ],
                     ];
-                    $context  = stream_context_create($options);
-                    $result = file_get_contents($distributionUrl, false, $context);
-                    $formDistributionResult = json_decode($result, true);
+                    $context = stream_context_create($options);
+                    
+                    $startTime = microtime(true);
+                    $result = @file_get_contents($distributionUrl, false, $context);
+                    $duration = round((microtime(true) - $startTime) * 1000, 2);
+                    
+                    if ($result === false) {
+                        $error = error_get_last();
+                        $errorMsg = $error ? $error['message'] : 'Unknown error';
+                        error_log("❌ FORM DISTRIBUTION (RESUME) FAILED after {$duration}ms");
+                        error_log("❌ ERROR: " . $errorMsg);
+                        error_log("❌ URL: " . $distributionUrl);
+                        
+                        $formDistributionResult = [
+                            'success' => false,
+                            'message' => 'Failed to call form distribution API',
+                            'error' => $errorMsg,
+                            'url' => $distributionUrl,
+                            'duration_ms' => $duration
+                        ];
+                    } else {
+                        error_log("✅ FORM DISTRIBUTION (RESUME): Response received in {$duration}ms");
+                        error_log("✅ RESPONSE PREVIEW: " . substr($result, 0, 200));
+                        
+                        $formDistributionResult = json_decode($result, true);
+                        
+                        if (json_last_error() !== JSON_ERROR_NONE) {
+                            error_log("❌ JSON DECODE ERROR: " . json_last_error_msg());
+                            $formDistributionResult = [
+                                'success' => false,
+                                'message' => 'Invalid JSON response: ' . json_last_error_msg(),
+                                'raw_preview' => substr($result, 0, 500)
+                            ];
+                        }
+                    }
                     
                     $response = [
                         'success' => true, 
@@ -470,17 +550,57 @@ function handleUpdatePeriod($connection) {
                     'academic_year_id' => $academicYearId,
                     'semester_id' => $semesterId
                 ];
+                
+                // DIAGNOSTIC LOGGING
+                error_log("🌐 FORM DISTRIBUTION (NEW): Attempting to call URL: " . $distributionUrl);
+                error_log("🌐 FORM DISTRIBUTION (NEW): Request data: " . json_encode($distributionData));
+                error_log("🔍 SERVER VARS: HTTPS=" . ($_SERVER['HTTPS'] ?? 'not set') . ", HTTP_HOST=" . ($_SERVER['HTTP_HOST'] ?? 'not set'));
+                error_log("🔍 allow_url_fopen: " . (ini_get('allow_url_fopen') ? 'enabled' : 'disabled'));
+                
                 $options = [
                     'http' => [
                         'header'  => "Content-type: application/json\r\n",
                         'method'  => 'POST',
                         'content' => json_encode($distributionData),
-                        'ignore_errors' => true // To read response body on error
+                        'ignore_errors' => true,
+                        'timeout' => 30  // Add timeout
                     ],
                 ];
-                $context  = stream_context_create($options);
-                $result = file_get_contents($distributionUrl, false, $context);
-                $formDistributionResult = json_decode($result, true);
+                $context = stream_context_create($options);
+                
+                $startTime = microtime(true);
+                $result = @file_get_contents($distributionUrl, false, $context);
+                $duration = round((microtime(true) - $startTime) * 1000, 2);
+                
+                if ($result === false) {
+                    $error = error_get_last();
+                    $errorMsg = $error ? $error['message'] : 'Unknown error';
+                    error_log("❌ FORM DISTRIBUTION (NEW) FAILED after {$duration}ms");
+                    error_log("❌ ERROR: " . $errorMsg);
+                    error_log("❌ URL: " . $distributionUrl);
+                    
+                    $formDistributionResult = [
+                        'success' => false,
+                        'message' => 'Failed to call form distribution API',
+                        'error' => $errorMsg,
+                        'url' => $distributionUrl,
+                        'duration_ms' => $duration
+                    ];
+                } else {
+                    error_log("✅ FORM DISTRIBUTION (NEW): Response received in {$duration}ms");
+                    error_log("✅ RESPONSE PREVIEW: " . substr($result, 0, 200));
+                    
+                    $formDistributionResult = json_decode($result, true);
+                    
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        error_log("❌ JSON DECODE ERROR: " . json_last_error_msg());
+                        $formDistributionResult = [
+                            'success' => false,
+                            'message' => 'Invalid JSON response: ' . json_last_error_msg(),
+                            'raw_preview' => substr($result, 0, 500)
+                        ];
+                    }
+                }
 
                 echo json_encode([
                     'success' => true, 
