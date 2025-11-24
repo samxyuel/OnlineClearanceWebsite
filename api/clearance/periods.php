@@ -389,7 +389,13 @@ function handleUpdatePeriod($connection) {
                     error_log("🚀 API DEBUG: Periods after update: " . json_encode($afterUpdate));
                     
                     // NEW: Trigger form distribution by calling the new dedicated API endpoint
-                    $distributionUrl = getApiBaseUrl('api/clearance/form_distribution.php');
+                    // Construct URL using document root for server-to-server calls
+                    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+                    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                    $scriptPath = dirname($_SERVER['SCRIPT_NAME']); // e.g., /api/clearance
+                    $basePath = str_replace('/api/clearance', '', $scriptPath); // Remove /api/clearance to get base
+                    $distributionUrl = $protocol . '://' . $host . $basePath . '/api/clearance/form_distribution.php';
+                    
                     $distributionData = [
                         'clearance_type' => $sector,
                         'academic_year_id' => $academicYearId,
@@ -400,6 +406,7 @@ function handleUpdatePeriod($connection) {
                     error_log("🌐 FORM DISTRIBUTION: Attempting to call URL: " . $distributionUrl);
                     error_log("🌐 FORM DISTRIBUTION: Request data: " . json_encode($distributionData));
                     error_log("🔍 SERVER VARS: HTTPS=" . ($_SERVER['HTTPS'] ?? 'not set') . ", HTTP_HOST=" . ($_SERVER['HTTP_HOST'] ?? 'not set'));
+                    error_log("🔍 SERVER VARS: SCRIPT_NAME=" . ($_SERVER['SCRIPT_NAME'] ?? 'not set') . ", DOCUMENT_ROOT=" . ($_SERVER['DOCUMENT_ROOT'] ?? 'not set'));
                     error_log("🔍 allow_url_fopen: " . (ini_get('allow_url_fopen') ? 'enabled' : 'disabled'));
                     
                     $options = [
@@ -464,7 +471,13 @@ function handleUpdatePeriod($connection) {
                     error_log("✅ API DEBUG: Period resumed successfully");
 
                     // NEW: Trigger form distribution when resuming, just in case it failed before.
-                    $distributionUrl = getApiBaseUrl('api/clearance/form_distribution.php');
+                    // Construct URL using document root for server-to-server calls
+                    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+                    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                    $scriptPath = dirname($_SERVER['SCRIPT_NAME']); // e.g., /api/clearance
+                    $basePath = str_replace('/api/clearance', '', $scriptPath); // Remove /api/clearance to get base
+                    $distributionUrl = $protocol . '://' . $host . $basePath . '/api/clearance/form_distribution.php';
+                    
                     $distributionData = [
                         'clearance_type' => $sector,
                         'academic_year_id' => $academicYearId,
@@ -475,6 +488,7 @@ function handleUpdatePeriod($connection) {
                     error_log("🌐 FORM DISTRIBUTION (RESUME): Attempting to call URL: " . $distributionUrl);
                     error_log("🌐 FORM DISTRIBUTION (RESUME): Request data: " . json_encode($distributionData));
                     error_log("🔍 SERVER VARS: HTTPS=" . ($_SERVER['HTTPS'] ?? 'not set') . ", HTTP_HOST=" . ($_SERVER['HTTP_HOST'] ?? 'not set'));
+                    error_log("🔍 SERVER VARS: SCRIPT_NAME=" . ($_SERVER['SCRIPT_NAME'] ?? 'not set') . ", DOCUMENT_ROOT=" . ($_SERVER['DOCUMENT_ROOT'] ?? 'not set'));
                     error_log("🔍 allow_url_fopen: " . (ini_get('allow_url_fopen') ? 'enabled' : 'disabled'));
                     
                     $options = [
@@ -544,7 +558,13 @@ function handleUpdatePeriod($connection) {
                 error_log("✅ API DEBUG: New period created successfully with ID: $periodId");
                 
                 // NEW: Trigger form distribution by calling the new dedicated API endpoint
-                $distributionUrl = getApiBaseUrl('api/clearance/form_distribution.php');
+                // Construct URL using document root for server-to-server calls
+                $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+                $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                $scriptPath = dirname($_SERVER['SCRIPT_NAME']); // e.g., /api/clearance
+                $basePath = str_replace('/api/clearance', '', $scriptPath); // Remove /api/clearance to get base
+                $distributionUrl = $protocol . '://' . $host . $basePath . '/api/clearance/form_distribution.php';
+                
                 $distributionData = [
                     'clearance_type' => $sector,
                     'academic_year_id' => $academicYearId,
@@ -555,6 +575,7 @@ function handleUpdatePeriod($connection) {
                 error_log("🌐 FORM DISTRIBUTION (NEW): Attempting to call URL: " . $distributionUrl);
                 error_log("🌐 FORM DISTRIBUTION (NEW): Request data: " . json_encode($distributionData));
                 error_log("🔍 SERVER VARS: HTTPS=" . ($_SERVER['HTTPS'] ?? 'not set') . ", HTTP_HOST=" . ($_SERVER['HTTP_HOST'] ?? 'not set'));
+                error_log("🔍 SERVER VARS: SCRIPT_NAME=" . ($_SERVER['SCRIPT_NAME'] ?? 'not set') . ", DOCUMENT_ROOT=" . ($_SERVER['DOCUMENT_ROOT'] ?? 'not set'));
                 error_log("🔍 allow_url_fopen: " . (ini_get('allow_url_fopen') ? 'enabled' : 'disabled'));
                 
                 $options = [
