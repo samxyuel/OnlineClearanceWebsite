@@ -340,14 +340,24 @@ function handleUpdatePeriod($connection) {
             $lockKey = "sector_start_" . $input['sector'] . "_" . $input['academic_year_id'] . "_" . $input['semester_id'];
             $lockFile = sys_get_temp_dir() . "/" . $lockKey . ".lock";
             
+            // ENHANCED: Check if lock file exists AND if it's expired (older than 60 seconds)
             if (file_exists($lockFile)) {
-                error_log("⚠️ API DEBUG: Operation already in progress for $lockKey");
-                http_response_code(409);
-                echo json_encode(['success' => false, 'message' => 'Operation already in progress for this sector. Please wait and try again.']);
-                return;
+                $lockAge = time() - filemtime($lockFile);
+                $lockTimeout = 60; // Lock expires after 60 seconds
+                
+                if ($lockAge < $lockTimeout) {
+                    error_log("⚠️ API DEBUG: Operation already in progress for $lockKey (lock age: {$lockAge}s)");
+                    http_response_code(409);
+                    echo json_encode(['success' => false, 'message' => 'Operation already in progress for this sector. Please wait and try again.']);
+                    return;
+                } else {
+                    // Lock file is expired, remove it and continue
+                    error_log("🔓 API DEBUG: Removing expired lock file (age: {$lockAge}s, timeout: {$lockTimeout}s)");
+                    @unlink($lockFile);
+                }
             }
             
-            // Create lock file
+            // Create lock file with current timestamp
             file_put_contents($lockFile, time());
             error_log("🔒 API DEBUG: Created lock file: $lockFile");
             
@@ -725,9 +735,9 @@ function handleUpdatePeriod($connection) {
                 http_response_code(500);
                 echo json_encode(['success' => false, 'message' => 'Internal server error: ' . $e->getMessage()]);
             } finally {
-                // Clean up lock file
-                if (file_exists($lockFile)) {
-                    unlink($lockFile);
+                // Clean up lock file (always runs, even on error)
+                if (isset($lockFile) && file_exists($lockFile)) {
+                    @unlink($lockFile);
                     error_log("🔓 API DEBUG: Removed lock file: $lockFile");
                 }
             }
