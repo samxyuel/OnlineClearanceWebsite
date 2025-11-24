@@ -431,12 +431,22 @@ function handleUpdatePeriod($connection) {
                         error_log("❌ ERROR: " . $errorMsg);
                         error_log("❌ URL: " . $distributionUrl);
                         
+                        // ENHANCED: Include all diagnostic info in response
                         $formDistributionResult = [
                             'success' => false,
                             'message' => 'Failed to call form distribution API',
                             'error' => $errorMsg,
                             'url' => $distributionUrl,
-                            'duration_ms' => $duration
+                            'duration_ms' => $duration,
+                            'diagnostics' => [
+                                'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
+                                'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
+                                'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
+                                'https' => $_SERVER['HTTPS'] ?? 'not set',
+                                'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
+                                'base_path_calculated' => $basePath,
+                                'constructed_url' => $distributionUrl
+                            ]
                         ];
                     } else {
                         error_log("✅ FORM DISTRIBUTION: Response received in {$duration}ms");
@@ -449,7 +459,27 @@ function handleUpdatePeriod($connection) {
                             $formDistributionResult = [
                                 'success' => false,
                                 'message' => 'Invalid JSON response: ' . json_last_error_msg(),
-                                'raw_preview' => substr($result, 0, 500)
+                                'raw_preview' => substr($result, 0, 500),
+                                'diagnostics' => [
+                                    'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
+                                    'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
+                                    'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
+                                    'https' => $_SERVER['HTTPS'] ?? 'not set',
+                                    'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
+                                    'base_path_calculated' => $basePath,
+                                    'constructed_url' => $distributionUrl,
+                                    'http_code' => 'unknown (file_get_contents doesn\'t provide this)'
+                                ]
+                            ];
+                        } else {
+                            // Even on success, include diagnostics for debugging
+                            if (!is_array($formDistributionResult)) {
+                                $formDistributionResult = [];
+                            }
+                            $formDistributionResult['diagnostics'] = [
+                                'url_used' => $distributionUrl,
+                                'duration_ms' => $duration,
+                                'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled'
                             ];
                         }
                     }
@@ -513,12 +543,22 @@ function handleUpdatePeriod($connection) {
                         error_log("❌ ERROR: " . $errorMsg);
                         error_log("❌ URL: " . $distributionUrl);
                         
+                        // ENHANCED: Include all diagnostic info in response
                         $formDistributionResult = [
                             'success' => false,
                             'message' => 'Failed to call form distribution API',
                             'error' => $errorMsg,
                             'url' => $distributionUrl,
-                            'duration_ms' => $duration
+                            'duration_ms' => $duration,
+                            'diagnostics' => [
+                                'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
+                                'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
+                                'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
+                                'https' => $_SERVER['HTTPS'] ?? 'not set',
+                                'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
+                                'base_path_calculated' => $basePath,
+                                'constructed_url' => $distributionUrl
+                            ]
                         ];
                     } else {
                         error_log("✅ FORM DISTRIBUTION (RESUME): Response received in {$duration}ms");
@@ -531,7 +571,27 @@ function handleUpdatePeriod($connection) {
                             $formDistributionResult = [
                                 'success' => false,
                                 'message' => 'Invalid JSON response: ' . json_last_error_msg(),
-                                'raw_preview' => substr($result, 0, 500)
+                                'raw_preview' => substr($result, 0, 500),
+                                'diagnostics' => [
+                                    'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
+                                    'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
+                                    'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
+                                    'https' => $_SERVER['HTTPS'] ?? 'not set',
+                                    'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
+                                    'base_path_calculated' => $basePath,
+                                    'constructed_url' => $distributionUrl,
+                                    'http_code' => 'unknown (file_get_contents doesn\'t provide this)'
+                                ]
+                            ];
+                        } else {
+                            // Even on success, include diagnostics for debugging
+                            if (!is_array($formDistributionResult)) {
+                                $formDistributionResult = [];
+                            }
+                            $formDistributionResult['diagnostics'] = [
+                                'url_used' => $distributionUrl,
+                                'duration_ms' => $duration,
+                                'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled'
                             ];
                         }
                     }
@@ -600,12 +660,22 @@ function handleUpdatePeriod($connection) {
                     error_log("❌ ERROR: " . $errorMsg);
                     error_log("❌ URL: " . $distributionUrl);
                     
+                    // ENHANCED: Include all diagnostic info in response
                     $formDistributionResult = [
                         'success' => false,
                         'message' => 'Failed to call form distribution API',
                         'error' => $errorMsg,
                         'url' => $distributionUrl,
-                        'duration_ms' => $duration
+                        'duration_ms' => $duration,
+                        'diagnostics' => [
+                            'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
+                            'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
+                            'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
+                            'https' => $_SERVER['HTTPS'] ?? 'not set',
+                            'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
+                            'base_path_calculated' => $basePath,
+                            'constructed_url' => $distributionUrl
+                        ]
                     ];
                 } else {
                     error_log("✅ FORM DISTRIBUTION (NEW): Response received in {$duration}ms");
@@ -618,7 +688,27 @@ function handleUpdatePeriod($connection) {
                         $formDistributionResult = [
                             'success' => false,
                             'message' => 'Invalid JSON response: ' . json_last_error_msg(),
-                            'raw_preview' => substr($result, 0, 500)
+                            'raw_preview' => substr($result, 0, 500),
+                            'diagnostics' => [
+                                'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
+                                'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
+                                'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
+                                'https' => $_SERVER['HTTPS'] ?? 'not set',
+                                'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
+                                'base_path_calculated' => $basePath,
+                                'constructed_url' => $distributionUrl,
+                                'http_code' => 'unknown (file_get_contents doesn\'t provide this)'
+                            ]
+                        ];
+                    } else {
+                        // Even on success, include diagnostics for debugging
+                        if (!is_array($formDistributionResult)) {
+                            $formDistributionResult = [];
+                        }
+                        $formDistributionResult['diagnostics'] = [
+                            'url_used' => $distributionUrl,
+                            'duration_ms' => $duration,
+                            'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled'
                         ];
                     }
                 }
