@@ -108,22 +108,22 @@
                 
                 
                 
-                <!-- Faculty Section Divider 
+                <!-- Faculty Section Divider -->
                 <div class="form-section-divider">
                     <hr>
                     <span class="divider-text">Faculty Registration (Optional)</span>
-                </div -->
+</div>
                 
-                <!-- Is also a faculty checkbox -
+                <!-- Is also a faculty checkbox -->
                 <div class="form-group">
                     <div class="checkbox-container">
                         <input type="checkbox" id="isAlsoFaculty" name="isAlsoFaculty" onchange="toggleFacultySection()">
                         <label for="isAlsoFaculty" class="checkbox-label">Is also a faculty</label>
                     </div>
                     <small class="form-help">Check this if the staff member should also have faculty access</small>
-</div -->
+</div>
                 
-                <!-- Faculty Fields Section (Hidden by default) --
+                <!-- Faculty Fields Section (Hidden by default) -->
                 <div id="facultyFieldsSection" class="faculty-fields-section" style="display: none;">
                     <div class="form-group">
                         <label for="facultyEmploymentStatus">Faculty Employment Status <span class="required-asterisk">*</span></label>
@@ -142,7 +142,7 @@
                                style="background-color: #f8f9fa; color: #6c757d;">
                         <small class="form-help">Auto-filled from Employee ID (read-only)</small>
                     </div>
-                </div -->
+</div>
             </form>
         </div>
         

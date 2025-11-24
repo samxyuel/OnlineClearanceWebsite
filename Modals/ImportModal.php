@@ -5,7 +5,7 @@
 <!-- Include Modal Styles -->
 <link rel="stylesheet" href="../../assets/css/modals.css">
 
-<div class="modal-overlay import-modal-overlay" id="importModal">
+<div class="modal-overlay import-modal-overlay" id="importModal" style="display: none;">
   <div class="modal-window" style="max-width: 700px;">
     <!-- Close Button -->
     <button class="modal-close" onclick="closeImportModal()">&times;</button>
@@ -953,16 +953,36 @@ window.openImportModal = function(pageType = null, importType = null, role = 'Ad
   }
   
   console.log('[ImportModal] Showing modal...');
+  console.log('[ImportModal] Modal current display:', window.getComputedStyle(modal).display);
+  console.log('[ImportModal] Modal current opacity:', window.getComputedStyle(modal).opacity);
+  console.log('[ImportModal] Modal inline style:', modal.style.display);
   
   // Use window.openModal if available, otherwise fallback
   if (typeof window.openModal === 'function') {
+    console.log('[ImportModal] Using window.openModal()');
     window.openModal('importModal');
+    console.log('[ImportModal] window.openModal() called');
+    
+    // Verify modal is now visible
+    setTimeout(() => {
+      const finalDisplay = window.getComputedStyle(modal).display;
+      const finalOpacity = window.getComputedStyle(modal).opacity;
+      console.log('[ImportModal] After openModal - display:', finalDisplay);
+      console.log('[ImportModal] After openModal - opacity:', finalOpacity);
+      if (finalDisplay === 'none' || finalDisplay === '') {
+        console.error('[ImportModal] ❌ Modal still hidden!');
+      } else {
+        console.log('[ImportModal] ✅ Modal should be visible');
+      }
+    }, 100);
   } else {
+    console.log('[ImportModal] window.openModal not available, using fallback');
     // Fallback to direct manipulation
     modal.style.display = 'flex';
     document.body.classList.add('modal-open');
     requestAnimationFrame(() => {
       modal.classList.add('active');
+      console.log('[ImportModal] Fallback: Added active class');
     });
   }
   

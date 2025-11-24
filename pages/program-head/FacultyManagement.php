@@ -1089,8 +1089,34 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
 
         // Explicitly enable/disable faculty action controls based on centralized permission
         function updateFacultyActionButtonsState() {
+            // Separate administrative actions from clearance signatory actions
+            // Administrative actions (Import, Export) should always be enabled for Program Heads
+            // since they're already on a Program Head page
+            
+            // Administrative action buttons - always enabled for Program Heads
+            const adminActionSelectors = [
+                '.import-btn',
+                '.export-btn'
+            ];
+            
+            // Enable administrative buttons (Program Heads always have access to these)
+            adminActionSelectors.forEach(sel => {
+                document.querySelectorAll(sel).forEach(btn => {
+                    try {
+                        btn.disabled = false;
+                        btn.classList.remove('disabled');
+                        // Restore original titles
+                        if (btn.classList.contains('import-btn')) {
+                            btn.title = btn.title || 'Import faculty from file';
+                        } else if (btn.classList.contains('export-btn')) {
+                            btn.title = btn.title || 'Export faculty data';
+                        }
+                    } catch (e) { /* ignore */ }
+                });
+            });
+            
+            // Clearance signatory actions - controlled by CAN_TAKE_ACTION
             const bulkActionSelectors = [
-                '.export-btn',
                 '.bulk-selection-filters-btn',
                 '.bulk-controls .btn-success',
                 '.bulk-buttons button',
@@ -1100,7 +1126,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
 
             const canAct = typeof window.CAN_TAKE_ACTION !== 'undefined' ? window.CAN_TAKE_ACTION : !!canPerformActions;
             
-            // Disable/enable bulk controls based on permission
+            // Disable/enable clearance signatory controls based on permission
             bulkActionSelectors.forEach(sel => {
                 document.querySelectorAll(sel).forEach(btn => {
                     try {
@@ -1173,15 +1199,33 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         }
 
         // Bulk selection functions
-        // Modal functions
-        function triggerExportModal() {
+        // Modal functions - Make globally available
+        window.triggerImportModal = function() {
+            try {
+                if (typeof window.openImportModal === 'function') {
+                    window.openImportModal('faculty', 'faculty_import', 'Program Head');
+                } else {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Import feature is not available. Please refresh the page.', 'error');
+                    }
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open import modal. Please try again.', 'error');
+                }
+            }
+        };
+
+        window.triggerExportModal = function() {
             if (typeof window.openExportModal === 'function') {
                 window.openExportModal();
             } else {
                 console.error('Export modal function not found');
-                showToastNotification('Export modal not available', 'error');
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Export feature is not available. Please refresh the page.', 'error');
+                }
             }
-        }
+        };
 
         function openBulkSelectionModal() {
             const modal = document.getElementById('bulkSelectionModal');
@@ -1380,7 +1424,11 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         // Edit faculty function
         function editFaculty(facultyId) {
             // Open edit faculty modal
-            showToastNotification('Edit faculty functionality will be implemented', 'info');
+            if (typeof window.openEditFacultyModal === 'function') {
+                window.openEditFacultyModal(facultyId);
+            } else {
+                showToastNotification('Edit faculty modal not available. Please refresh the page.', 'error');
+            }
         }
 
         // Delete faculty function
@@ -2003,90 +2051,22 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
     <!-- Include Faculty Batch Update Modal -->
     <?php include '../../Modals/FacultyBatchUpdateModal.php'; ?>
     
+    <!-- Include Edit Faculty Modal -->
+    <?php include '../../Modals/EditFacultyModal.php'; ?>
+    
     <!-- Include Export Modal -->
     <?php include '../../Modals/ExportModal.php'; ?>
-</body>
-</html>
-            </div>
-            <div class="modal-content-area">
-                <div class="filter-sections">
-                    <!-- Employment Status Section -->
-                    <div class="form-group">
-                        <label class="filter-section-label">Employment Status:</label>
-                        <div class="checkbox-group">
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="filterFullTime" value="full-time">
-                                <span class="checkmark"></span>
-                                with "Full Time"
-                            </label>
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="filterPartTime" value="part-time">
-                                <span class="checkmark"></span>
-                                with "Part Time"
-                            </label>
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="filterPartTimeFullLoad" value="part-time-full-load">
-                                <span class="checkmark"></span>
-                                with "Part Time - Full Load"
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <!-- Account Status Section -->
-                    <div class="form-group">
-                        <label class="filter-section-label">Account Status:</label>
-                        <div class="checkbox-group">
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="filterActive" value="active">
-                                <span class="checkmark"></span>
-                                with "active"
-                            </label>
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="filterInactive" value="inactive">
-                                <span class="checkmark"></span>
-                                with "inactive"
-                            </label>
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="filterResigned" value="resigned">
-                                <span class="checkmark"></span>
-                                with "resigned"
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <!-- Clearance Status Section (Signatory Perspective) -->
-                    <div class="form-group">
-                        <label class="filter-section-label">Clearance Status:</label>
-                        <div class="checkbox-group">
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="filterPending" value="pending">
-                                <span class="checkmark"></span>
-                                with "pending" (for my approval)
-                            </label>
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="filterApproved" value="approved">
-                                <span class="checkmark"></span>
-                                with "approved" (by me)
-                            </label>
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="filterRejected" value="rejected">
-                                <span class="checkmark"></span>
-                                with "rejected" (by me)
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="modal-action-secondary" onclick="closeBulkSelectionModal()">Cancel</button>
-                <button class="modal-action-primary" onclick="applyBulkSelection()">
-                    <i class="fas fa-check"></i> Select All
-                </button>
-            </div>
-        </div>
-    </div>
     
+    <!-- Include Import Modal -->
+    <?php include '../../Modals/ImportModal.php'; ?>
     
+    <!-- Include Generated Credentials Modal (shared, include only once) -->
+    <?php include '../../Modals/GeneratedCredentialsModal.php'; ?>
     
+    <!-- Include Alert System JavaScript -->
+    <script src="../../assets/js/alerts.js"></script>
+    
+    <!-- Include Universal Modal Handler -->
+    <script src="../../assets/js/modal-handler.js"></script>
 </body>
 </html>

@@ -376,6 +376,9 @@ $departmentIds = [];
     <!-- Include Clearance Progress Modal -->
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
     
+    <!-- Include Generated Credentials Modal (shared, include only once) -->
+    <?php include '../../Modals/GeneratedCredentialsModal.php'; ?>
+    
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
         <div class="modal-window bulk-selection-modal">
@@ -885,27 +888,44 @@ $departmentIds = [];
             inactiveCount.textContent = currentInactive.toLocaleString();
         }
 
-        // Modal functions
-        function openAddStudentModal() {
-            openStudentRegistrationModal();
-        }
-
-        function triggerImportModal() {
-            if (typeof window.openImportModal === 'function') {
-                // Initialize modal with page context: SHS student import for Program Head
-                window.openImportModal('shs', 'student_import', 'Program Head');
+        // Modal functions - Make globally available
+        window.openAddStudentModal = function() {
+            if (typeof window.openStudentRegistrationModal === 'function') {
+                window.openStudentRegistrationModal();
             } else {
-                console.error('Import modal function not found');
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Student registration modal not available. Please refresh the page.', 'error');
+                }
             }
-        }
+        };
 
-        function triggerExportModal() {
+        window.triggerImportModal = function() {
+            try {
+                if (typeof window.openImportModal === 'function') {
+                    // Initialize modal with page context: SHS student import for Program Head
+                    window.openImportModal('shs', 'student_import', 'Program Head');
+                } else {
+                    if (typeof showToastNotification === 'function') {
+                        showToastNotification('Import feature is not available. Please refresh the page.', 'error');
+                    }
+                }
+            } catch (error) {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Unable to open import modal. Please try again.', 'error');
+                }
+            }
+        };
+
+        window.triggerExportModal = function() {
             if (typeof window.openExportModal === 'function') {
                 window.openExportModal();
             } else {
                 console.error('Export modal function not found');
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Export feature is not available. Please refresh the page.', 'error');
+                }
             }
-        }
+        };
 
         // Apply filters to the table
         // Update term indicator banner
@@ -1382,11 +1402,37 @@ $departmentIds = [];
         }
 
         function updateActionButtonsState() {
-            // Bulk control disabling based on global permission (CAN_TAKE_ACTION)
-            const bulkActionSelectors = [
+            // Separate administrative actions from clearance signatory actions
+            // Administrative actions (Add, Import, Export) should always be enabled for Program Heads
+            // since they're already on a Program Head page
+            
+            // Administrative action buttons - always enabled for Program Heads
+            const adminActionSelectors = [
                 '.add-student-btn',
                 '.import-btn',
-                '.export-btn',
+                '.export-btn'
+            ];
+            
+            // Enable administrative buttons (Program Heads always have access to these)
+            adminActionSelectors.forEach(sel => {
+                document.querySelectorAll(sel).forEach(btn => {
+                    try {
+                        btn.disabled = false;
+                        btn.classList.remove('disabled');
+                        // Restore original titles
+                        if (btn.classList.contains('add-student-btn')) {
+                            btn.title = btn.title || 'Add a new senior high school student to the system';
+                        } else if (btn.classList.contains('import-btn')) {
+                            btn.title = btn.title || 'Import students from file';
+                        } else if (btn.classList.contains('export-btn')) {
+                            btn.title = btn.title || 'Export student data';
+                        }
+                    } catch (e) { /* ignore */ }
+                });
+            });
+            
+            // Clearance signatory actions - controlled by CAN_TAKE_ACTION
+            const bulkActionSelectors = [
                 '.bulk-selection-filters-btn',
                 '.bulk-controls .btn-success', // batch update
                 '.bulk-buttons button', // approve/reject/graduate/reset/delete
@@ -1398,7 +1444,7 @@ $departmentIds = [];
             // Use window.CAN_TAKE_ACTION (set by centralized API) if available, otherwise fallback to CAN_TAKE_ACTION
             const canAct = typeof window.CAN_TAKE_ACTION !== 'undefined' ? window.CAN_TAKE_ACTION : (typeof CAN_TAKE_ACTION !== 'undefined' ? CAN_TAKE_ACTION : false);
             
-            // Disable/enable bulk controls based on permission
+            // Disable/enable clearance signatory controls based on permission
             bulkActionSelectors.forEach(sel => {
                 document.querySelectorAll(sel).forEach(btn => {
                     try {
@@ -2329,6 +2375,10 @@ $departmentIds = [];
     
     <!-- Include Alert System JavaScript -->
     <script src="../../assets/js/alerts.js"></script>
+    
+    <!-- Include Universal Modal Handler -->
+    <script src="../../assets/js/modal-handler.js"></script>
+    
     <?php include '../../includes/functions/audit_functions.php'; ?>
 </body>
 </html>

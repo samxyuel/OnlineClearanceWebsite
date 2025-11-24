@@ -1,7 +1,6 @@
 <?php // Edit Faculty Modal - Modify Existing Faculty ?>
 <link rel="stylesheet" href="../../assets/css/modals.css">
-<?php include __DIR__ . '/GeneratedCredentialsModal.php'; ?>
-<div class="modal-overlay edit-faculty-modal-overlay" id="editFacultyModal">
+<div class="modal-overlay edit-faculty-modal-overlay" id="editFacultyModal" style="display: none;">
   <div class="modal-window">
     <button class="modal-close" onclick="window.closeEditFacultyModal && window.closeEditFacultyModal()">&times;</button>
     <h2 class="modal-title">✏️ Edit Faculty Information</h2>
@@ -306,25 +305,68 @@
   // Make functions globally accessible
   
   window.openEditFacultyModal = function(facultyId) {
+    console.log('[EditFacultyModal] ===== openEditFacultyModal called =====');
+    console.log('[EditFacultyModal] facultyId:', facultyId);
+    
     try {
       const modal = document.getElementById('editFacultyModal');
+      console.log('[EditFacultyModal] Modal element search result:', modal);
+      
       if (!modal) {
+        console.error('[EditFacultyModal] ❌ Modal element not found!');
+        console.error('[EditFacultyModal] Searching for alternative selectors...');
+        const altModal = document.querySelector('.edit-faculty-modal-overlay');
+        console.log('[EditFacultyModal] Found by class selector:', altModal);
+        
         if (typeof showToastNotification === 'function') {
           showToastNotification('Edit faculty modal not found. Please refresh the page.', 'error');
         }
         return;
       }
+      
+      console.log('[EditFacultyModal] ✅ Modal element found');
+      console.log('[EditFacultyModal] Modal current display:', window.getComputedStyle(modal).display);
+      console.log('[EditFacultyModal] Modal current opacity:', window.getComputedStyle(modal).opacity);
+      console.log('[EditFacultyModal] Modal has active class:', modal.classList.contains('active'));
+      console.log('[EditFacultyModal] Modal inline style:', modal.style.display);
 
       // Use window.openModal if available, otherwise fallback
       if (typeof window.openModal === 'function') {
+        console.log('[EditFacultyModal] Using window.openModal()');
         window.openModal('editFacultyModal');
+        console.log('[EditFacultyModal] window.openModal() called');
+        
+        // Verify modal is now visible
+        setTimeout(() => {
+          const finalDisplay = window.getComputedStyle(modal).display;
+          const finalOpacity = window.getComputedStyle(modal).opacity;
+          console.log('[EditFacultyModal] After openModal - display:', finalDisplay);
+          console.log('[EditFacultyModal] After openModal - opacity:', finalOpacity);
+          console.log('[EditFacultyModal] After openModal - has active class:', modal.classList.contains('active'));
+          
+          if (finalDisplay === 'none' || finalDisplay === '') {
+            console.error('[EditFacultyModal] ❌ Modal still hidden! Display:', finalDisplay);
+          } else {
+            console.log('[EditFacultyModal] ✅ Modal should be visible');
+          }
+        }, 100);
       } else {
+        console.log('[EditFacultyModal] window.openModal not available, using fallback');
         // Fallback to direct manipulation
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
         document.body.classList.add('modal-open');
         requestAnimationFrame(() => {
           modal.classList.add('active');
+          console.log('[EditFacultyModal] Fallback: Added active class');
+          
+          // Verify
+          setTimeout(() => {
+            const finalDisplay = window.getComputedStyle(modal).display;
+            const finalOpacity = window.getComputedStyle(modal).opacity;
+            console.log('[EditFacultyModal] Fallback - display:', finalDisplay);
+            console.log('[EditFacultyModal] Fallback - opacity:', finalOpacity);
+          }, 50);
         });
       }
 
@@ -335,6 +377,7 @@
       window.editAdditionalDepartments = [];
       populateEditDepartmentSelect();
       if (facultyId) {
+        console.log('[EditFacultyModal] Loading faculty data for:', facultyId);
         fetchEditDepartmentAssignments(facultyId);
       }
     } catch (error) {

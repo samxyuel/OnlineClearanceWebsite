@@ -351,9 +351,8 @@ if (session_status() == PHP_SESSION_NONE) {
     <!-- Include SHS Student Registry Modal -->
     <?php include '../../Modals/SHSStudentRegistryModal.php'; ?>
 
-    <!-- Include Generated Credentials Modal -->
-    <!-- Commented out: Already included in SHSStudentRegistryModal.php to avoid duplicate IDs -->
-    <?php // include '../../Modals/GeneratedCredentialsModal.php'; ?>
+    <!-- Include Generated Credentials Modal (shared, include only once) -->
+    <?php include '../../Modals/GeneratedCredentialsModal.php'; ?>
 
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">

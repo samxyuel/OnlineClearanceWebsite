@@ -390,6 +390,9 @@ ob_start();
     <!-- Include Faculty Batch Update Modal -->
     <?php include '../../Modals/FacultyBatchUpdateModal.php'; ?>
 
+    <!-- Include Generated Credentials Modal (shared, include only once) -->
+    <?php include '../../Modals/GeneratedCredentialsModal.php'; ?>
+
     <!-- Bulk Selection Filters Modal -->
     <div id="bulkSelectionModal" class="modal-overlay" style="display: none;">
         <div class="modal-window bulk-selection-modal">

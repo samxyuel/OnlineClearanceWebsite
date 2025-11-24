@@ -4,9 +4,8 @@
 ?>
 <!-- Include Modal Styles -->
 <link rel="stylesheet" href="../../assets/css/modals.css">
-<?php include __DIR__ . '/GeneratedCredentialsModal.php'; ?>
 
-<div class="modal-overlay edit-student-modal-overlay" id="editStudentModal">
+<div class="modal-overlay edit-student-modal-overlay" id="collegeEditStudentModal" style="display: none;">
   <div class="modal-window">
     <!-- Close Button -->
     <button class="modal-close" onclick="closeEditStudentModal()">&times;</button>
@@ -391,7 +390,7 @@ function submitEditStudentForm() {
 window.closeEditStudentModal = function() {
   console.log('[CollegeEditStudentModal] closeEditStudentModal() called');
   try {
-    const modal = document.getElementById('editStudentModal');
+    const modal = document.getElementById('collegeEditStudentModal');
     if (!modal) {
       console.warn('[CollegeEditStudentModal] Modal not found');
       return;
@@ -400,7 +399,7 @@ window.closeEditStudentModal = function() {
 
     // Use window.closeModal if available, otherwise fallback
     if (typeof window.closeModal === 'function') {
-      window.closeModal('editStudentModal');
+      window.closeModal('collegeEditStudentModal');
     } else {
       // Fallback to direct manipulation
       modal.style.display = 'none';
@@ -421,33 +420,79 @@ window.closeEditStudentModal = function() {
 
 // Open modal function (called from parent page) - Make globally available
 window.openEditStudentModal = function(studentId) {
+  console.log('[CollegeEditStudentModal] ===== openEditStudentModal called =====');
+  console.log('[CollegeEditStudentModal] studentId:', studentId);
+  
   try {
-    const modal = document.getElementById('editStudentModal');
+    const modal = document.getElementById('collegeEditStudentModal');
+    console.log('[CollegeEditStudentModal] Modal element search result:', modal);
+    
     if (!modal) {
+      console.error('[CollegeEditStudentModal] ❌ Modal element not found!');
+      console.error('[CollegeEditStudentModal] Searching for alternative selectors...');
+      const altModal = document.querySelector('.edit-student-modal-overlay');
+      console.log('[CollegeEditStudentModal] Found by class selector:', altModal);
+      
       if (typeof showToastNotification === 'function') {
         showToastNotification('Edit student modal not found. Please refresh the page.', 'error');
       }
       return;
     }
-
+    
+    console.log('[CollegeEditStudentModal] ✅ Modal element found');
+    console.log('[CollegeEditStudentModal] Modal current display:', window.getComputedStyle(modal).display);
+    console.log('[CollegeEditStudentModal] Modal current opacity:', window.getComputedStyle(modal).opacity);
+    console.log('[CollegeEditStudentModal] Modal has active class:', modal.classList.contains('active'));
+    console.log('[CollegeEditStudentModal] Modal inline style:', modal.style.display);
+    
     // Use window.openModal if available, otherwise fallback
     if (typeof window.openModal === 'function') {
-      window.openModal('editStudentModal');
+      console.log('[CollegeEditStudentModal] Using window.openModal()');
+      window.openModal('collegeEditStudentModal');
+      console.log('[CollegeEditStudentModal] window.openModal() called');
+      
+      // Verify modal is now visible
+      setTimeout(() => {
+        const finalDisplay = window.getComputedStyle(modal).display;
+        const finalOpacity = window.getComputedStyle(modal).opacity;
+        console.log('[CollegeEditStudentModal] After openModal - display:', finalDisplay);
+        console.log('[CollegeEditStudentModal] After openModal - opacity:', finalOpacity);
+        console.log('[CollegeEditStudentModal] After openModal - has active class:', modal.classList.contains('active'));
+        
+        if (finalDisplay === 'none' || finalDisplay === '') {
+          console.error('[CollegeEditStudentModal] ❌ Modal still hidden! Display:', finalDisplay);
+        } else {
+          console.log('[CollegeEditStudentModal] ✅ Modal should be visible');
+        }
+      }, 100);
     } else {
+      console.log('[CollegeEditStudentModal] window.openModal not available, using fallback');
       // Fallback to direct manipulation
       modal.style.display = 'flex';
       document.body.style.overflow = 'hidden';
       document.body.classList.add('modal-open');
       requestAnimationFrame(() => {
         modal.classList.add('active');
+        console.log('[CollegeEditStudentModal] Fallback: Added active class');
+        
+        // Verify
+        setTimeout(() => {
+          const finalDisplay = window.getComputedStyle(modal).display;
+          const finalOpacity = window.getComputedStyle(modal).opacity;
+          console.log('[CollegeEditStudentModal] Fallback - display:', finalDisplay);
+          console.log('[CollegeEditStudentModal] Fallback - opacity:', finalOpacity);
+        }, 50);
       });
     }
 
     // Load student data
     if (studentId) {
+      console.log('[CollegeEditStudentModal] Loading student data for:', studentId);
       loadStudentData(studentId);
     }
   } catch (error) {
+    console.error('[CollegeEditStudentModal] ❌ Error opening modal:', error);
+    console.error('[CollegeEditStudentModal] Error stack:', error.stack);
     if (typeof showToastNotification === 'function') {
       showToastNotification('Unable to open edit student modal. Please try again.', 'error');
     }

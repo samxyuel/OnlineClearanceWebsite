@@ -1023,6 +1023,26 @@ body {
   transform: translateY(-1px);
 }
 
+/* Disabled button styles - ensure they don't interfere with layout */
+.btn:disabled,
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none; /* Explicitly prevent any interaction */
+}
+
+/* Ensure disabled buttons don't trigger hover effects */
+.btn-primary:disabled:hover,
+.btn-secondary:disabled:hover,
+.btn-success:disabled:hover,
+.btn-danger:disabled:hover,
+.btn-warning:disabled:hover,
+.btn-outline-warning:disabled:hover {
+  background-color: inherit;
+  transform: none;
+  box-shadow: none;
+}
+
 /* Search and Filters Section */
 .search-filters-section {
   background: white;
@@ -11280,43 +11300,43 @@ body {
 
 /* Role Selector Styles */
 .role-selector-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background-color: white;
-    padding: 10px 15px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    margin-top: 15px;
-    border: 1px solid var(--light-blue-gray);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: white;
+  padding: 10px 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-top: 15px;
+  border: 1px solid var(--light-blue-gray);
 }
 
 .role-selector-container i {
-    color: var(--medium-muted-blue);
-    font-size: 1.1rem;
+  color: var(--medium-muted-blue);
+  font-size: 1.1rem;
 }
 
 .role-selector-container label {
-    font-weight: 600;
-    color: var(--deep-navy-blue);
-    margin-bottom: 0;
+  font-weight: 600;
+  color: var(--deep-navy-blue);
+  margin-bottom: 0;
 }
 
 .role-selector-container .filter-select {
-    padding: 6px 12px;
-    border-radius: 4px;
-    border: 1px solid var(--light-blue-gray);
-    color: var(--deep-navy-blue);
-    font-size: 0.95rem;
-    background-color: var(--very-light-off-white);
-    cursor: pointer;
-    min-width: 200px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--light-blue-gray);
+  color: var(--deep-navy-blue);
+  font-size: 0.95rem;
+  background-color: var(--very-light-off-white);
+  cursor: pointer;
+  min-width: 200px;
 }
 
 .role-selector-container .single-role-display {
-    font-weight: 600;
-    color: var(--darker-saturated-blue);
-    padding: 6px 12px;
-    background-color: var(--light-muted-blue);
-    border-radius: 4px;
+  font-weight: 600;
+  color: var(--darker-saturated-blue);
+  padding: 6px 12px;
+  background-color: var(--light-muted-blue);
+  border-radius: 4px;
 }

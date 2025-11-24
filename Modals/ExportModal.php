@@ -9,7 +9,7 @@ $currentUserId = $currentUser['user_id'] ?? null;
 <!-- Include Modal Styles -->
 <link rel="stylesheet" href="../../assets/css/modals.css">
 
-<div class="modal-overlay export-modal-overlay" id="exportModal">
+<div class="modal-overlay export-modal-overlay" id="exportModal" style="display: none;">
   <div class="modal-window" style="max-width: 600px;">
     <!-- Close Button -->
     <button class="modal-close" onclick="closeExportModal()">&times;</button>
@@ -675,17 +675,22 @@ window.openExportModal = async function() {
       
       // Verify modal is now visible
       setTimeout(() => {
-        const display = window.getComputedStyle(modal).display;
-        console.log('[ExportModal] Modal display after openModal:', display);
-        if (display === 'none' || display === '') {
-          console.error('[ExportModal] ❌ Modal still not visible! Using fallback...');
-          modal.style.display = 'flex';
-          document.body.classList.add('modal-open');
-          requestAnimationFrame(() => {
-            modal.classList.add('active');
-          });
+        const finalDisplay = window.getComputedStyle(modal).display;
+        const finalOpacity = window.getComputedStyle(modal).opacity;
+        console.log('[ExportModal] After openModal - display:', finalDisplay);
+        console.log('[ExportModal] After openModal - opacity:', finalOpacity);
+        console.log('[ExportModal] After openModal - has active class:', modal.classList.contains('active'));
+        
+        if (finalDisplay === 'none' || finalDisplay === '') {
+          console.error('[ExportModal] ❌ Modal still hidden! Display:', finalDisplay);
+          console.error('[ExportModal] Checking CSS rules...');
+          const computedStyle = window.getComputedStyle(modal);
+          console.error('[ExportModal] Computed display:', computedStyle.display);
+          console.error('[ExportModal] Computed visibility:', computedStyle.visibility);
+          console.error('[ExportModal] Computed opacity:', computedStyle.opacity);
+          console.error('[ExportModal] Computed z-index:', computedStyle.zIndex);
         } else {
-          console.log('[ExportModal] ✅ Modal is now visible');
+          console.log('[ExportModal] ✅ Modal should be visible');
         }
       }, 100);
     } else {

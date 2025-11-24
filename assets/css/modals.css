@@ -415,6 +415,63 @@
   display: flex !important;
 }
 
+/* Ensure Program Head modals display correctly */
+.edit-student-modal-overlay.active,
+.edit-faculty-modal-overlay.active,
+.student-registration-modal-overlay.active,
+.export-modal-overlay.active,
+.import-modal-overlay.active,
+.clearance-progress-modal-overlay.active,
+.edit-student-modal-overlay[style*="display: flex"],
+.edit-student-modal-overlay[style*="display:flex"],
+.edit-faculty-modal-overlay[style*="display: flex"],
+.edit-faculty-modal-overlay[style*="display:flex"],
+.student-registration-modal-overlay[style*="display: flex"],
+.student-registration-modal-overlay[style*="display:flex"],
+.export-modal-overlay[style*="display: flex"],
+.export-modal-overlay[style*="display:flex"],
+.import-modal-overlay[style*="display: flex"],
+.import-modal-overlay[style*="display:flex"],
+.clearance-progress-modal-overlay[style*="display: flex"],
+.clearance-progress-modal-overlay[style*="display:flex"],
+#collegeEditStudentModal.active,
+#shsEditStudentModal.active,
+#editFacultyModal.active,
+#studentRegistrationModal.active,
+#exportModal.active,
+#importModal.active,
+#clearanceProgressModal.active,
+#collegeEditStudentModal[style*="display: flex"],
+#collegeEditStudentModal[style*="display:flex"],
+#shsEditStudentModal[style*="display: flex"],
+#shsEditStudentModal[style*="display:flex"],
+#editFacultyModal[style*="display: flex"],
+#editFacultyModal[style*="display:flex"],
+#studentRegistrationModal[style*="display: flex"],
+#studentRegistrationModal[style*="display:flex"],
+#exportModal[style*="display: flex"],
+#exportModal[style*="display:flex"],
+#importModal[style*="display: flex"],
+#importModal[style*="display:flex"],
+#clearanceProgressModal[style*="display: flex"],
+#clearanceProgressModal[style*="display:flex"] {
+  display: flex !important;
+}
+
+/* Debug: Ensure modals are visible when opened */
+.modal-overlay[style*="display: flex"],
+.modal-overlay[style*="display:flex"] {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.modal-overlay.active {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
 /* Modal Window - Support both .modal-window and .modal-content */
 .modal-window,
 .modal-content {

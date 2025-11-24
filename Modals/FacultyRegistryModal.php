@@ -1,6 +1,6 @@
 <?php // Faculty Registry Modal - Add New Faculty ?>
 <link rel="stylesheet" href="../../assets/css/modals.css">
-<div class="modal-overlay faculty-registration-modal-overlay" id="facultyRegistrationModal">
+<div class="modal-overlay faculty-registration-modal-overlay" id="facultyRegistrationModal" style="display: none;">
   <div class="modal-window">
     <button class="modal-close" onclick="closeFacultyRegistrationModal()">&times;</button>
     <h2 class="modal-title">👨‍🏫 Add New Faculty</h2>
@@ -71,8 +71,6 @@
     </div>
   </div>
 </div>
-
-<?php include __DIR__ . '/GeneratedCredentialsModal.php'; ?>
 
 <script>
   // Store additional departments for faculty registration
@@ -219,25 +217,47 @@
   
   // Make functions globally accessible
   window.openFacultyRegistrationModal = function() {
+    console.log('[FacultyRegistryModal] ===== openFacultyRegistrationModal called =====');
+    
     try {
       const modal = document.getElementById('facultyRegistrationModal');
+      console.log('[FacultyRegistryModal] Modal element search result:', modal);
+      
       if (!modal) {
+        console.error('[FacultyRegistryModal] ❌ Modal element not found!');
         if (typeof showToastNotification === 'function') {
           showToastNotification('Faculty registration modal not found. Please refresh the page.', 'error');
         }
         return;
       }
+      
+      console.log('[FacultyRegistryModal] ✅ Modal element found');
+      console.log('[FacultyRegistryModal] Modal current display:', window.getComputedStyle(modal).display);
+      console.log('[FacultyRegistryModal] Modal current opacity:', window.getComputedStyle(modal).opacity);
+      console.log('[FacultyRegistryModal] Modal inline style:', modal.style.display);
 
       // Use window.openModal if available, otherwise fallback
       if (typeof window.openModal === 'function') {
+        console.log('[FacultyRegistryModal] Using window.openModal()');
         window.openModal('facultyRegistrationModal');
+        
+        setTimeout(() => {
+          const finalDisplay = window.getComputedStyle(modal).display;
+          const finalOpacity = window.getComputedStyle(modal).opacity;
+          console.log('[FacultyRegistryModal] After openModal - display:', finalDisplay, 'opacity:', finalOpacity);
+          if (finalDisplay === 'none' || finalDisplay === '') {
+            console.error('[FacultyRegistryModal] ❌ Modal still hidden!');
+          }
+        }, 100);
       } else {
+        console.log('[FacultyRegistryModal] window.openModal not available, using fallback');
         // Fallback to direct manipulation
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
         document.body.classList.add('modal-open');
         requestAnimationFrame(() => {
           modal.classList.add('active');
+          console.log('[FacultyRegistryModal] Fallback: Added active class');
         });
       }
 
@@ -246,6 +266,8 @@
       if (deptList) deptList.innerHTML = '';
       populateAdditionalDepartmentSelect();
     } catch (error) {
+      console.error('[FacultyRegistryModal] ❌ Error:', error);
+      console.error('[FacultyRegistryModal] Error stack:', error.stack);
       if (typeof showToastNotification === 'function') {
         showToastNotification('Unable to open faculty registration modal. Please try again.', 'error');
       }

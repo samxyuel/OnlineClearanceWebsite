@@ -5,7 +5,7 @@
 <!-- Include Modal Styles -->
 <link rel="stylesheet" href="../../assets/css/modals.css">
 
-<div class="modal-overlay student-registration-modal-overlay" id="studentRegistrationModal">
+<div class="modal-overlay student-registration-modal-overlay" id="studentRegistrationModal" style="display: none;">
   <div class="modal-window">
     <!-- Close Button -->
     <button class="modal-close" onclick="closeStudentRegistrationModal()">&times;</button>
@@ -102,8 +102,6 @@
     </div>
   </div>
 </div>
-
-<?php include __DIR__ . '/GeneratedCredentialsModal.php'; ?>
 
 <script>
 // Fetch programs and year levels when the modal is opened
@@ -343,25 +341,47 @@ window.closeStudentRegistrationModal = function() {
 
 // Open modal function (called from parent page) - Make globally available
 window.openStudentRegistrationModal = function() {
+  console.log('[SHSStudentRegistryModal] ===== openStudentRegistrationModal called =====');
+  
   try {
     const modal = document.getElementById('studentRegistrationModal');
+    console.log('[SHSStudentRegistryModal] Modal element search result:', modal);
+    
     if (!modal) {
+      console.error('[SHSStudentRegistryModal] ❌ Modal element not found!');
       if (typeof showToastNotification === 'function') {
         showToastNotification('Student registration modal not found. Please refresh the page.', 'error');
       }
       return;
     }
+    
+    console.log('[SHSStudentRegistryModal] ✅ Modal element found');
+    console.log('[SHSStudentRegistryModal] Modal current display:', window.getComputedStyle(modal).display);
+    console.log('[SHSStudentRegistryModal] Modal current opacity:', window.getComputedStyle(modal).opacity);
+    console.log('[SHSStudentRegistryModal] Modal inline style:', modal.style.display);
 
     // Use window.openModal if available, otherwise fallback
     if (typeof window.openModal === 'function') {
+      console.log('[SHSStudentRegistryModal] Using window.openModal()');
       window.openModal('studentRegistrationModal');
+      
+      setTimeout(() => {
+        const finalDisplay = window.getComputedStyle(modal).display;
+        const finalOpacity = window.getComputedStyle(modal).opacity;
+        console.log('[SHSStudentRegistryModal] After openModal - display:', finalDisplay, 'opacity:', finalOpacity);
+        if (finalDisplay === 'none' || finalDisplay === '') {
+          console.error('[SHSStudentRegistryModal] ❌ Modal still hidden!');
+        }
+      }, 100);
     } else {
+      console.log('[SHSStudentRegistryModal] window.openModal not available, using fallback');
       // Fallback to direct manipulation
       modal.style.display = 'flex';
       document.body.style.overflow = 'hidden';
       document.body.classList.add('modal-open');
       requestAnimationFrame(() => {
         modal.classList.add('active');
+        console.log('[SHSStudentRegistryModal] Fallback: Added active class');
       });
     }
 

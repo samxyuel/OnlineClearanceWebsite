@@ -28,7 +28,7 @@
  * @param {object} data - Contains username and password.
  * @param {function} [confirmCallback] - Optional callback for the confirm button.
  */
-function openGeneratedCredentialsModal(mode, data, confirmCallback) {
+window.openGeneratedCredentialsModal = function(mode, data, confirmCallback) {
     console.log('[GeneratedCredentialsModal] openGeneratedCredentialsModal() called', { mode, data });
     try {
         const modal = document.getElementById('credentialModal');
@@ -91,9 +91,9 @@ function openGeneratedCredentialsModal(mode, data, confirmCallback) {
             showToastNotification('Unable to open credentials modal. Please try again.', 'error');
         }
     }
-}
+};
 
-function closeGeneratedCredentialsModal() {
+window.closeGeneratedCredentialsModal = function() {
     console.log('[GeneratedCredentialsModal] closeGeneratedCredentialsModal() called');
     try {
         const modal = document.getElementById('credentialModal');
@@ -114,9 +114,9 @@ function closeGeneratedCredentialsModal() {
     } catch (error) {
         console.error('[GeneratedCredentialsModal] Error closing modal:', error);
     }
-}
+};
 
-function copyGeneratedCredentials() {
+window.copyGeneratedCredentials = function() {
     const username = document.getElementById('generatedUsername').value;
     const password = document.getElementById('generatedPassword').value;
     const textToCopy = `Username: ${username}\nPassword: ${password}`;
@@ -125,5 +125,5 @@ function copyGeneratedCredentials() {
     }).catch(err => {
         showToastNotification('Failed to copy credentials.', 'error');
     });
-}
+};
 </script>
