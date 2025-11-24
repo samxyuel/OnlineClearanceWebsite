@@ -164,8 +164,15 @@ function handleFormDistribution($connection) {
         $formsCreated = 0;
         $signatoriesAssigned = 0;
         $formsSkipped = 0;
+        $totalUsers = count($eligibleUsers);
+        $processedCount = 0;
+        $startTime = microtime(true);
+        
+        error_log("📊 FORM DISTRIBUTION: Starting to process $totalUsers users for $clearanceType");
         
         foreach ($eligibleUsers as $user) {
+            $processedCount++;
+            $userStartTime = microtime(true);
             // Check if form already exists
             $existingForm = checkExistingForm($connection, $user['user_id'], $academicYearId, $semesterId, $clearanceType);
             
@@ -223,13 +230,25 @@ function handleFormDistribution($connection) {
                 }
             }
             
-            error_log("✅ FORM DISTRIBUTION: Processed form {$clearanceFormId} for {$user['first_name']} {$user['last_name']} with $assignedCount signatories");
+            $userDuration = round((microtime(true) - $userStartTime) * 1000, 2);
+            error_log("✅ FORM DISTRIBUTION: Processed form {$clearanceFormId} for {$user['first_name']} {$user['last_name']} with $assignedCount signatories (took {$userDuration}ms)");
+            
+            // Log progress every 10 users or at milestones
+            if ($processedCount % 10 == 0 || $processedCount == $totalUsers) {
+                $elapsed = round((microtime(true) - $startTime), 2);
+                $avgTimePerUser = round($elapsed / $processedCount, 2);
+                $estimatedRemaining = $totalUsers > $processedCount ? round(($totalUsers - $processedCount) * $avgTimePerUser, 2) : 0;
+                
+                error_log("📊 FORM DISTRIBUTION PROGRESS: $processedCount of $totalUsers users processed | Forms: $formsCreated created, $formsSkipped skipped | Elapsed: {$elapsed}s | Avg: {$avgTimePerUser}s/user | Est. remaining: {$estimatedRemaining}s");
+            }
         }
         
         // Commit transaction
         $connection->commit();
         
+        $totalDuration = round((microtime(true) - $startTime), 2);
         error_log("🎉 FORM DISTRIBUTION: Successfully distributed $formsCreated forms with $signatoriesAssigned total signatory assignments");
+        error_log("⏱️ FORM DISTRIBUTION: Completed $processedCount of $totalUsers users in {$totalDuration} seconds");
         
         echo json_encode([
             'success' => true,
