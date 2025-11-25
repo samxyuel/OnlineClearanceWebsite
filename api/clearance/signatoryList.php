@@ -65,8 +65,15 @@ try {
     }
 
     // 2. Get the active clearance period for the relevant sector
-    $type = $_GET['type'] ?? 'student'; // 'student' or 'faculty'
+    $type = isset($_GET['type']) ? strtolower(trim($_GET['type'])) : 'student'; // 'student' or 'faculty'
+    // Ensure type is valid
+    if ($type !== 'faculty' && $type !== 'student') {
+        $type = 'student'; // Default to student if invalid
+    }
     $sector = ($type === 'faculty') ? 'Faculty' : 'Student'; // Simplified sector for query
+    
+    // Debug logging
+    error_log("SIGNATORY_LIST_DEBUG: Type parameter = " . $type . " (raw: " . ($_GET['type'] ?? 'not set') . ")");
 
     // 3. Get filter and pagination parameters
     $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
@@ -275,8 +282,28 @@ try {
     
     // Apply designation filter if provided (for role switching)
     if (!empty($designationFilter)) {
-        $where .= " AND (d_sig.designation_name = :designationFilter OR cf.clearance_form_id IS NULL)";
-        $params[':designationFilter'] = $designationFilter;
+        // Get the designation_id for the filter to ensure accurate matching
+        $desigStmt = $pdo->prepare("SELECT designation_id FROM designations WHERE designation_name = :designationFilter AND is_active = 1 LIMIT 1");
+        $desigStmt->execute([':designationFilter' => $designationFilter]);
+        $filterDesignationId = $desigStmt->fetchColumn();
+        
+        if ($filterDesignationId) {
+            // Filter to show only records where:
+            // 1. The signatory record matches the filtered designation (cs.designation_id matches), OR
+            // 2. There's no clearance form (for new users), OR
+            // 3. There's a clearance form but no signatory record yet (Unapplied - cs.designation_id IS NULL)
+            // This ensures we don't exclude valid signatory records that exist but weren't joined due to the filter
+            $where .= " AND (
+                cs.designation_id = :filterDesignationId 
+                OR cf.clearance_form_id IS NULL 
+                OR (cf.clearance_form_id IS NOT NULL AND cs.designation_id IS NULL)
+            )";
+            $params[':filterDesignationId'] = $filterDesignationId;
+        } else {
+            // If designation not found, fall back to original logic
+            $where .= " AND (d_sig.designation_name = :designationFilter OR cf.clearance_form_id IS NULL)";
+            $params[':designationFilter'] = $designationFilter;
+        }
     }
 
     // SERVER-SIDE SCOPING for Program Heads
@@ -381,7 +408,7 @@ try {
     
     // Conditional sorting
     $groupBy = "";
-    if (strtolower($type) === 'faculty') {
+    if ($type === 'faculty') {
         $groupBy = " GROUP BY f.employee_number";
     }
     $orderBy = " ORDER BY 
@@ -435,7 +462,12 @@ try {
 
 
     // 5. Format and return the response
-    $responseKey = ($type === 'faculty') ? 'faculty' : 'students';
+    // Ensure type is normalized for response key
+    $normalizedType = strtolower($type);
+    $responseKey = ($normalizedType === 'faculty') ? 'faculty' : 'students';
+    
+    // Debug logging
+    error_log("SIGNATORY_LIST_DEBUG: Response key = " . $responseKey . " (type = " . $type . ", normalized = " . $normalizedType . ")");
     $response = [
         'success' => true,
         'total' => (int)$total,

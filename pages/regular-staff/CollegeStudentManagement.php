@@ -877,7 +877,7 @@ handleStudentManagementPageRequest('College');
             const studentName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Student';
             console.log('🔵 APPROVE DEBUG: Student name:', studentName);
             
-            const clearanceBadgeSelector = '.status-badge.clearance-pending, .status-badge.clearance-rejected';
+            const clearanceBadgeSelector = '.status-badge-compact.signatory-pending, .status-badge-compact.signatory-rejected';
             console.log('🔵 APPROVE DEBUG: Looking for clearance badge with selector:', clearanceBadgeSelector);
             const clearanceBadge = row.querySelector(clearanceBadgeSelector);
             const clearanceFormId = row.getAttribute('data-clearance-form-id');
@@ -988,7 +988,7 @@ handleStudentManagementPageRequest('College');
             const studentName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Student';
             console.log('🔴 REJECT DEBUG: Student name:', studentName);
             
-            const clearanceBadgeSelector = '.status-badge.clearance-pending, .status-badge.clearance-rejected';
+            const clearanceBadgeSelector = '.status-badge-compact.signatory-pending, .status-badge-compact.signatory-rejected';
             console.log('🔴 REJECT DEBUG: Looking for clearance badge with selector:', clearanceBadgeSelector);
             const clearanceBadge = row.querySelector(clearanceBadgeSelector);
             const signatoryId = row.getAttribute('data-signatory-id');

@@ -388,12 +388,23 @@
             // updateClearanceUI function after the main data is loaded.
 
             // Load clearance data for the selected form
-            const clearanceResponse = await fetch(`../../api/clearance/user_status.php?form_id=${selectedFormId}`, {
+            const apiUrl = `../../api/clearance/user_status.php?form_id=${selectedFormId}`;
+            console.log('🔍 DEBUG: Fetching user status from:', apiUrl);
+            
+            const clearanceResponse = await fetch(apiUrl, {
                 credentials: 'same-origin'
             });
             
+            console.log('🔍 DEBUG: Response status:', clearanceResponse.status, clearanceResponse.statusText);
+            
             if (!clearanceResponse.ok) {
-                throw new Error(`User status API error: ${clearanceResponse.status}`);
+                if (clearanceResponse.status === 404) {
+                    console.error('🔍 DEBUG: 404 Error - API endpoint not found. Check if user_status.php exists at api/clearance/user_status.php');
+                    showToast('Clearance status API not found. Please contact administrator.', 'error');
+                } else {
+                    throw new Error(`User status API error: ${clearanceResponse.status}`);
+                }
+                return;
             }
             
             const clearanceData = await clearanceResponse.json();

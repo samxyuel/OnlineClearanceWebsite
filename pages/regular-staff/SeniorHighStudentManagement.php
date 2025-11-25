@@ -877,7 +877,7 @@ handleStudentManagementPageRequest('Senior High School');
             const studentName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Student';
             console.log('🔵 SHS APPROVE DEBUG: Student name:', studentName);
             
-            const clearanceBadgeSelector = '.status-badge.clearance-pending, .status-badge.clearance-rejected';
+            const clearanceBadgeSelector = '.status-badge-compact.signatory-pending, .status-badge-compact.signatory-rejected';
             console.log('🔵 SHS APPROVE DEBUG: Looking for clearance badge with selector:', clearanceBadgeSelector);
             const clearanceBadge = row.querySelector(clearanceBadgeSelector);
             const clearanceFormId = row.getAttribute('data-clearance-form-id');
@@ -988,7 +988,7 @@ handleStudentManagementPageRequest('Senior High School');
             const studentName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Student';
             console.log('🔴 SHS REJECT DEBUG: Student name:', studentName);
             
-            const clearanceBadgeSelector = '.status-badge.clearance-pending, .status-badge.clearance-rejected';
+            const clearanceBadgeSelector = '.status-badge-compact.signatory-pending, .status-badge-compact.signatory-rejected';
             console.log('🔴 SHS REJECT DEBUG: Looking for clearance badge with selector:', clearanceBadgeSelector);
             const clearanceBadge = row.querySelector(clearanceBadgeSelector);
             const signatoryId = row.getAttribute('data-signatory-id');
