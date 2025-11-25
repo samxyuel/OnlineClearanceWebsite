@@ -3948,6 +3948,67 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             }
         }
 
+        async function resumeSectorPeriod(sector) {
+            const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
+            const buttonElement = document.getElementById(`${sectorKey}-pause-btn`);
+            
+            console.log(`▶️ DEBUG: Resuming ${sector} clearance period...`);
+            console.log(`▶️ DEBUG: Button element:`, buttonElement);
+            
+            try {
+                // Get the current period data to extract period_id
+                const activeTerm = await getActiveTerm();
+                console.log(`▶️ DEBUG: Active term data:`, activeTerm);
+
+                if (!activeTerm) {
+                    throw new Error('Cannot resume clearance period: No active term found');
+                }
+
+                // Get the current period for this sector
+                const response = await fetch(`${API_BASE}/sector-periods.php`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success && data.periods_by_sector && data.periods_by_sector[sector]) {
+                    const currentPeriod = data.periods_by_sector[sector][0]; // Get latest period
+                    console.log(`▶️ DEBUG: Current period for ${sector}:`, currentPeriod);
+                    
+                    if (!currentPeriod || !currentPeriod.period_id) {
+                        throw new Error(`No active period found for ${sector}`);
+                    }
+
+                    const requestData = {
+                        period_id: currentPeriod.period_id,
+                        action: 'resume'
+                    };
+
+                    console.log(`▶️ DEBUG: Sending request to API:`, requestData);
+
+                    const apiResponse = await fetchJSON(`${API_BASE}/sector-periods.php`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    console.log(`▶️ DEBUG: API response:`, apiResponse);
+
+                    if (apiResponse.success) {
+                        console.log(`✅ DEBUG: ${sector} clearance period resumed successfully`);
+                        showToast(`${sector} clearance period resumed. Forms will be distributed to newly added users.`, 'success');
+                        await refreshSectorData();
+                    } else {
+                        throw new Error(apiResponse.message || 'Failed to resume clearance period');
+                    }
+                } else {
+                    throw new Error(`No period data found for ${sector}`);
+                }
+            } catch (error) {
+                console.error(`❌ DEBUG: Error resuming ${sector} sector period:`, error);
+                showToast(error.message || 'Failed to resume clearance period', 'error');
+            }
+        }
+
         async function closeSectorPeriod(sector) {
             const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
             const buttonElement = document.getElementById(`${sectorKey}-close-btn`);
@@ -4329,6 +4390,31 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                 return false;
             }
         }
+
+        /**
+         * Update status badge for a sector (callable from modal)
+         * This function is exposed globally so it can be called from DepartmentDistributionModal.php
+         */
+        function updateSectorStatusBadge(sector, status) {
+            const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
+            const statusBadge = document.getElementById(`${sectorKey}-status-badge`);
+            
+            if (statusBadge) {
+                statusBadge.textContent = status;
+                // Update badge class based on status
+                const statusClass = status.toLowerCase().replace(' ', '-');
+                statusBadge.className = `status-badge ${statusClass}`;
+                console.log(`✅ Updated status badge for ${sector} to: ${status}`);
+                
+                // Also update the buttons to reflect the new status
+                updateSectorButtons(sector, status);
+            } else {
+                console.warn(`⚠️ Status badge not found for ${sector} (${sectorKey}-status-badge)`);
+            }
+        }
+        
+        // Expose function globally so modal can call it
+        window.updateStatusBadge = updateSectorStatusBadge;
 
         // Reset Term function commented out as per requirements
         /*

@@ -335,6 +335,33 @@ try {
     $stmt->execute([$form['clearance_form_id']]);
     $signatories = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // 🔧 DEDUPLICATION: Remove duplicates by designation_id (keep the first/latest one)
+    $uniqueSignatories = [];
+    $seenDesignationIds = [];
+    $duplicateCount = 0;
+    
+    foreach ($signatories as $signatory) {
+        $designationId = (int)$signatory['designation_id'];
+        
+        if (in_array($designationId, $seenDesignationIds)) {
+            // Duplicate found - log it
+            error_log("⚠️ DUPLICATE SIGNATORY DETECTED: Form ID {$form['clearance_form_id']}, Designation ID {$designationId} ({$signatory['designation_name']}), Signatory ID {$signatory['signatory_id']}");
+            $duplicateCount++;
+            // Keep the first occurrence (or you could keep the latest by comparing created_at)
+            continue;
+        }
+        
+        $seenDesignationIds[] = $designationId;
+        $uniqueSignatories[] = $signatory;
+    }
+    
+    if ($duplicateCount > 0) {
+        error_log("⚠️ API: Found {$duplicateCount} duplicate signatories for form {$form['clearance_form_id']}. Removed duplicates, returning " . count($uniqueSignatories) . " unique signatories.");
+    }
+    
+    // Use deduplicated signatories
+    $signatories = $uniqueSignatories;
+    
     // Process signatories data
     $processedSignatories = [];
     $hasUnapplied = false;

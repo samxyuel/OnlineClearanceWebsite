@@ -501,6 +501,28 @@
         window.currentClearanceData = data;
         currentPeriodData = data;
 
+        // 🔍 DEBUG: Log raw signatories from API
+        console.log('🔍 DEBUG: Raw signatories from API:', data.signatories);
+        console.log('🔍 DEBUG: Total signatories received:', data.signatories?.length || 0);
+        
+        // 🔍 DEBUG: Check for duplicates by designation_id
+        if (data.signatories && data.signatories.length > 0) {
+            const designationIds = data.signatories.map(s => s.designation_id);
+            const uniqueIds = [...new Set(designationIds)];
+            const duplicates = designationIds.filter((id, index) => designationIds.indexOf(id) !== index);
+            
+            if (duplicates.length > 0) {
+                console.warn('⚠️ WARNING: Duplicate signatories detected!', {
+                    total: data.signatories.length,
+                    unique: uniqueIds.length,
+                    duplicates: duplicates,
+                    duplicateDetails: data.signatories.filter(s => duplicates.includes(s.designation_id))
+                });
+            } else {
+                console.log('✅ No duplicates detected in API response');
+            }
+        }
+
         // statusPanelMeta removed (previous header timestamp)
         
         // Update the period status banner using the data from this response
@@ -515,9 +537,28 @@
             overallStatus.textContent = data.overall_status ? data.overall_status : 'Pending';
         }
         
-        // Update signatory cards and table rows based on data.signatories
-        updateSignatoryCards(data.signatories);
-        updateSignatoryTable(data.signatories);
+        // 🔧 DEDUPLICATION: Remove duplicates before rendering
+        let deduplicatedSignatories = data.signatories || [];
+        if (deduplicatedSignatories.length > 0) {
+            const seen = new Map();
+            deduplicatedSignatories = deduplicatedSignatories.filter(signatory => {
+                const key = `${signatory.clearance_form_id || 'unknown'}_${signatory.designation_id}`;
+                if (seen.has(key)) {
+                    console.warn(`⚠️ DUPLICATE REMOVED: designation_id ${signatory.designation_id} (${signatory.designation_name}) - keeping first occurrence, removing duplicate with signatory_id ${signatory.signatory_id}`);
+                    return false;
+                }
+                seen.set(key, true);
+                return true;
+            });
+            
+            if (deduplicatedSignatories.length !== data.signatories.length) {
+                console.log(`🔧 Deduplication: ${data.signatories.length} → ${deduplicatedSignatories.length} signatories`);
+            }
+        }
+        
+        // Update signatory cards and table rows based on deduplicated data
+        updateSignatoryCards(deduplicatedSignatories);
+        updateSignatoryTable(deduplicatedSignatories);
         
         // Start real-time monitoring if period is active
         startRealTimeMonitoring();
@@ -571,6 +612,17 @@
         
         if (!cardsGrid) return;
         
+        // 🔍 DEBUG: Log what we're rendering
+        console.log('🔍 DEBUG: updateSignatoryCards called with', signatories?.length || 0, 'signatories');
+        if (signatories && signatories.length > 0) {
+            console.log('🔍 DEBUG: Signatories to render:', signatories.map(s => ({
+                signatory_id: s.signatory_id,
+                designation_id: s.designation_id,
+                designation_name: s.designation_name,
+                action: s.action
+            })));
+        }
+        
         if (!signatories || signatories.length === 0) {
             if (noSignatoriesMessage) {
                 noSignatoriesMessage.style.display = 'block';
@@ -583,10 +635,15 @@
         }
         cardsGrid.innerHTML = '';
         
-        signatories.forEach(signatory => {
+        let cardsCreated = 0;
+        signatories.forEach((signatory, index) => {
+            console.log(`🔍 DEBUG: Creating card ${index + 1}/${signatories.length} for ${signatory.designation_name} (designation_id: ${signatory.designation_id}, signatory_id: ${signatory.signatory_id})`);
             const card = createSignatoryCard(signatory);
             cardsGrid.appendChild(card);
+            cardsCreated++;
         });
+        
+        console.log(`✅ DEBUG: Created ${cardsCreated} signatory cards in the grid`);
     }
 
     // Create a signatory card
@@ -633,6 +690,9 @@
         
         if (!tableBody) return;
         
+        // 🔍 DEBUG: Log what we're rendering
+        console.log('🔍 DEBUG: updateSignatoryTable called with', signatories?.length || 0, 'signatories');
+        
         if (!signatories || signatories.length === 0) {
             if (noSignatoriesMessage) {
                 noSignatoriesMessage.style.display = 'block';
@@ -645,10 +705,15 @@
         }
         tableBody.innerHTML = '';
         
-        signatories.forEach(signatory => {
+        let rowsCreated = 0;
+        signatories.forEach((signatory, index) => {
+            console.log(`🔍 DEBUG: Creating table row ${index + 1}/${signatories.length} for ${signatory.designation_name} (designation_id: ${signatory.designation_id}, signatory_id: ${signatory.signatory_id})`);
             const row = createSignatoryTableRow(signatory);
             tableBody.appendChild(row);
+            rowsCreated++;
         });
+        
+        console.log(`✅ DEBUG: Created ${rowsCreated} signatory table rows`);
     }
 
     // Create a signatory table row
@@ -714,7 +779,10 @@
         const allSignatories = clearanceData.signatories || [];
 
         // 1. Check for "Required First"
-        if (settings.required_first_enabled && settings.required_first_designation_id != signatory.designation_id) {
+        // Special case: If this IS the required first signatory, allow it to be enabled even if period is "Not Started"
+        const isRequiredFirst = settings.required_first_enabled && settings.required_first_designation_id == signatory.designation_id;
+        
+        if (settings.required_first_enabled && !isRequiredFirst) {
             const requiredFirstSignatory = allSignatories.find(s => s.designation_id == settings.required_first_designation_id);
             if (requiredFirstSignatory && requiredFirstSignatory.action !== 'Approved') {
                 return `<button class="btn btn-sm btn-secondary" disabled title="You must be approved by ${requiredFirstSignatory.designation_name} first."><i class="fas fa-${getButtonIcon('locked')}"></i> Locked</button>`;
@@ -730,6 +798,16 @@
             }
         }
         // --- End Required Signatory Logic ---
+
+        // Special handling for required first signatory: Allow it to be enabled even if period is "Not Started"
+        // This allows users to apply to the required first signatory as soon as the form is created
+        if (isRequiredFirst && (periodStatus === 'not_started' || periodStatus === 'Not Started')) {
+            // Required first signatory can be applied to even if period hasn't started
+            return `<button class="btn btn-sm btn-primary apply-btn"
+                    onclick="applyToSignatory('${slug}')"
+                    data-signatory-id="${signatory.signatory_id}"
+                    title="Click to apply to this signatory (Required First)"><i class="fas fa-${getButtonIcon('can_apply')}"></i> Apply</button>`;
+        }
 
         // If all checks pass, show the apply button if the period is ongoing.
         if (!canApply) {

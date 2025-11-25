@@ -52,8 +52,14 @@
         <!-- Modal Footer -->
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="closeDepartmentDistributionModal()">Close</button>
+            <button type="button" class="btn btn-primary" id="departmentModalStartAllBtn" onclick="startAllDepartmentsDistribution()" style="display: none;">
+                <i class="fas fa-play-circle"></i> Start Clearance Period
+            </button>
             <button type="button" class="btn btn-warning" id="departmentModalPauseBtn" onclick="pauseSectorPeriodFromModal()" style="display: none;">
                 <i class="fas fa-pause"></i> Pause Clearance Period
+            </button>
+            <button type="button" class="btn btn-success" id="departmentModalResumeBtn" onclick="resumeSectorPeriodFromModal()" style="display: none;">
+                <i class="fas fa-play"></i> Resume Clearance Period
             </button>
         </div>
     </div>
@@ -185,14 +191,13 @@ async function openDepartmentDistributionModal(sector, academicYearId, semesterI
     title.textContent = `📋 Form Distribution - ${sector}`;
     description.textContent = `Select departments to start clearance form distribution for ${sector}. Forms will be distributed automatically via cronjob.`;
     
-    // Show pause button if period is ongoing
-    const pauseBtn = document.getElementById('departmentModalPauseBtn');
-    pauseBtn.style.display = 'inline-block';
-    
     modal.style.display = 'flex';
     
     // Load departments and check for existing active jobs
     await loadDepartmentsForDistribution(sector, academicYearId, semesterId);
+    
+    // Update modal footer button based on period status
+    updateModalFooterButton(sector);
     
     // Start global polling if not already running
     startGlobalPolling();
@@ -436,6 +441,12 @@ async function startDepartmentDistribution(departmentId, departmentName) {
             
             showToast(`Form distribution started for ${departmentName}. Processing ${job.total_users} users...`, 'success');
             
+            // Update status badge to "Ongoing" if period hasn't started yet
+            updateStatusBadge(currentSector, 'Ongoing');
+            
+            // Update modal footer button from "Start Clearance Period" to "Pause Clearance Period"
+            updateModalFooterButton(currentSector);
+            
             // Ensure global polling is running
             startGlobalPolling();
         } else {
@@ -620,12 +631,373 @@ function updateDepartmentStatusUI(deptKey, job) {
 }
 
 /**
+ * Start form distribution for ALL departments
+ */
+async function startAllDepartmentsDistribution() {
+    if (!currentSector || !currentAcademicYearId || !currentSemesterId) {
+        showToast('Missing required information. Please refresh and try again.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('departmentModalStartAllBtn');
+    if (!btn || btn.disabled) return;
+
+    // Get list of departments
+    const deptItems = document.querySelectorAll('.department-item');
+    const departmentsToStart = [];
+
+    deptItems.forEach(item => {
+        const deptBtn = item.querySelector('.btn-start-dept');
+        if (deptBtn && !deptBtn.disabled) {
+            const onclickAttr = deptBtn.getAttribute('onclick');
+            if (onclickAttr) {
+                const match = onclickAttr.match(/startDepartmentDistribution\((\d+|null)/);
+                if (match) {
+                    const deptId = match[1] === 'null' ? null : parseInt(match[1]);
+                    const deptName = item.querySelector('.department-name')?.textContent || 'Unknown';
+                    const userCountText = item.querySelector('.department-meta')?.textContent || '0 users';
+                    const userCountMatch = userCountText.match(/(\d+)/);
+                    const userCount = userCountMatch ? parseInt(userCountMatch[1]) : 0;
+                    
+                    departmentsToStart.push({
+                        department_id: deptId,
+                        department_name: deptName,
+                        user_count: userCount
+                    });
+                }
+            }
+        }
+    });
+
+    if (departmentsToStart.length === 0) {
+        showToast('No departments available to start distribution.', 'info');
+        return;
+    }
+
+    // Confirm action
+    const confirmed = confirm(
+        `Start form distribution for all ${departmentsToStart.length} departments?\n\n` +
+        `This will create ${departmentsToStart.length} distribution jobs.\n` +
+        `Total users: ${departmentsToStart.reduce((sum, d) => sum + d.user_count, 0)}`
+    );
+
+    if (!confirmed) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // Start distribution for each department
+    for (const dept of departmentsToStart) {
+        try {
+            const response = await fetchJSON(`${API_BASE}/create_department_job.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clearance_type: currentSector,
+                    academic_year_id: currentAcademicYearId,
+                    semester_id: currentSemesterId,
+                    department_id: dept.department_id
+                })
+            });
+
+            if (response.success && response.job) {
+                const job = response.job;
+                const deptKey = dept.department_id !== null ? dept.department_id : 'unassigned';
+                
+                // Store job info for global polling
+                departmentJobs[deptKey] = {
+                    job_id: job.job_id,
+                    status: 'pending',
+                    progress: {
+                        processed: 0,
+                        total: job.total_users,
+                        percentage: 0,
+                        remaining: job.total_users
+                    },
+                    results: {
+                        forms_created: 0,
+                        forms_skipped: 0,
+                        signatories_assigned: 0
+                    },
+                    department_id: dept.department_id,
+                    department_name: dept.department_name
+                };
+                
+                successCount++;
+            } else {
+                failCount++;
+                console.error(`Failed to start distribution for ${dept.department_name}:`, response.message);
+            }
+        } catch (error) {
+            failCount++;
+            console.error(`Error starting distribution for ${dept.department_name}:`, error);
+        }
+    }
+
+    // Update period status to "Ongoing" via API
+    try {
+        const activeTerm = await getActiveTerm();
+        if (activeTerm) {
+            const periodResponse = await fetchJSON(`${API_BASE}/periods.php`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'start',
+                    sector: currentSector,
+                    academic_year_id: activeTerm.academic_year_id,
+                    semester_id: activeTerm.semester_id
+                })
+            });
+            
+            if (periodResponse.success) {
+                console.log('Period status updated to Ongoing');
+            }
+        }
+    } catch (error) {
+        console.error('Error updating period status:', error);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-play-circle"></i> Start Clearance Period';
+
+    if (successCount > 0) {
+        showToast(
+            `Started distribution for ${successCount} department(s)${failCount > 0 ? ` (${failCount} failed)` : ''}. Processing will continue automatically.`,
+            'success'
+        );
+        
+        // Update status badge to "Ongoing"
+        updateStatusBadge(currentSector, 'Ongoing');
+        
+        // Update modal footer button from "Start Clearance Period" to "Pause Clearance Period"
+        updateModalFooterButton(currentSector);
+        
+        // Refresh department list to show updated status
+        await loadDepartmentsForDistribution(currentSector, currentAcademicYearId, currentSemesterId);
+        
+        // Ensure global polling is running
+        startGlobalPolling();
+    } else {
+        showToast(`Failed to start distribution for all departments.`, 'error');
+    }
+}
+
+/**
+ * Update status badge in parent page
+ */
+function updateStatusBadge(sector, status) {
+    const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
+    const statusBadge = document.getElementById(`${sectorKey}-status-badge`);
+    
+    if (statusBadge) {
+        statusBadge.textContent = status;
+        // Update badge class based on status
+        const statusClass = status.toLowerCase().replace(' ', '-');
+        statusBadge.className = `status-badge ${statusClass}`;
+        console.log(`✅ Updated status badge for ${sector} to: ${status}`);
+    } else {
+        console.warn(`⚠️ Status badge not found for ${sector} (${sectorKey}-status-badge)`);
+    }
+}
+
+/**
+ * Update modal footer button based on period status
+ */
+async function updateModalFooterButton(sector) {
+    const startAllBtn = document.getElementById('departmentModalStartAllBtn');
+    const pauseBtn = document.getElementById('departmentModalPauseBtn');
+    const resumeBtn = document.getElementById('departmentModalResumeBtn');
+    
+    try {
+        // Get current period status
+        const response = await fetch(`${API_BASE}/sector-periods.php`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.success && data.periods_by_sector && data.periods_by_sector[sector]) {
+            const currentPeriod = data.periods_by_sector[sector][0];
+            const periodStatus = currentPeriod?.status || 'Not Started';
+            
+            // Hide all buttons first
+            if (startAllBtn) startAllBtn.style.display = 'none';
+            if (pauseBtn) pauseBtn.style.display = 'none';
+            if (resumeBtn) resumeBtn.style.display = 'none';
+            
+            // Show appropriate button based on status
+            if (periodStatus === 'Not Started') {
+                if (startAllBtn) {
+                    startAllBtn.style.display = 'inline-block';
+                    startAllBtn.disabled = false;
+                }
+            } else if (periodStatus === 'Ongoing') {
+                if (pauseBtn) {
+                    pauseBtn.style.display = 'inline-block';
+                    pauseBtn.disabled = false;
+                }
+            } else if (periodStatus === 'Paused') {
+                if (resumeBtn) {
+                    resumeBtn.style.display = 'inline-block';
+                    resumeBtn.disabled = false;
+                }
+            }
+        } else {
+            // Default to "Start Clearance Period" if no period found
+            if (startAllBtn) {
+                startAllBtn.style.display = 'inline-block';
+                startAllBtn.disabled = false;
+            }
+        }
+    } catch (error) {
+        console.error('Error updating modal footer button:', error);
+        // Default to "Start Clearance Period" on error
+        if (startAllBtn) {
+            startAllBtn.style.display = 'inline-block';
+            startAllBtn.disabled = false;
+        }
+    }
+}
+
+/**
+ * Get active term helper function
+ */
+async function getActiveTerm() {
+    try {
+        const response = await fetchJSON(`${API_BASE}/context.php`);
+        const activeSemester = response.terms?.find(term => term.is_active === 1);
+        return activeSemester ? {
+            academic_year_id: response.academic_year.academic_year_id,
+            semester_id: activeSemester.semester_id
+        } : null;
+    } catch (error) {
+        console.error('Error getting active term:', error);
+        return null;
+    }
+}
+
+/**
  * Pause sector period from modal
  */
-function pauseSectorPeriodFromModal() {
-    if (currentSector) {
-        closeDepartmentDistributionModal();
-        pauseSectorPeriod(currentSector);
+async function pauseSectorPeriodFromModal() {
+    if (!currentSector) return;
+    
+    const btn = document.getElementById('departmentModalPauseBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Pausing...';
+    }
+    
+    try {
+        const activeTerm = await getActiveTerm();
+        if (!activeTerm) {
+            throw new Error('No active term found');
+        }
+
+        // Get the current period for this sector
+        const response = await fetch(`${API_BASE}/sector-periods.php`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.success && data.periods_by_sector && data.periods_by_sector[currentSector]) {
+            const currentPeriod = data.periods_by_sector[currentSector][0];
+            
+            if (!currentPeriod || !currentPeriod.period_id) {
+                throw new Error(`No active period found for ${currentSector}`);
+            }
+
+            const apiResponse = await fetchJSON(`${API_BASE}/periods.php`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    period_id: currentPeriod.period_id,
+                    action: 'pause'
+                })
+            });
+
+            if (apiResponse.success) {
+                showToast(`${currentSector} clearance period paused`, 'success');
+                updateStatusBadge(currentSector, 'Paused');
+                updateModalFooterButton(currentSector);
+            } else {
+                throw new Error(apiResponse.message || 'Failed to pause clearance period');
+            }
+        } else {
+            throw new Error(`No period data found for ${currentSector}`);
+        }
+    } catch (error) {
+        console.error('Error pausing sector period:', error);
+        showToast(error.message || 'Failed to pause clearance period', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-pause"></i> Pause Clearance Period';
+        }
+    }
+}
+
+/**
+ * Resume sector period from modal
+ */
+async function resumeSectorPeriodFromModal() {
+    if (!currentSector) return;
+    
+    const btn = document.getElementById('departmentModalResumeBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Resuming...';
+    }
+    
+    try {
+        const activeTerm = await getActiveTerm();
+        if (!activeTerm) {
+            throw new Error('No active term found');
+        }
+
+        // Get the current period for this sector
+        const response = await fetch(`${API_BASE}/sector-periods.php`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.success && data.periods_by_sector && data.periods_by_sector[currentSector]) {
+            const currentPeriod = data.periods_by_sector[currentSector][0];
+            
+            if (!currentPeriod || !currentPeriod.period_id) {
+                throw new Error(`No active period found for ${currentSector}`);
+            }
+
+            // Resume the period (this will trigger form distribution for newly added users - self-healing)
+            const apiResponse = await fetchJSON(`${API_BASE}/sector-periods.php`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    period_id: currentPeriod.period_id,
+                    action: 'resume'
+                })
+            });
+
+            if (apiResponse.success) {
+                showToast(`${currentSector} clearance period resumed. Forms will be distributed to newly added users.`, 'success');
+                updateStatusBadge(currentSector, 'Ongoing');
+                updateModalFooterButton(currentSector);
+            } else {
+                throw new Error(apiResponse.message || 'Failed to resume clearance period');
+            }
+        } else {
+            throw new Error(`No period data found for ${currentSector}`);
+        }
+    } catch (error) {
+        console.error('Error resuming sector period:', error);
+        showToast(error.message || 'Failed to resume clearance period', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-play"></i> Resume Clearance Period';
+        }
     }
 }
 </script>

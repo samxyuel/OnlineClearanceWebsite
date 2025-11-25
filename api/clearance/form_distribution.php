@@ -479,16 +479,18 @@ function assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssign
     
     foreach ($signatoryAssignments as $assignment) {
         // Check if signatory already exists for this form to prevent duplicates
+        // Use COUNT with explicit type casting for more reliable checking
         $checkStmt = $connection->prepare("
-            SELECT signatory_id FROM clearance_signatories 
+            SELECT COUNT(*) as count FROM clearance_signatories 
             WHERE clearance_form_id = ? AND designation_id = ?
-            LIMIT 1
         ");
-        $checkStmt->execute([$clearanceFormId, $assignment['designation_id']]);
+        $checkStmt->execute([$clearanceFormId, (int)$assignment['designation_id']]);
+        $result = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        $exists = (int)($result['count'] ?? 0);
         
-        if ($checkStmt->fetch()) {
+        if ($exists > 0) {
             // Signatory already exists, skip to prevent duplicate
-            error_log("⚠️ FORM DISTRIBUTION: Signatory with designation_id {$assignment['designation_id']} ({$assignment['designation_name']}) already exists for form {$clearanceFormId}. Skipping duplicate.");
+            error_log("⚠️ FORM DISTRIBUTION: Signatory with designation_id {$assignment['designation_id']} ({$assignment['designation_name']}) already exists for form {$clearanceFormId}. Count: {$exists}. Skipping duplicate.");
             continue;
         }
         

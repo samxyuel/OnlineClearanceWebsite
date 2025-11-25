@@ -201,13 +201,22 @@ function createAllSignatoryEntries($pdo, $formId, $clearanceType) {
     sort($designations);
     
     // Create signatory entries for all assigned designations
+    // Check for duplicates before inserting
+    $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM clearance_signatories WHERE clearance_form_id = ? AND designation_id = ?");
     $insertStmt = $pdo->prepare("
         INSERT INTO clearance_signatories (clearance_form_id, designation_id, action, created_at, updated_at) 
         VALUES (?, ?, 'Unapplied', NOW(), NOW())
     ");
     
     foreach ($designations as $designationId) {
-        $insertStmt->execute([$formId, $designationId]);
+        $checkStmt->execute([$formId, (int)$designationId]);
+        $exists = (int)$checkStmt->fetchColumn();
+        
+        if ($exists === 0) {
+            $insertStmt->execute([$formId, (int)$designationId]);
+        } else {
+            error_log("⚠️ APPLY: Signatory with designation_id {$designationId} already exists for form {$formId}. Skipping duplicate.");
+        }
     }
 }
 
