@@ -536,4 +536,197 @@ function getDistributionStats($connection, $clearanceType, $academicYearId, $sem
     $stmt->execute([$clearanceType, $academicYearId, $semesterId]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
+
+/**
+ * Get eligible students for a specific department in batches
+ * @param PDO $connection Database connection
+ * @param string $clearanceType Sector type (College or Senior High School)
+ * @param int $departmentId Department ID
+ * @param int $offset Starting offset
+ * @param int $limit Number of users to fetch
+ * @return array Users array
+ */
+function getEligibleStudentsBatch($connection, $clearanceType, $departmentId, $offset = 0, $limit = 50) {
+    $sql = "
+        SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username, 
+               p.program_name as program, s.department_id, d.department_name
+        FROM users u
+        INNER JOIN students s ON u.user_id = s.user_id
+        INNER JOIN departments d ON s.department_id = d.department_id
+        LEFT JOIN programs p ON s.program_id = p.program_id
+        INNER JOIN sectors sec ON d.sector_id = sec.sector_id
+        WHERE s.department_id = ?
+          AND sec.sector_name = ?
+          AND u.account_status = 'active'
+        ORDER BY u.last_name, u.first_name
+        LIMIT ? OFFSET ?
+    ";
+    
+    $stmt = $connection->prepare($sql);
+    $stmt->execute([$departmentId, $clearanceType, $limit, $offset]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Get eligible faculty for a specific department in batches
+ * Handles NULL department_id for unassigned faculty
+ * @param PDO $connection Database connection
+ * @param int|null $departmentId Department ID (NULL for unassigned faculty)
+ * @param int $offset Starting offset
+ * @param int $limit Number of users to fetch
+ * @return array Users array
+ */
+function getEligibleFacultyBatch($connection, $departmentId, $offset = 0, $limit = 50) {
+    if ($departmentId === null) {
+        // Get faculty without department assignment
+        $sql = "
+            SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
+                   f.employment_status, f.department_id, NULL as department_name,
+                   st.staff_category
+            FROM users u
+            INNER JOIN faculty f ON u.user_id = f.user_id
+            LEFT JOIN staff st ON u.user_id = st.user_id
+            WHERE f.department_id IS NULL
+              AND u.account_status = 'active'
+            ORDER BY u.last_name, u.first_name
+            LIMIT ? OFFSET ?
+        ";
+        
+        $stmt = $connection->prepare($sql);
+        $stmt->execute([$limit, $offset]);
+    } else {
+        // Get faculty for specific department
+        $sql = "
+            SELECT DISTINCT u.user_id, u.first_name, u.last_name, u.username,
+                   f.employment_status, f.department_id, d.department_name,
+                   st.staff_category
+            FROM users u
+            INNER JOIN faculty f ON u.user_id = f.user_id
+            LEFT JOIN departments d ON f.department_id = d.department_id
+            LEFT JOIN staff st ON u.user_id = st.user_id
+            WHERE f.department_id = ?
+              AND u.account_status = 'active'
+            ORDER BY u.last_name, u.first_name
+            LIMIT ? OFFSET ?
+        ";
+        
+        $stmt = $connection->prepare($sql);
+        $stmt->execute([$departmentId, $limit, $offset]);
+    }
+    
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Count eligible students for a specific department
+ * @param PDO $connection Database connection
+ * @param string $clearanceType Sector type
+ * @param int $departmentId Department ID
+ * @return int Count of eligible users
+ */
+function countEligibleStudents($connection, $clearanceType, $departmentId) {
+    $sql = "
+        SELECT COUNT(DISTINCT u.user_id)
+        FROM users u
+        INNER JOIN students s ON u.user_id = s.user_id
+        INNER JOIN departments d ON s.department_id = d.department_id
+        INNER JOIN sectors sec ON d.sector_id = sec.sector_id
+        WHERE s.department_id = ?
+          AND sec.sector_name = ?
+          AND u.account_status = 'active'
+    ";
+    
+    $stmt = $connection->prepare($sql);
+    $stmt->execute([$departmentId, $clearanceType]);
+    return (int)$stmt->fetchColumn();
+}
+
+/**
+ * Count eligible faculty for a specific department
+ * Handles NULL department_id for unassigned faculty
+ * @param PDO $connection Database connection
+ * @param int|null $departmentId Department ID (NULL for unassigned faculty)
+ * @return int Count of eligible users
+ */
+function countEligibleFaculty($connection, $departmentId) {
+    if ($departmentId === null) {
+        // Count faculty without department assignment
+        $sql = "
+            SELECT COUNT(DISTINCT u.user_id)
+            FROM users u
+            INNER JOIN faculty f ON u.user_id = f.user_id
+            WHERE f.department_id IS NULL
+              AND u.account_status = 'active'
+        ";
+        
+        $stmt = $connection->prepare($sql);
+        $stmt->execute();
+    } else {
+        // Count faculty for specific department
+        $sql = "
+            SELECT COUNT(DISTINCT u.user_id)
+            FROM users u
+            INNER JOIN faculty f ON u.user_id = f.user_id
+            WHERE f.department_id = ?
+              AND u.account_status = 'active'
+        ";
+        
+        $stmt = $connection->prepare($sql);
+        $stmt->execute([$departmentId]);
+    }
+    
+    return (int)$stmt->fetchColumn();
+}
+
+/**
+ * Process a single user (create form and assign signatories)
+ * @param PDO $connection Database connection
+ * @param array $user User data
+ * @param int $academicYearId Academic year ID
+ * @param int $semesterId Semester ID
+ * @param string $clearanceType Sector type
+ * @param array $signatoryAssignments Signatory assignments for this sector
+ * @return array Result with form_created, signatories_assigned
+ */
+function processSingleUser($connection, $user, $academicYearId, $semesterId, $clearanceType, $signatoryAssignments) {
+    $formsCreated = 0;
+    $signatoriesAssigned = 0;
+
+    // Check if form exists
+    $existingForm = checkExistingForm($connection, $user['user_id'], $academicYearId, $semesterId, $clearanceType);
+
+    if ($existingForm) {
+        $clearanceFormId = $existingForm['clearance_form_id'];
+
+        // Check for missing signatories
+        $stmt = $connection->prepare("SELECT designation_id FROM clearance_signatories WHERE clearance_form_id = ?");
+        $stmt->execute([$clearanceFormId]);
+        $existingDesignationIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $requiredDesignationIds = array_column($signatoryAssignments, 'designation_id');
+        $missingDesignationIds = array_diff($requiredDesignationIds, $existingDesignationIds);
+
+        if (empty($missingDesignationIds)) {
+            return ['form_created' => false, 'signatories_assigned' => 0];
+        }
+
+        $missingAssignments = array_filter($signatoryAssignments, function($assignment) use ($missingDesignationIds) {
+            return in_array($assignment['designation_id'], $missingDesignationIds);
+        });
+        $signatoryAssignmentsToProcess = $missingAssignments;
+    } else {
+        // Create new form
+        $clearanceFormId = createClearanceForm($connection, $user, $academicYearId, $semesterId, $clearanceType);
+        $formsCreated = 1;
+        $signatoryAssignmentsToProcess = $signatoryAssignments;
+    }
+
+    // Assign signatories
+    $assignedCount = assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssignmentsToProcess, $user, $clearanceType);
+    $signatoriesAssigned = $assignedCount;
+
+    return [
+        'form_created' => ($formsCreated > 0),
+        'signatories_assigned' => $signatoriesAssigned
+    ];
+}
 ?>

@@ -398,106 +398,15 @@ function handleUpdatePeriod($connection) {
                     $afterUpdate = $checkStmt->fetchAll(PDO::FETCH_ASSOC);
                     error_log("🚀 API DEBUG: Periods after update: " . json_encode($afterUpdate));
                     
-                    // NEW: Trigger form distribution by calling the new dedicated API endpoint
-                    // Construct URL using document root for server-to-server calls
-                    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-                    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-                    $scriptPath = dirname($_SERVER['SCRIPT_NAME']); // e.g., /api/clearance
-                    $basePath = str_replace('/api/clearance', '', $scriptPath); // Remove /api/clearance to get base
-                    $distributionUrl = $protocol . '://' . $host . $basePath . '/api/clearance/form_distribution.php';
-                    
-                    $distributionData = [
-                        'clearance_type' => $sector,
-                        'academic_year_id' => $academicYearId,
-                        'semester_id' => $semesterId
-                    ];
-                    
-                    // DIAGNOSTIC LOGGING
-                    error_log("🌐 FORM DISTRIBUTION: Attempting to call URL: " . $distributionUrl);
-                    error_log("🌐 FORM DISTRIBUTION: Request data: " . json_encode($distributionData));
-                    error_log("🔍 SERVER VARS: HTTPS=" . ($_SERVER['HTTPS'] ?? 'not set') . ", HTTP_HOST=" . ($_SERVER['HTTP_HOST'] ?? 'not set'));
-                    error_log("🔍 SERVER VARS: SCRIPT_NAME=" . ($_SERVER['SCRIPT_NAME'] ?? 'not set') . ", DOCUMENT_ROOT=" . ($_SERVER['DOCUMENT_ROOT'] ?? 'not set'));
-                    error_log("🔍 allow_url_fopen: " . (ini_get('allow_url_fopen') ? 'enabled' : 'disabled'));
-                    
-                    $options = [
-                        'http' => [
-                            'header'  => "Content-type: application/json\r\n",
-                            'method'  => 'POST',
-                            'content' => json_encode($distributionData),
-                            'ignore_errors' => true,
-                            'timeout' => 30  // Add timeout
-                        ],
-                    ];
-                    $context = stream_context_create($options);
-                    
-                    $startTime = microtime(true);
-                    $result = @file_get_contents($distributionUrl, false, $context);
-                    $duration = round((microtime(true) - $startTime) * 1000, 2);
-                    
-                    if ($result === false) {
-                        $error = error_get_last();
-                        $errorMsg = $error ? $error['message'] : 'Unknown error';
-                        error_log("❌ FORM DISTRIBUTION FAILED after {$duration}ms");
-                        error_log("❌ ERROR: " . $errorMsg);
-                        error_log("❌ URL: " . $distributionUrl);
-                        
-                        // ENHANCED: Include all diagnostic info in response
-                        $formDistributionResult = [
-                            'success' => false,
-                            'message' => 'Failed to call form distribution API',
-                            'error' => $errorMsg,
-                            'url' => $distributionUrl,
-                            'duration_ms' => $duration,
-                            'diagnostics' => [
-                                'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
-                                'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
-                                'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
-                                'https' => $_SERVER['HTTPS'] ?? 'not set',
-                                'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
-                                'base_path_calculated' => $basePath,
-                                'constructed_url' => $distributionUrl
-                            ]
-                        ];
-                    } else {
-                        error_log("✅ FORM DISTRIBUTION: Response received in {$duration}ms");
-                        error_log("✅ RESPONSE PREVIEW: " . substr($result, 0, 200));
-                        
-                        $formDistributionResult = json_decode($result, true);
-                        
-                        if (json_last_error() !== JSON_ERROR_NONE) {
-                            error_log("❌ JSON DECODE ERROR: " . json_last_error_msg());
-                            $formDistributionResult = [
-                                'success' => false,
-                                'message' => 'Invalid JSON response: ' . json_last_error_msg(),
-                                'raw_preview' => substr($result, 0, 500),
-                                'diagnostics' => [
-                                    'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
-                                    'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
-                                    'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
-                                    'https' => $_SERVER['HTTPS'] ?? 'not set',
-                                    'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
-                                    'base_path_calculated' => $basePath,
-                                    'constructed_url' => $distributionUrl,
-                                    'http_code' => 'unknown (file_get_contents doesn\'t provide this)'
-                                ]
-                            ];
-                        } else {
-                            // Even on success, include diagnostics for debugging
-                            if (!is_array($formDistributionResult)) {
-                                $formDistributionResult = [];
-                            }
-                            $formDistributionResult['diagnostics'] = [
-                                'url_used' => $distributionUrl,
-                                'duration_ms' => $duration,
-                                'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled'
-                            ];
-                        }
-                    }
-
+                    // Form distribution is now handled via department-based jobs
+                    // Frontend will show modal to select departments
                     $response = [
                         'success' => true, 
                         'message' => 'Clearance period started successfully',
-                        'form_distribution' => $formDistributionResult
+                        'show_department_modal' => true,
+                        'clearance_type' => $sector,
+                        'academic_year_id' => $academicYearId,
+                        'semester_id' => $semesterId
                     ];
                     error_log("🚀 API DEBUG: Sending success response: " . json_encode($response));
                     echo json_encode($response);
@@ -510,106 +419,15 @@ function handleUpdatePeriod($connection) {
                     $stmt->execute([$startDate, $existingPeriod['period_id']]);
                     error_log("✅ API DEBUG: Period resumed successfully");
 
-                    // NEW: Trigger form distribution when resuming, just in case it failed before.
-                    // Construct URL using document root for server-to-server calls
-                    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-                    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-                    $scriptPath = dirname($_SERVER['SCRIPT_NAME']); // e.g., /api/clearance
-                    $basePath = str_replace('/api/clearance', '', $scriptPath); // Remove /api/clearance to get base
-                    $distributionUrl = $protocol . '://' . $host . $basePath . '/api/clearance/form_distribution.php';
-                    
-                    $distributionData = [
-                        'clearance_type' => $sector,
-                        'academic_year_id' => $academicYearId,
-                        'semester_id' => $semesterId
-                    ];
-                    
-                    // DIAGNOSTIC LOGGING
-                    error_log("🌐 FORM DISTRIBUTION (RESUME): Attempting to call URL: " . $distributionUrl);
-                    error_log("🌐 FORM DISTRIBUTION (RESUME): Request data: " . json_encode($distributionData));
-                    error_log("🔍 SERVER VARS: HTTPS=" . ($_SERVER['HTTPS'] ?? 'not set') . ", HTTP_HOST=" . ($_SERVER['HTTP_HOST'] ?? 'not set'));
-                    error_log("🔍 SERVER VARS: SCRIPT_NAME=" . ($_SERVER['SCRIPT_NAME'] ?? 'not set') . ", DOCUMENT_ROOT=" . ($_SERVER['DOCUMENT_ROOT'] ?? 'not set'));
-                    error_log("🔍 allow_url_fopen: " . (ini_get('allow_url_fopen') ? 'enabled' : 'disabled'));
-                    
-                    $options = [
-                        'http' => [
-                            'header'  => "Content-type: application/json\r\n",
-                            'method'  => 'POST',
-                            'content' => json_encode($distributionData),
-                            'ignore_errors' => true,
-                            'timeout' => 30  // Add timeout
-                        ],
-                    ];
-                    $context = stream_context_create($options);
-                    
-                    $startTime = microtime(true);
-                    $result = @file_get_contents($distributionUrl, false, $context);
-                    $duration = round((microtime(true) - $startTime) * 1000, 2);
-                    
-                    if ($result === false) {
-                        $error = error_get_last();
-                        $errorMsg = $error ? $error['message'] : 'Unknown error';
-                        error_log("❌ FORM DISTRIBUTION (RESUME) FAILED after {$duration}ms");
-                        error_log("❌ ERROR: " . $errorMsg);
-                        error_log("❌ URL: " . $distributionUrl);
-                        
-                        // ENHANCED: Include all diagnostic info in response
-                        $formDistributionResult = [
-                            'success' => false,
-                            'message' => 'Failed to call form distribution API',
-                            'error' => $errorMsg,
-                            'url' => $distributionUrl,
-                            'duration_ms' => $duration,
-                            'diagnostics' => [
-                                'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
-                                'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
-                                'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
-                                'https' => $_SERVER['HTTPS'] ?? 'not set',
-                                'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
-                                'base_path_calculated' => $basePath,
-                                'constructed_url' => $distributionUrl
-                            ]
-                        ];
-                    } else {
-                        error_log("✅ FORM DISTRIBUTION (RESUME): Response received in {$duration}ms");
-                        error_log("✅ RESPONSE PREVIEW: " . substr($result, 0, 200));
-                        
-                        $formDistributionResult = json_decode($result, true);
-                        
-                        if (json_last_error() !== JSON_ERROR_NONE) {
-                            error_log("❌ JSON DECODE ERROR: " . json_last_error_msg());
-                            $formDistributionResult = [
-                                'success' => false,
-                                'message' => 'Invalid JSON response: ' . json_last_error_msg(),
-                                'raw_preview' => substr($result, 0, 500),
-                                'diagnostics' => [
-                                    'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
-                                    'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
-                                    'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
-                                    'https' => $_SERVER['HTTPS'] ?? 'not set',
-                                    'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
-                                    'base_path_calculated' => $basePath,
-                                    'constructed_url' => $distributionUrl,
-                                    'http_code' => 'unknown (file_get_contents doesn\'t provide this)'
-                                ]
-                            ];
-                        } else {
-                            // Even on success, include diagnostics for debugging
-                            if (!is_array($formDistributionResult)) {
-                                $formDistributionResult = [];
-                            }
-                            $formDistributionResult['diagnostics'] = [
-                                'url_used' => $distributionUrl,
-                                'duration_ms' => $duration,
-                                'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled'
-                            ];
-                        }
-                    }
-                    
+                    // Form distribution is now handled via department-based jobs
+                    // Frontend will show modal to select departments
                     $response = [
                         'success' => true, 
                         'message' => 'Clearance period resumed successfully',
-                        'form_distribution' => $formDistributionResult
+                        'show_department_modal' => true,
+                        'clearance_type' => $sector,
+                        'academic_year_id' => $academicYearId,
+                        'semester_id' => $semesterId
                     ];
                     error_log("🚀 API DEBUG: Sending success response: " . json_encode($response));
                     echo json_encode($response);
@@ -627,106 +445,15 @@ function handleUpdatePeriod($connection) {
                 $periodId = $connection->lastInsertId();
                 error_log("✅ API DEBUG: New period created successfully with ID: $periodId");
                 
-                // NEW: Trigger form distribution by calling the new dedicated API endpoint
-                // Construct URL using document root for server-to-server calls
-                $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-                $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-                $scriptPath = dirname($_SERVER['SCRIPT_NAME']); // e.g., /api/clearance
-                $basePath = str_replace('/api/clearance', '', $scriptPath); // Remove /api/clearance to get base
-                $distributionUrl = $protocol . '://' . $host . $basePath . '/api/clearance/form_distribution.php';
-                
-                $distributionData = [
-                    'clearance_type' => $sector,
-                    'academic_year_id' => $academicYearId,
-                    'semester_id' => $semesterId
-                ];
-                
-                // DIAGNOSTIC LOGGING
-                error_log("🌐 FORM DISTRIBUTION (NEW): Attempting to call URL: " . $distributionUrl);
-                error_log("🌐 FORM DISTRIBUTION (NEW): Request data: " . json_encode($distributionData));
-                error_log("🔍 SERVER VARS: HTTPS=" . ($_SERVER['HTTPS'] ?? 'not set') . ", HTTP_HOST=" . ($_SERVER['HTTP_HOST'] ?? 'not set'));
-                error_log("🔍 SERVER VARS: SCRIPT_NAME=" . ($_SERVER['SCRIPT_NAME'] ?? 'not set') . ", DOCUMENT_ROOT=" . ($_SERVER['DOCUMENT_ROOT'] ?? 'not set'));
-                error_log("🔍 allow_url_fopen: " . (ini_get('allow_url_fopen') ? 'enabled' : 'disabled'));
-                
-                $options = [
-                    'http' => [
-                        'header'  => "Content-type: application/json\r\n",
-                        'method'  => 'POST',
-                        'content' => json_encode($distributionData),
-                        'ignore_errors' => true,
-                        'timeout' => 30  // Add timeout
-                    ],
-                ];
-                $context = stream_context_create($options);
-                
-                $startTime = microtime(true);
-                $result = @file_get_contents($distributionUrl, false, $context);
-                $duration = round((microtime(true) - $startTime) * 1000, 2);
-                
-                if ($result === false) {
-                    $error = error_get_last();
-                    $errorMsg = $error ? $error['message'] : 'Unknown error';
-                    error_log("❌ FORM DISTRIBUTION (NEW) FAILED after {$duration}ms");
-                    error_log("❌ ERROR: " . $errorMsg);
-                    error_log("❌ URL: " . $distributionUrl);
-                    
-                    // ENHANCED: Include all diagnostic info in response
-                    $formDistributionResult = [
-                        'success' => false,
-                        'message' => 'Failed to call form distribution API',
-                        'error' => $errorMsg,
-                        'url' => $distributionUrl,
-                        'duration_ms' => $duration,
-                        'diagnostics' => [
-                            'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
-                            'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
-                            'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
-                            'https' => $_SERVER['HTTPS'] ?? 'not set',
-                            'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
-                            'base_path_calculated' => $basePath,
-                            'constructed_url' => $distributionUrl
-                        ]
-                    ];
-                } else {
-                    error_log("✅ FORM DISTRIBUTION (NEW): Response received in {$duration}ms");
-                    error_log("✅ RESPONSE PREVIEW: " . substr($result, 0, 200));
-                    
-                    $formDistributionResult = json_decode($result, true);
-                    
-                    if (json_last_error() !== JSON_ERROR_NONE) {
-                        error_log("❌ JSON DECODE ERROR: " . json_last_error_msg());
-                        $formDistributionResult = [
-                            'success' => false,
-                            'message' => 'Invalid JSON response: ' . json_last_error_msg(),
-                            'raw_preview' => substr($result, 0, 500),
-                            'diagnostics' => [
-                                'script_name' => $_SERVER['SCRIPT_NAME'] ?? 'not set',
-                                'document_root' => $_SERVER['DOCUMENT_ROOT'] ?? 'not set',
-                                'http_host' => $_SERVER['HTTP_HOST'] ?? 'not set',
-                                'https' => $_SERVER['HTTPS'] ?? 'not set',
-                                'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled',
-                                'base_path_calculated' => $basePath,
-                                'constructed_url' => $distributionUrl,
-                                'http_code' => 'unknown (file_get_contents doesn\'t provide this)'
-                            ]
-                        ];
-                    } else {
-                        // Even on success, include diagnostics for debugging
-                        if (!is_array($formDistributionResult)) {
-                            $formDistributionResult = [];
-                        }
-                        $formDistributionResult['diagnostics'] = [
-                            'url_used' => $distributionUrl,
-                            'duration_ms' => $duration,
-                            'allow_url_fopen' => ini_get('allow_url_fopen') ? 'enabled' : 'disabled'
-                        ];
-                    }
-                }
-
+                // Form distribution is now handled via department-based jobs
+                // Frontend will show modal to select departments
                 echo json_encode([
                     'success' => true, 
                     'message' => 'Clearance period started successfully',
-                    'form_distribution' => $formDistributionResult
+                    'show_department_modal' => true,
+                    'clearance_type' => $sector,
+                    'academic_year_id' => $academicYearId,
+                    'semester_id' => $semesterId
                 ]);
             }
             

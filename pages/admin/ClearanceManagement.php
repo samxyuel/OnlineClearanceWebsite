@@ -3771,22 +3771,32 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                 if (response.success) {
                     console.log(`✅ DEBUG: ${sector} clearance period started successfully`);
                     
-                    // Display form distribution results if available
-                    let successMessage = `${sector} clearance period started successfully`;
-                    if (response.form_distribution) {
-                        const dist = response.form_distribution;
-                        if (dist.success) {
-                            successMessage += `\n📋 Forms distributed: ${dist.forms_created} forms created for ${dist.eligible_users} eligible users`;
-                            if (dist.signatories_assigned > 0) {
-                                successMessage += `\n👥 Signatories assigned: ${dist.signatories_assigned} total assignments`;
+                    // Check if we should show department modal
+                    if (response.show_department_modal) {
+                        // Show department selection modal
+                        await openDepartmentDistributionModal(
+                            response.clearance_type || sector,
+                            response.academic_year_id || activeTerm.academic_year_id,
+                            response.semester_id || activeTerm.semester_id
+                        );
+                        showToast(`${sector} clearance period started. Select departments to distribute forms.`, 'info');
+                    } else {
+                        // Legacy: Display form distribution results if available
+                        let successMessage = `${sector} clearance period started successfully`;
+                        if (response.form_distribution) {
+                            const dist = response.form_distribution;
+                            if (dist.success) {
+                                successMessage += `\n📋 Forms distributed: ${dist.forms_created} forms created for ${dist.eligible_users} eligible users`;
+                                if (dist.signatories_assigned > 0) {
+                                    successMessage += `\n👥 Signatories assigned: ${dist.signatories_assigned} total assignments`;
+                                }
+                            } else {
+                                console.warn(`⚠️ Form distribution failed: ${dist.message}`);
+                                successMessage += `\n⚠️ Form distribution: ${dist.message}`;
                             }
-                        } else {
-                            console.warn(`⚠️ Form distribution failed: ${dist.message}`);
-                            successMessage += `\n⚠️ Form distribution: ${dist.message}`;
                         }
+                        showToast(successMessage, 'success');
                     }
-                    
-                    showToast(successMessage, 'success');
                     
                     console.log(`🔄 DEBUG: Refreshing sector data...`);
                     await refreshSectorData();
@@ -4705,6 +4715,9 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
     
     <!-- View Past Clearances Modal -->
     <?php include '../../Modals/ViewPastClearancesModal.php'; ?>
+    
+    <!-- Department Distribution Modal -->
+    <?php include '../../Modals/DepartmentDistributionModal.php'; ?>
     
     <!-- Include Alerts Component -->
     <?php include '../../includes/components/alerts.php'; ?>
