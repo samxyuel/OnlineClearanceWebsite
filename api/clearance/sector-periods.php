@@ -101,8 +101,21 @@ function handleGetSectorPeriods($connection) {
             $periodsBySector[$sector][] = $period;
         }
         
-        // Get statistics for each sector
+        // Get statistics for each sector (for backward compatibility)
         $statistics = getSectorStatistics($connection, $periods);
+        
+        // Attach statistics to each period object
+        $periods = attachPeriodStatistics($connection, $periods);
+        
+        // Rebuild periods_by_sector with updated statistics
+        $periodsBySector = [];
+        foreach ($periods as $period) {
+            $sector = $period['sector'];
+            if (!isset($periodsBySector[$sector])) {
+                $periodsBySector[$sector] = [];
+            }
+            $periodsBySector[$sector][] = $period;
+        }
         
         echo json_encode([
             'success' => true,
@@ -448,6 +461,63 @@ function handleDeleteSectorPeriod($connection) {
 }
 
 // Helper function to get sector statistics
+// Attach statistics to each period object
+function attachPeriodStatistics($connection, $periods) {
+    if (empty($periods)) {
+        return $periods;
+    }
+    
+    $periodIds = array_map(function($p) { return $p['period_id']; }, $periods);
+    $placeholders = implode(',', array_fill(0, count($periodIds), '?'));
+    
+    // Calculate statistics per period
+    $sql = "
+        SELECT
+            cp.period_id,
+            COUNT(cf.clearance_form_id) as total_forms,
+            SUM(CASE WHEN cf.clearance_form_progress = 'in-progress' THEN 1 ELSE 0 END) as pending_forms,
+            SUM(CASE WHEN cf.clearance_form_progress = 'complete' THEN 1 ELSE 0 END) as completed_forms
+        FROM clearance_periods cp
+        LEFT JOIN clearance_forms cf ON cp.academic_year_id = cf.academic_year_id
+                                    AND cp.semester_id = cf.semester_id
+                                    AND cp.sector = cf.clearance_type
+        WHERE cp.period_id IN ($placeholders)
+        GROUP BY cp.period_id
+    ";
+    
+    $stmt = $connection->prepare($sql);
+    $stmt->execute($periodIds);
+    $statsResults = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Create a map of period_id => statistics
+    $statsMap = [];
+    foreach ($statsResults as $row) {
+        $statsMap[$row['period_id']] = [
+            'total_forms' => (int)$row['total_forms'],
+            'pending_forms' => (int)$row['pending_forms'],
+            'completed_forms' => (int)$row['completed_forms']
+        ];
+    }
+    
+    // Attach statistics to each period
+    foreach ($periods as &$period) {
+        $periodId = $period['period_id'];
+        if (isset($statsMap[$periodId])) {
+            $period['total_forms'] = $statsMap[$periodId]['total_forms'];
+            $period['pending_forms'] = $statsMap[$periodId]['pending_forms'];
+            $period['completed_forms'] = $statsMap[$periodId]['completed_forms'];
+        } else {
+            // Default to 0 if no statistics found
+            $period['total_forms'] = 0;
+            $period['pending_forms'] = 0;
+            $period['completed_forms'] = 0;
+        }
+    }
+    unset($period); // Break reference
+    
+    return $periods;
+}
+
 function getSectorStatistics($connection, $periods) {
     $statistics = [];
 

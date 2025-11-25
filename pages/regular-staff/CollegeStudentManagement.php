@@ -842,17 +842,31 @@ handleStudentManagementPageRequest('College');
 
         // Individual student actions - Staff can only approve/reject clearances
         async function approveStudentClearance(studentId) {
-            const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
-            const studentName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
-            const clearanceFormId = row.getAttribute('data-clearance-form-id');
-            
             // Check if signatory actions are allowed
             const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
             if (!canPerformActions) {
                 showToastNotification('You do not have permission to perform this action.', 'warning');
                 return;
             }
+
+            // Find the row element with null check
+            const checkbox = document.querySelector(`.student-checkbox[data-id="${studentId}"]`);
+            if (!checkbox) {
+                console.error(`Student checkbox not found for ID: ${studentId}`);
+                showToastNotification('Student record not found in table.', 'error');
+                return;
+            }
+            
+            const row = checkbox.closest('tr');
+            if (!row) {
+                console.error(`Table row not found for student ID: ${studentId}`);
+                showToastNotification('Student record structure error.', 'error');
+                return;
+            }
+            
+            const studentName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Student';
+            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
+            const clearanceFormId = row.getAttribute('data-clearance-form-id');
 
             if (!clearanceBadge) {
                 showToastNotification('No clearance to approve', 'warning');
@@ -894,8 +908,22 @@ handleStudentManagementPageRequest('College');
                 return;
             }
             
-            const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
-            const studentName = row.querySelector('td:nth-child(3)').textContent;
+            // Find the row element with null check
+            const checkbox = document.querySelector(`.student-checkbox[data-id="${studentId}"]`);
+            if (!checkbox) {
+                console.error(`Student checkbox not found for ID: ${studentId}`);
+                showToastNotification('Student record not found in table.', 'error');
+                return;
+            }
+            
+            const row = checkbox.closest('tr');
+            if (!row) {
+                console.error(`Table row not found for student ID: ${studentId}`);
+                showToastNotification('Student record structure error.', 'error');
+                return;
+            }
+            
+            const studentName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Student';
             const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
             
             if (!clearanceBadge) {
@@ -1647,10 +1675,30 @@ handleStudentManagementPageRequest('College');
                 payload.school_term = currentSchoolTerm.trim();
             }
 
-            const response = await fetch('../../api/clearance/signatory_action.php', {
-                method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
-            });
-            return await response.json();
+            try {
+                const response = await fetch('../../api/clearance/signatory_action.php', {
+                    method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
+                });
+                
+                // Check if response is OK (status 200-299)
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`API Error (${response.status}):`, errorText);
+                    return {
+                        success: false,
+                        message: `Server error: ${response.status} ${response.statusText}`
+                    };
+                }
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Network or parsing error in sendSignatoryAction:', error);
+                return {
+                    success: false,
+                    message: error.message || 'Network error: Failed to communicate with server'
+                };
+            }
         }
 
         // This function seems to be a duplicate and can be removed. The one above is more robust.

@@ -789,10 +789,23 @@ handleFacultyManagementPageRequest();
 
         
         function viewClearanceProgress(facultyId) {
-            // Get faculty name from the table row
-            const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
-            const facultyName = row.querySelector('td:nth-child(3)').textContent;
-            const schoolTerm = document.getElementById('schoolTermFilter').value;
+            // Find the checkbox element with null check
+            const checkbox = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`);
+            if (!checkbox) {
+                console.error(`Faculty checkbox not found for ID: ${facultyId}`);
+                showToastNotification('Faculty record not found in table.', 'error');
+                return;
+            }
+            
+            const row = checkbox.closest('tr');
+            if (!row) {
+                console.error(`Table row not found for faculty ID: ${facultyId}`);
+                showToastNotification('Faculty record structure error.', 'error');
+                return;
+            }
+            
+            const facultyName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Faculty';
+            const schoolTerm = document.getElementById('schoolTermFilter')?.value || '';
             
             // Open the clearance progress modal
             openClearanceProgressModal(facultyId, 'faculty', facultyName, schoolTerm);
@@ -817,9 +830,29 @@ handleFacultyManagementPageRequest();
         }
 
         async function approveFacultyClearance(button) {
+            // Check if signatory actions are allowed
+            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
+            if (!canPerformActions) {
+                showToastNotification('You do not have permission to perform this action.', 'warning');
+                return;
+            }
+
+            // Find the row element with null check
+            if (!button) {
+                console.error('Approve button not found');
+                showToastNotification('Button element not found.', 'error');
+                return;
+            }
+            
             const row = button.closest('tr');
+            if (!row) {
+                console.error('Table row not found for approve button');
+                showToastNotification('Faculty record structure error.', 'error');
+                return;
+            }
+            
             const userId = row.getAttribute('data-faculty-id');
-            const facultyName = row.querySelector('td:nth-child(3)').textContent;
+            const facultyName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Faculty';
 
             // Fetch the designation to create a dynamic remark.
             let designationName = CURRENT_STAFF_POSITION; // Fallback
@@ -1431,13 +1464,13 @@ handleFacultyManagementPageRequest();
                 const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
                 const data = await response.json();
                 if (data.success && data.active_periods && data.active_periods.length > 0) {
-                    // Find the active period specifically for the 'College' sector
-                    const activeCollegePeriod = data.active_periods.find(p => p.sector === 'College');
+                    // Find the active period specifically for the 'Faculty' sector
+                    const activeFacultyPeriod = data.active_periods.find(p => p.sector === 'Faculty');
 
-                    if (activeCollegePeriod) {
+                    if (activeFacultyPeriod) {
                         const schoolTermFilter = document.getElementById('schoolTermFilter');
                         // The value format for the filter is 'YYYY-YYYY|period_id'
-                        const termValue = `${activeCollegePeriod.school_year}|${activeCollegePeriod.semester_id}`;
+                        const termValue = `${activeFacultyPeriod.school_year}|${activeFacultyPeriod.semester_id}`;
                         // Check if the option exists before setting it
                         if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
                             schoolTermFilter.value = termValue;
@@ -1617,14 +1650,26 @@ handleFacultyManagementPageRequest();
                 return;
             }
             
+            // Find the row element with null check
+            if (!button) {
+                console.error('Reject button not found');
+                showToastNotification('Button element not found.', 'error');
+                return;
+            }
+            
             const row = button.closest('tr');
+            if (!row) {
+                console.error('Table row not found for reject button');
+                showToastNotification('Faculty record structure error.', 'error');
+                return;
+            }
+            
             const userId = row.getAttribute('data-faculty-id');
-            const facultyName = row ? row.querySelector('td:nth-child(3)').textContent : 'Faculty Member';
-            // Open rejection remarks modal for individual rejection
+            const facultyName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Faculty';
+            const signatoryId = row.getAttribute('data-signatory-id');
 
             let existingRemarks = '';
             let existingReasonId = '';
-            const signatoryId = row.getAttribute('data-signatory-id');
 
             try {
                 const response = await fetch(`../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`, { credentials: 'include' });
@@ -1794,8 +1839,33 @@ handleFacultyManagementPageRequest();
                 payload.school_term = currentSchoolTerm.trim();
             }
 
-            const response = await fetch('../../api/clearance/signatory_action.php', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)});
-            return await response.json();
+            try {
+                const response = await fetch('../../api/clearance/signatory_action.php', {
+                    method:'POST', 
+                    headers:{'Content-Type':'application/json'}, 
+                    credentials:'include', 
+                    body: JSON.stringify(payload)
+                });
+                
+                // Check if response is OK (status 200-299)
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`API Error (${response.status}):`, errorText);
+                    return {
+                        success: false,
+                        message: `Server error: ${response.status} ${response.statusText}`
+                    };
+                }
+                
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Network or parsing error in sendSignatoryAction:', error);
+                return {
+                    success: false,
+                    message: error.message || 'Network error: Failed to communicate with server'
+                };
+            }
         }
 
         // Load rejection reasons into the modal dropdown

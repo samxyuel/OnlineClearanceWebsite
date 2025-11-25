@@ -86,16 +86,18 @@ try {
         $semesterId = isset($termParts[1]) ? (int)trim($termParts[1]) : null;
         
         if ($yearName && $semesterId) {
-            // Find the period for the specified term (can be Ongoing or Closed)
+            // Find the period for the specified term (can be Not Started, Ongoing, Paused, or Closed)
             $cpStmt = $pdo->prepare("
                 SELECT cp.academic_year_id, cp.semester_id, cp.status 
                 FROM clearance_periods cp
                 JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id
-                WHERE ay.year = ? AND cp.semester_id = ? AND cp.status IN ('Ongoing', 'Closed')
+                WHERE ay.year = ? AND cp.semester_id = ? AND cp.status IN ('Not Started', 'Ongoing', 'Paused', 'Closed')
                 ORDER BY 
                     CASE cp.status
                         WHEN 'Ongoing' THEN 1
-                        WHEN 'Closed' THEN 2
+                        WHEN 'Paused' THEN 2
+                        WHEN 'Not Started' THEN 3
+                        WHEN 'Closed' THEN 4
                     END
                 LIMIT 1
             ");
@@ -104,9 +106,22 @@ try {
         }
     }
     
-    // Fallback to Ongoing period if no school_term provided or if lookup failed
+    // Fallback to find any active period if no school_term provided or if lookup failed
+    // Prioritize: Ongoing > Paused > Not Started > Closed
     if (!$cp) {
-        $cp = $pdo->query("SELECT academic_year_id, semester_id, status FROM clearance_periods WHERE status = 'Ongoing' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $cp = $pdo->query("
+            SELECT academic_year_id, semester_id, status 
+            FROM clearance_periods 
+            WHERE status IN ('Not Started', 'Ongoing', 'Paused', 'Closed')
+            ORDER BY 
+                CASE status
+                    WHEN 'Ongoing' THEN 1
+                    WHEN 'Paused' THEN 2
+                    WHEN 'Not Started' THEN 3
+                    WHEN 'Closed' THEN 4
+                END
+            LIMIT 1
+        ")->fetch(PDO::FETCH_ASSOC);
     }
     
     if (!$cp) { 
