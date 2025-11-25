@@ -636,6 +636,11 @@ handleFacultyManagementPageRequest();
         }
 
         async function fetchFaculty() {
+            console.log('📊 FACULTY FETCH DEBUG: Starting fetch...');
+            console.log('📊 FACULTY FETCH DEBUG: Current page:', currentPage);
+            console.log('📊 FACULTY FETCH DEBUG: Entries per page:', entriesPerPage);
+            console.log('📊 FACULTY FETCH DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
+            
             const tableBody = document.getElementById('facultyTableBody');
             tableBody.innerHTML = `<tr><td colspan="7" class="loading-row"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i><span>Loading faculty data...</span></div></td></tr>`;
 
@@ -644,6 +649,14 @@ handleFacultyManagementPageRequest();
             const employmentStatus = document.getElementById('employmentStatusFilter').value;
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value;
+
+            console.log('📊 FACULTY FETCH DEBUG: Filters:', {
+                clearanceStatus,
+                accountStatus,
+                employmentStatus,
+                schoolTerm,
+                search
+            });
 
             const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
 
@@ -661,13 +674,25 @@ handleFacultyManagementPageRequest();
             
             if (CURRENT_STAFF_POSITION) url.searchParams.append('designation_filter', CURRENT_STAFF_POSITION);
             
+            console.log('📊 FACULTY FETCH DEBUG: Fetching from URL:', url.toString());
+            
             try {
                 const response = await fetch(url.toString(), { credentials: 'include' });
+                console.log('📊 FACULTY FETCH DEBUG: Response status:', response.status);
+                console.log('📊 FACULTY FETCH DEBUG: Response ok:', response.ok);
+                
                 const data = await response.json();
+                console.log('📊 FACULTY FETCH DEBUG: Response data:', data);
+                console.log('📊 FACULTY FETCH DEBUG: Faculty count:', data.faculty?.length || 0);
 
                 if (!data.success) {
+                    console.error('📊 FACULTY FETCH DEBUG: ❌ API returned success:false:', data.message);
                     showEmptyState('Error: ' + data.message);
                     return;
+                }
+
+                if (data.faculty && data.faculty.length > 0) {
+                    console.log('📊 FACULTY FETCH DEBUG: Sample faculty data:', data.faculty[0]);
                 }
 
                 populateFacultyTable(data.faculty);
@@ -675,8 +700,9 @@ handleFacultyManagementPageRequest();
                 updateStatistics(data.faculty);
 
             } catch (error) {
+                console.error('📊 FACULTY FETCH DEBUG: ❌ Exception:', error);
+                console.error('📊 FACULTY FETCH DEBUG: Exception stack:', error.stack);
                 tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:red;">A network error occurred.</td></tr>`;
-                console.error("Fetch error:", error);
             }
         }
 
@@ -704,10 +730,37 @@ handleFacultyManagementPageRequest();
             
             const accountStatus = (faculty.account_status || 'inactive').toLowerCase();
             
+            // Debug logging for first faculty only to avoid spam
+            const isFirstFaculty = !document.getElementById('facultyTableBody').querySelector('tr');
+            if (isFirstFaculty) {
+                console.log('🎨 FACULTY RENDER DEBUG: Rendering faculty table');
+                console.log('🎨 FACULTY RENDER DEBUG: canPerformActions:', canPerformActions);
+            }
+            
             let approveBtnDisabled = (clearanceStatus === 'Unapplied' || clearanceStatus === 'Approved' || clearanceStatus === '' || !canPerformActions || !userExisted);
             let rejectBtnDisabled = (clearanceStatus === 'Unapplied' || clearanceStatus === 'Approved' || clearanceStatus === '' || !canPerformActions || !userExisted);
             // Disable checkbox for 'Unapplied' and 'Approved' statuses (same logic as buttons)
             let checkboxDisabled = (clearanceStatus === 'Unapplied' || clearanceStatus === 'Approved' || clearanceStatus === '' || !canPerformActions || !userExisted);
+            
+            // Debug button states for first faculty
+            if (isFirstFaculty) {
+                console.log('🎨 FACULTY RENDER DEBUG: Sample faculty button states:', {
+                    facultyId: faculty.id,
+                    clearanceStatus,
+                    userExisted,
+                    canPerformActions,
+                    approveBtnDisabled,
+                    rejectBtnDisabled,
+                    checkboxDisabled,
+                    clearanceStatusCheck: {
+                        isUnapplied: clearanceStatus === 'Unapplied',
+                        isApproved: clearanceStatus === 'Approved',
+                        isEmpty: clearanceStatus === '',
+                        isValidForAction: ['Pending', 'Rejected'].includes(clearanceStatus)
+                    }
+                });
+            }
+            
             let approveTitle = 'Approve Clearance';
             let rejectTitle = 'Reject Clearance';
             if (!canPerformActions) {
@@ -830,47 +883,89 @@ handleFacultyManagementPageRequest();
         }
 
         async function approveFacultyClearance(button) {
+            console.log('🟣 FACULTY APPROVE DEBUG: Function called with button:', button);
+            console.log('🟣 FACULTY APPROVE DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
+            
             // Check if signatory actions are allowed
             const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
+            console.log('🟣 FACULTY APPROVE DEBUG: canPerformActions:', canPerformActions);
             if (!canPerformActions) {
+                console.warn('🟣 FACULTY APPROVE DEBUG: Permission denied - canPerformActions is false');
                 showToastNotification('You do not have permission to perform this action.', 'warning');
                 return;
             }
 
             // Find the row element with null check
             if (!button) {
-                console.error('Approve button not found');
+                console.error('🟣 FACULTY APPROVE DEBUG: ❌ Approve button not found');
                 showToastNotification('Button element not found.', 'error');
                 return;
             }
+            console.log('🟣 FACULTY APPROVE DEBUG: ✅ Button found');
             
             const row = button.closest('tr');
             if (!row) {
-                console.error('Table row not found for approve button');
+                console.error('🟣 FACULTY APPROVE DEBUG: ❌ Table row not found for approve button');
                 showToastNotification('Faculty record structure error.', 'error');
                 return;
             }
+            console.log('🟣 FACULTY APPROVE DEBUG: ✅ Row found');
             
             const userId = row.getAttribute('data-faculty-id');
             const facultyName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Faculty';
+            const signatoryId = row.getAttribute('data-signatory-id');
+            
+            console.log('🟣 FACULTY APPROVE DEBUG: Faculty name:', facultyName);
+            console.log('🟣 FACULTY APPROVE DEBUG: User ID:', userId);
+            console.log('🟣 FACULTY APPROVE DEBUG: Signatory ID:', signatoryId);
+            console.log('🟣 FACULTY APPROVE DEBUG: Row data attributes:', {
+                'data-faculty-id': userId,
+                'data-signatory-id': signatoryId
+            });
 
             // Fetch the designation to create a dynamic remark.
             let designationName = CURRENT_STAFF_POSITION; // Fallback
+            console.log('🟣 FACULTY APPROVE DEBUG: Initial designation (fallback):', designationName);
             try {
+                console.log('🟣 FACULTY APPROVE DEBUG: Fetching current staff designation...');
                 const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
+                console.log('🟣 FACULTY APPROVE DEBUG: Designation response status:', desigResponse.status);
+                
                 const desigData = await desigResponse.json();
+                console.log('🟣 FACULTY APPROVE DEBUG: Designation response data:', desigData);
+                
                 if (desigData.success) {
                     designationName = desigData.designation_name;
+                    console.log('🟣 FACULTY APPROVE DEBUG: ✅ Using designation from API:', designationName);
+                } else {
+                    console.warn('🟣 FACULTY APPROVE DEBUG: ⚠️ API designation not available, using fallback');
                 }
-            } catch (e) { /* Ignore error, use fallback */ }
+            } catch (e) { 
+                console.warn('🟣 FACULTY APPROVE DEBUG: ⚠️ Could not fetch designation, using fallback:', e.message);
+            }
+            
             const approvalRemark = `Approved by ${designationName}`;
+            console.log('🟣 FACULTY APPROVE DEBUG: Approval remark:', approvalRemark);
 
             showConfirmationModal('Approve Clearance', `Approve clearance for ${facultyName}?`, 'Approve', 'Cancel', async () => {
+                console.log('🟣 FACULTY APPROVE DEBUG: Confirmation modal approved, starting approval process');
+                console.log('🟣 FACULTY APPROVE DEBUG: Calling sendSignatoryAction with:', {
+                    userId,
+                    action: 'Approved',
+                    remarks: approvalRemark,
+                    designation: designationName
+                });
+                
                 const result = await sendSignatoryAction(userId, 'Approved', approvalRemark);
+                
+                console.log('🟣 FACULTY APPROVE DEBUG: API Response:', result);
+                
                 if (result.success) {
+                    console.log('🟣 FACULTY APPROVE DEBUG: ✅ Approval successful');
                     showToastNotification('Faculty clearance approved successfully', 'success');
                     fetchFaculty(); // Refresh data
                 } else {
+                    console.error('🟣 FACULTY APPROVE DEBUG: ❌ Approval failed:', result.message);
                     showToastNotification('Failed to approve: ' + (result.message || 'Unknown error'), 'error');
                 }
             }, 'success');
@@ -1644,48 +1739,78 @@ handleFacultyManagementPageRequest();
         }
 
         async function rejectFacultyClearance(button) {
+            console.log('🟣 FACULTY REJECT DEBUG: Function called with button:', button);
+            console.log('🟣 FACULTY REJECT DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
+            
             // Check if signatory actions are allowed
+            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
+            console.log('🟣 FACULTY REJECT DEBUG: canPerformActions:', canPerformActions);
             if (!canPerformActions) {
+                console.warn('🟣 FACULTY REJECT DEBUG: Permission denied - canPerformActions is false');
                 showToastNotification('You do not have permission to perform this action.', 'warning');
                 return;
             }
             
             // Find the row element with null check
             if (!button) {
-                console.error('Reject button not found');
+                console.error('🟣 FACULTY REJECT DEBUG: ❌ Reject button not found');
                 showToastNotification('Button element not found.', 'error');
                 return;
             }
+            console.log('🟣 FACULTY REJECT DEBUG: ✅ Button found');
             
             const row = button.closest('tr');
             if (!row) {
-                console.error('Table row not found for reject button');
+                console.error('🟣 FACULTY REJECT DEBUG: ❌ Table row not found for reject button');
                 showToastNotification('Faculty record structure error.', 'error');
                 return;
             }
+            console.log('🟣 FACULTY REJECT DEBUG: ✅ Row found');
             
             const userId = row.getAttribute('data-faculty-id');
             const facultyName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Faculty';
             const signatoryId = row.getAttribute('data-signatory-id');
+            
+            console.log('🟣 FACULTY REJECT DEBUG: Faculty name:', facultyName);
+            console.log('🟣 FACULTY REJECT DEBUG: User ID:', userId);
+            console.log('🟣 FACULTY REJECT DEBUG: Signatory ID:', signatoryId);
+            console.log('🟣 FACULTY REJECT DEBUG: Row data attributes:', {
+                'data-faculty-id': userId,
+                'data-signatory-id': signatoryId
+            });
 
             let existingRemarks = '';
             let existingReasonId = '';
 
+            console.log('🟣 FACULTY REJECT DEBUG: Fetching existing rejection details for signatory_id:', signatoryId);
             try {
-                const response = await fetch(`../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`, { credentials: 'include' });
+                const rejectionReasonsUrl = `../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`;
+                console.log('🟣 FACULTY REJECT DEBUG: Fetching from:', rejectionReasonsUrl);
+                const response = await fetch(rejectionReasonsUrl, { credentials: 'include' });
+                console.log('🟣 FACULTY REJECT DEBUG: Rejection reasons response status:', response.status);
+                
                 const data = await response.json();
+                console.log('🟣 FACULTY REJECT DEBUG: Rejection reasons response data:', data);
+                
                 if (data.success && data.details) {
                     existingRemarks = data.details.additional_remarks || '';
                     existingReasonId = data.details.reason_id || '';
+                    console.log('🟣 FACULTY REJECT DEBUG: Found existing rejection details:', {
+                        remarks: existingRemarks,
+                        reasonId: existingReasonId
+                    });
+                } else {
+                    console.log('🟣 FACULTY REJECT DEBUG: No existing rejection details found');
                 }
             } catch (error) {
-                console.error("Error fetching rejection details:", error);
+                console.error('🟣 FACULTY REJECT DEBUG: ❌ Error fetching rejection details:', error);
+                console.error('🟣 FACULTY REJECT DEBUG: Error stack:', error.stack);
                 showToastNotification('Could not load existing rejection details.', 'error');
             }
         
-            console.log('Opening rejection modal for', facultyName);
-            console.log('Existing reason ID:', existingReasonId);
-            console.log('Existing remarks:', existingRemarks);
+            console.log('🟣 FACULTY REJECT DEBUG: Opening rejection modal for:', facultyName);
+            console.log('🟣 FACULTY REJECT DEBUG: Existing reason ID:', existingReasonId);
+            console.log('🟣 FACULTY REJECT DEBUG: Existing remarks:', existingRemarks);
 
             openRejectionRemarksModal(userId, facultyName, 'faculty', false, [], existingRemarks, existingReasonId);
 
@@ -1813,19 +1938,40 @@ handleFacultyManagementPageRequest();
             }catch(e){ return null; }
         }
         async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null) {
+            console.log('🟡 FACULTY SEND_ACTION DEBUG: Function called with:', {
+                applicantUserId,
+                action,
+                remarks,
+                reasonId,
+                CURRENT_STAFF_POSITION
+            });
+            
             // Fetch the current staff's actual designation from the API to ensure accuracy.
             let designationName = CURRENT_STAFF_POSITION; // Fallback
+            console.log('🟡 FACULTY SEND_ACTION DEBUG: Initial designation (fallback):', designationName);
+            
             try {
+                console.log('🟡 FACULTY SEND_ACTION DEBUG: Fetching current staff designation...');
                 const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
+                console.log('🟡 FACULTY SEND_ACTION DEBUG: Designation response status:', desigResponse.status);
+                
                 const desigData = await desigResponse.json();
+                console.log('🟡 FACULTY SEND_ACTION DEBUG: Designation response data:', desigData);
+                
                 if (desigData.success) {
                     designationName = desigData.designation_name;
+                    console.log('🟡 FACULTY SEND_ACTION DEBUG: ✅ Using designation from API:', designationName);
+                } else {
+                    console.warn('🟡 FACULTY SEND_ACTION DEBUG: ⚠️ API designation not available, using fallback');
                 }
-            } catch (e) { /* Ignore error, use fallback */ }
+            } catch (e) { 
+                console.warn('🟡 FACULTY SEND_ACTION DEBUG: ⚠️ Could not fetch designation, using fallback:', e.message);
+            }
 
             // Get the currently selected school term from the filter to ensure approval goes to the correct period
             const schoolTermFilter = document.getElementById('schoolTermFilter');
             const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
+            console.log('🟡 FACULTY SEND_ACTION DEBUG: School term filter value:', currentSchoolTerm);
 
             const payload = { 
                 applicant_user_id: applicantUserId, 
@@ -1839,28 +1985,63 @@ handleFacultyManagementPageRequest();
                 payload.school_term = currentSchoolTerm.trim();
             }
 
+            console.log('🟡 FACULTY SEND_ACTION DEBUG: Final payload:', payload);
+            console.log('🟡 FACULTY SEND_ACTION DEBUG: API endpoint: ../../api/clearance/signatory_action.php');
+
             try {
-                const response = await fetch('../../api/clearance/signatory_action.php', {
+                const apiUrl = '../../api/clearance/signatory_action.php';
+                console.log('🟡 FACULTY SEND_ACTION DEBUG: Sending POST request to:', apiUrl);
+                console.log('🟡 FACULTY SEND_ACTION DEBUG: Request options:', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload)
+                });
+                
+                const response = await fetch(apiUrl, {
                     method:'POST', 
                     headers:{'Content-Type':'application/json'}, 
                     credentials:'include', 
                     body: JSON.stringify(payload)
                 });
                 
+                console.log('🟡 FACULTY SEND_ACTION DEBUG: Response received:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    ok: response.ok,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
+                
                 // Check if response is OK (status 200-299)
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error(`API Error (${response.status}):`, errorText);
+                    console.error('🟡 FACULTY SEND_ACTION DEBUG: ❌ HTTP Error Response:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        body: errorText
+                    });
                     return {
                         success: false,
                         message: `Server error: ${response.status} ${response.statusText}`
                     };
                 }
                 
+                console.log('🟡 FACULTY SEND_ACTION DEBUG: Parsing JSON response...');
                 const data = await response.json();
+                console.log('🟡 FACULTY SEND_ACTION DEBUG: ✅ API Response data:', data);
+                
+                if (!data.success) {
+                    console.error('🟡 FACULTY SEND_ACTION DEBUG: ❌ API returned success:false:', data.message);
+                } else {
+                    console.log('🟡 FACULTY SEND_ACTION DEBUG: ✅ API returned success:true');
+                }
+                
                 return data;
             } catch (error) {
-                console.error('Network or parsing error in sendSignatoryAction:', error);
+                console.error('🟡 FACULTY SEND_ACTION DEBUG: ❌ Exception caught:', error);
+                console.error('🟡 FACULTY SEND_ACTION DEBUG: Exception name:', error.name);
+                console.error('🟡 FACULTY SEND_ACTION DEBUG: Exception message:', error.message);
+                console.error('🟡 FACULTY SEND_ACTION DEBUG: Exception stack:', error.stack);
                 return {
                     success: false,
                     message: error.message || 'Network error: Failed to communicate with server'
