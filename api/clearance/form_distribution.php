@@ -14,34 +14,45 @@
 
 require_once __DIR__ . '/../../includes/config/database.php';
 
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+// Only execute routing code if this file is accessed directly (not included)
+// Check if this file is the main script being executed
+$isDirectAccess = (
+    (isset($_SERVER['SCRIPT_FILENAME']) && realpath($_SERVER['SCRIPT_FILENAME']) === realpath(__FILE__)) ||
+    (isset($_SERVER['SCRIPT_NAME']) && basename($_SERVER['SCRIPT_NAME']) === basename(__FILE__)) ||
+    (isset($_SERVER['PHP_SELF']) && basename($_SERVER['PHP_SELF']) === basename(__FILE__))
+);
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
+if ($isDirectAccess) {
+    header('Content-Type: application/json');
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: POST, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
 
-try {
-    $connection = Database::getInstance()->getConnection();
-    
-    // Debug: Check actual connection collation
-    $collationCheck = $connection->query("SELECT @@collation_connection, @@collation_database, @@character_set_connection")->fetch(PDO::FETCH_ASSOC);
-    error_log("🔍 FORM DISTRIBUTION COLLATION CHECK: " . json_encode($collationCheck));
-    
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        handleFormDistribution($connection);
-    } else {
-        http_response_code(405);
-        echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(200);
+        exit();
     }
-    
-} catch (Exception $e) {
-    error_log("❌ FORM DISTRIBUTION ERROR: " . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+
+    try {
+        $connection = Database::getInstance()->getConnection();
+        
+        // Debug: Check actual connection collation
+        $collationCheck = $connection->query("SELECT @@collation_connection, @@collation_database, @@character_set_connection")->fetch(PDO::FETCH_ASSOC);
+        error_log("🔍 FORM DISTRIBUTION COLLATION CHECK: " . json_encode($collationCheck));
+        
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            handleFormDistribution($connection);
+        } else {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+        }
+        
+    } catch (Exception $e) {
+        error_log("❌ FORM DISTRIBUTION ERROR: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
+    }
+    exit; // Exit after handling direct access
 }
 
 /**
