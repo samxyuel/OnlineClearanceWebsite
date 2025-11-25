@@ -20,6 +20,15 @@ ini_set('max_execution_time', 600);
 
 header('Content-Type: application/json');
 
+// Handle CORS preflight requests (OPTIONS)
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    http_response_code(204); // No Content
+    exit;
+}
+
 // Security: Check authentication token
 $authToken = $_GET['token'] ?? $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
 $expectedToken = getenv('CRON_AUTH_TOKEN');
