@@ -201,8 +201,8 @@ if (session_status() == PHP_SESSION_NONE) {
                                             </div>
                                         </div>
                                         <div class="sector-actions">
-                                            <button class="btn btn-sm btn-success" id="college-start-btn" onclick="startSectorPeriod('College')">
-                                                <i class="fas fa-play"></i> Start Clearance Period
+                                            <button class="btn btn-sm btn-success" id="college-start-btn" onclick="viewDepartments('College')">
+                                                <i class="fas fa-list"></i> View Departments
                                             </button>
                                             <button class="btn btn-sm btn-warning" id="college-pause-btn" onclick="pauseSectorPeriod('College')" style="display: none;">
                                                 <i class="fas fa-pause"></i> Pause Clearance Period
@@ -267,8 +267,8 @@ if (session_status() == PHP_SESSION_NONE) {
                                             </div>
                                         </div>
                                         <div class="sector-actions">
-                                            <button class="btn btn-sm btn-success" id="shs-start-btn" onclick="startSectorPeriod('Senior High School')">
-                                                <i class="fas fa-play"></i> Start Clearance Period
+                                            <button class="btn btn-sm btn-success" id="shs-start-btn" onclick="viewDepartments('Senior High School')">
+                                                <i class="fas fa-list"></i> View Departments
                                             </button>
                                             <button class="btn btn-sm btn-warning" id="shs-pause-btn" onclick="pauseSectorPeriod('Senior High School')" style="display: none;">
                                                 <i class="fas fa-pause"></i> Pause Clearance Period
@@ -333,8 +333,8 @@ if (session_status() == PHP_SESSION_NONE) {
                                             </div>
                                         </div>
                                         <div class="sector-actions">
-                                            <button class="btn btn-sm btn-success" id="faculty-start-btn" onclick="startSectorPeriod('Faculty')">
-                                                <i class="fas fa-play"></i> Start Clearance Period
+                                            <button class="btn btn-sm btn-success" id="faculty-start-btn" onclick="viewDepartments('Faculty')">
+                                                <i class="fas fa-list"></i> View Departments
                                             </button>
                                             <button class="btn btn-sm btn-warning" id="faculty-pause-btn" onclick="pauseSectorPeriod('Faculty')" style="display: none;">
                                                 <i class="fas fa-pause"></i> Pause Clearance Period
@@ -3733,6 +3733,32 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
         }
 
         // Sector-based clearance period functions
+        /**
+         * View Departments - Opens the department distribution modal
+         * This function just opens the modal without starting the clearance period
+         */
+        async function viewDepartments(sector) {
+            try {
+                // Get active term info
+                const activeTerm = await getActiveTerm();
+                
+                if (!activeTerm) {
+                    showToast('Cannot view departments: No active term found', 'error');
+                    return;
+                }
+
+                // Open the department distribution modal
+                await openDepartmentDistributionModal(
+                    sector,
+                    activeTerm.academic_year_id,
+                    activeTerm.semester_id
+                );
+            } catch (error) {
+                console.error(`❌ Error opening departments for ${sector}:`, error);
+                showToast(error.message || 'Failed to open departments', 'error');
+            }
+        }
+
         async function startSectorPeriod(sector) {
             const sectorKey = sector === 'Senior High School' ? 'shs' : sector.toLowerCase();
             const buttonElement = document.getElementById(`${sectorKey}-start-btn`);
@@ -4188,15 +4214,15 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                 case 'Not Started':
                     console.log(`🔧 DEBUG: Case 'Not Started' for ${sector}, hasActiveTerm: ${hasActiveTerm}`);
                     if (hasActiveTerm) {
-                        // Term active but clearance not started → Show "Start Clearance Period" and "Skip Clearance Period"
-                        console.log(`🔧 DEBUG: Showing Start and Skip buttons for ${sector}`);
+                        // Term active but clearance not started → Show "View Departments" and "Skip Clearance Period"
+                        console.log(`🔧 DEBUG: Showing View Departments and Skip buttons for ${sector}`);
                         if (startBtn) {
-                            startBtn.innerHTML = '<i class="fas fa-play"></i> Start Clearance Period';
+                            startBtn.innerHTML = '<i class="fas fa-list"></i> View Departments';
                             startBtn.style.display = 'inline-block';
                             startBtn.disabled = false;
                             startBtn.className = 'btn btn-sm btn-success';
-                            startBtn.setAttribute('onclick', `startSectorPeriod('${sector}')`);
-                            console.log(`🔧 DEBUG: Start button updated for ${sector}`);
+                            startBtn.setAttribute('onclick', `viewDepartments('${sector}')`);
+                            console.log(`🔧 DEBUG: View Departments button updated for ${sector}`);
                         }
                         if (closeBtn) {
                             closeBtn.innerHTML = '<i class="fas fa-forward"></i> Skip Clearance Period';
@@ -4207,22 +4233,30 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                             console.log(`🔧 DEBUG: Skip button updated for ${sector}`);
                         }
                     } else {
-                        // No active term → Disabled "Start Clearance Period" button
-                        console.log(`🔧 DEBUG: No active term, showing disabled Start button for ${sector}`);
+                        // No active term → Disabled "View Departments" button
+                        console.log(`🔧 DEBUG: No active term, showing disabled View Departments button for ${sector}`);
                         if (startBtn) {
-                            startBtn.innerHTML = '<i class="fas fa-play"></i> Start Clearance Period';
+                            startBtn.innerHTML = '<i class="fas fa-list"></i> View Departments';
                             startBtn.style.display = 'inline-block';
                             startBtn.disabled = true;
                             startBtn.className = 'btn btn-sm btn-secondary';
-                            startBtn.title = 'No active term - cannot start clearance period';
-                            console.log(`🔧 DEBUG: Disabled Start button updated for ${sector}`);
+                            startBtn.title = 'No active term - cannot view departments';
+                            console.log(`🔧 DEBUG: Disabled View Departments button updated for ${sector}`);
                         }
                     }
                     break;
                     
                 case 'Ongoing':
                     console.log(`🔧 DEBUG: Case 'Ongoing' for ${sector}`);
-                    // Clearance started (Ongoing) → Show "Pause Clearance Period" and "End Clearance Period"
+                    // Clearance started (Ongoing) → Show "View Departments", "Pause Clearance Period" and "End Clearance Period"
+                    if (startBtn) {
+                        startBtn.innerHTML = '<i class="fas fa-list"></i> View Departments';
+                        startBtn.style.display = 'inline-block';
+                        startBtn.disabled = false;
+                        startBtn.className = 'btn btn-sm btn-success';
+                        startBtn.setAttribute('onclick', `viewDepartments('${sector}')`);
+                        console.log(`🔧 DEBUG: View Departments button updated for ${sector}`);
+                    }
                     if (pauseBtn) {
                         pauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pause Clearance Period';
                         pauseBtn.style.display = 'inline-block';
@@ -4243,13 +4277,21 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                     
                 case 'Paused':
                     console.log(`🔧 DEBUG: Case 'Paused' for ${sector}`);
-                    // Clearance paused → Show "Resume Clearance Period" and "End Clearance Period"
+                    // Clearance paused → Show "View Departments", "Resume Clearance Period" and "End Clearance Period"
                     if (startBtn) {
-                        startBtn.innerHTML = '<i class="fas fa-play"></i> Resume Clearance Period';
+                        startBtn.innerHTML = '<i class="fas fa-list"></i> View Departments';
                         startBtn.style.display = 'inline-block';
                         startBtn.disabled = false;
                         startBtn.className = 'btn btn-sm btn-success';
-                        startBtn.setAttribute('onclick', `startSectorPeriod('${sector}')`);
+                        startBtn.setAttribute('onclick', `viewDepartments('${sector}')`);
+                        console.log(`🔧 DEBUG: View Departments button updated for ${sector}`);
+                    }
+                    if (pauseBtn) {
+                        pauseBtn.innerHTML = '<i class="fas fa-play"></i> Resume Clearance Period';
+                        pauseBtn.style.display = 'inline-block';
+                        pauseBtn.disabled = false;
+                        pauseBtn.className = 'btn btn-sm btn-success';
+                        pauseBtn.setAttribute('onclick', `resumeSectorPeriod('${sector}')`);
                         console.log(`🔧 DEBUG: Resume button updated for ${sector}`);
                     }
                     if (closeBtn) {

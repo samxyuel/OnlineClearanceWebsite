@@ -187,6 +187,14 @@ try {
     $batchFormsCreated = 0;
     $batchFormsSkipped = 0;
     $batchSignatoriesAssigned = 0;
+    $usersProcessed = [];
+
+    $departmentName = $job['department_id'] ? "Department ID {$job['department_id']}" : "Unassigned Faculty";
+    error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    error_log("🚀 BATCH START: Processing " . count($users) . " users for Job #{$jobId}");
+    error_log("   Sector: {$job['clearance_type']}");
+    error_log("   Department: {$departmentName}");
+    error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     foreach ($users as $user) {
         // Process user (create form, assign signatories)
@@ -201,11 +209,32 @@ try {
 
         if ($result['form_created']) {
             $batchFormsCreated++;
+            $usersProcessed[] = [
+                'name' => $result['user_name'] ?? 'Unknown',
+                'user_id' => $result['user_id'] ?? 'N/A',
+                'form_id' => $result['form_id'] ?? 'N/A',
+                'signatories' => $result['signatories_assigned'] ?? 0
+            ];
         } else {
             $batchFormsSkipped++;
         }
         $batchSignatoriesAssigned += $result['signatories_assigned'];
     }
+
+    // Batch summary log
+    error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    error_log("📊 BATCH SUMMARY (Job #{$jobId}):");
+    error_log("   ✅ Forms Created: {$batchFormsCreated} users received clearance forms");
+    error_log("   ⏭️  Forms Skipped: {$batchFormsSkipped} users (forms already exist)");
+    error_log("   👥 Signatories Assigned: {$batchSignatoriesAssigned} total");
+    
+    if ($batchFormsCreated > 0) {
+        error_log("   📋 Users who received forms:");
+        foreach ($usersProcessed as $processedUser) {
+            error_log("      • {$processedUser['name']} (ID: {$processedUser['user_id']}) - Form: {$processedUser['form_id']} - {$processedUser['signatories']} signatories");
+        }
+    }
+    error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     // Step 6: Update job progress
     $newProcessed = $job['processed_users'] + count($users);
@@ -243,13 +272,15 @@ try {
         $duration = round((microtime(true) - $batchStartTime), 2);
         $departmentName = $job['department_id'] ? "Department ID {$job['department_id']}" : "Unassigned Faculty";
         
-        error_log("✅ Job #$jobId COMPLETED!");
+        error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        error_log("🎉 Job #$jobId COMPLETED!");
         error_log("   Department: $departmentName");
-        error_log("   Total: {$job['total_users']} users");
-        error_log("   Forms created: $newFormsCreated");
-        error_log("   Forms skipped: $newFormsSkipped");
-        error_log("   Signatories assigned: $newSignatoriesAssigned");
-        error_log("   Final batch took: {$duration}s");
+        error_log("   ✅ Total Users: {$job['total_users']} users");
+        error_log("   📋 Forms Created: {$newFormsCreated} users received clearance forms");
+        error_log("   ⏭️  Forms Skipped: {$newFormsSkipped} users (forms already existed)");
+        error_log("   👥 Signatories Assigned: {$newSignatoriesAssigned} total");
+        error_log("   ⏱️  Final batch took: {$duration}s");
+        error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
         echo json_encode([
             'success' => true,
@@ -266,13 +297,17 @@ try {
         $remaining = $job['total_users'] - $newProcessed;
         $percentage = round(($newProcessed / $job['total_users']) * 100, 1);
         $departmentName = $job['department_id'] ? "Department ID {$job['department_id']}" : "Unassigned Faculty";
+        $estimatedMinutes = ceil($remaining / 50); // 50 users per batch, 1 batch per minute
 
         error_log("📊 Job #$jobId Progress:");
         error_log("   Department: $departmentName");
-        error_log("   Processed: $newProcessed of {$job['total_users']} users ($percentage%)");
-        error_log("   Remaining: $remaining users");
-        error_log("   This batch: " . count($users) . " users in {$duration}s");
-        error_log("   Will continue next minute...");
+        error_log("   ✅ Total Forms Created So Far: {$newFormsCreated}");
+        error_log("   👥 Total Users Processed: {$newProcessed} of {$job['total_users']} users ($percentage%)");
+        error_log("   ⏭️  Forms Skipped: {$newFormsSkipped}");
+        error_log("   📝 Total Signatories Assigned: {$newSignatoriesAssigned}");
+        error_log("   ⏱️  Remaining: ~{$remaining} users (~{$estimatedMinutes} minutes)");
+        error_log("   ⚡ This batch: " . count($users) . " users processed in {$duration}s");
+        error_log("   🔄 Will continue next minute...");
 
         echo json_encode([
             'success' => true,
@@ -283,7 +318,10 @@ try {
             'percentage' => $percentage,
             'remaining' => $remaining,
             'batch_size' => count($users),
-            'duration' => $duration
+            'duration' => $duration,
+            'forms_created' => $newFormsCreated,
+            'forms_skipped' => $newFormsSkipped,
+            'signatories_assigned' => $newSignatoriesAssigned
         ]);
     }
 

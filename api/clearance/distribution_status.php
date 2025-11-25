@@ -22,10 +22,90 @@ $connection = Database::getInstance()->getConnection();
 
 try {
     $jobId = isset($_GET['job_id']) ? (int)$_GET['job_id'] : null;
+    $clearanceType = $_GET['clearance_type'] ?? null;
+    $academicYearId = isset($_GET['academic_year_id']) ? (int)$_GET['academic_year_id'] : null;
+    $semesterId = isset($_GET['semester_id']) ? (int)$_GET['semester_id'] : null;
+    $getAllActive = isset($_GET['get_all_active']) && $_GET['get_all_active'] === 'true';
 
+    // If get_all_active is true, return all active jobs for the sector
+    if ($getAllActive) {
+        if (!$clearanceType || !$academicYearId || !$semesterId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'clearance_type, academic_year_id, and semester_id are required when get_all_active=true']);
+            exit;
+        }
+
+        $stmt = $connection->prepare("
+            SELECT * FROM form_distribution_jobs 
+            WHERE clearance_type = ? 
+              AND academic_year_id = ? 
+              AND semester_id = ? 
+              AND status IN ('pending', 'processing')
+            ORDER BY created_at ASC
+        ");
+        $stmt->execute([$clearanceType, $academicYearId, $semesterId]);
+        $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $activeJobs = [];
+        foreach ($jobs as $job) {
+            $percentage = $job['total_users'] > 0
+                ? round(($job['processed_users'] / $job['total_users']) * 100, 2)
+                : 0;
+
+            $estimatedRemaining = null;
+            if ($job['status'] === 'processing' && $job['processed_users'] > 0) {
+                $batchesRemaining = ceil(($job['total_users'] - $job['processed_users']) / 50);
+                $estimatedRemaining = $batchesRemaining;
+            }
+
+            // Get department name
+            $departmentName = null;
+            if ($job['department_id'] !== null) {
+                $deptStmt = $connection->prepare("SELECT department_name FROM departments WHERE department_id = ?");
+                $deptStmt->execute([$job['department_id']]);
+                $departmentName = $deptStmt->fetchColumn();
+            } else if ($job['clearance_type'] === 'Faculty') {
+                $departmentName = 'Unassigned Faculty';
+            }
+
+            $activeJobs[] = [
+                'job_id' => $job['job_id'],
+                'clearance_type' => $job['clearance_type'],
+                'academic_year_id' => $job['academic_year_id'],
+                'semester_id' => $job['semester_id'],
+                'department_id' => $job['department_id'],
+                'department_name' => $departmentName,
+                'status' => $job['status'],
+                'progress' => [
+                    'processed' => $job['processed_users'],
+                    'total' => $job['total_users'],
+                    'percentage' => $percentage,
+                    'remaining' => $job['total_users'] - $job['processed_users']
+                ],
+                'results' => [
+                    'forms_created' => $job['forms_created'],
+                    'forms_skipped' => $job['forms_skipped'],
+                    'signatories_assigned' => $job['signatories_assigned']
+                ],
+                'estimated_remaining_minutes' => $estimatedRemaining,
+                'created_at' => $job['created_at'],
+                'started_at' => $job['started_at'],
+                'completed_at' => $job['completed_at'],
+                'error_message' => $job['error_message']
+            ];
+        }
+
+        echo json_encode([
+            'success' => true,
+            'active_jobs' => $activeJobs
+        ]);
+        exit;
+    }
+
+    // Otherwise, get single job by job_id (existing functionality)
     if (!$jobId) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Job ID is required']);
+        echo json_encode(['success' => false, 'message' => 'Job ID is required or use get_all_active=true with clearance_type, academic_year_id, and semester_id']);
         exit;
     }
 

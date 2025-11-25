@@ -167,7 +167,8 @@
 let currentSector = null;
 let currentAcademicYearId = null;
 let currentSemesterId = null;
-let departmentJobs = {}; // Track job IDs for each department
+let departmentJobs = {}; // Track job IDs for each department: { departmentId: { job_id, status, progress, ... } }
+let globalPollingInterval = null; // Global polling interval that continues even when modal is closed
 
 /**
  * Open department distribution modal
@@ -181,7 +182,7 @@ async function openDepartmentDistributionModal(sector, academicYearId, semesterI
     const title = document.getElementById('departmentModalTitle');
     const description = document.getElementById('departmentModalDescription');
     
-    title.textContent = `📋 Start Form Distribution - ${sector}`;
+    title.textContent = `📋 Form Distribution - ${sector}`;
     description.textContent = `Select departments to start clearance form distribution for ${sector}. Forms will be distributed automatically via cronjob.`;
     
     // Show pause button if period is ongoing
@@ -190,8 +191,11 @@ async function openDepartmentDistributionModal(sector, academicYearId, semesterI
     
     modal.style.display = 'flex';
     
-    // Load departments
+    // Load departments and check for existing active jobs
     await loadDepartmentsForDistribution(sector, academicYearId, semesterId);
+    
+    // Start global polling if not already running
+    startGlobalPolling();
 }
 
 /**
@@ -200,10 +204,9 @@ async function openDepartmentDistributionModal(sector, academicYearId, semesterI
 function closeDepartmentDistributionModal() {
     const modal = document.getElementById('departmentDistributionModal');
     modal.style.display = 'none';
-    currentSector = null;
-    currentAcademicYearId = null;
-    currentSemesterId = null;
-    departmentJobs = {};
+    // Note: We don't clear currentSector, currentAcademicYearId, currentSemesterId, or departmentJobs
+    // This allows polling to continue in the background
+    // Global polling will continue running even when modal is closed
 }
 
 /**
@@ -219,17 +222,39 @@ async function loadDepartmentsForDistribution(sector, academicYearId, semesterId
     error.style.display = 'none';
     
     try {
-        const response = await fetchJSON(
+        // Load departments
+        const deptResponse = await fetchJSON(
             `${API_BASE}/get_departments_for_distribution.php?clearance_type=${encodeURIComponent(sector)}&academic_year_id=${academicYearId}&semester_id=${semesterId}`
         );
         
-        if (response.success) {
-            displayDepartments(response.departments, response.total_departments, response.total_users);
-            loading.style.display = 'none';
-            content.style.display = 'block';
-        } else {
-            throw new Error(response.message || 'Failed to load departments');
+        if (!deptResponse.success) {
+            throw new Error(deptResponse.message || 'Failed to load departments');
         }
+        
+        // Check for existing active jobs
+        const jobsResponse = await fetchJSON(
+            `${API_BASE}/distribution_status.php?get_all_active=true&clearance_type=${encodeURIComponent(sector)}&academic_year_id=${academicYearId}&semester_id=${semesterId}`
+        );
+        
+        // Update departmentJobs with existing active jobs
+        if (jobsResponse.success && jobsResponse.active_jobs) {
+            jobsResponse.active_jobs.forEach(job => {
+                const deptKey = job.department_id !== null ? job.department_id : 'unassigned';
+                departmentJobs[deptKey] = {
+                    job_id: job.job_id,
+                    status: job.status,
+                    progress: job.progress,
+                    results: job.results,
+                    department_id: job.department_id,
+                    department_name: job.department_name
+                };
+            });
+        }
+        
+        // Display departments with their current job status
+        displayDepartments(deptResponse.departments, deptResponse.total_departments, deptResponse.total_users);
+        loading.style.display = 'none';
+        content.style.display = 'block';
     } catch (error) {
         console.error('Error loading departments:', error);
         loading.style.display = 'none';
@@ -264,6 +289,53 @@ function displayDepartments(departments, totalDepartments, totalUsers) {
         const deptName = dept.department_name || 'Unassigned Faculty';
         const deptId = dept.department_id;
         const userCount = dept.user_count || 0;
+        const deptKey = deptId !== null ? deptId : 'unassigned';
+        
+        // Check if there's an existing job for this department
+        const existingJob = departmentJobs[deptKey];
+        const hasActiveJob = existingJob && (existingJob.status === 'pending' || existingJob.status === 'processing');
+        
+        // Determine status and button state
+        let statusClass = 'pending';
+        let statusText = 'Pending';
+        let buttonText = '<i class="fas fa-play"></i> Start';
+        let buttonClass = 'btn btn-success btn-start-dept';
+        let buttonDisabled = '';
+        let showProgress = false;
+        let progressText = '';
+        
+        if (existingJob) {
+            statusText = existingJob.status.charAt(0).toUpperCase() + existingJob.status.slice(1);
+            if (existingJob.status === 'processing') {
+                statusClass = 'processing';
+                buttonText = '<i class="fas fa-check"></i> Processing';
+                buttonClass = 'btn btn-secondary btn-start-dept';
+                buttonDisabled = 'disabled';
+                showProgress = true;
+                if (existingJob.progress) {
+                    progressText = `${existingJob.progress.processed}/${existingJob.progress.total} users (${existingJob.progress.percentage}%)`;
+                }
+            } else if (existingJob.status === 'completed') {
+                statusClass = 'completed';
+                buttonText = '<i class="fas fa-check"></i> Completed';
+                buttonClass = 'btn btn-secondary btn-start-dept';
+                buttonDisabled = 'disabled';
+                showProgress = true;
+                if (existingJob.progress) {
+                    progressText = `${existingJob.progress.processed}/${existingJob.progress.total} users (100%)`;
+                }
+            } else if (existingJob.status === 'failed') {
+                statusClass = 'failed';
+                buttonText = '<i class="fas fa-exclamation-triangle"></i> Failed';
+                buttonClass = 'btn btn-danger btn-start-dept';
+                buttonDisabled = '';
+            } else if (existingJob.status === 'pending') {
+                statusClass = 'processing';
+                buttonText = '<i class="fas fa-clock"></i> Queued';
+                buttonClass = 'btn btn-secondary btn-start-dept';
+                buttonDisabled = 'disabled';
+            }
+        }
         
         deptItem.innerHTML = `
             <div class="department-info">
@@ -271,19 +343,25 @@ function displayDepartments(departments, totalDepartments, totalUsers) {
                 <div class="department-meta">
                     <i class="fas fa-users"></i> ${userCount} ${userCount === 1 ? 'user' : 'users'}
                 </div>
-                <div class="department-progress" id="dept-progress-${deptId ?? 'unassigned'}" style="display: none;">
-                    <span id="dept-progress-text-${deptId ?? 'unassigned'}"></span>
+                <div class="department-progress" id="dept-progress-${deptKey}" style="display: ${showProgress ? 'block' : 'none'};">
+                    <span id="dept-progress-text-${deptKey}">${progressText}</span>
                 </div>
             </div>
             <div class="department-actions">
-                <span class="department-status pending" id="dept-status-${deptId ?? 'unassigned'}">Pending</span>
-                <button class="btn btn-success btn-start-dept" 
+                <span class="department-status ${statusClass}" id="dept-status-${deptKey}">${statusText}</span>
+                <button class="${buttonClass}" 
                         onclick="startDepartmentDistribution(${deptId !== null ? deptId : 'null'}, '${deptName.replace(/'/g, "\\'")}')"
-                        id="dept-btn-${deptId ?? 'unassigned'}">
-                    <i class="fas fa-play"></i> Start
+                        id="dept-btn-${deptKey}"
+                        ${buttonDisabled}>
+                    ${buttonText}
                 </button>
             </div>
         `;
+        
+        // Update item class based on status
+        if (existingJob) {
+            deptItem.className = `department-item ${existingJob.status}`;
+        }
         
         list.appendChild(deptItem);
     });
@@ -326,11 +404,30 @@ async function startDepartmentDistribution(departmentId, departmentName) {
         
         if (response.success && response.job) {
             const job = response.job;
-            departmentJobs[departmentId ?? 'unassigned'] = job.job_id;
+            const deptKey = departmentId !== null ? departmentId : 'unassigned';
+            
+            // Store job info for global polling
+            departmentJobs[deptKey] = {
+                job_id: job.job_id,
+                status: 'pending',
+                progress: {
+                    processed: 0,
+                    total: job.total_users,
+                    percentage: 0,
+                    remaining: job.total_users
+                },
+                results: {
+                    forms_created: 0,
+                    forms_skipped: 0,
+                    signatories_assigned: 0
+                },
+                department_id: departmentId,
+                department_name: departmentName
+            };
             
             status.className = 'department-status processing';
-            status.textContent = 'Processing';
-            btn.innerHTML = '<i class="fas fa-check"></i> Started';
+            status.textContent = 'Pending';
+            btn.innerHTML = '<i class="fas fa-clock"></i> Queued';
             btn.className = 'btn btn-secondary btn-start-dept';
             btn.disabled = true;
             
@@ -339,8 +436,8 @@ async function startDepartmentDistribution(departmentId, departmentName) {
             
             showToast(`Form distribution started for ${departmentName}. Processing ${job.total_users} users...`, 'success');
             
-            // Start polling for progress
-            pollDepartmentJobStatus(job.job_id, departmentId, departmentName);
+            // Ensure global polling is running
+            startGlobalPolling();
         } else {
             throw new Error(response.message || 'Failed to start form distribution');
         }
@@ -407,6 +504,118 @@ async function pollDepartmentJobStatus(jobId, departmentId, departmentName) {
         console.error('Error polling job status:', error);
         // Retry after 5 seconds
         setTimeout(() => pollDepartmentJobStatus(jobId, departmentId, departmentName), 5000);
+    }
+}
+
+/**
+ * Start global polling for all active jobs
+ * This continues even when the modal is closed
+ */
+function startGlobalPolling() {
+    // Clear existing interval if any
+    if (globalPollingInterval) {
+        clearInterval(globalPollingInterval);
+    }
+    
+    // Poll every 5 seconds
+    globalPollingInterval = setInterval(async () => {
+        // Only poll if we have active jobs and valid sector info
+        if (!currentSector || !currentAcademicYearId || !currentSemesterId) {
+            return;
+        }
+        
+        const activeJobKeys = Object.keys(departmentJobs).filter(key => {
+            const job = departmentJobs[key];
+            return job && (job.status === 'pending' || job.status === 'processing');
+        });
+        
+        if (activeJobKeys.length === 0) {
+            // No active jobs, stop polling
+            clearInterval(globalPollingInterval);
+            globalPollingInterval = null;
+            return;
+        }
+        
+        // Poll each active job
+        for (const deptKey of activeJobKeys) {
+            const job = departmentJobs[deptKey];
+            if (!job || !job.job_id) continue;
+            
+            try {
+                const response = await fetchJSON(`${API_BASE}/distribution_status.php?job_id=${job.job_id}`);
+                
+                if (response.success && response.job) {
+                    // Update job status
+                    departmentJobs[deptKey] = {
+                        job_id: response.job.job_id,
+                        status: response.job.status,
+                        progress: response.job.progress,
+                        results: response.job.results,
+                        department_id: response.job.department_id,
+                        department_name: response.job.department_name
+                    };
+                    
+                    // Update UI if modal is open
+                    updateDepartmentStatusUI(deptKey, response.job);
+                    
+                    // If job is completed or failed, remove from active tracking
+                    if (response.job.status === 'completed' || response.job.status === 'failed') {
+                        // Keep in departmentJobs for display, but it won't be polled anymore
+                    }
+                }
+            } catch (error) {
+                console.error(`Error polling job ${job.job_id} for department ${deptKey}:`, error);
+            }
+        }
+    }, 5000); // Poll every 5 seconds
+}
+
+/**
+ * Update department status UI
+ */
+function updateDepartmentStatusUI(deptKey, job) {
+    const statusEl = document.getElementById(`dept-status-${deptKey}`);
+    const progressEl = document.getElementById(`dept-progress-${deptKey}`);
+    const progressTextEl = document.getElementById(`dept-progress-text-${deptKey}`);
+    const btnEl = document.getElementById(`dept-btn-${deptKey}`);
+    const itemEl = document.getElementById(`dept-item-${deptKey}`);
+    
+    if (!statusEl) return; // Element doesn't exist (modal might be closed)
+    
+    // Update status
+    statusEl.className = `department-status ${job.status}`;
+    statusEl.textContent = job.status.charAt(0).toUpperCase() + job.status.slice(1);
+    
+    // Update progress
+    if (progressEl && progressTextEl && job.progress) {
+        progressEl.style.display = 'block';
+        progressTextEl.textContent = `${job.progress.processed}/${job.progress.total} users (${job.progress.percentage}%)`;
+    }
+    
+    // Update button
+    if (btnEl) {
+        if (job.status === 'processing' || job.status === 'pending') {
+            btnEl.disabled = true;
+            btnEl.className = 'btn btn-secondary btn-start-dept';
+            if (job.status === 'processing') {
+                btnEl.innerHTML = '<i class="fas fa-check"></i> Processing';
+            } else {
+                btnEl.innerHTML = '<i class="fas fa-clock"></i> Queued';
+            }
+        } else if (job.status === 'completed') {
+            btnEl.disabled = true;
+            btnEl.className = 'btn btn-secondary btn-start-dept';
+            btnEl.innerHTML = '<i class="fas fa-check"></i> Completed';
+        } else if (job.status === 'failed') {
+            btnEl.disabled = false;
+            btnEl.className = 'btn btn-danger btn-start-dept';
+            btnEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Failed';
+        }
+    }
+    
+    // Update item class
+    if (itemEl) {
+        itemEl.className = `department-item ${job.status}`;
     }
 }
 

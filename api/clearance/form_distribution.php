@@ -478,6 +478,19 @@ function assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssign
     }
     
     foreach ($signatoryAssignments as $assignment) {
+        // Check if signatory already exists for this form to prevent duplicates
+        $checkStmt = $connection->prepare("
+            SELECT signatory_id FROM clearance_signatories 
+            WHERE clearance_form_id = ? AND designation_id = ?
+            LIMIT 1
+        ");
+        $checkStmt->execute([$clearanceFormId, $assignment['designation_id']]);
+        
+        if ($checkStmt->fetch()) {
+            // Signatory already exists, skip to prevent duplicate
+            error_log("⚠️ FORM DISTRIBUTION: Signatory with designation_id {$assignment['designation_id']} ({$assignment['designation_name']}) already exists for form {$clearanceFormId}. Skipping duplicate.");
+            continue;
+        }
         
         $isProgramHeadSignatory = false;
         if ($clearanceType === 'Senior High School') {
@@ -703,6 +716,11 @@ function processSingleUser($connection, $user, $academicYearId, $semesterId, $cl
     $formsCreated = 0;
     $signatoriesAssigned = 0;
 
+    $userName = ($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '');
+    $userName = trim($userName) ?: 'Unknown';
+    $username = $user['username'] ?? 'N/A';
+    $userId = $user['user_id'] ?? 'N/A';
+
     // Check if form exists
     $existingForm = checkExistingForm($connection, $user['user_id'], $academicYearId, $semesterId, $clearanceType);
 
@@ -717,27 +735,47 @@ function processSingleUser($connection, $user, $academicYearId, $semesterId, $cl
         $missingDesignationIds = array_diff($requiredDesignationIds, $existingDesignationIds);
 
         if (empty($missingDesignationIds)) {
-            return ['form_created' => false, 'signatories_assigned' => 0];
+            error_log("⏭️  USER SKIPPED: {$userName} (ID: {$userId}, Username: {$username}) - Form {$clearanceFormId} already exists with all signatories");
+            return [
+                'form_created' => false, 
+                'signatories_assigned' => 0,
+                'user_name' => $userName,
+                'user_id' => $userId,
+                'username' => $username,
+                'form_id' => $clearanceFormId
+            ];
         }
 
         $missingAssignments = array_filter($signatoryAssignments, function($assignment) use ($missingDesignationIds) {
             return in_array($assignment['designation_id'], $missingDesignationIds);
         });
         $signatoryAssignmentsToProcess = $missingAssignments;
+        
+        error_log("📝 EXISTING FORM: {$userName} (ID: {$userId}, Username: {$username}) - Form {$clearanceFormId} exists, adding " . count($signatoryAssignmentsToProcess) . " missing signatories");
     } else {
         // Create new form
         $clearanceFormId = createClearanceForm($connection, $user, $academicYearId, $semesterId, $clearanceType);
         $formsCreated = 1;
         $signatoryAssignmentsToProcess = $signatoryAssignments;
+        
+        error_log("✅ NEW FORM CREATED: {$userName} (ID: {$userId}, Username: {$username}) - Form ID: {$clearanceFormId}");
     }
 
     // Assign signatories
     $assignedCount = assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssignmentsToProcess, $user, $clearanceType);
     $signatoriesAssigned = $assignedCount;
 
+    if ($assignedCount > 0) {
+        error_log("   └─ Assigned {$assignedCount} signatory/signatories to form {$clearanceFormId}");
+    }
+
     return [
         'form_created' => ($formsCreated > 0),
-        'signatories_assigned' => $signatoriesAssigned
+        'signatories_assigned' => $signatoriesAssigned,
+        'user_name' => $userName,
+        'user_id' => $userId,
+        'username' => $username,
+        'form_id' => $clearanceFormId
     ];
 }
 ?>
