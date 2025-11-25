@@ -4309,7 +4309,8 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                     
                 case 'Ongoing':
                     console.log(`🔧 DEBUG: Case 'Ongoing' for ${sector}`);
-                    // Clearance started (Ongoing) → Show "View Departments", "Pause Clearance Period" and "End Clearance Period"
+                    // Clearance started (Ongoing) → Show "View Departments" and "End Clearance Period"
+                    // Note: Pause/Resume is handled in the modal
                     if (startBtn) {
                         startBtn.innerHTML = '<i class="fas fa-list"></i> View Departments';
                         startBtn.style.display = 'inline-block';
@@ -4317,14 +4318,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                         startBtn.className = 'btn btn-sm btn-success';
                         startBtn.setAttribute('onclick', `viewDepartments('${sector}')`);
                         console.log(`🔧 DEBUG: View Departments button updated for ${sector}`);
-                    }
-                    if (pauseBtn) {
-                        pauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pause Clearance Period';
-                        pauseBtn.style.display = 'inline-block';
-                        pauseBtn.disabled = false;
-                        pauseBtn.className = 'btn btn-sm btn-warning';
-                        pauseBtn.setAttribute('onclick', `pauseSectorPeriod('${sector}')`);
-                        console.log(`🔧 DEBUG: Pause button updated for ${sector}`);
                     }
                     if (closeBtn) {
                         closeBtn.innerHTML = '<i class="fas fa-stop"></i> End Clearance Period';
@@ -4338,7 +4331,8 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                     
                 case 'Paused':
                     console.log(`🔧 DEBUG: Case 'Paused' for ${sector}`);
-                    // Clearance paused → Show "View Departments", "Resume Clearance Period" and "End Clearance Period"
+                    // Clearance paused → Show "View Departments" and "End Clearance Period"
+                    // Note: Resume is handled in the modal
                     if (startBtn) {
                         startBtn.innerHTML = '<i class="fas fa-list"></i> View Departments';
                         startBtn.style.display = 'inline-block';
@@ -4346,14 +4340,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                         startBtn.className = 'btn btn-sm btn-success';
                         startBtn.setAttribute('onclick', `viewDepartments('${sector}')`);
                         console.log(`🔧 DEBUG: View Departments button updated for ${sector}`);
-                    }
-                    if (pauseBtn) {
-                        pauseBtn.innerHTML = '<i class="fas fa-play"></i> Resume Clearance Period';
-                        pauseBtn.style.display = 'inline-block';
-                        pauseBtn.disabled = false;
-                        pauseBtn.className = 'btn btn-sm btn-success';
-                        pauseBtn.setAttribute('onclick', `resumeSectorPeriod('${sector}')`);
-                        console.log(`🔧 DEBUG: Resume button updated for ${sector}`);
                     }
                     if (closeBtn) {
                         closeBtn.innerHTML = '<i class="fas fa-stop"></i> End Clearance Period';

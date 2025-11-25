@@ -108,7 +108,7 @@ try {
         $selectedAcademicYearId = $ayStmt->fetchColumn();
         $selectedSemesterId = (int)$semesterId;
 
-        $periodQuery = "SELECT cp.period_id FROM clearance_periods cp JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id WHERE ay.year = :yearName AND cp.semester_id = :semesterId AND cp.status IN ('Ongoing', 'Closed')";
+        $periodQuery = "SELECT cp.period_id FROM clearance_periods cp JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id WHERE ay.year = :yearName AND cp.semester_id = :semesterId AND cp.status IN ('Not Started', 'Ongoing', 'Paused', 'Closed')";
         $periodParams = [':yearName' => $yearName, ':semesterId' => $semesterId];
     } else {
         // If no term is specified, find the most relevant period based on status priority.
@@ -118,11 +118,12 @@ try {
                        CASE status
                            WHEN 'Ongoing' THEN 1
                            WHEN 'Paused' THEN 2
-                           WHEN 'Closed' THEN 3
-                           ELSE 4
+                           WHEN 'Not Started' THEN 3
+                           WHEN 'Closed' THEN 4
+                           ELSE 5
                        END as status_priority
                 FROM clearance_periods
-                WHERE status IN ('Ongoing', 'Paused', 'Closed')
+                WHERE status IN ('Not Started', 'Ongoing', 'Paused', 'Closed')
             ) as prioritized_periods
             ORDER BY status_priority, period_id DESC
             LIMIT 1";
@@ -165,7 +166,7 @@ try {
         $params[':activePeriodId'] = $activePeriodId;
     } else {
         // Fallback to status-based matching when no specific period is selected
-        $periodJoinCondition = "cp.status IN ('Ongoing', 'Closed')";
+        $periodJoinCondition = "cp.status IN ('Not Started', 'Ongoing', 'Paused', 'Closed')";
     }
 
     if (strtolower($type) === 'faculty') {

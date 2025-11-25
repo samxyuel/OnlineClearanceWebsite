@@ -441,6 +441,30 @@ async function startDepartmentDistribution(departmentId, departmentName) {
             
             showToast(`Form distribution started for ${departmentName}. Processing ${job.total_users} users...`, 'success');
             
+            // ✅ Update period status to "Ongoing" if not already started
+            try {
+                const activeTerm = await getActiveTerm();
+                if (activeTerm) {
+                    const periodResponse = await fetchJSON(`${API_BASE}/periods.php`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'start',
+                            sector: currentSector,
+                            academic_year_id: activeTerm.academic_year_id,
+                            semester_id: activeTerm.semester_id
+                        })
+                    });
+                    
+                    if (periodResponse.success) {
+                        console.log('Period status updated to Ongoing');
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating period status:', error);
+                // Don't fail the whole operation if status update fails
+            }
+            
             // Update status badge to "Ongoing" if period hasn't started yet
             updateStatusBadge(currentSector, 'Ongoing');
             
@@ -971,7 +995,7 @@ async function resumeSectorPeriodFromModal() {
             }
 
             // Resume the period (this will trigger form distribution for newly added users - self-healing)
-            const apiResponse = await fetchJSON(`${API_BASE}/sector-periods.php`, {
+            const apiResponse = await fetchJSON(`${API_BASE}/periods.php`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

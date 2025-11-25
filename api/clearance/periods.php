@@ -556,6 +556,47 @@ function handleUpdatePeriod($connection) {
             return;
         }
         
+        // Handle resuming a clearance period (needs period_id)
+        if ($action === 'resume') {
+            error_log("▶️ API DEBUG: Resuming clearance period");
+            error_log("▶️ API DEBUG: Input data: " . json_encode($input));
+            
+            if (empty($input['period_id'])) {
+                error_log("❌ API DEBUG: Missing period_id for resume");
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Period ID is required for resuming clearance period']);
+                return;
+            }
+            
+            $periodId = (int)$input['period_id'];
+            
+            // Check if period exists and is paused
+            $stmt = $connection->prepare("SELECT period_id, status FROM clearance_periods WHERE period_id = ?");
+            $stmt->execute([$periodId]);
+            $period = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$period) {
+                error_log("❌ API DEBUG: Period not found: $periodId");
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Clearance period not found']);
+                return;
+            }
+            
+            if ($period['status'] !== 'Paused') {
+                error_log("⚠️ API DEBUG: Cannot resume period with status: " . $period['status']);
+                echo json_encode(['success' => false, 'message' => 'Only paused clearance periods can be resumed']);
+                return;
+            }
+            
+            // Update status to Ongoing
+            $stmt = $connection->prepare("UPDATE clearance_periods SET status = 'Ongoing', updated_at = NOW() WHERE period_id = ?");
+            $stmt->execute([$periodId]);
+            
+            error_log("✅ API DEBUG: Period resumed successfully");
+            echo json_encode(['success' => true, 'message' => 'Clearance period resumed successfully']);
+            return;
+        }
+        
         // Handle closing a clearance period (needs period_id)
         if ($action === 'close') {
             error_log("🛑 API DEBUG: Closing clearance period");
