@@ -804,8 +804,9 @@
         if (isRequiredFirst && (periodStatus === 'not_started' || periodStatus === 'Not Started')) {
             // Required first signatory can be applied to even if period hasn't started
             return `<button class="btn btn-sm btn-primary apply-btn"
-                    onclick="applyToSignatory('${slug}')"
+                    onclick="applyToSignatory(this)"
                     data-signatory-id="${signatory.signatory_id}"
+                    data-designation-id="${signatory.designation_id}"
                     title="Click to apply to this signatory (Required First)"><i class="fas fa-${getButtonIcon('can_apply')}"></i> Apply</button>`;
         }
 
@@ -829,8 +830,9 @@
 
         // This part will now only be reached if the status is 'Unapplied'
         return `<button class="btn btn-sm btn-primary apply-btn"
-                    onclick="applyToSignatory('${slug}')"
+                    onclick="applyToSignatory(this)"
                     data-signatory-id="${signatory.signatory_id}"
+                    data-designation-id="${signatory.designation_id}"
                     title="Click to apply to this signatory"><i class="fas fa-${getButtonIcon('can_apply')}"></i> Apply</button>`;
     }
 
@@ -851,8 +853,16 @@
     }
 
     // Apply / Re-apply to a specific signatory (enhanced API integration)
-    function applyToSignatory(signatory) {
-        const applyBtn = event.target.closest('.apply-btn');
+    function applyToSignatory(buttonElement) {
+        // Use the button that was passed directly (using 'this' in onclick)
+        const applyBtn = buttonElement;
+        
+        if (!applyBtn) {
+            console.error('⚠️ Apply button not found');
+            showToast('Error: Could not find apply button. Please refresh the page.', 'error');
+            return;
+        }
+        
         const originalHTML = applyBtn.innerHTML;
         
         // Check if period is closed, paused, or not started
@@ -865,8 +875,17 @@
                 showToast('Clearance period is paused. Applications are temporarily disabled.', 'warning');
                 return;
             } else if (status === 'Not Started' || status === 'not_started') {
-                showToast('Clearance period has not started yet.', 'warning');
-                return;
+                // Allow required first signatory to bypass this check
+                const settings = window.currentClearanceData?.settings || {};
+                const btnDesignationId = applyBtn.getAttribute('data-designation-id');
+                const isRequiredFirst = settings.required_first_enabled && 
+                    btnDesignationId && 
+                    parseInt(btnDesignationId) == settings.required_first_designation_id;
+                
+                if (!isRequiredFirst) {
+                    showToast('Clearance period has not started yet.', 'warning');
+                    return;
+                }
             }
         }
         
@@ -874,6 +893,7 @@
         const signatoryId = applyBtn.getAttribute('data-signatory-id');
         
         if (!signatoryId) {
+            console.error('⚠️ Signatory ID not found in button:', applyBtn);
             showToast('Signatory ID not found. Please refresh the page.', 'error');
             return;
         }
