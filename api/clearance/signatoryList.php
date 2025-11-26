@@ -282,66 +282,8 @@ try {
     
     // Apply designation filter if provided (for role switching)
     if (!empty($designationFilter)) {
-        // Get the designation_id for the filter to ensure accurate matching
-        $desigStmt = $pdo->prepare("SELECT designation_id FROM designations WHERE designation_name = :designationFilter AND is_active = 1 LIMIT 1");
-        $desigStmt->execute([':designationFilter' => $designationFilter]);
-        $filterDesignationId = $desigStmt->fetchColumn();
-        
-        if ($filterDesignationId) {
-            // Filter to show only records where:
-            // 1. The joined signatory matches the filtered designation, OR
-            // 2. A signatory record EXISTS for this designation (even if JOIN didn't match), OR
-            // 3. No clearance form exists (for new users)
-            // Use EXISTS subquery to check for signatory records independently of JOIN chain
-            
-            // Determine the user_id column based on type
-            $userIdColumn = (strtolower($type) === 'faculty') ? 'f.user_id' : 's.user_id';
-            
-            // Build EXISTS condition based on query type
-            if ($queryDirectByTerm && $selectedAcademicYearId && $selectedSemesterId) {
-                // When querying directly by term, reuse the existing parameter names from the FROM clause
-                // These are already bound in $params from the FROM clause (lines 212-213 for faculty, 260-262 for students)
-                // Reusing them avoids parameter conflicts and ensures consistency
-                $existsCondition = "cf_exists.academic_year_id = :selectedAcademicYearId AND cf_exists.semester_id = :selectedSemesterId";
-                // DO NOT add new params here - they're already in $params from the FROM clause
-            } else if ($selectedAcademicYearId && $selectedSemesterId) {
-                // When using clearance_periods JOIN but have selected term info, use it as fallback
-                // Match by period's academic_year_id/semester_id if available, otherwise use selected term
-                $existsCondition = "(
-                    (cp.academic_year_id IS NOT NULL AND cf_exists.academic_year_id = cp.academic_year_id AND cf_exists.semester_id = cp.semester_id)
-                    OR (cp.academic_year_id IS NULL AND cf_exists.academic_year_id = :existsAcademicYearId AND cf_exists.semester_id = :existsSemesterId)
-                )";
-                $params[':existsAcademicYearId'] = $selectedAcademicYearId;
-                $params[':existsSemesterId'] = $selectedSemesterId;
-            } else {
-                // No selected term, match by period's academic_year_id and semester_id only
-                // Only match when cp JOIN succeeded (cp.academic_year_id IS NOT NULL)
-                $existsCondition = "cp.academic_year_id IS NOT NULL AND cf_exists.academic_year_id = cp.academic_year_id AND cf_exists.semester_id = cp.semester_id";
-            }
-            
-            // Build the EXISTS subquery
-            $existsSubquery = "
-                EXISTS (
-                    SELECT 1 FROM clearance_forms cf_exists
-                    JOIN clearance_signatories cs_exists ON cf_exists.clearance_form_id = cs_exists.clearance_form_id
-                    WHERE cf_exists.user_id = $userIdColumn
-                    AND cs_exists.designation_id = :filterDesignationId
-                    AND $existsCondition
-                )
-            ";
-            
-            // Apply the filter
-            $where .= " AND (
-                cs.designation_id = :filterDesignationId 
-                OR $existsSubquery
-                OR cf.clearance_form_id IS NULL
-            )";
-            $params[':filterDesignationId'] = $filterDesignationId;
-        } else {
-            // If designation not found, fall back to original logic
-            $where .= " AND (d_sig.designation_name = :designationFilter OR cf.clearance_form_id IS NULL)";
-            $params[':designationFilter'] = $designationFilter;
-        }
+        $where .= " AND (d_sig.designation_name = :designationFilter OR cf.clearance_form_id IS NULL)";
+        $params[':designationFilter'] = $designationFilter;
     }
 
     // SERVER-SIDE SCOPING for Program Heads
