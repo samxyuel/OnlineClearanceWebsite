@@ -393,10 +393,29 @@ try {
     
     // Apply designation filter if provided (for role switching)
     // For School Administrators: Don't filter by designation (show all)
-    // For Regular Staff: Filter by designation as before
+    // For Regular Staff: Only filter if the designation_filter matches one of their actual designations
+    //                    If it doesn't match, show all records in view-only mode
     if (!empty($designationFilter) && !$isSchoolAdmin) {
-        $where .= " AND (d_sig.designation_name = :designationFilter OR cf.clearance_form_id IS NULL)";
-        $params[':designationFilter'] = $designationFilter;
+        // Check if the designation filter matches any of the staff's actual designations
+        $filterMatchesStaffDesignation = false;
+        if (!empty($staffDesignations)) {
+            foreach ($staffDesignations as $desig) {
+                if (strcasecmp($desig['designation_name'], $designationFilter) === 0) {
+                    $filterMatchesStaffDesignation = true;
+                    break;
+                }
+            }
+        }
+        
+        // Only apply the WHERE filter if the designation matches
+        // This allows "View Only" mode when the filter doesn't match (show all records)
+        if ($filterMatchesStaffDesignation) {
+            $where .= " AND (d_sig.designation_name = :designationFilter OR cf.clearance_form_id IS NULL)";
+            $params[':designationFilter'] = $designationFilter;
+            error_log("SIGNATORY_LIST_DEBUG: Designation filter matches staff designation - applying WHERE filter");
+        } else {
+            error_log("SIGNATORY_LIST_DEBUG: Designation filter does NOT match staff designations - showing all records (view-only mode)");
+        }
     }
 
     // SERVER-SIDE SCOPING for Program Heads
