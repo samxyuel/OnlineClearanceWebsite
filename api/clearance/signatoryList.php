@@ -289,14 +289,52 @@ try {
         
         if ($filterDesignationId) {
             // Filter to show only records where:
-            // 1. The signatory record matches the filtered designation (cs.designation_id matches), OR
-            // 2. There's no clearance form (for new users), OR
-            // 3. There's a clearance form but no signatory record yet (Unapplied - cs.designation_id IS NULL)
-            // This ensures we don't exclude valid signatory records that exist but weren't joined due to the filter
+            // 1. The joined signatory matches the filtered designation, OR
+            // 2. A signatory record EXISTS for this designation (even if JOIN didn't match), OR
+            // 3. No clearance form exists (for new users)
+            // Use EXISTS subquery to check for signatory records independently of JOIN chain
+            
+            // Determine the user_id column based on type
+            $userIdColumn = (strtolower($type) === 'faculty') ? 'f.user_id' : 's.user_id';
+            
+            // Build EXISTS condition based on query type
+            if ($queryDirectByTerm && $selectedAcademicYearId && $selectedSemesterId) {
+                // When querying directly by term, use the selected academic_year_id and semester_id
+                $existsCondition = "cf_exists.academic_year_id = :existsAcademicYearId AND cf_exists.semester_id = :existsSemesterId";
+                // Use unique parameter names to avoid conflicts
+                $params[':existsAcademicYearId'] = $selectedAcademicYearId;
+                $params[':existsSemesterId'] = $selectedSemesterId;
+            } else if ($selectedAcademicYearId && $selectedSemesterId) {
+                // When using clearance_periods JOIN but have selected term info, use it as fallback
+                // Match by period's academic_year_id/semester_id if available, otherwise use selected term
+                $existsCondition = "(
+                    (cp.academic_year_id IS NOT NULL AND cf_exists.academic_year_id = cp.academic_year_id AND cf_exists.semester_id = cp.semester_id)
+                    OR (cp.academic_year_id IS NULL AND cf_exists.academic_year_id = :existsAcademicYearId AND cf_exists.semester_id = :existsSemesterId)
+                )";
+                $params[':existsAcademicYearId'] = $selectedAcademicYearId;
+                $params[':existsSemesterId'] = $selectedSemesterId;
+            } else {
+                // No selected term, match by period's academic_year_id and semester_id only
+                // Only match when cp JOIN succeeded (cp.academic_year_id IS NOT NULL)
+                $existsCondition = "cp.academic_year_id IS NOT NULL AND cf_exists.academic_year_id = cp.academic_year_id AND cf_exists.semester_id = cp.semester_id";
+            }
+            
+            // Build the EXISTS subquery
+            $existsSubquery = "
+                EXISTS (
+                    SELECT 1 FROM clearance_forms cf_exists
+                    JOIN clearance_signatories cs_exists ON cf_exists.clearance_form_id = cs_exists.clearance_form_id
+                    WHERE cf_exists.user_id = $userIdColumn
+                    AND cs_exists.designation_id = :filterDesignationId
+                    AND $existsCondition
+                )
+            ";
+            
+            // Apply the filter
             $where .= " AND (
                 cs.designation_id = :filterDesignationId 
-                OR cf.clearance_form_id IS NULL 
-                OR (cf.clearance_form_id IS NOT NULL AND cs.designation_id IS NULL)
+                OR $existsSubquery
+                OR cf.clearance_form_id IS NULL
             )";
             $params[':filterDesignationId'] = $filterDesignationId;
         } else {
