@@ -557,6 +557,8 @@ handleStudentManagementPageRequest('Senior High School');
         // This will be dynamically updated by the role selector
         // For School Administrator, default to 'School Administrator' designation
         let CURRENT_STAFF_POSITION = '<?php echo !empty($GLOBALS['userSignatoryDesignations']) ? addslashes($GLOBALS['userSignatoryDesignations'][0]['designation_name']) : 'School Administrator'; ?>';
+        // Flag to track if user can perform signatory actions (for view-only mode)
+        let canPerformSignatoryActions = true;
 
         // Handle role changes by re-applying all filters, which triggers a fetch
         function handleRoleChange() {
@@ -626,12 +628,66 @@ handleStudentManagementPageRequest('Senior High School');
         function updateBulkButtons() {
             const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
             const bulkButtons = document.querySelectorAll('.bulk-buttons button');
-            
+
             bulkButtons.forEach(button => {
-                button.disabled = checkedBoxes.length === 0;
+                // Disable if no selection OR if in view-only mode
+                button.disabled = checkedBoxes.length === 0 || !canPerformSignatoryActions;
             });
             
             updateSelectionCounter();
+        }
+        
+        // Update action buttons state based on can_perform_actions flag
+        function updateActionButtonsState() {
+            // Update individual row buttons
+            const approveButtons = document.querySelectorAll('.approve-btn');
+            const rejectButtons = document.querySelectorAll('.reject-btn');
+            
+            approveButtons.forEach(btn => {
+                if (!canPerformSignatoryActions) {
+                    btn.disabled = true;
+                    btn.title = 'View Only Mode: You are not assigned as a signatory for this clearance period';
+                }
+            });
+            
+            rejectButtons.forEach(btn => {
+                if (!canPerformSignatoryActions) {
+                    btn.disabled = true;
+                    btn.title = 'View Only Mode: You are not assigned as a signatory for this clearance period';
+                }
+            });
+            
+            // Update bulk buttons
+            updateBulkButtons();
+        }
+        
+        // Show/hide view-only indicator banner
+        function updateViewOnlyIndicator() {
+            // Remove existing indicator if any
+            const existingIndicator = document.getElementById('viewOnlyIndicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+            
+            if (!canPerformSignatoryActions) {
+                // Create and show view-only indicator
+                const indicator = document.createElement('div');
+                indicator.id = 'viewOnlyIndicator';
+                indicator.className = 'alert alert-info';
+                indicator.style.cssText = 'margin: 1rem 0; padding: 1rem; background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; color: #0c5460;';
+                indicator.innerHTML = '<i class="fas fa-eye"></i> <strong>View Only Mode:</strong> You are viewing this sector\'s clearance data, but you are not assigned as a signatory for this clearance period. Approve/Reject actions are disabled.';
+                
+                // Insert after the filters section or at the top of the content area
+                const filtersSection = document.querySelector('.filters-section');
+                if (filtersSection && filtersSection.nextSibling) {
+                    filtersSection.parentNode.insertBefore(indicator, filtersSection.nextSibling);
+                } else {
+                    const contentArea = document.querySelector('.main-content');
+                    if (contentArea) {
+                        contentArea.insertBefore(indicator, contentArea.firstChild);
+                    }
+                }
+            }
         }
 
         // Enhanced notification function (using external alert system)
@@ -1218,12 +1274,18 @@ handleStudentManagementPageRequest('Senior High School');
                 }
 
                 const data = await response.json();
-                console.log('College students API response:', data);
+                console.log('Senior High students API response:', data);
                 
                 if (data.success) {
+                    // Update can_perform_actions flag from API response
+                    canPerformSignatoryActions = data.can_perform_actions !== false; // Default to true if not provided
+                    console.log('Can perform signatory actions:', canPerformSignatoryActions);
+                    
                     populateStudentsTable(data.students);
                     updateStatisticsUI(data.stats);
                     updatePaginationUI(data.total, data.page, data.limit);
+                    updateActionButtonsState(); // Update button states based on can_perform_actions
+                    updateViewOnlyIndicator(); // Show/hide view-only indicator
                 } else {
                     showToastNotification('Failed to load students data: ' + data.message, 'error');
                     tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
@@ -1272,7 +1334,8 @@ handleStudentManagementPageRequest('Senior High School');
             const currentSchoolTerm = document.getElementById('schoolTermFilter') ? document.getElementById('schoolTermFilter').value : '';
 
             // Determine button titles and states based on clearance status
-            const isActionable = ['Pending', 'Rejected'].includes(clearanceStatus) && userExisted;
+            // Disable buttons if user cannot perform signatory actions (view-only mode)
+            const isActionable = ['Pending', 'Rejected'].includes(clearanceStatus) && userExisted && canPerformSignatoryActions;
             const rejectButtonTitle = clearanceStatus === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Signatory';
 
             const row = document.createElement('tr');

@@ -21,6 +21,8 @@ try {
     }
 
     $userId = $auth->getUserId();
+    $userRole = $auth->getRoleName(); // Get user's role
+    $isSchoolAdmin = ($userRole === 'School Administrator');
     $pdo = Database::getInstance()->getConnection();
 
     // 1. Get all of the staff member's active designation IDs and names from both staff table and assignments table.
@@ -217,6 +219,12 @@ try {
                 d_sig.designation_name as required_designation
         ";
         
+        // For School Administrators: show all applicants regardless of signatory assignment
+        // For Regular Staff: only show applicants where their designation is assigned as signatory
+        $signatoryJoinCondition = $isSchoolAdmin 
+            ? "cf.clearance_form_id = cs.clearance_form_id" 
+            : "cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)";
+        
         if ($queryDirectByTerm) {
             // Query clearance_forms directly by academic_year_id and semester_id (no clearance_period required)
             $from = "
@@ -225,7 +233,7 @@ try {
                 LEFT JOIN user_department_assignments uda ON u.user_id = uda.user_id
                 LEFT JOIN departments d ON uda.department_id = d.department_id
                 LEFT JOIN clearance_forms cf ON f.user_id = cf.user_id AND cf.academic_year_id = :selectedAcademicYearId AND cf.semester_id = :selectedSemesterId
-                LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
+                LEFT JOIN clearance_signatories cs ON $signatoryJoinCondition
                 LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
                 LEFT JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
                 LEFT JOIN semesters sem ON cf.semester_id = sem.semester_id
@@ -241,7 +249,7 @@ try {
                 LEFT JOIN departments d ON uda.department_id = d.department_id
                 LEFT JOIN clearance_periods cp ON cp.sector = 'Faculty' AND ($periodJoinCondition)
                 LEFT JOIN clearance_forms cf ON f.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id 
-                LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
+                LEFT JOIN clearance_signatories cs ON $signatoryJoinCondition
                 LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
                 LEFT JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
                 LEFT JOIN semesters sem ON cf.semester_id = sem.semester_id
@@ -266,6 +274,12 @@ try {
                 d_sig.designation_name as required_designation
         ";
         
+        // For School Administrators: show all applicants regardless of signatory assignment
+        // For Regular Staff: only show applicants where their designation is assigned as signatory
+        $signatoryJoinCondition = $isSchoolAdmin 
+            ? "cf.clearance_form_id = cs.clearance_form_id" 
+            : "cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)";
+        
         if ($queryDirectByTerm) {
             // Query clearance_forms directly by academic_year_id and semester_id (no clearance_period required)
             $from = "
@@ -274,7 +288,7 @@ try {
                 LEFT JOIN programs p ON s.program_id = p.program_id
                 LEFT JOIN departments d ON s.department_id = d.department_id
                 LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id AND cf.academic_year_id = :selectedAcademicYearId AND cf.semester_id = :selectedSemesterId
-                LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
+                LEFT JOIN clearance_signatories cs ON $signatoryJoinCondition
                 LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
             ";
             // Add params if not already added (for faculty case)
@@ -291,7 +305,7 @@ try {
                 LEFT JOIN departments d ON s.department_id = d.department_id
                 LEFT JOIN clearance_periods cp ON cp.sector = s.sector AND ($periodJoinCondition)
                 LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id AND cf.academic_year_id = cp.academic_year_id AND cf.semester_id = cp.semester_id 
-                LEFT JOIN clearance_signatories cs ON cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)
+                LEFT JOIN clearance_signatories cs ON $signatoryJoinCondition
                 LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
             ";
         }
@@ -302,7 +316,9 @@ try {
     // $params are already populated with designation IDs
     
     // Apply designation filter if provided (for role switching)
-    if (!empty($designationFilter)) {
+    // For School Administrators: Don't filter by designation (show all)
+    // For Regular Staff: Filter by designation as before
+    if (!empty($designationFilter) && !$isSchoolAdmin) {
         $where .= " AND (d_sig.designation_name = :designationFilter OR cf.clearance_form_id IS NULL)";
         $params[':designationFilter'] = $designationFilter;
     }
@@ -486,14 +502,68 @@ try {
     $normalizedType = strtolower($type);
     $responseKey = ($normalizedType === 'faculty') ? 'faculty' : 'students';
     
+    // Check if School Administrator can perform signatory actions
+    // They can only perform actions if they're actually assigned as a signatory for this sector/period
+    $canPerformActions = true; // Default: Regular Staff can perform actions
+    if ($isSchoolAdmin) {
+        // Check if School Administrator has any signatory assignments for this sector/period
+        $canPerformActions = false; // Default to false for School Admins
+        
+        // Determine the sector for checking signatory assignments
+        $checkSector = ($type === 'faculty') ? 'Faculty' : $requestSector;
+        
+        if ($activePeriodId) {
+            // Check if School Administrator's designation is assigned as signatory for this period
+            $signatoryCheckStmt = $pdo->prepare("
+                SELECT COUNT(*) 
+                FROM clearance_signatories cs
+                JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
+                JOIN clearance_periods cp ON cf.academic_year_id = cp.academic_year_id 
+                    AND cf.semester_id = cp.semester_id
+                WHERE cp.period_id = :periodId 
+                    AND cp.sector = :sector
+                    AND cs.designation_id IN ($designationInClause)
+                LIMIT 1
+            ");
+            $signatoryCheckParams = [':periodId' => $activePeriodId, ':sector' => $checkSector];
+            foreach ($designationIds as $i => $id) {
+                $signatoryCheckParams[":designationId_$i"] = $id;
+            }
+            $signatoryCheckStmt->execute($signatoryCheckParams);
+            $hasSignatoryAssignment = $signatoryCheckStmt->fetchColumn() > 0;
+            $canPerformActions = $hasSignatoryAssignment;
+        } else if ($queryDirectByTerm && $selectedAcademicYearId && $selectedSemesterId) {
+            // Check if School Administrator's designation is assigned as signatory for this term
+            $signatoryCheckStmt = $pdo->prepare("
+                SELECT COUNT(*) 
+                FROM clearance_signatories cs
+                JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
+                WHERE cf.academic_year_id = :academicYearId 
+                    AND cf.semester_id = :semesterId
+                    AND cs.designation_id IN ($designationInClause)
+                LIMIT 1
+            ");
+            $signatoryCheckParams = [':academicYearId' => $selectedAcademicYearId, ':semesterId' => $selectedSemesterId];
+            foreach ($designationIds as $i => $id) {
+                $signatoryCheckParams[":designationId_$i"] = $id;
+            }
+            $signatoryCheckStmt->execute($signatoryCheckParams);
+            $hasSignatoryAssignment = $signatoryCheckStmt->fetchColumn() > 0;
+            $canPerformActions = $hasSignatoryAssignment;
+        }
+    }
+    
     // Debug logging
     error_log("SIGNATORY_LIST_DEBUG: Response key = " . $responseKey . " (type = " . $type . ", normalized = " . $normalizedType . ")");
+    error_log("SIGNATORY_LIST_DEBUG: isSchoolAdmin = " . ($isSchoolAdmin ? 'true' : 'false') . ", canPerformActions = " . ($canPerformActions ? 'true' : 'false'));
+    
     $response = [
         'success' => true,
         'total' => (int)$total,
         'page' => $page,
         'limit' => $limit,
         'stats' => $stats,
+        'can_perform_actions' => $canPerformActions, // Flag for frontend to enable/disable action buttons
         $responseKey => array_map(function ($item) use ($type) {
             // Map clearance_form_progress to proper format (unapplied -> Unapplied, in-progress -> In Progress, complete -> Completed)
             $progress = $item['clearance_form_progress'] ?? 'unapplied';
