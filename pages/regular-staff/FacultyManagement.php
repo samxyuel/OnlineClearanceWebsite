@@ -1392,7 +1392,7 @@ handleFacultyManagementPageRequest();
         function updateBulkButtons() {
             const checkedBoxes = document.querySelectorAll('.faculty-checkbox:checked');
             const bulkButtons = document.querySelectorAll('.bulk-buttons button');
-            
+
             bulkButtons.forEach(button => {
                 // Disable if no selection OR if in view-only mode
                 button.disabled = checkedBoxes.length === 0 || !canPerformSignatoryActions;

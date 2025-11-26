@@ -203,6 +203,9 @@ try {
     $designationInClause = !empty($designationPlaceholders) ? implode(',', $designationPlaceholders) : 'NULL';
     
     error_log("SIGNATORY_LIST_DEBUG: Designation In Clause: " . $designationInClause);
+    error_log("SIGNATORY_LIST_DEBUG: Designation Placeholders: " . json_encode($designationPlaceholders));
+    error_log("SIGNATORY_LIST_DEBUG: Designation IDs: " . json_encode($designationIds));
+    error_log("SIGNATORY_LIST_DEBUG: Is School Admin: " . ($isSchoolAdmin ? 'true' : 'false'));
     error_log("SIGNATORY_LIST_DEBUG: Period Join Condition: " . ($periodJoinCondition ?? 'not set yet'));
 
     // Build the clearance_periods JOIN condition based on whether we have a specific period_id
@@ -511,18 +514,40 @@ try {
         u.last_name, u.first_name";
     $limitClause = " LIMIT :limit OFFSET :offset";
 
+    // Build SQL string for debugging
+    $sqlString = $select . $from . $where . $groupBy . $orderBy . $limitClause;
+
+    // --- DEBUG LOGGING BEFORE PARAMETER FILTERING ---
+    error_log("SIGNATORY_LIST_DEBUG: ========== PARAMETER FILTERING DEBUG ==========");
+    error_log("SIGNATORY_LIST_DEBUG: Is School Admin: " . ($isSchoolAdmin ? 'true' : 'false'));
+    error_log("SIGNATORY_LIST_DEBUG: Total params before filtering: " . count($params));
+    error_log("SIGNATORY_LIST_DEBUG: Params keys before filtering: " . implode(', ', array_keys($params)));
+
+    // Check which designationId parameters exist
+    $designationIdParams = array_filter(array_keys($params), function($key) {
+        return strpos($key, ':designationId_') !== false;
+    });
+    error_log("SIGNATORY_LIST_DEBUG: DesignationId params found: " . (empty($designationIdParams) ? 'none' : implode(', ', $designationIdParams)));
+
+    // Check if designationInClause is used in SQL
+    $usesDesignationInClause = (strpos($sqlString, $designationInClause) !== false);
+    error_log("SIGNATORY_LIST_DEBUG: SQL uses designationInClause: " . ($usesDesignationInClause ? 'YES' : 'NO'));
+    error_log("SIGNATORY_LIST_DEBUG: DesignationInClause value: " . $designationInClause);
+    error_log("SIGNATORY_LIST_DEBUG: ========== END PRE-FILTERING DEBUG ==========");
+    // --- END DEBUG LOGGING BEFORE FILTERING ---
+
     // Prepare and execute the main query
     // --- DEBUG LOGGING ---
     error_log("SIGNATORY_LIST_DEBUG: ========== MAIN QUERY ==========");
     error_log("SIGNATORY_LIST_DEBUG: Signatory Join Condition: " . $signatoryJoinCondition);
     error_log("SIGNATORY_LIST_DEBUG: FROM clause (first 500 chars): " . substr($from, 0, 500));
     error_log("SIGNATORY_LIST_DEBUG: WHERE clause (first 500 chars): " . substr($where, 0, 500));
-    error_log("SIGNATORY_LIST_DEBUG: Final SQL Query (first 2000 chars): " . substr($select . $from . $where . $groupBy . $orderBy . $limitClause, 0, 2000));
+    error_log("SIGNATORY_LIST_DEBUG: Final SQL Query (first 2000 chars): " . substr($sqlString, 0, 2000));
     error_log("SIGNATORY_LIST_DEBUG: Final Parameters: " . json_encode($params, JSON_PRETTY_PRINT));
     error_log("SIGNATORY_LIST_DEBUG: Limit: " . $limit . ", Offset: " . $offset);
     
     // Count placeholders in SQL vs parameters provided
-    preg_match_all('/:(\w+)/', $select . $from . $where . $groupBy . $orderBy . $limitClause, $matches);
+    preg_match_all('/:(\w+)/', $sqlString, $matches);
     $sqlPlaceholders = array_unique($matches[1]);
     $paramKeys = array_map(function($key) { return ltrim($key, ':'); }, array_keys($params));
     $missingParams = array_diff($sqlPlaceholders, $paramKeys);
@@ -537,37 +562,91 @@ try {
     }
     // --- END DEBUG LOGGING ---
 
-    $stmt = $pdo->prepare($select . $from . $where . $groupBy . $orderBy . $limitClause);
+    $stmt = $pdo->prepare($sqlString);
     
     // Use execute() with params array instead of bindParam loop
     // This is more reliable and handles duplicate parameter names correctly
     // PDO will automatically handle parameters that appear multiple times in the SQL
-    // For School Admins, remove unused designationId parameters since they're not in the SQL
-    if ($isSchoolAdmin) {
-        // Remove designationId_* parameters that aren't used in the SQL for School Admins
-        $executeParams = array_filter($params, function($key) {
-            return strpos($key, ':designationId_') === false;
-        }, ARRAY_FILTER_USE_KEY);
-    } else {
-        $executeParams = $params;
-    }
+    // Remove unused designationId parameters since they're not in the SQL (for both School Admins and Regular Staff)
+    // Both roles now use the same JOIN condition without designation filtering
+    $executeParams = array_filter($params, function($key) {
+        return strpos($key, ':designationId_') === false;
+    }, ARRAY_FILTER_USE_KEY);
     $executeParams[':limit'] = (int)$limit;
     $executeParams[':offset'] = (int)$offset;
+
+    // --- DEBUG LOGGING AFTER PARAMETER FILTERING ---
+    error_log("SIGNATORY_LIST_DEBUG: ========== AFTER PARAMETER FILTERING ==========");
+    error_log("SIGNATORY_LIST_DEBUG: Total params after filtering: " . count($executeParams));
+    error_log("SIGNATORY_LIST_DEBUG: Params keys after filtering: " . implode(', ', array_keys($executeParams)));
+
+    // Check which designationId parameters were removed
+    $removedDesignationParams = array_diff($designationIdParams, array_filter(array_keys($executeParams), function($key) {
+        return strpos($key, ':designationId_') !== false;
+    }));
+    error_log("SIGNATORY_LIST_DEBUG: Removed designationId params: " . (empty($removedDesignationParams) ? 'none' : implode(', ', $removedDesignationParams)));
+
+    // Extract all placeholders from SQL
+    preg_match_all('/:(\w+)/', $sqlString, $sqlPlaceholderMatches);
+    $sqlPlaceholders = array_unique($sqlPlaceholderMatches[1]);
+    error_log("SIGNATORY_LIST_DEBUG: Placeholders in SQL: " . implode(', ', $sqlPlaceholders));
+    error_log("SIGNATORY_LIST_DEBUG: Total placeholders in SQL: " . count($sqlPlaceholders));
+
+    // Extract parameter keys (without colon)
+    $executeParamKeys = array_map(function($key) {
+        return ltrim($key, ':');
+    }, array_keys($executeParams));
+    error_log("SIGNATORY_LIST_DEBUG: Execute param keys (without colon): " . implode(', ', $executeParamKeys));
+
+    // Find mismatches
+    $missingInParams = array_diff($sqlPlaceholders, $executeParamKeys);
+    $extraInParams = array_diff($executeParamKeys, $sqlPlaceholders);
+    error_log("SIGNATORY_LIST_DEBUG: Placeholders in SQL but NOT in params: " . (empty($missingInParams) ? 'none' : implode(', ', $missingInParams)));
+    error_log("SIGNATORY_LIST_DEBUG: Params NOT in SQL: " . (empty($extraInParams) ? 'none' : implode(', ', $extraInParams)));
+
+    if (!empty($missingInParams)) {
+        error_log("SIGNATORY_LIST_DEBUG: ⚠️ WARNING - Missing parameters that SQL expects!");
+    }
+    if (!empty($extraInParams)) {
+        error_log("SIGNATORY_LIST_DEBUG: ⚠️ WARNING - Extra parameters that SQL doesn't use!");
+    }
+    error_log("SIGNATORY_LIST_DEBUG: ========== END PARAMETER FILTERING DEBUG ==========");
+    // --- END DEBUG LOGGING AFTER FILTERING ---
     
     try {
         $stmt->execute($executeParams);
     } catch (PDOException $e) {
         // Enhanced error logging to diagnose the issue
+        error_log("SIGNATORY_LIST_ERROR: ========== SQL EXECUTION ERROR ==========");
         error_log("SIGNATORY_LIST_ERROR: SQL Error: " . $e->getMessage());
-        error_log("SIGNATORY_LIST_ERROR: SQL Query (first 2000 chars): " . substr($select . $from . $where . $groupBy . $orderBy . $limitClause, 0, 2000));
+        error_log("SIGNATORY_LIST_ERROR: Error Code: " . $e->getCode());
+        error_log("SIGNATORY_LIST_ERROR: Is School Admin: " . ($isSchoolAdmin ? 'true' : 'false'));
+        error_log("SIGNATORY_LIST_ERROR: SQL Query (first 2000 chars): " . substr($sqlString, 0, 2000));
         error_log("SIGNATORY_LIST_ERROR: Parameters count: " . count($executeParams));
         error_log("SIGNATORY_LIST_ERROR: Parameter keys: " . implode(', ', array_keys($executeParams)));
+        error_log("SIGNATORY_LIST_ERROR: Parameter values (first 500 chars): " . substr(json_encode($executeParams, JSON_PRETTY_PRINT), 0, 500));
         
         // Count unique placeholders in SQL
-        preg_match_all('/:(\w+)/', $select . $from . $where . $groupBy . $orderBy . $limitClause, $matches);
+        preg_match_all('/:(\w+)/', $sqlString, $matches);
         $uniquePlaceholders = array_unique($matches[1]);
         error_log("SIGNATORY_LIST_ERROR: Unique placeholders in SQL: " . count($uniquePlaceholders));
         error_log("SIGNATORY_LIST_ERROR: Placeholders: " . implode(', ', $uniquePlaceholders));
+        
+        // Compare placeholders vs params
+        $executeParamKeys = array_map(function($key) {
+            return ltrim($key, ':');
+        }, array_keys($executeParams));
+        $missingInParams = array_diff($uniquePlaceholders, $executeParamKeys);
+        $extraInParams = array_diff($executeParamKeys, $uniquePlaceholders);
+        error_log("SIGNATORY_LIST_ERROR: Placeholders in SQL but missing in params: " . (empty($missingInParams) ? 'none' : implode(', ', $missingInParams)));
+        error_log("SIGNATORY_LIST_ERROR: Params not in SQL: " . (empty($extraInParams) ? 'none' : implode(', ', $extraInParams)));
+        
+        // Check for designationId params specifically
+        $designationIdParamsInExecute = array_filter(array_keys($executeParams), function($key) {
+            return strpos($key, ':designationId_') !== false;
+        });
+        error_log("SIGNATORY_LIST_ERROR: DesignationId params in executeParams: " . (empty($designationIdParamsInExecute) ? 'none' : implode(', ', $designationIdParamsInExecute)));
+        error_log("SIGNATORY_LIST_ERROR: ========== END SQL EXECUTION ERROR ==========");
         
         throw new Exception("Database query failed: " . $e->getMessage());
     }
