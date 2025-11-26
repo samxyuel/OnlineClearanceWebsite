@@ -518,7 +518,15 @@ try {
     // Use execute() with params array instead of bindParam loop
     // This is more reliable and handles duplicate parameter names correctly
     // PDO will automatically handle parameters that appear multiple times in the SQL
-    $executeParams = $params;
+    // For School Admins, remove unused designationId parameters since they're not in the SQL
+    if ($isSchoolAdmin) {
+        // Remove designationId_* parameters that aren't used in the SQL for School Admins
+        $executeParams = array_filter($params, function($key) {
+            return strpos($key, ':designationId_') === false;
+        }, ARRAY_FILTER_USE_KEY);
+    } else {
+        $executeParams = $params;
+    }
     $executeParams[':limit'] = (int)$limit;
     $executeParams[':offset'] = (int)$offset;
     
