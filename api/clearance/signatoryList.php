@@ -177,12 +177,14 @@ try {
     // 4. Build the query based on type
     $params = [];
     $designationPlaceholders = [];
-    foreach ($designationIds as $i => $id) {
-        $key = ":designationId_$i";
-        $designationPlaceholders[] = $key;
-        $params[$key] = $id;
+    if (!empty($designationIds)) {
+        foreach ($designationIds as $i => $id) {
+            $key = ":designationId_$i";
+            $designationPlaceholders[] = $key;
+            $params[$key] = $id;
+        }
     }
-    $designationInClause = implode(',', $designationPlaceholders);
+    $designationInClause = !empty($designationPlaceholders) ? implode(',', $designationPlaceholders) : 'NULL';
 
     // Build the clearance_periods JOIN condition based on whether we have a specific period_id
     // When $activePeriodId is set (from school_term filter), use it to ensure we query the correct period
@@ -518,6 +520,16 @@ try {
             
             if ($activePeriodId) {
                 // Check if School Administrator's designation is assigned as signatory for this period
+                // Build FRESH placeholders with UNIQUE names to avoid parameter conflicts
+                $checkDesignationPlaceholders = [];
+                $checkDesignationParams = [];
+                foreach ($designationIds as $i => $id) {
+                    $key = ":permCheckDesig_$i";  // Unique prefix to avoid conflicts with main query
+                    $checkDesignationPlaceholders[] = $key;
+                    $checkDesignationParams[$key] = $id;
+                }
+                $checkDesignationInClause = implode(',', $checkDesignationPlaceholders);
+                
                 $signatoryCheckStmt = $pdo->prepare("
                     SELECT COUNT(*) 
                     FROM clearance_signatories cs
@@ -526,31 +538,41 @@ try {
                         AND cf.semester_id = cp.semester_id
                     WHERE cp.period_id = :periodId 
                         AND cp.sector = :sector
-                        AND cs.designation_id IN ($designationInClause)
+                        AND cs.designation_id IN ($checkDesignationInClause)
                     LIMIT 1
                 ");
-                $signatoryCheckParams = [':periodId' => $activePeriodId, ':sector' => $checkSector];
-                foreach ($designationIds as $i => $id) {
-                    $signatoryCheckParams[":designationId_$i"] = $id;
-                }
+                $signatoryCheckParams = array_merge(
+                    [':periodId' => $activePeriodId, ':sector' => $checkSector], 
+                    $checkDesignationParams
+                );
                 $signatoryCheckStmt->execute($signatoryCheckParams);
                 $hasSignatoryAssignment = $signatoryCheckStmt->fetchColumn() > 0;
                 $canPerformActions = $hasSignatoryAssignment;
             } else if ($queryDirectByTerm && $selectedAcademicYearId && $selectedSemesterId) {
                 // Check if School Administrator's designation is assigned as signatory for this term
+                // Build FRESH placeholders with UNIQUE names to avoid parameter conflicts
+                $checkDesignationPlaceholders = [];
+                $checkDesignationParams = [];
+                foreach ($designationIds as $i => $id) {
+                    $key = ":permCheckDesig_$i";  // Unique prefix to avoid conflicts with main query
+                    $checkDesignationPlaceholders[] = $key;
+                    $checkDesignationParams[$key] = $id;
+                }
+                $checkDesignationInClause = implode(',', $checkDesignationPlaceholders);
+                
                 $signatoryCheckStmt = $pdo->prepare("
                     SELECT COUNT(*) 
                     FROM clearance_signatories cs
                     JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
                     WHERE cf.academic_year_id = :academicYearId 
                         AND cf.semester_id = :semesterId
-                        AND cs.designation_id IN ($designationInClause)
+                        AND cs.designation_id IN ($checkDesignationInClause)
                     LIMIT 1
                 ");
-                $signatoryCheckParams = [':academicYearId' => $selectedAcademicYearId, ':semesterId' => $selectedSemesterId];
-                foreach ($designationIds as $i => $id) {
-                    $signatoryCheckParams[":designationId_$i"] = $id;
-                }
+                $signatoryCheckParams = array_merge(
+                    [':academicYearId' => $selectedAcademicYearId, ':semesterId' => $selectedSemesterId], 
+                    $checkDesignationParams
+                );
                 $signatoryCheckStmt->execute($signatoryCheckParams);
                 $hasSignatoryAssignment = $signatoryCheckStmt->fetchColumn() > 0;
                 $canPerformActions = $hasSignatoryAssignment;
