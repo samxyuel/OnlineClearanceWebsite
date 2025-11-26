@@ -456,7 +456,7 @@ handleFacultyManagementPageRequest();
         let CURRENT_STAFF_POSITION = '';
         
         // Track whether signatory actions are allowed (updated from API response)
-        let canPerformSignatoryActions = true; // Default to true, updated from API response
+        let canPerformSignatoryActions = false; // Default to false, will be updated from API response
         
         // Try to get the value from the dropdown immediately (in case it's already rendered)
         const roleSelectorElement = document.getElementById('roleSelector');
@@ -691,7 +691,7 @@ handleFacultyManagementPageRequest();
                 }
 
                 // Update canPerformSignatoryActions from API response
-                canPerformSignatoryActions = data.can_perform_actions !== false; // Default to true if not provided
+                canPerformSignatoryActions = data.can_perform_actions === true;
                 console.log('📊 FACULTY FETCH DEBUG: can_perform_actions:', data.can_perform_actions, '-> canPerformSignatoryActions:', canPerformSignatoryActions);
 
                 if (data.faculty && data.faculty.length > 0) {
@@ -755,7 +755,7 @@ handleFacultyManagementPageRequest();
                     facultyId: faculty.id,
                     clearanceStatus,
                     userExisted,
-                    canPerformActions,
+                    canPerformSignatoryActions,
                     approveBtnDisabled,
                     rejectBtnDisabled,
                     checkboxDisabled,

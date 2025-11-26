@@ -477,7 +477,7 @@ handleStudentManagementPageRequest('College');
         let CURRENT_STAFF_POSITION = '';
         
         // Track whether signatory actions are allowed (updated from API response)
-        let canPerformSignatoryActions = true; // Default to true, updated from API response
+        let canPerformSignatoryActions = false; // Default to false, will be updated from API response
         
         // Try to get the value from the dropdown immediately (in case it's already rendered)
         const roleSelectorElement = document.getElementById('roleSelector');
@@ -735,17 +735,14 @@ handleStudentManagementPageRequest('College');
         function updateBulkButtons() {
             const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
             const bulkButtons = document.querySelectorAll('.bulk-buttons button');
-            
-            // Check if signatory actions are allowed from PHP
-            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
 
             bulkButtons.forEach(button => {
                 // Disable if no selections OR if signatory actions are not allowed
-                button.disabled = checkedBoxes.length === 0 || !canPerformActions;
+                button.disabled = checkedBoxes.length === 0 || !canPerformSignatoryActions;
 
                 // Add tooltip for disabled state due to permissions
-                if (!canPerformActions && checkedBoxes.length > 0) {
-                    button.title = 'Cannot perform action: ' + ('<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a student signatory."; ?>');
+                if (!canPerformSignatoryActions && checkedBoxes.length > 0) {
+                    button.title = 'View Only Mode: You are not assigned as a signatory for this clearance period';
                 } else if (checkedBoxes.length === 0) {
                     button.title = 'Select students to perform actions';
                 } else {
@@ -848,12 +845,11 @@ handleStudentManagementPageRequest('College');
             console.log('🔵 APPROVE DEBUG: Function called with studentId:', studentId);
             console.log('🔵 APPROVE DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
             
-            // Check if signatory actions are allowed
-            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
-            console.log('🔵 APPROVE DEBUG: canPerformActions:', canPerformActions);
-            if (!canPerformActions) {
-                console.warn('🔵 APPROVE DEBUG: Permission denied - canPerformActions is false');
-                showToastNotification('You do not have permission to perform this action.', 'warning');
+            // Check if signatory actions are allowed (uses global variable updated from API)
+            console.log('🔵 APPROVE DEBUG: canPerformSignatoryActions:', canPerformSignatoryActions);
+            if (!canPerformSignatoryActions) {
+                console.warn('🔵 APPROVE DEBUG: Permission denied - canPerformSignatoryActions is false');
+                showToastNotification('View Only Mode: You are not assigned as a signatory for this clearance period.', 'warning');
                 return;
             }
 
@@ -959,12 +955,11 @@ handleStudentManagementPageRequest('College');
             console.log('🔴 REJECT DEBUG: Function called with studentId:', studentId);
             console.log('🔴 REJECT DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
             
-            // Check if signatory actions are allowed
-            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
-            console.log('🔴 REJECT DEBUG: canPerformActions:', canPerformActions);
-            if (!canPerformActions) {
-                console.warn('🔴 REJECT DEBUG: Permission denied - canPerformActions is false');
-                showToastNotification('You do not have permission to perform this action.', 'warning');
+            // Check if signatory actions are allowed (uses global variable updated from API)
+            console.log('🔴 REJECT DEBUG: canPerformSignatoryActions:', canPerformSignatoryActions);
+            if (!canPerformSignatoryActions) {
+                console.warn('🔴 REJECT DEBUG: Permission denied - canPerformSignatoryActions is false');
+                showToastNotification('View Only Mode: You are not assigned as a signatory for this clearance period.', 'warning');
                 return;
             }
             
@@ -1117,7 +1112,7 @@ handleStudentManagementPageRequest('College');
                 }
 
                 // Update canPerformSignatoryActions from API response
-                canPerformSignatoryActions = data.can_perform_actions !== false; // Default to true if not provided
+                canPerformSignatoryActions = data.can_perform_actions === true;
                 console.log('📊 FETCH_STUDENTS DEBUG: can_perform_actions:', data.can_perform_actions, '-> canPerformSignatoryActions:', canPerformSignatoryActions);
 
                 if (data.students && data.students.length > 0) {
@@ -1189,7 +1184,7 @@ handleStudentManagementPageRequest('College');
                         studentId: student.id,
                         clearanceStatus,
                         userExisted,
-                        canPerformActions,
+                        canPerformSignatoryActions,
                         approveBtnDisabled,
                         rejectBtnDisabled,
                         checkboxDisabled,
@@ -1200,8 +1195,8 @@ handleStudentManagementPageRequest('College');
                 let approveTitle = 'Approve Clearance';
                 // Change button title if the student is already rejected.
                 let rejectTitle = clearanceStatus === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Clearance';
-                if (!canPerformActions) {
-                    approveTitle = rejectTitle = '<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a student signatory."; ?>';
+                if (!canPerformSignatoryActions) {
+                    approveTitle = rejectTitle = 'View Only Mode: You are not assigned as a signatory for this clearance period';
                 }
 
                 // Build clearance progress cell content (end user's form progress)

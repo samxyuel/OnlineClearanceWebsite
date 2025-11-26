@@ -477,7 +477,7 @@ handleStudentManagementPageRequest('Senior High School');
         let CURRENT_STAFF_POSITION = '';
         
         // Track whether signatory actions are allowed (updated from API response)
-        let canPerformSignatoryActions = true; // Default to true, updated from API response
+        let canPerformSignatoryActions = false; // Default to false, will be updated from API response
         
         // Try to get the value from the dropdown immediately (in case it's already rendered)
         const roleSelectorElement = document.getElementById('roleSelector');
@@ -1162,7 +1162,7 @@ handleStudentManagementPageRequest('Senior High School');
                 }
 
                 // Update canPerformSignatoryActions from API response
-                canPerformSignatoryActions = data.can_perform_actions !== false; // Default to true if not provided
+                canPerformSignatoryActions = data.can_perform_actions === true;
                 console.log('📊 SHS FETCH_STUDENTS DEBUG: can_perform_actions:', data.can_perform_actions, '-> canPerformSignatoryActions:', canPerformSignatoryActions);
 
                 if (data.students && data.students.length > 0) {
@@ -1234,7 +1234,7 @@ handleStudentManagementPageRequest('Senior High School');
                         studentId: student.id,
                         clearanceStatus,
                         userExisted,
-                        canPerformActions,
+                        canPerformSignatoryActions,
                         approveBtnDisabled,
                         rejectBtnDisabled,
                         checkboxDisabled,
@@ -2179,21 +2179,14 @@ handleStudentManagementPageRequest('Senior High School');
         function updateBulkButtons() {
             const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
             const bulkButtons = document.querySelectorAll('.bulk-buttons button');
-             
-            // Check if signatory actions are allowed
-            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
             
             bulkButtons.forEach(button => {
                 // Disable if no selections OR if signatory actions are not allowed
-                button.disabled = checkedBoxes.length === 0 || !canPerformActions;
+                button.disabled = checkedBoxes.length === 0 || !canPerformSignatoryActions;
                 
                 // Add tooltip for disabled state
-                if (!canPerformActions && checkedBoxes.length > 0) {
-                    if (button.classList.contains('btn-success')) {
-                        button.title = 'Cannot approve: <?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period" : "Not assigned as student signatory"; ?>';
-                    } else if (button.classList.contains('btn-danger')) {
-                        button.title = 'Cannot reject: <?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period" : "Not assigned as student signatory"; ?>';
-                    }
+                if (!canPerformSignatoryActions && checkedBoxes.length > 0) {
+                    button.title = 'View Only Mode: You are not assigned as a signatory for this clearance period';
                 } else if (checkedBoxes.length === 0) {
                     button.title = 'Select students to perform actions';
                 } else {
