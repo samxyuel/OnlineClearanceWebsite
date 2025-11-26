@@ -509,47 +509,52 @@ try {
         // Check if School Administrator has any signatory assignments for this sector/period
         $canPerformActions = false; // Default to false for School Admins
         
-        // Determine the sector for checking signatory assignments
-        $checkSector = ($type === 'faculty') ? 'Faculty' : $requestSector;
-        
-        if ($activePeriodId) {
-            // Check if School Administrator's designation is assigned as signatory for this period
-            $signatoryCheckStmt = $pdo->prepare("
-                SELECT COUNT(*) 
-                FROM clearance_signatories cs
-                JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
-                JOIN clearance_periods cp ON cf.academic_year_id = cp.academic_year_id 
-                    AND cf.semester_id = cp.semester_id
-                WHERE cp.period_id = :periodId 
-                    AND cp.sector = :sector
-                    AND cs.designation_id IN ($designationInClause)
-                LIMIT 1
-            ");
-            $signatoryCheckParams = [':periodId' => $activePeriodId, ':sector' => $checkSector];
-            foreach ($designationIds as $i => $id) {
-                $signatoryCheckParams[":designationId_$i"] = $id;
+        // If no designations, they can't perform actions
+        if (empty($designationIds)) {
+            $canPerformActions = false;
+        } else {
+            // Determine the sector for checking signatory assignments
+            $checkSector = ($type === 'faculty') ? 'Faculty' : $requestSector;
+            
+            if ($activePeriodId) {
+                // Check if School Administrator's designation is assigned as signatory for this period
+                $signatoryCheckStmt = $pdo->prepare("
+                    SELECT COUNT(*) 
+                    FROM clearance_signatories cs
+                    JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
+                    JOIN clearance_periods cp ON cf.academic_year_id = cp.academic_year_id 
+                        AND cf.semester_id = cp.semester_id
+                    WHERE cp.period_id = :periodId 
+                        AND cp.sector = :sector
+                        AND cs.designation_id IN ($designationInClause)
+                    LIMIT 1
+                ");
+                $signatoryCheckParams = [':periodId' => $activePeriodId, ':sector' => $checkSector];
+                foreach ($designationIds as $i => $id) {
+                    $signatoryCheckParams[":designationId_$i"] = $id;
+                }
+                $signatoryCheckStmt->execute($signatoryCheckParams);
+                $hasSignatoryAssignment = $signatoryCheckStmt->fetchColumn() > 0;
+                $canPerformActions = $hasSignatoryAssignment;
+            } else if ($queryDirectByTerm && $selectedAcademicYearId && $selectedSemesterId) {
+                // Check if School Administrator's designation is assigned as signatory for this term
+                $signatoryCheckStmt = $pdo->prepare("
+                    SELECT COUNT(*) 
+                    FROM clearance_signatories cs
+                    JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
+                    WHERE cf.academic_year_id = :academicYearId 
+                        AND cf.semester_id = :semesterId
+                        AND cs.designation_id IN ($designationInClause)
+                    LIMIT 1
+                ");
+                $signatoryCheckParams = [':academicYearId' => $selectedAcademicYearId, ':semesterId' => $selectedSemesterId];
+                foreach ($designationIds as $i => $id) {
+                    $signatoryCheckParams[":designationId_$i"] = $id;
+                }
+                $signatoryCheckStmt->execute($signatoryCheckParams);
+                $hasSignatoryAssignment = $signatoryCheckStmt->fetchColumn() > 0;
+                $canPerformActions = $hasSignatoryAssignment;
             }
-            $signatoryCheckStmt->execute($signatoryCheckParams);
-            $hasSignatoryAssignment = $signatoryCheckStmt->fetchColumn() > 0;
-            $canPerformActions = $hasSignatoryAssignment;
-        } else if ($queryDirectByTerm && $selectedAcademicYearId && $selectedSemesterId) {
-            // Check if School Administrator's designation is assigned as signatory for this term
-            $signatoryCheckStmt = $pdo->prepare("
-                SELECT COUNT(*) 
-                FROM clearance_signatories cs
-                JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
-                WHERE cf.academic_year_id = :academicYearId 
-                    AND cf.semester_id = :semesterId
-                    AND cs.designation_id IN ($designationInClause)
-                LIMIT 1
-            ");
-            $signatoryCheckParams = [':academicYearId' => $selectedAcademicYearId, ':semesterId' => $selectedSemesterId];
-            foreach ($designationIds as $i => $id) {
-                $signatoryCheckParams[":designationId_$i"] = $id;
-            }
-            $signatoryCheckStmt->execute($signatoryCheckParams);
-            $hasSignatoryAssignment = $signatoryCheckStmt->fetchColumn() > 0;
-            $canPerformActions = $hasSignatoryAssignment;
         }
     }
     

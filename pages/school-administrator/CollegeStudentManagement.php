@@ -696,7 +696,7 @@ handleStudentManagementPageRequest('College');
                 indicator.id = 'viewOnlyIndicator';
                 indicator.className = 'alert alert-info';
                 indicator.style.cssText = 'margin: 1rem 0; padding: 1rem; background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; color: #0c5460;';
-                indicator.innerHTML = '<i class="fas fa-eye"></i> <strong>View Only Mode:</strong> You are viewing this sector\'s clearance data, but you are not assigned as a signatory for this clearance period. Approve/Reject actions are disabled.';
+                indicator.innerHTML = `<i class="fas fa-eye"></i> <strong>View Only Mode:</strong> You are viewing this sector's clearance data, but you are not assigned as a signatory for this clearance period. Approve/Reject actions are disabled.`;
                 
                 // Insert after the filters section or at the top of the content area
                 const filtersSection = document.querySelector('.filters-section');
@@ -2645,8 +2645,6 @@ handleStudentManagementPageRequest('College');
         }
 
         document.addEventListener('DOMContentLoaded', async function() {
-            }
-            
             updateTermIndicatorBanner();
 
             // 1. Load the rest of the filter options.
