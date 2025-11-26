@@ -299,11 +299,11 @@ try {
             
             // Build EXISTS condition based on query type
             if ($queryDirectByTerm && $selectedAcademicYearId && $selectedSemesterId) {
-                // When querying directly by term, use the selected academic_year_id and semester_id
-                $existsCondition = "cf_exists.academic_year_id = :existsAcademicYearId AND cf_exists.semester_id = :existsSemesterId";
-                // Use unique parameter names to avoid conflicts
-                $params[':existsAcademicYearId'] = $selectedAcademicYearId;
-                $params[':existsSemesterId'] = $selectedSemesterId;
+                // When querying directly by term, reuse the existing parameter names from the FROM clause
+                // These are already bound in $params from the FROM clause (lines 212-213 for faculty, 260-262 for students)
+                // Reusing them avoids parameter conflicts and ensures consistency
+                $existsCondition = "cf_exists.academic_year_id = :selectedAcademicYearId AND cf_exists.semester_id = :selectedSemesterId";
+                // DO NOT add new params here - they're already in $params from the FROM clause
             } else if ($selectedAcademicYearId && $selectedSemesterId) {
                 // When using clearance_periods JOIN but have selected term info, use it as fallback
                 // Match by period's academic_year_id/semester_id if available, otherwise use selected term
