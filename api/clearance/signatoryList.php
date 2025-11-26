@@ -104,6 +104,19 @@ try {
     $selectedAcademicYearId = null;
     $selectedSemesterId = null;
     
+    // Determine the correct sector to filter periods by
+    // This ensures we get the right period for the right sector (College, Senior High School, or Faculty)
+    $periodSector = '';
+    if (strtolower($type) === 'faculty') {
+        $periodSector = 'Faculty';
+    } else if (!empty($requestSector)) {
+        // For students, use the requestSector directly ('College' or 'Senior High School')
+        $periodSector = $requestSector;
+    } else {
+        // Fallback: if no requestSector provided, default to 'College' (for backward compatibility with CollegeStudentManagement)
+        $periodSector = 'College';
+    }
+    
     if (!empty($schoolTerm)) {
         $termParts = explode('|', $schoolTerm);
         $yearName = $termParts[0] ?? '';
@@ -115,10 +128,17 @@ try {
         $selectedAcademicYearId = $ayStmt->fetchColumn();
         $selectedSemesterId = (int)$semesterId;
 
-        $periodQuery = "SELECT cp.period_id FROM clearance_periods cp JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id WHERE ay.year = :yearName AND cp.semester_id = :semesterId AND cp.status IN ('Not Started', 'Ongoing', 'Paused', 'Closed')";
-        $periodParams = [':yearName' => $yearName, ':semesterId' => $semesterId];
+        // Filter period query by sector to ensure we get the correct period for the requested sector
+        $periodQuery = "SELECT cp.period_id FROM clearance_periods cp 
+            JOIN academic_years ay ON cp.academic_year_id = ay.academic_year_id 
+            WHERE ay.year = :yearName 
+            AND cp.semester_id = :semesterId 
+            AND cp.status IN ('Not Started', 'Ongoing', 'Paused', 'Closed')
+            AND cp.sector = :periodSector";
+        $periodParams = [':yearName' => $yearName, ':semesterId' => $semesterId, ':periodSector' => $periodSector];
     } else {
         // If no term is specified, find the most relevant period based on status priority.
+        // Filter by sector to ensure we get the correct period for the requested sector
         $periodQuery = "
             SELECT period_id FROM (
                 SELECT period_id,
@@ -131,10 +151,11 @@ try {
                        END as status_priority
                 FROM clearance_periods
                 WHERE status IN ('Not Started', 'Ongoing', 'Paused', 'Closed')
+                AND sector = :periodSector
             ) as prioritized_periods
             ORDER BY status_priority, period_id DESC
             LIMIT 1";
-        $periodParams = [];
+        $periodParams = [':periodSector' => $periodSector];
     }
 
     $activePeriodsStmt = $pdo->prepare($periodQuery);
