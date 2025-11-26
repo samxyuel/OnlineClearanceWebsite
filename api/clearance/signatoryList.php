@@ -467,12 +467,31 @@ try {
     // --- END DEBUG LOGGING ---
 
     $stmt = $pdo->prepare($select . $from . $where . $groupBy . $orderBy . $limitClause);
-    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-    foreach ($params as $key => &$val) {
-        $stmt->bindParam($key, $val);
+    
+    // Use execute() with params array instead of bindParam loop
+    // This is more reliable and handles duplicate parameter names correctly
+    // PDO will automatically handle parameters that appear multiple times in the SQL
+    $executeParams = $params;
+    $executeParams[':limit'] = (int)$limit;
+    $executeParams[':offset'] = (int)$offset;
+    
+    try {
+        $stmt->execute($executeParams);
+    } catch (PDOException $e) {
+        // Enhanced error logging to diagnose the issue
+        error_log("SIGNATORY_LIST_ERROR: SQL Error: " . $e->getMessage());
+        error_log("SIGNATORY_LIST_ERROR: SQL Query (first 2000 chars): " . substr($select . $from . $where . $groupBy . $orderBy . $limitClause, 0, 2000));
+        error_log("SIGNATORY_LIST_ERROR: Parameters count: " . count($executeParams));
+        error_log("SIGNATORY_LIST_ERROR: Parameter keys: " . implode(', ', array_keys($executeParams)));
+        
+        // Count unique placeholders in SQL
+        preg_match_all('/:(\w+)/', $select . $from . $where . $groupBy . $orderBy . $limitClause, $matches);
+        $uniquePlaceholders = array_unique($matches[1]);
+        error_log("SIGNATORY_LIST_ERROR: Unique placeholders in SQL: " . count($uniquePlaceholders));
+        error_log("SIGNATORY_LIST_ERROR: Placeholders: " . implode(', ', $uniquePlaceholders));
+        
+        throw new Exception("Database query failed: " . $e->getMessage());
     }
-    $stmt->execute();
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Get total count for pagination
