@@ -431,18 +431,19 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         let filteredEntries = [];
 
         let CURRENT_STAFF_POSITION = '<?php echo isset($_SESSION['position']) ? addslashes($_SESSION['position']) : 'Program Head'; ?>';
-        // initialize from server-side but will be refreshed by centralized API
-        let canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
-        window.CAN_TAKE_ACTION = !!canPerformActions;
+        
+        // Global permission flag - default to false for safety
+        // Updated dynamically from is_assigned.php API (primary source for Program Head)
+        let canPerformSignatoryActions = false;
 
         async function fetchCanTakeActionFaculty() {
             try {
                 const resp = await fetch('../../api/program-head/is_assigned.php?clearance_type=Faculty', { credentials: 'include' });
                 const data = await resp.json();
                 if (data && data.success) {
-                    window.CAN_TAKE_ACTION = !!data.can_take_action;
-                    canPerformActions = !!data.can_take_action;
+                    canPerformSignatoryActions = !!data.can_take_action;
                     console.log('is_assigned (Faculty):', data);
+                    console.log('Program Head canPerformSignatoryActions set to:', canPerformSignatoryActions);
                 }
             } catch (e) {
                 console.error('Error fetching faculty assignment status:', e);
@@ -655,7 +656,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
 
         function rejectFacultyClearance(employeeId) {
              // Check if signatory actions are allowed
-            if (!canPerformActions) {
+            if (!canPerformSignatoryActions) {
                 showToastNotification('You do not have permission to perform this action.', 'warning');
                 return;
             }
@@ -885,6 +886,17 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                     return;
                 }
 
+                // Log permission from signatoryList.php for debugging
+                // The primary source is is_assigned.php (called in fetchCanTakeActionFaculty)
+                // This serves as validation/backup from the data API
+                console.log('signatoryList.php response - can_perform_actions:', data.can_perform_actions);
+                console.log('Current canPerformSignatoryActions (from is_assigned.php):', canPerformSignatoryActions);
+                
+                // If signatoryList.php says NO but is_assigned.php said YES, log warning
+                if (canPerformSignatoryActions && data.can_perform_actions === false) {
+                    console.warn('Permission mismatch: is_assigned.php=true, signatoryList.php=false. Using is_assigned.php as source of truth.');
+                }
+
                 populateFacultyTable(data.faculty);
                 updatePaginationUI(data.total, data.page, data.limit);
                 updateStatistics(data.stats);
@@ -992,13 +1004,13 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             
             const accountStatus = (faculty.account_status || 'inactive').toLowerCase();
             
-            let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
-            let rejectBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
+            let approveBtnDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
+            let rejectBtnDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
             let approveTitle = 'Approve Clearance';
-            let checkboxDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
+            let checkboxDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
             let rejectTitle = clearanceStatus === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Clearance';
-            if (!canPerformActions) {
-                approveTitle = rejectTitle = '<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a faculty signatory."; ?>';
+            if (!canPerformSignatoryActions) {
+                approveTitle = rejectTitle = 'You do not have permission to perform signatory actions.';
             }
             
             // Add class for non-existent users
@@ -1124,7 +1136,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 '.selection-counter-pill'
             ];
 
-            const canAct = typeof window.CAN_TAKE_ACTION !== 'undefined' ? window.CAN_TAKE_ACTION : !!canPerformActions;
+            const canAct = canPerformSignatoryActions;
             
             // Disable/enable clearance signatory controls based on permission
             bulkActionSelectors.forEach(sel => {

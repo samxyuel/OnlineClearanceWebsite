@@ -810,6 +810,55 @@ try {
                 }
             }
         }
+    } else if ($isProgramHead) {
+        // Program Head permission check
+        // Uses the same logic as api/program-head/is_assigned.php for consistency
+        // Checks: (1) department scope, (2) include_program_head setting, (3) active period
+        error_log("SIGNATORY_LIST_DEBUG: ========== PROGRAM HEAD PERMISSION CHECK ==========");
+        error_log("SIGNATORY_LIST_DEBUG: Checking can_perform_actions for Program Head");
+        error_log("SIGNATORY_LIST_DEBUG: Active Period ID: " . ($activePeriodId ?: 'null'));
+        error_log("SIGNATORY_LIST_DEBUG: Query Direct By Term: " . ($queryDirectByTerm ? 'true' : 'false'));
+        error_log("SIGNATORY_LIST_DEBUG: Program Head Departments: " . json_encode($programHeadDepartments));
+        
+        $canPerformActions = false; // Default to false for Program Heads
+        
+        // Check 1: Department scope
+        $hasDepartmentScope = !empty($programHeadDepartments);
+        error_log("SIGNATORY_LIST_DEBUG: Has Department Scope: " . ($hasDepartmentScope ? 'true' : 'false'));
+        
+        if (!$hasDepartmentScope) {
+            $canPerformActions = false;
+            error_log("SIGNATORY_LIST_DEBUG: No department assignments - setting canPerformActions to false");
+        } else {
+            // Check 2: include_program_head setting from sector_clearance_settings
+            $checkSector = ($type === 'faculty') ? 'Faculty' : $requestSector;
+            $includePhSetting = 0;
+            
+            try {
+                $settingStmt = $pdo->prepare("SELECT include_program_head FROM sector_clearance_settings WHERE clearance_type = ? LIMIT 1");
+                $settingStmt->execute([$checkSector]);
+                $settingRow = $settingStmt->fetch(PDO::FETCH_ASSOC);
+                if ($settingRow) {
+                    $includePhSetting = (int)$settingRow['include_program_head'];
+                }
+                error_log("SIGNATORY_LIST_DEBUG: include_program_head setting for '$checkSector': " . $includePhSetting);
+            } catch (PDOException $e) {
+                error_log("SIGNATORY_LIST_DEBUG: ERROR checking include_program_head setting: " . $e->getMessage());
+            }
+            
+            // Check 3: Active period
+            $hasActivePeriod = $activePeriodId || $queryDirectByTerm;
+            error_log("SIGNATORY_LIST_DEBUG: Has Active Period: " . ($hasActivePeriod ? 'true' : 'false'));
+            
+            // Final permission: all three checks must pass
+            $canPerformActions = $hasDepartmentScope && ($includePhSetting === 1) && $hasActivePeriod;
+            
+            error_log("SIGNATORY_LIST_DEBUG: Program Head Permission Result - " .
+                      "hasDeptScope: " . ($hasDepartmentScope ? 'true' : 'false') . 
+                      ", includePhSetting: " . $includePhSetting . 
+                      ", hasActivePeriod: " . ($hasActivePeriod ? 'true' : 'false') .
+                      ", canPerformActions: " . ($canPerformActions ? 'true' : 'false'));
+        }
     } else {
         // Regular Staff permission check
         // They can perform actions if their designation(s) are assigned as signatory for this sector/period

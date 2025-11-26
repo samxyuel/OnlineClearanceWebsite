@@ -301,6 +301,10 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         // This will be dynamically updated by the role selector
         let CURRENT_STAFF_POSITION = '';
         
+        // Global permission flag - default to false for safety
+        // Updated dynamically from is_assigned.php API (primary source for Program Head)
+        let canPerformSignatoryActions = false;
+        
         // On page load, ensure CURRENT_STAFF_POSITION is synced with the dropdown
         document.addEventListener('DOMContentLoaded', function() {
             const roleSelector = document.getElementById('roleSelector');
@@ -324,8 +328,9 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 const resp = await fetch('../../api/program-head/is_assigned.php?clearance_type=College', { credentials: 'include' });
                 const data = await resp.json();
                 if (data && data.success) {
-                    window.CAN_TAKE_ACTION = !!data.can_take_action;
+                    canPerformSignatoryActions = !!data.can_take_action;
                     console.log('is_assigned (College):', data);
+                    console.log('Program Head canPerformSignatoryActions set to:', canPerformSignatoryActions);
                 } else {
                     console.warn('is_assigned (College) returned no data', data);
                 }
@@ -1484,6 +1489,17 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 const data = await response.json();
                 console.log('College students API response:', data);
                 
+                // Log permission from signatoryList.php for debugging
+                // The primary source is is_assigned.php (called in fetchCanTakeAction)
+                // This serves as validation/backup from the data API
+                console.log('signatoryList.php response - can_perform_actions:', data.can_perform_actions);
+                console.log('Current canPerformSignatoryActions (from is_assigned.php):', canPerformSignatoryActions);
+                
+                // If signatoryList.php says NO but is_assigned.php said YES, log warning
+                if (canPerformSignatoryActions && data.can_perform_actions === false) {
+                    console.warn('Permission mismatch: is_assigned.php=true, signatoryList.php=false. Using is_assigned.php as source of truth.');
+                }
+                
                 if (data.success) {
                     populateStudentsTable(data.students);
                     updateStatisticsUI(data.stats);
@@ -1565,7 +1581,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 });
             });
             
-            // Clearance signatory actions - controlled by CAN_TAKE_ACTION
+            // Clearance signatory actions - controlled by canPerformSignatoryActions
             const bulkActionSelectors = [
                 '.bulk-selection-filters-btn',
                 '.bulk-controls .btn-success', // batch update
@@ -1575,8 +1591,8 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 '.btn-outline-secondary.clear-selection-btn'
             ];
 
-            // Use window.CAN_TAKE_ACTION (set by centralized API) if available, otherwise fallback to CAN_TAKE_ACTION
-            const canAct = typeof window.CAN_TAKE_ACTION !== 'undefined' ? window.CAN_TAKE_ACTION : (typeof CAN_TAKE_ACTION !== 'undefined' ? CAN_TAKE_ACTION : false);
+            // Use canPerformSignatoryActions (set by is_assigned.php API)
+            const canAct = canPerformSignatoryActions;
             
             // Disable/enable clearance signatory controls based on permission
             bulkActionSelectors.forEach(sel => {

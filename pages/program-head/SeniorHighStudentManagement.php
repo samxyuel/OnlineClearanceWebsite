@@ -301,6 +301,10 @@ $departmentIds = [];
         // This will be dynamically updated by the role selector
         let CURRENT_STAFF_POSITION = '';
         
+        // Global permission flag - default to false for safety
+        // Updated dynamically from is_assigned.php API (primary source for Program Head)
+        let canPerformSignatoryActions = false;
+        
         // Try to get the value from the dropdown immediately (in case it's already rendered)
         const roleSelectorElement = document.getElementById('roleSelector');
         if (roleSelectorElement && roleSelectorElement.value) {
@@ -336,16 +340,14 @@ $departmentIds = [];
             }
         }
 
-        // Default until we query the centralized assignment API
-        window.CAN_TAKE_ACTION = false;
-
         async function fetchCanTakeActionSHS() {
             try {
                 const resp = await fetch('../../api/program-head/is_assigned.php?clearance_type=Senior High School', { credentials: 'include' });
                 const data = await resp.json();
                 if (data && data.success) {
-                    window.CAN_TAKE_ACTION = !!data.can_take_action;
+                    canPerformSignatoryActions = !!data.can_take_action;
                     console.log('is_assigned (SHS):', data);
+                    console.log('Program Head canPerformSignatoryActions set to:', canPerformSignatoryActions);
                 } else {
                     console.warn('is_assigned (SHS) returned no data', data);
                 }
@@ -1386,6 +1388,17 @@ $departmentIds = [];
                 const data = await response.json();
                 console.log('Senior high students API response:', data);
                 
+                // Log permission from signatoryList.php for debugging
+                // The primary source is is_assigned.php (called in fetchCanTakeActionSHS)
+                // This serves as validation/backup from the data API
+                console.log('signatoryList.php response - can_perform_actions:', data.can_perform_actions);
+                console.log('Current canPerformSignatoryActions (from is_assigned.php):', canPerformSignatoryActions);
+                
+                // If signatoryList.php says NO but is_assigned.php said YES, log warning
+                if (canPerformSignatoryActions && data.can_perform_actions === false) {
+                    console.warn('Permission mismatch: is_assigned.php=true, signatoryList.php=false. Using is_assigned.php as source of truth.');
+                }
+                
                 if (data.success) {
                     populateStudentsTable(data.students);
                     updateStatisticsUI(data.stats);
@@ -1431,7 +1444,7 @@ $departmentIds = [];
                 });
             });
             
-            // Clearance signatory actions - controlled by CAN_TAKE_ACTION
+            // Clearance signatory actions - controlled by canPerformSignatoryActions
             const bulkActionSelectors = [
                 '.bulk-selection-filters-btn',
                 '.bulk-controls .btn-success', // batch update
@@ -1441,8 +1454,8 @@ $departmentIds = [];
                 '.btn-outline-secondary.clear-selection-btn'
             ];
 
-            // Use window.CAN_TAKE_ACTION (set by centralized API) if available, otherwise fallback to CAN_TAKE_ACTION
-            const canAct = typeof window.CAN_TAKE_ACTION !== 'undefined' ? window.CAN_TAKE_ACTION : (typeof CAN_TAKE_ACTION !== 'undefined' ? CAN_TAKE_ACTION : false);
+            // Use canPerformSignatoryActions (set by is_assigned.php API)
+            const canAct = canPerformSignatoryActions;
             
             // Disable/enable clearance signatory controls based on permission
             bulkActionSelectors.forEach(sel => {
@@ -1660,8 +1673,8 @@ $departmentIds = [];
 
                 // 1. Check permissions and load user-specific data first
                 await fetchCanTakeActionSHS();
-                window.isAssignedToSeniorHigh = window.CAN_TAKE_ACTION;
-                if (!window.CAN_TAKE_ACTION) {
+                window.isAssignedToSeniorHigh = canPerformSignatoryActions;
+                if (!canPerformSignatoryActions) {
                     showToastNotification('You are not assigned to the Senior High School sector. You have view-only access.', 'warning');
                 }
             await loadProgramHeadProfile();
