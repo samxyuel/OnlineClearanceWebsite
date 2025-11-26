@@ -644,7 +644,8 @@ handleFacultyManagementPageRequest();
         let currentSearch = '';
         let totalEntries = 0;
         let currentTabStatus = '';
-        let CURRENT_STAFF_POSITION = '<?php echo !empty($GLOBALS['userSignatoryDesignations']) ? addslashes($GLOBALS['userSignatoryDesignations'][0]['designation_name']) : ''; ?>';
+        // For School Administrator, default to 'School Administrator' designation
+        let CURRENT_STAFF_POSITION = '<?php echo !empty($GLOBALS['userSignatoryDesignations']) ? addslashes($GLOBALS['userSignatoryDesignations'][0]['designation_name']) : 'School Administrator'; ?>';
         let canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
 
         // Toggle sidebar
@@ -739,9 +740,13 @@ handleFacultyManagementPageRequest();
                     const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
                     const userIds = [];
                     for (const checkbox of selectedCheckboxes) {
-                        const eid = checkbox.getAttribute('data-id');
-                        const uid = await resolveUserIdFromEmployeeNumber(eid);
-                        if (uid) userIds.push(uid);
+                        const row = checkbox.closest('tr');
+                        if (row) {
+                            const userId = row.getAttribute('data-faculty-id'); // data-faculty-id contains user_id
+                            if (userId) {
+                                userIds.push(parseInt(userId));
+                            }
+                        }
                     }
 
                     if (userIds.length === 0) {
@@ -757,8 +762,8 @@ handleFacultyManagementPageRequest();
                         const bulkPayload = {
                             applicant_user_ids: userIds,
                             action: 'Approved',
-                            designation_name: CURRENT_STAFF_POSITION,
-                            remarks: `Approved by ${CURRENT_STAFF_POSITION}`
+                            designation_name: CURRENT_STAFF_POSITION || 'School Administrator',
+                            remarks: `Approved by ${CURRENT_STAFF_POSITION || 'School Administrator'}`
                         };
                         // Include school_term if a specific term is selected
                         if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
@@ -794,8 +799,18 @@ handleFacultyManagementPageRequest();
                 showToastNotification('Please select faculty to reject clearance', 'warning');
                 return;
             }
+            // Get selected user IDs from data-faculty-id attribute
             const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
-            const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.getAttribute('data-id'));
+            const selectedIds = [];
+            for (const checkbox of selectedCheckboxes) {
+                const row = checkbox.closest('tr');
+                if (row) {
+                    const userId = row.getAttribute('data-faculty-id'); // data-faculty-id contains user_id
+                    if (userId) {
+                        selectedIds.push(userId);
+                    }
+                }
+            }
             openRejectionRemarksModal(null, null, 'faculty', true, selectedIds);
         }
 
@@ -938,7 +953,7 @@ handleFacultyManagementPageRequest();
                 'Cancel',
                 async () => {
                     console.log('[School Admin - Approve Faculty] User confirmed approval, calling sendSignatoryAction');
-                    const result = await sendSignatoryAction(facultyUserId, 'Approved');
+                    const result = await sendSignatoryAction(facultyUserId, 'Approved', 'Approved by School Administrator');
                     console.log('[School Admin - Approve Faculty] sendSignatoryAction result:', result);
                     if (result.success) {
                         showToastNotification('Faculty clearance approved successfully', 'success');
@@ -2251,62 +2266,72 @@ handleFacultyManagementPageRequest();
                 rejectionSummary += `\nAdditional Remarks: ${additionalRemarks}`;
             }
             
-            // Demo: Update UI and show success message
+            // Handle bulk rejection
             if (currentRejectionData.isBulk) {
-                const isOverrideMode = document.getElementById('overrideSessionInterface').style.display !== 'none';
-                
-                if (isOverrideMode) {
-                    currentRejectionData.targetIds.forEach(id => {
-                        const clearanceItem = document.querySelector(`.override-checkbox[data-id="${id}"]`);
-                        if (clearanceItem) {
-                            const clearanceItemRow = clearanceItem.closest('.clearance-item');
-                            if (clearanceItemRow) {
-                                const statusBadge = clearanceItemRow.querySelector('.status-badge');
-                                if (statusBadge) {
-                                    statusBadge.textContent = 'Rejected';
-                                    statusBadge.classList.remove('clearance-pending', 'clearance-in-progress');
-                                    statusBadge.classList.add('clearance-rejected');
-                                }
-                            }
-                        }
-                    });
-                    document.getElementById('overrideSelectAll').checked = false;
-                    currentRejectionData.targetIds.forEach(id => {
-                        const checkbox = document.querySelector(`.override-checkbox[data-id="${id}"]`);
-                        if (checkbox) checkbox.checked = false;
-                    });
-                    updateOverrideBulkButtons();
-                    
-                    showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} faculty with remarks`, 'success');
-                } else {
-                    try {
-                        for (const id of currentRejectionData.targetIds) {
-                            const uid = await resolveUserIdFromEmployeeNumber(id);
-                            if (uid) { 
-                                await sendSignatoryAction(uid, 'Rejected', additionalRemarks, rejectionReason); 
-                                const row = document.querySelector(`.faculty-checkbox[data-id="${id}"]`).closest('tr');
-                                const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-approved');
-                                if (clearanceBadge) {
-                                    clearanceBadge.textContent = 'Rejected';
-                                    clearanceBadge.classList.remove('clearance-unapplied', 'clearance-pending', 'clearance-in-progress', 'clearance-completed');
-                                    clearanceBadge.classList.add('clearance-rejected');
-                                }
-                            }
-                        }
-                    } catch (e) {}
-                    showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetIds.length} faculty with remarks`, 'success');
-                    fetchFaculty();
-                }
-            } else {
                 try {
-                    const result = await sendSignatoryAction(currentRejectionData.targetId, 'Rejected', additionalRemarks, rejectionReason);
+                    const userIds = [];
+                    for (const id of currentRejectionData.targetIds) {
+                        // id is user_id in this context (from data-faculty-id)
+                        if (id) {
+                            userIds.push(parseInt(id));
+                        }
+                    }
+                    
+                    if (userIds.length === 0) {
+                        showToastNotification('Could not identify users to reject.', 'error');
+                        closeRejectionRemarksModal();
+                        return;
+                    }
+                    
+                    // Get the currently selected school term from the filter
+                    const schoolTermFilter = document.getElementById('schoolTermFilter');
+                    const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
+                    
+                    // Use bulk_signatory_action.php for bulk rejections
+                    const bulkPayload = {
+                        applicant_user_ids: userIds,
+                        action: 'Rejected',
+                        designation_name: CURRENT_STAFF_POSITION || 'School Administrator',
+                        remarks: additionalRemarks
+                    };
+                    if (rejectionReason) bulkPayload.reason_id = rejectionReason;
+                    if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
+                        bulkPayload.school_term = currentSchoolTerm.trim();
+                    }
+                    
+                    const response = await fetch('../../api/clearance/bulk_signatory_action.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify(bulkPayload)
+                    });
+                    const result = await response.json();
+                    
                     if (result.success) {
-                        showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
-                        fetchFaculty();
+                        showToastNotification(`✓ Successfully rejected clearance for ${result.affected_rows} faculty with remarks`, 'success');
+                        fetchFaculty(); // Refresh table
                     } else {
                         showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.error('Bulk rejection error:', e);
+                    showToastNotification('Error during bulk rejection: ' + e.message, 'error');
+                }
+            } else {
+                // Handle single rejection
+                try {
+                    // targetId is already user_id (from data-faculty-id)
+                    const result = await sendSignatoryAction(currentRejectionData.targetId, 'Rejected', additionalRemarks, rejectionReason);
+                    if (result.success) {
+                        showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
+                        fetchFaculty(); // Refresh table
+                    } else {
+                        showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
+                    }
+                } catch (e) {
+                    console.error('Rejection error:', e);
+                    showToastNotification('Error during rejection: ' + e.message, 'error');
+                }
             }
             
             closeRejectionRemarksModal();
@@ -2328,24 +2353,28 @@ handleFacultyManagementPageRequest();
             }catch(e){ return null; }
         }
         async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null){
+            // Fetch the current staff's actual designation from the API to ensure accuracy.
+            let currentDesignation = CURRENT_STAFF_POSITION || 'School Administrator'; // Fallback
+            
+            try {
+                const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
+                const desigData = await desigResponse.json();
+                
+                if (desigData.success && desigData.designation_name) { 
+                    currentDesignation = desigData.designation_name;
+                }
+            } catch (e) { 
+                // Use fallback if API call fails
+            }
+
             // Get the currently selected school term from the filter to ensure approval goes to the correct period
             const schoolTermFilter = document.getElementById('schoolTermFilter');
             const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
 
-            // DEBUG: Log signatory action details
-            console.log('[School Admin - Signatory Action] Debug Info:', {
-                applicantUserId: applicantUserId,
-                action: action,
-                remarks: remarks,
-                reasonId: reasonId,
-                currentSchoolTerm: currentSchoolTerm,
-                designationName: CURRENT_STAFF_POSITION
-            });
-
             const payload = { 
                 applicant_user_id: applicantUserId, 
-                action: action,
-                designation_name: CURRENT_STAFF_POSITION
+                designation_name: currentDesignation, 
+                action: action 
             };
             if (remarks && remarks.length) payload.remarks = remarks;
             if (reasonId) payload.reason_id = reasonId;
@@ -2354,15 +2383,28 @@ handleFacultyManagementPageRequest();
                 payload.school_term = currentSchoolTerm.trim();
             }
 
-            console.log('[School Admin - Signatory Action] Payload being sent:', payload);
-            console.log('[School Admin - Signatory Action] API Endpoint: signatory_action.php');
-
-            const response = await fetch('../../api/clearance/signatory_action.php', {
-                method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-            console.log('[School Admin - Signatory Action] API Response:', result);
-            return result;
+            try {
+                const response = await fetch('../../api/clearance/signatory_action.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    return {
+                        success: false,
+                        message: `Server error: ${response.status} ${response.statusText}`
+                    };
+                }
+                
+                return await response.json();
+            } catch (error) {
+                return {
+                    success: false,
+                    message: error.message || 'Network error: Failed to communicate with server'
+                };
+            }
         }
 
         let searchTimeout;
