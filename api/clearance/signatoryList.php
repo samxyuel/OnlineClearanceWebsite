@@ -241,10 +241,8 @@ try {
         ";
         
         // For School Administrators: show all applicants regardless of signatory assignment
-        // For Regular Staff: only show applicants where their designation is assigned as signatory
-        $signatoryJoinCondition = $isSchoolAdmin 
-            ? "cf.clearance_form_id = cs.clearance_form_id" 
-            : "cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)";
+        // For Regular Staff: show all applicants (view-only mode enabled), permission check determines if actions are allowed
+        $signatoryJoinCondition = "cf.clearance_form_id = cs.clearance_form_id";
         
         if ($queryDirectByTerm) {
             // Query clearance_forms directly by academic_year_id and semester_id (no clearance_period required)
@@ -265,6 +263,21 @@ try {
             // For School Admins with no period: Show all applicants without clearance_period join
             // This enables view-only mode even when there are no clearance periods
             error_log("SIGNATORY_LIST_DEBUG: Using no-period query for School Admin (faculty)");
+            $from = "
+                FROM faculty f
+                JOIN users u ON f.user_id = u.user_id
+                LEFT JOIN user_department_assignments uda ON u.user_id = uda.user_id
+                LEFT JOIN departments d ON uda.department_id = d.department_id
+                LEFT JOIN clearance_forms cf ON f.user_id = cf.user_id
+                LEFT JOIN clearance_signatories cs ON $signatoryJoinCondition
+                LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
+                LEFT JOIN academic_years ay ON cf.academic_year_id = ay.academic_year_id
+                LEFT JOIN semesters sem ON cf.semester_id = sem.semester_id
+            ";
+        } else if (!$isSchoolAdmin && !$activePeriodId && !$queryDirectByTerm) {
+            // For Regular Staff with no period: Show all applicants without clearance_period join
+            // This enables view-only mode even when there are no clearance periods
+            error_log("SIGNATORY_LIST_DEBUG: Using no-period query for Regular Staff (faculty)");
             $from = "
                 FROM faculty f
                 JOIN users u ON f.user_id = u.user_id
@@ -311,10 +324,8 @@ try {
         ";
         
         // For School Administrators: show all applicants regardless of signatory assignment
-        // For Regular Staff: only show applicants where their designation is assigned as signatory
-        $signatoryJoinCondition = $isSchoolAdmin 
-            ? "cf.clearance_form_id = cs.clearance_form_id" 
-            : "cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id IN ($designationInClause)";
+        // For Regular Staff: show all applicants (view-only mode enabled), permission check determines if actions are allowed
+        $signatoryJoinCondition = "cf.clearance_form_id = cs.clearance_form_id";
         
         if ($queryDirectByTerm) {
             // Query clearance_forms directly by academic_year_id and semester_id (no clearance_period required)
@@ -336,6 +347,19 @@ try {
             // For School Admins with no period: Show all applicants without clearance_period join
             // This enables view-only mode even when there are no clearance periods
             error_log("SIGNATORY_LIST_DEBUG: Using no-period query for School Admin (student)");
+            $from = "
+                FROM students s
+                JOIN users u ON s.user_id = u.user_id
+                LEFT JOIN programs p ON s.program_id = p.program_id
+                LEFT JOIN departments d ON s.department_id = d.department_id
+                LEFT JOIN clearance_forms cf ON s.user_id = cf.user_id
+                LEFT JOIN clearance_signatories cs ON $signatoryJoinCondition
+                LEFT JOIN designations d_sig ON cs.designation_id = d_sig.designation_id
+            ";
+        } else if (!$isSchoolAdmin && !$activePeriodId && !$queryDirectByTerm) {
+            // For Regular Staff with no period: Show all applicants without clearance_period join
+            // This enables view-only mode even when there are no clearance periods
+            error_log("SIGNATORY_LIST_DEBUG: Using no-period query for Regular Staff (student)");
             $from = "
                 FROM students s
                 JOIN users u ON s.user_id = u.user_id
@@ -578,9 +602,9 @@ try {
     $normalizedType = strtolower($type);
     $responseKey = ($normalizedType === 'faculty') ? 'faculty' : 'students';
     
-    // Check if School Administrator can perform signatory actions
-    // They can only perform actions if they're actually assigned as a signatory for this sector/period
-    $canPerformActions = true; // Default: Regular Staff can perform actions
+    // Check if user can perform signatory actions
+    // School Administrators and Regular Staff can only perform actions if they're actually assigned as a signatory for this sector/period
+    $canPerformActions = true; // Default: can perform actions
     if ($isSchoolAdmin) {
         // Check if School Administrator has any signatory assignments for this sector/period
         $canPerformActions = false; // Default to false for School Admins
@@ -685,6 +709,133 @@ try {
                     error_log("SIGNATORY_LIST_DEBUG: Permission check SQL: " . $signatoryCheckStmt->queryString);
                     error_log("SIGNATORY_LIST_DEBUG: Permission check params: " . json_encode($signatoryCheckParams));
                     $canPerformActions = false; // Default to false on error
+                }
+            }
+        }
+    } else {
+        // Regular Staff permission check
+        // They can perform actions if their designation(s) are assigned as signatory for this sector/period
+        error_log("SIGNATORY_LIST_DEBUG: ========== REGULAR STAFF PERMISSION CHECK ==========");
+        error_log("SIGNATORY_LIST_DEBUG: Checking can_perform_actions for Regular Staff");
+        error_log("SIGNATORY_LIST_DEBUG: Active Period ID: " . ($activePeriodId ?: 'null'));
+        error_log("SIGNATORY_LIST_DEBUG: Query Direct By Term: " . ($queryDirectByTerm ? 'true' : 'false'));
+        error_log("SIGNATORY_LIST_DEBUG: Selected Academic Year ID: " . ($selectedAcademicYearId ?: 'null'));
+        error_log("SIGNATORY_LIST_DEBUG: Selected Semester ID: " . ($selectedSemesterId ?: 'null'));
+        error_log("SIGNATORY_LIST_DEBUG: Designation Filter: " . ($designationFilter ?: 'none'));
+        
+        // If no designations, they can't perform actions
+        if (empty($designationIds)) {
+            $canPerformActions = false;
+            error_log("SIGNATORY_LIST_DEBUG: No designations - setting canPerformActions to false");
+        } else {
+            // Determine the sector for checking signatory assignments
+            $checkSector = ($type === 'faculty') ? 'Faculty' : $requestSector;
+            
+            // If there's no period at all, they can't perform actions (view-only mode)
+            if (!$activePeriodId && !$queryDirectByTerm) {
+                $canPerformActions = false;
+                error_log("SIGNATORY_LIST_DEBUG: No active period or term - setting canPerformActions to false (view-only mode)");
+            } else {
+                // Determine which designations to check
+                // If designation_filter is provided, check only that specific designation
+                // Otherwise, check all their designations
+                $checkDesignationIds = [];
+                
+                if (!empty($designationFilter)) {
+                    // Find the designation ID for the filtered designation
+                    foreach ($staffDesignations as $desig) {
+                        if (strcasecmp($desig['designation_name'], $designationFilter) === 0) {
+                            $checkDesignationIds[] = $desig['designation_id'];
+                            error_log("SIGNATORY_LIST_DEBUG: Checking specific designation: " . $designationFilter . " (ID: " . $desig['designation_id'] . ")");
+                            break;
+                        }
+                    }
+                    // If designation filter doesn't match any of their designations, they can't perform actions
+                    if (empty($checkDesignationIds)) {
+                        $canPerformActions = false;
+                        error_log("SIGNATORY_LIST_DEBUG: Designation filter doesn't match any of their designations - setting canPerformActions to false");
+                    }
+                } else {
+                    // Check all their designations
+                    $checkDesignationIds = $designationIds;
+                    error_log("SIGNATORY_LIST_DEBUG: Checking all designations: " . json_encode($checkDesignationIds));
+                }
+                
+                // Perform permission check if we have designations to check
+                if (!empty($checkDesignationIds) && $canPerformActions !== false) {
+                    // Build FRESH placeholders with UNIQUE names to avoid parameter conflicts
+                    $checkDesignationPlaceholders = [];
+                    $checkDesignationParams = [];
+                    foreach ($checkDesignationIds as $i => $id) {
+                        $key = ":permCheckDesig_$i";  // Unique prefix to avoid conflicts with main query
+                        $checkDesignationPlaceholders[] = $key;
+                        $checkDesignationParams[$key] = $id;
+                    }
+                    $checkDesignationInClause = implode(',', $checkDesignationPlaceholders);
+                    
+                    if ($activePeriodId) {
+                        // Check if Regular Staff's designation is assigned as signatory for this period
+                        $signatoryCheckStmt = $pdo->prepare("
+                            SELECT COUNT(*) 
+                            FROM clearance_signatories cs
+                            JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
+                            JOIN clearance_periods cp ON cf.academic_year_id = cp.academic_year_id 
+                                AND cf.semester_id = cp.semester_id
+                            WHERE cp.period_id = :periodId 
+                                AND cp.sector = :sector
+                                AND cs.designation_id IN ($checkDesignationInClause)
+                            LIMIT 1
+                        ");
+                        $signatoryCheckParams = array_merge(
+                            [':periodId' => $activePeriodId, ':sector' => $checkSector], 
+                            $checkDesignationParams
+                        );
+                        error_log("SIGNATORY_LIST_DEBUG: Executing permission check query with activePeriodId");
+                        error_log("SIGNATORY_LIST_DEBUG: Permission check SQL: " . substr($signatoryCheckStmt->queryString, 0, 500));
+                        error_log("SIGNATORY_LIST_DEBUG: Permission check params: " . json_encode($signatoryCheckParams));
+                        
+                        try {
+                            $signatoryCheckStmt->execute($signatoryCheckParams);
+                            $hasSignatoryAssignment = $signatoryCheckStmt->fetchColumn() > 0;
+                            $canPerformActions = $hasSignatoryAssignment;
+                            error_log("SIGNATORY_LIST_DEBUG: Permission check result - hasSignatoryAssignment: " . ($hasSignatoryAssignment ? 'true' : 'false'));
+                        } catch (PDOException $e) {
+                            error_log("SIGNATORY_LIST_DEBUG: ERROR in permission check query: " . $e->getMessage());
+                            error_log("SIGNATORY_LIST_DEBUG: Permission check SQL: " . $signatoryCheckStmt->queryString);
+                            error_log("SIGNATORY_LIST_DEBUG: Permission check params: " . json_encode($signatoryCheckParams));
+                            $canPerformActions = false; // Default to false on error
+                        }
+                    } else if ($queryDirectByTerm && $selectedAcademicYearId && $selectedSemesterId) {
+                        // Check if Regular Staff's designation is assigned as signatory for this term
+                        $signatoryCheckStmt = $pdo->prepare("
+                            SELECT COUNT(*) 
+                            FROM clearance_signatories cs
+                            JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
+                            WHERE cf.academic_year_id = :academicYearId 
+                                AND cf.semester_id = :semesterId
+                                AND cs.designation_id IN ($checkDesignationInClause)
+                            LIMIT 1
+                        ");
+                        $signatoryCheckParams = array_merge(
+                            [':academicYearId' => $selectedAcademicYearId, ':semesterId' => $selectedSemesterId], 
+                            $checkDesignationParams
+                        );
+                        error_log("SIGNATORY_LIST_DEBUG: Executing permission check query with direct term");
+                        error_log("SIGNATORY_LIST_DEBUG: Permission check SQL: " . substr($signatoryCheckStmt->queryString, 0, 500));
+                        error_log("SIGNATORY_LIST_DEBUG: Permission check params: " . json_encode($signatoryCheckParams));
+                        
+                        try {
+                            $signatoryCheckStmt->execute($signatoryCheckParams);
+                            $hasSignatoryAssignment = $signatoryCheckStmt->fetchColumn() > 0;
+                            $canPerformActions = $hasSignatoryAssignment;
+                            error_log("SIGNATORY_LIST_DEBUG: Permission check result - hasSignatoryAssignment: " . ($hasSignatoryAssignment ? 'true' : 'false'));
+                        } catch (PDOException $e) {
+                            error_log("SIGNATORY_LIST_DEBUG: ERROR in permission check query: " . $e->getMessage());
+                            error_log("SIGNATORY_LIST_DEBUG: Permission check SQL: " . $signatoryCheckStmt->queryString);
+                            error_log("SIGNATORY_LIST_DEBUG: Permission check params: " . json_encode($signatoryCheckParams));
+                            $canPerformActions = false; // Default to false on error
+                        }
+                    }
                 }
             }
         }

@@ -476,6 +476,9 @@ handleStudentManagementPageRequest('Senior High School');
         // This ensures we use the correct filtered role, not the primary designation
         let CURRENT_STAFF_POSITION = '';
         
+        // Track whether signatory actions are allowed (updated from API response)
+        let canPerformSignatoryActions = true; // Default to true, updated from API response
+        
         // Try to get the value from the dropdown immediately (in case it's already rendered)
         const roleSelectorElement = document.getElementById('roleSelector');
         if (roleSelectorElement && roleSelectorElement.value) {
@@ -733,16 +736,13 @@ handleStudentManagementPageRequest('Senior High School');
             const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
             const bulkButtons = document.querySelectorAll('.bulk-buttons button');
             
-            // Check if signatory actions are allowed from PHP
-            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
-
             bulkButtons.forEach(button => {
-                // Disable if no selections OR if signatory actions are not allowed
-                button.disabled = checkedBoxes.length === 0 || !canPerformActions;
-
-                // Add tooltip for disabled state due to permissions
-                if (!canPerformActions && checkedBoxes.length > 0) {
-                    button.title = 'Cannot perform action: ' + ('<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a student signatory."; ?>');
+                // Disable if no selection OR if in view-only mode
+                button.disabled = checkedBoxes.length === 0 || !canPerformSignatoryActions;
+                
+                // Add tooltip for disabled state
+                if (!canPerformSignatoryActions && checkedBoxes.length > 0) {
+                    button.title = 'View Only Mode: You are not assigned as a signatory for this clearance period';
                 } else if (checkedBoxes.length === 0) {
                     button.title = 'Select students to perform actions';
                 } else {
@@ -751,6 +751,59 @@ handleStudentManagementPageRequest('Senior High School');
             });
             
             updateSelectionCounter();
+        }
+        
+        // Update action buttons state based on can_perform_actions flag
+        function updateActionButtonsState() {
+            // Update individual row buttons
+            const approveButtons = document.querySelectorAll('.approve-btn');
+            const rejectButtons = document.querySelectorAll('.reject-btn');
+            
+            approveButtons.forEach(btn => {
+                if (!canPerformSignatoryActions) {
+                    btn.disabled = true;
+                    btn.title = 'View Only Mode: You are not assigned as a signatory for this clearance period';
+                }
+            });
+            
+            rejectButtons.forEach(btn => {
+                if (!canPerformSignatoryActions) {
+                    btn.disabled = true;
+                    btn.title = 'View Only Mode: You are not assigned as a signatory for this clearance period';
+                }
+            });
+            
+            // Update bulk buttons
+            updateBulkButtons();
+        }
+        
+        // Show/hide view-only indicator banner
+        function updateViewOnlyIndicator() {
+            // Remove existing indicator if any
+            const existingIndicator = document.getElementById('viewOnlyIndicator');
+            if (existingIndicator) {
+                existingIndicator.remove();
+            }
+            
+            if (!canPerformSignatoryActions) {
+                // Create and show view-only indicator
+                const indicator = document.createElement('div');
+                indicator.id = 'viewOnlyIndicator';
+                indicator.className = 'alert alert-info';
+                indicator.style.cssText = 'margin: 1rem 0; padding: 1rem; background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; color: #0c5460;';
+                indicator.innerHTML = `<i class="fas fa-eye"></i> <strong>View Only Mode:</strong> You are viewing this sector's clearance data, but you are not assigned as a signatory for this clearance period. Approve/Reject actions are disabled.`;
+                
+                // Insert after the filters section or at the top of the content area
+                const filtersSection = document.querySelector('.filters-section');
+                if (filtersSection && filtersSection.nextSibling) {
+                    filtersSection.parentNode.insertBefore(indicator, filtersSection.nextSibling);
+                } else {
+                    const contentArea = document.querySelector('.main-content');
+                    if (contentArea) {
+                        contentArea.insertBefore(indicator, contentArea.firstChild);
+                    }
+                }
+            }
         }
 
         // Bulk Actions - Staff can only approve/reject clearances
@@ -846,11 +899,10 @@ handleStudentManagementPageRequest('Senior High School');
             console.log('🔵 SHS APPROVE DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
             
             // Check if signatory actions are allowed
-            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
-            console.log('🔵 SHS APPROVE DEBUG: canPerformActions:', canPerformActions);
-            if (!canPerformActions) {
-                console.warn('🔵 SHS APPROVE DEBUG: Permission denied - canPerformActions is false');
-                showToastNotification('You do not have permission to perform this action.', 'warning');
+            console.log('🔵 SHS APPROVE DEBUG: canPerformSignatoryActions:', canPerformSignatoryActions);
+            if (!canPerformSignatoryActions) {
+                console.warn('🔵 SHS APPROVE DEBUG: Permission denied - canPerformSignatoryActions is false');
+                showToastNotification('View Only Mode: You are not assigned as a signatory for this clearance period.', 'warning');
                 return;
             }
 
@@ -957,11 +1009,10 @@ handleStudentManagementPageRequest('Senior High School');
             console.log('🔴 SHS REJECT DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
             
             // Check if signatory actions are allowed
-            const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
-            console.log('🔴 SHS REJECT DEBUG: canPerformActions:', canPerformActions);
-            if (!canPerformActions) {
-                console.warn('🔴 SHS REJECT DEBUG: Permission denied - canPerformActions is false');
-                showToastNotification('You do not have permission to perform this action.', 'warning');
+            console.log('🔴 SHS REJECT DEBUG: canPerformSignatoryActions:', canPerformSignatoryActions);
+            if (!canPerformSignatoryActions) {
+                console.warn('🔴 SHS REJECT DEBUG: Permission denied - canPerformSignatoryActions is false');
+                showToastNotification('View Only Mode: You are not assigned as a signatory for this clearance period.', 'warning');
                 return;
             }
             
@@ -1110,6 +1161,10 @@ handleStudentManagementPageRequest('Senior High School');
                     return;
                 }
 
+                // Update canPerformSignatoryActions from API response
+                canPerformSignatoryActions = data.can_perform_actions !== false; // Default to true if not provided
+                console.log('📊 SHS FETCH_STUDENTS DEBUG: can_perform_actions:', data.can_perform_actions, '-> canPerformSignatoryActions:', canPerformSignatoryActions);
+
                 if (data.students && data.students.length > 0) {
                     console.log('📊 SHS FETCH_STUDENTS DEBUG: Sample student data:', data.students[0]);
                 }
@@ -1117,6 +1172,10 @@ handleStudentManagementPageRequest('Senior High School');
                 renderStudentTable(data.students);
                 renderPagination(data.total, data.page, data.limit);
                 updateStatistics(data.stats);
+                
+                // Update action buttons state and view-only indicator after rendering
+                updateActionButtonsState();
+                updateViewOnlyIndicator();
 
             } catch (error) {
                 console.error('📊 SHS FETCH_STUDENTS DEBUG: ❌ Exception:', error);
@@ -1156,20 +1215,18 @@ handleStudentManagementPageRequest('Senior High School');
                 
                 const accountStatusClass = `account-${(student.account_status || '').toLowerCase()}`;
 
-                const canPerformActions = <?php echo $GLOBALS['canPerformSignatoryActions'] ? 'true' : 'false'; ?>;
-                
                 // Debug logging for first student only to avoid spam
                 if (students.indexOf(student) === 0) {
                     console.log('🎨 SHS RENDER DEBUG: Rendering student table with', students.length, 'students');
-                    console.log('🎨 SHS RENDER DEBUG: canPerformActions:', canPerformActions);
+                    console.log('🎨 SHS RENDER DEBUG: canPerformSignatoryActions:', canPerformSignatoryActions);
                 }
                 
                 // Enable approve button for 'Pending' and 'Rejected' statuses.
-                let approveBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
+                let approveBtnDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
                 // Enable reject button for 'Pending' and 'Rejected' statuses to allow for edits.
-                let rejectBtnDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
+                let rejectBtnDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
                 // Disable checkbox for 'Unapplied' and 'Approved' statuses (same logic as buttons)
-                let checkboxDisabled = !canPerformActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
+                let checkboxDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
                 
                 // Debug button states for first student
                 if (students.indexOf(student) === 0) {
@@ -1188,8 +1245,8 @@ handleStudentManagementPageRequest('Senior High School');
                 let approveTitle = 'Approve Clearance';
                 // Change button title if the student is already rejected.
                 let rejectTitle = clearanceStatus === 'Rejected' ? 'Update Rejection Remarks' : 'Reject Clearance';
-                if (!canPerformActions) {
-                    approveTitle = rejectTitle = '<?php echo !$GLOBALS["hasActivePeriod"] ? "No active clearance period." : "Not assigned as a student signatory."; ?>';
+                if (!canPerformSignatoryActions) {
+                    approveTitle = rejectTitle = 'View Only Mode: You are not assigned as a signatory for this clearance period';
                 }
 
                 // Build clearance progress cell content (end user's form progress)

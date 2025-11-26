@@ -1886,7 +1886,7 @@ handleStudentManagementPageRequest('College');
                     if (result.success) {
                         showToastNotification(`✓ Successfully rejected clearance for ${result.affected_rows} students with remarks`, 'success');
                         loadStudentsData(); // Refresh table
-                    } else {
+            } else {
                         showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
                     }
                 } catch (e) {
@@ -1901,9 +1901,9 @@ handleStudentManagementPageRequest('College');
                         const userId = currentRejectionData.targetId; // targetId is already user_id
                         const result = await sendSignatoryAction(userId, 'Rejected', additionalRemarks, rejectionReason);
                         if (result.success) {
-                            showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
+                    showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
                             loadStudentsData(); // Refresh table
-                        } else {
+                } else {
                             showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
                         }
                     } else {
@@ -2316,7 +2316,7 @@ handleStudentManagementPageRequest('College');
         // Signatory Action Functions
         async function approveSignatory(userId) {
             // Get student name for confirmation
-            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+                const row = document.querySelector(`tr[data-user-id="${userId}"]`);
             if (!row) {
                 showToastNotification('Student record not found.', 'error');
                 return;
@@ -2343,17 +2343,17 @@ handleStudentManagementPageRequest('College');
                             'Approved', 
                             'Approved by School Administrator'
                         );
-                        
-                        if (result.success) {
+                
+                if (result.success) {
                             showToastNotification('Student clearance approved successfully', 'success');
                             loadStudentsData(); // Refresh table
-                        } else {
+                } else {
                             showToastNotification('Failed to approve: ' + (result.message || 'Unknown error'), 'error');
-                        }
-                    } catch (error) {
+                }
+            } catch (error) {
                         console.error('Approval error:', error);
                         showToastNotification('An error occurred during approval.', 'error');
-                    }
+            }
                 },
                 'success'
             );
@@ -2361,7 +2361,7 @@ handleStudentManagementPageRequest('College');
 
         async function rejectSignatory(userId) {
             // Get student name for confirmation
-            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+                const row = document.querySelector(`tr[data-user-id="${userId}"]`);
             if (!row) {
                 showToastNotification('Student record not found.', 'error');
                 return;

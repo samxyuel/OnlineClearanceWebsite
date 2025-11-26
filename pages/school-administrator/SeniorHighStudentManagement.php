@@ -628,7 +628,7 @@ handleStudentManagementPageRequest('Senior High School');
         function updateBulkButtons() {
             const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
             const bulkButtons = document.querySelectorAll('.bulk-buttons button');
-
+            
             bulkButtons.forEach(button => {
                 // Disable if no selection OR if in view-only mode
                 button.disabled = checkedBoxes.length === 0 || !canPerformSignatoryActions;
@@ -1988,7 +1988,7 @@ handleStudentManagementPageRequest('Senior High School');
                     if (result.success) {
                         showToastNotification(`✓ Successfully rejected clearance for ${result.affected_rows} students with remarks`, 'success');
                         loadStudentsData(); // Refresh table
-                    } else {
+            } else {
                         showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
                     }
                 } catch (e) {
@@ -2003,9 +2003,9 @@ handleStudentManagementPageRequest('Senior High School');
                         const userId = currentRejectionData.targetId; // targetId is already user_id
                         const result = await sendSignatoryAction(userId, 'Rejected', additionalRemarks, rejectionReason);
                         if (result.success) {
-                            showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
+                    showToastNotification(`✓ Successfully rejected clearance for ${currentRejectionData.targetName} with remarks`, 'success');
                             loadStudentsData(); // Refresh table
-                        } else {
+                } else {
                             showToastNotification('Failed to reject: ' + (result.message || 'Unknown error'), 'error');
                         }
                     } else {
@@ -2427,7 +2427,7 @@ handleStudentManagementPageRequest('Senior High School');
         // Signatory Action Functions
         async function approveSignatory(userId) {
             // Get student name for confirmation
-            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+                const row = document.querySelector(`tr[data-user-id="${userId}"]`);
             if (!row) {
                 showToastNotification('Student record not found.', 'error');
                 return;
@@ -2454,17 +2454,17 @@ handleStudentManagementPageRequest('Senior High School');
                             'Approved', 
                             'Approved by School Administrator'
                         );
-                        
-                        if (result.success) {
+                
+                if (result.success) {
                             showToastNotification('Student clearance approved successfully', 'success');
                             loadStudentsData(); // Refresh table
-                        } else {
+                } else {
                             showToastNotification('Failed to approve: ' + (result.message || 'Unknown error'), 'error');
-                        }
-                    } catch (error) {
+                }
+            } catch (error) {
                         console.error('Approval error:', error);
                         showToastNotification('An error occurred during approval.', 'error');
-                    }
+            }
                 },
                 'success'
             );
@@ -2472,7 +2472,7 @@ handleStudentManagementPageRequest('Senior High School');
 
         async function rejectSignatory(userId) {
             // Get student name for confirmation
-            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+                const row = document.querySelector(`tr[data-user-id="${userId}"]`);
             if (!row) {
                 showToastNotification('Student record not found.', 'error');
                 return;
