@@ -196,6 +196,9 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                         <!-- Quick Actions Section -->
                         <div class="quick-actions-section">
                             <div class="action-buttons">
+                                <button class="btn btn-primary add-faculty-btn" onclick="openAddFacultyModal()" title="Add a new faculty member to the system">
+                                    <i class="fas fa-plus"></i> Add Faculty
+                                </button>
                                 <button class="btn btn-secondary import-btn" onclick="triggerImportModal()">
                                     <i class="fas fa-file-import"></i> Import
                                 </button>
@@ -1102,22 +1105,36 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         // Explicitly enable/disable faculty action controls based on centralized permission
         function updateFacultyActionButtonsState() {
             // Separate administrative actions from clearance signatory actions
-            // Administrative actions (Import, Export) should always be enabled for Program Heads
-            // since they're already on a Program Head page
+            // Administrative actions - check department assignments for Add button
+            // Import/Export should always be enabled for Program Heads
             
-            // Administrative action buttons - always enabled for Program Heads
-            const adminActionSelectors = [
-                '.import-btn',
-                '.export-btn'
-            ];
+            // Check if Program Head has College department assignments (faculty are linked to college depts)
+            const hasCollegeDepartments = window.managedDepartments && 
+                Array.isArray(window.managedDepartments) && 
+                window.managedDepartments.length > 0;
             
-            // Enable administrative buttons (Program Heads always have access to these)
-            adminActionSelectors.forEach(sel => {
+            // Handle Add Faculty button separately (requires department assignment)
+            document.querySelectorAll('.add-faculty-btn').forEach(btn => {
+                try {
+                    if (hasCollegeDepartments) {
+                        btn.disabled = false;
+                        btn.classList.remove('disabled');
+                        btn.title = 'Add a new faculty member to the system';
+                    } else {
+                        btn.disabled = true;
+                        btn.classList.add('disabled');
+                        btn.title = 'You are not assigned to any departments';
+                    }
+                } catch (e) { /* ignore */ }
+            });
+            
+            // Import/Export buttons - always enabled
+            const alwaysEnabledSelectors = ['.import-btn', '.export-btn'];
+            alwaysEnabledSelectors.forEach(sel => {
                 document.querySelectorAll(sel).forEach(btn => {
                     try {
                         btn.disabled = false;
                         btn.classList.remove('disabled');
-                        // Restore original titles
                         if (btn.classList.contains('import-btn')) {
                             btn.title = btn.title || 'Import faculty from file';
                         } else if (btn.classList.contains('export-btn')) {
@@ -1212,6 +1229,16 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
 
         // Bulk selection functions
         // Modal functions - Make globally available
+        window.openAddFacultyModal = function() {
+            if (typeof window.openFacultyRegistrationModal === 'function') {
+                window.openFacultyRegistrationModal();
+            } else {
+                if (typeof showToastNotification === 'function') {
+                    showToastNotification('Faculty registration modal not available. Please refresh the page.', 'error');
+                }
+            }
+        };
+
         window.triggerImportModal = function() {
             try {
                 if (typeof window.openImportModal === 'function') {
@@ -1620,10 +1647,37 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             }
         }
 
+        // Load Program Head's profile to get department assignments
+        async function loadProgramHeadProfile() {
+            try {
+                const response = await fetch('../../api/program-head/profile.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    // Store managed departments globally
+                    window.managedDepartments = data.data.departments;
+                    const deptNames = data.data.departments.map(d => d.department_name).join(', ');
+                    const scopeElement = document.getElementById('departmentScopeText');
+                    if (scopeElement) {
+                        scopeElement.textContent = `Scope: ${deptNames}`;
+                    }
+                    console.log('Program Head departments loaded:', window.managedDepartments);
+                } else {
+                    throw new Error(data.message || 'Failed to load profile.');
+                }
+            } catch (error) {
+                console.error('Error loading Program Head profile:', error);
+            }
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', async function() {
             
             updateTermIndicatorBanner();
+            
+            // Load Program Head profile FIRST to get department assignments
+            await loadProgramHeadProfile();
             
             await Promise.all([
             loadRejectionReasons(),
@@ -1650,6 +1704,13 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 if (event.key === 'Enter') {
                     applyFilters();
                 }
+            });
+
+            // Listen for faculty-added event to refresh the table
+            document.addEventListener('faculty-added', function(event) {
+                console.log('Faculty added event received:', event.detail);
+                // Refresh the faculty list
+                fetchFaculty();
             });
         });
 
@@ -2059,6 +2120,9 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             </div>
         </div>
     </div>
+    
+    <!-- Include Faculty Registry Modal -->
+    <?php include '../../Modals/FacultyRegistryModal.php'; ?>
     
     <!-- Include Faculty Batch Update Modal -->
     <?php include '../../Modals/FacultyBatchUpdateModal.php'; ?>

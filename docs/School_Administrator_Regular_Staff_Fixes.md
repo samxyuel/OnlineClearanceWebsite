@@ -22,6 +22,7 @@ This document tracks all fixes implemented for School Administrator, Regular Sta
 3. [Backend API Fixes](#backend-api-fixes)
 4. [Testing Notes](#testing-notes)
 5. [Program Head Fixes](#program-head-fixes-added-november-26-2025)
+6. [Program Head "Add Button" Permission Fixes](#program-head-add-button-permission-fixes-added-november-27-2025)
 
 ---
 
@@ -877,5 +878,202 @@ const canAct = canPerformSignatoryActions;
 
 ---
 
-**Last Updated:** November 26, 2025  
+**Last Updated:** November 27, 2025  
 **Status:** ✅ All fixes implemented for School Administrator, Regular Staff, and Program Head
+
+---
+
+## Program Head "Add Button" Permission Fixes (Added November 27, 2025)
+
+### Overview
+
+Implemented department-based permission checks for "Add Student" and "Add Faculty" buttons in Program Head pages. These buttons are now disabled when the Program Head is not assigned to the relevant sector's departments.
+
+---
+
+### 1. CollegeStudentManagement.php - Add Student Button
+
+**File:** `pages/program-head/CollegeStudentManagement.php`
+
+**Issue:**
+
+- "Add Student" button was always enabled, even when Program Head had no College department assignments
+- No validation of department scope before allowing student creation
+
+**Fix:**
+
+- Updated `updateActionButtonsState()` function (lines 1554-1582)
+- Added check for `window.managedDepartments` (populated by `loadProgramHeadProfile()`)
+- Button is disabled if `managedDepartments` is empty or undefined
+- Tooltip changes to: _"You are not assigned to any College departments"_
+
+**Code:**
+
+```javascript
+// Check if Program Head has College department assignments
+const hasCollegeDepartments =
+  window.managedDepartments &&
+  Array.isArray(window.managedDepartments) &&
+  window.managedDepartments.length > 0;
+
+// Handle Add Student button separately (requires department assignment)
+document.querySelectorAll(".add-student-btn").forEach((btn) => {
+  if (hasCollegeDepartments) {
+    btn.disabled = false;
+    btn.title = "Add a new college student to the system";
+  } else {
+    btn.disabled = true;
+    btn.title = "You are not assigned to any College departments";
+  }
+});
+```
+
+---
+
+### 2. SeniorHighStudentManagement.php - Add Student Button
+
+**File:** `pages/program-head/SeniorHighStudentManagement.php`
+
+**Issue:**
+
+- "Add Student" button was always enabled for SHS page
+- No check if Program Head is assigned to Senior High School department
+
+**Fix:**
+
+- Updated `updateActionButtonsState()` function (lines 1417-1445)
+- Added specific check for Senior High School department using `.some()` with name matching
+- Button is disabled if no SHS department found in assignments
+- Tooltip changes to: _"You are not assigned to the Senior High School department"_
+
+**Code:**
+
+```javascript
+// Check if Program Head has Senior High School department assignments
+const hasSHSDepartment =
+  window.managedDepartments &&
+  Array.isArray(window.managedDepartments) &&
+  window.managedDepartments.some(
+    (dept) =>
+      dept.department_name &&
+      dept.department_name.toLowerCase().includes("senior high")
+  );
+
+// Handle Add Student button separately (requires SHS department assignment)
+document.querySelectorAll(".add-student-btn").forEach((btn) => {
+  if (hasSHSDepartment) {
+    btn.disabled = false;
+    btn.title = "Add a new senior high school student to the system";
+  } else {
+    btn.disabled = true;
+    btn.title = "You are not assigned to the Senior High School department";
+  }
+});
+```
+
+---
+
+### 3. FacultyManagement.php - Add Faculty Button + Profile Loading
+
+**File:** `pages/program-head/FacultyManagement.php`
+
+**Issues:**
+
+- "Add Faculty" button was not included in button state management
+- `loadProgramHeadProfile()` function was never called (unlike student pages)
+- `window.managedDepartments` was undefined, causing validation issues
+
+**Fixes:**
+
+**A. Added `loadProgramHeadProfile()` function (line 1636):**
+
+```javascript
+async function loadProgramHeadProfile() {
+  try {
+    const response = await fetch("../../api/program-head/profile.php", {
+      credentials: "include",
+    });
+    const data = await response.json();
+    if (data.success) {
+      window.managedDepartments = data.data.departments;
+      const deptNames = data.data.departments
+        .map((d) => d.department_name)
+        .join(", ");
+      const scopeElement = document.getElementById("departmentScopeText");
+      if (scopeElement) {
+        scopeElement.textContent = `Scope: ${deptNames}`;
+      }
+    }
+  } catch (error) {
+    console.error("Error loading Program Head profile:", error);
+  }
+}
+```
+
+**B. Updated `DOMContentLoaded` to call profile loading (line 1660):**
+
+```javascript
+document.addEventListener("DOMContentLoaded", async function () {
+  updateTermIndicatorBanner();
+
+  // Load Program Head profile FIRST to get department assignments
+  await loadProgramHeadProfile();
+
+  await Promise.all([
+    loadRejectionReasons(),
+    // ... other loads
+  ]);
+  // ... rest of initialization
+});
+```
+
+**C. Updated `updateFacultyActionButtonsState()` function (lines 1106-1131):**
+
+```javascript
+// Check if Program Head has College department assignments (faculty are linked to college depts)
+const hasCollegeDepartments =
+  window.managedDepartments &&
+  Array.isArray(window.managedDepartments) &&
+  window.managedDepartments.length > 0;
+
+// Handle Add Faculty button separately (requires department assignment)
+document.querySelectorAll(".add-faculty-btn").forEach((btn) => {
+  if (hasCollegeDepartments) {
+    btn.disabled = false;
+    btn.title = "Add a new faculty member to the system";
+  } else {
+    btn.disabled = true;
+    btn.title = "You are not assigned to any departments";
+  }
+});
+```
+
+---
+
+### 4. Import/Export Buttons
+
+**All Pages:** Import and Export buttons remain **always enabled** for Program Heads regardless of department assignments, as these are administrative functions that can be restricted server-side if needed.
+
+---
+
+### Permission Logic Summary
+
+| Page                 | Add Button    | Enabled When              | Disabled When          | Disabled Tooltip                                            |
+| -------------------- | ------------- | ------------------------- | ---------------------- | ----------------------------------------------------------- |
+| **College Students** | Add Student   | Has ≥1 College department | No College departments | "You are not assigned to any College departments"           |
+| **SHS Students**     | Add Student   | Has SHS department        | No SHS department      | "You are not assigned to the Senior High School department" |
+| **Faculty**          | Add Faculty   | Has ≥1 department         | No departments         | "You are not assigned to any departments"                   |
+| **All Pages**        | Import/Export | Always                    | Never                  | N/A                                                         |
+
+---
+
+### Real-World Example
+
+**Scenario:** LCA2001P is Program Head of **ICT Department** (College) only.
+
+| Page                 | Add Button State                | Why?                        |
+| -------------------- | ------------------------------- | --------------------------- |
+| **College Students** | ✅ Enabled                      | ICT is a College department |
+| **SHS Students**     | ❌ Disabled                     | ICT ≠ Senior High School    |
+| **Faculty**          | ✅ Enabled                      | Has department assignment   |
+| **All Pages**        | ✅ Import/Export always enabled | Administrative functions    |

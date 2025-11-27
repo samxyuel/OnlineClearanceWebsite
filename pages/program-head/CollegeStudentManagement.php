@@ -1553,26 +1553,37 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
 
         function updateActionButtonsState() {
             // Separate administrative actions from clearance signatory actions
-            // Administrative actions (Add, Import, Export) should always be enabled for Program Heads
-            // since they're already on a Program Head page
+            // Administrative actions - check department assignments for Add button
+            // Import/Export should always be enabled for Program Heads
             
-            // Administrative action buttons - always enabled for Program Heads
-            const adminActionSelectors = [
-                '.add-student-btn',
-                '.import-btn',
-                '.export-btn'
-            ];
+            // Check if Program Head has College department assignments
+            const hasCollegeDepartments = window.managedDepartments && 
+                Array.isArray(window.managedDepartments) && 
+                window.managedDepartments.length > 0;
             
-            // Enable administrative buttons (Program Heads always have access to these)
-            adminActionSelectors.forEach(sel => {
+            // Handle Add Student button separately (requires department assignment)
+            document.querySelectorAll('.add-student-btn').forEach(btn => {
+                try {
+                    if (hasCollegeDepartments) {
+                        btn.disabled = false;
+                        btn.classList.remove('disabled');
+                        btn.title = 'Add a new college student to the system';
+                    } else {
+                        btn.disabled = true;
+                        btn.classList.add('disabled');
+                        btn.title = 'You are not assigned to any College departments';
+                    }
+                } catch (e) { /* ignore */ }
+            });
+            
+            // Import/Export buttons - always enabled
+            const alwaysEnabledSelectors = ['.import-btn', '.export-btn'];
+            alwaysEnabledSelectors.forEach(sel => {
                 document.querySelectorAll(sel).forEach(btn => {
                     try {
                         btn.disabled = false;
                         btn.classList.remove('disabled');
-                        // Restore original titles
-                        if (btn.classList.contains('add-student-btn')) {
-                            btn.title = 'Add a new college student to the system';
-                        } else if (btn.classList.contains('import-btn')) {
+                        if (btn.classList.contains('import-btn')) {
                             btn.title = btn.title || 'Import students from file';
                         } else if (btn.classList.contains('export-btn')) {
                             btn.title = btn.title || 'Export student data';
