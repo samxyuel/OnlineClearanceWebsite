@@ -170,7 +170,7 @@
                 <?php include '../../Modals/EditCourseModal.php'; ?>
                 <?php include '../../Modals/CourseImportModal.php'; ?>
                 <?php include '../../Modals/CourseExportModal.php'; ?>
-                <?php include '../../Modals/AssignProgramHeadModal.php'; ?>
+                <?php // include '../../Modals/AssignProgramHeadModal.php'; ?>
                 
                 <!-- Add Modal Function Wrappers -->
                 <script>
@@ -624,11 +624,11 @@
                         () => openEditDepartmentModal(departmentId)
                     ));
 
-                    actions.appendChild(createActionButton(
-                        'btn btn-sm btn-outline-primary',
-                        '<i class="fas fa-user-tie"></i> Assign/Change Program Head',
-                        () => openAssignPHModal(sectorLabel, department.department_name, departmentCode)
-                    ));
+                    // actions.appendChild(createActionButton(
+                    //     'btn btn-sm btn-outline-primary',
+                    //     '<i class="fas fa-user-tie"></i> Assign/Change Program Head',
+                    //     () => openAssignPHModal(sectorLabel, department.department_name, departmentCode)
+                    // ));
 
                     actions.appendChild(createActionButton(
                         'btn btn-sm btn-outline-danger',
