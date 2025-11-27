@@ -1,6 +1,7 @@
 {
   "require": {
     "php": ">=7.4",
+    "ext-mbstring": "*",
     "phpoffice/phpword": "^1.4",
     "tecnickcom/tcpdf": "^6.10",
     "setasign/fpdi": "^2.6",
