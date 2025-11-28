@@ -49,6 +49,48 @@ try {
         $userSector = $stmt->fetchColumn();
     }
 
+    // Fetch department and program information for the user
+    $departmentName = null;
+    $programName = null;
+    $studentNumber = null;
+    $employeeNumber = null;
+    
+    if ($userRole === 'student') {
+        $infoStmt = $pdo->prepare("
+            SELECT 
+                s.student_id,
+                d.department_name,
+                p.program_name
+            FROM students s
+            LEFT JOIN departments d ON s.department_id = d.department_id
+            LEFT JOIN programs p ON s.program_id = p.program_id
+            WHERE s.user_id = ?
+        ");
+        $infoStmt->execute([$userId]);
+        $userInfo = $infoStmt->fetch(PDO::FETCH_ASSOC);
+        if ($userInfo) {
+            $studentNumber = $userInfo['student_id'];
+            $departmentName = $userInfo['department_name'];
+            $programName = $userInfo['program_name'];
+        }
+    } else if ($userRole === 'faculty') {
+        $infoStmt = $pdo->prepare("
+            SELECT 
+                f.employee_number,
+                d.department_name
+            FROM faculty f
+            LEFT JOIN departments d ON f.department_id = d.department_id
+            WHERE f.user_id = ?
+        ");
+        $infoStmt->execute([$userId]);
+        $userInfo = $infoStmt->fetch(PDO::FETCH_ASSOC);
+        if ($userInfo) {
+            $employeeNumber = $userInfo['employee_number'];
+            $departmentName = $userInfo['department_name'];
+            $programName = 'N/A'; // Faculty don't have programs
+        }
+    }
+
     // If a student or faculty user has no sector assigned, we cannot proceed.
     // For other roles (like Admin), it's normal to not have a sector.
     if (!$userSector) {
@@ -64,7 +106,13 @@ try {
                     'approved_count' => 0,
                     'total_count' => 0
                 ],
-                'recent_activity' => []
+                'recent_activity' => [],
+                'sector' => null,
+                'department' => $departmentName,
+                'program' => $programName,
+                'student_number' => $studentNumber,
+                'employee_number' => $employeeNumber,
+                'clearance_form_id' => null
             ]
         ]);
         exit;
@@ -102,7 +150,13 @@ try {
             'approved_count' => 0,
             'total_count' => 0
         ],
-        'recent_activity' => []
+        'recent_activity' => [],
+        'sector' => $userSector,
+        'department' => $departmentName,
+        'program' => $programName,
+        'student_number' => $studentNumber,
+        'employee_number' => $employeeNumber,
+        'clearance_form_id' => null
     ];
 
     // A period is considered "active" for the dashboard if the term is active, even if the period status isn't 'Ongoing' yet.
@@ -115,6 +169,8 @@ try {
         $dashboardData['period'] = [
             'academic_year' => $activeTerm['academic_year'],
             'semester_name' => $activeTerm['semester_name'],
+            'start_date' => date('M d, Y', strtotime($activePeriod['start_date'])),
+            'end_date' => date('M d, Y', strtotime($activePeriod['end_date'])),
             'days_remaining' => $daysRemaining
         ];
 
@@ -141,6 +197,7 @@ try {
                 'approved_count' => $approved,
                 'total_count' => $total
             ];
+            $dashboardData['clearance_form_id'] = $clearanceForm['clearance_form_id'];
 
             // 4. Get recent activity for this form
             $activityStmt = $pdo->prepare("

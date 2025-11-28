@@ -95,22 +95,33 @@
                                 <span id="currentAcademicYear">Loading...</span> - <span id="currentSemester">Loading...</span>
                             </span>
                             <span class="term-duration" id="termDuration">Loading term information...</span>
+                            <div class="user-identifiers">
+                                <span class="identifier-item" id="userIdentifier" style="display: none;">
+                                    <span class="identifier-label" id="identifierLabel"></span>
+                                    <span class="identifier-value" id="identifierValue"></span>
+                                </span>
+                                <span class="identifier-item" id="formIdIndicator" style="display: none;">
+                                    <span class="identifier-label">Form ID:</span>
+                                    <span class="identifier-value" id="clearanceFormId">--</span>
+                                </span>
                             </div>
                         </div>
+                    </div>
                         
-                    <!-- User Context Block (Inline text) -->
+                    <!-- User Context Block (Card layout) -->
                     <div class="user-context-inline">
-                        <span class="context-item">
-                            <i class="fas fa-graduation-cap"></i> Sector: <span id="userSector"><?php echo $user_sector; ?></span>
-                        </span>
-                        <span class="context-separator">|</span>
-                        <span class="context-item">
-                            <i class="fas fa-building"></i> Department: <span id="userDepartment">Loading...</span>
-                        </span>
-                        <span class="context-separator">|</span>
-                        <span class="context-item">
-                            <i class="fas fa-book"></i> Program: <span id="userProgram">Loading...</span>
-                        </span>
+                        <div class="context-item">
+                            <span class="context-label"><i class="fas fa-graduation-cap"></i> Sector</span>
+                            <span class="context-value" id="userSector"><?php echo $user_sector; ?></span>
+                        </div>
+                        <div class="context-item">
+                            <span class="context-label"><i class="fas fa-building"></i> Department</span>
+                            <span class="context-value" id="userDepartment">Loading...</span>
+                        </div>
+                        <div class="context-item">
+                            <span class="context-label"><i class="fas fa-book"></i> Program</span>
+                            <span class="context-value" id="userProgram">Loading...</span>
+                        </div>
                     </div>
 
                     <!-- Priority Action (Central focus) -->
@@ -119,36 +130,23 @@
                             <i class="fas fa-file-alt"></i>
                             <span id="applyBtnText">Apply for Clearance</span>
                         </button>
-                        <div class="period-info-compact" id="clearancePeriodInfo" style="display: none;">
-                            <i class="fas fa-calendar-check"></i>
-                            <span>Clearance period is now open</span>
+                        <div class="action-status-text" id="actionStatusIndicator">
+                            <span id="actionStatusText">Checking clearance period...</span>
                         </div>
                     </div>
                     
-                    <!-- Status Row (Compact horizontal cards) -->
-                    <div class="status-row-compact">
-                        <div class="status-card-compact">
-                            <i class="fas fa-clock"></i>
-                            <div class="status-info">
-                                <span class="status-value" id="clearanceStatus">Loading...</span>
-                                <span class="status-label">Status</span>
-                            </div>
+                    <!-- Clearance Status Summary (simplified) -->
+                    <div class="clearance-status-inline">
+                        <div class="status-item">
+                            <span class="status-label">Status:</span>
+                            <span class="status-value" id="clearanceStatus">Loading...</span>
                         </div>
-                        <div class="status-card-compact">
-                            <i class="fas fa-check-circle"></i>
-                            <div class="status-info">
-                                <span class="status-value" id="clearanceProgress">--/--</span>
-                                <span class="status-label">Progress</span>
-                            </div>
+                        <span class="status-divider">•</span>
+                        <div class="status-item">
+                            <span class="status-label">Progress:</span>
+                            <span class="status-value" id="clearanceProgress">--/--</span>
                         </div>
-                        <div class="status-card-compact">
-                            <i class="fas fa-calendar-alt"></i>
-                            <div class="status-info">
-                                <span class="status-value" id="periodStatus">Active</span>
-                                <span class="status-label">Period</span>
-                            </div>
-                        </div>
-                        </div>
+                    </div>
                         
                         <!-- Debug Section (only for faculty) -->
                         <?php if ($user_type === 'faculty'): ?>
@@ -193,28 +191,42 @@
                 document.getElementById('currentSemester').textContent = data.period.semester_name || '--';
                 document.getElementById('currentAcademicYear').textContent = data.period.academic_year || '--';
                 document.getElementById('termDuration').textContent = `Duration: ${data.period.start_date} to ${data.period.end_date}`;
-                const periodName = `${data.period.academic_year} ${data.period.semester_name}`;
-                document.querySelector('#clearancePeriodInfo span').textContent = `Clearance period is now open for ${periodName}`;
-                document.getElementById('clearancePeriodInfo').style.display = 'block';
             } else {
                 document.getElementById('currentSemester').textContent = 'N/A';
                 document.getElementById('currentAcademicYear').textContent = 'No Active Period';
                 document.getElementById('termDuration').textContent = 'No active clearance period';
-                document.getElementById('clearancePeriodInfo').style.display = 'none';
+            }
+
+            // Update User Identifiers
+            const userIdentifier = document.getElementById('userIdentifier');
+            const identifierLabel = document.getElementById('identifierLabel');
+            const identifierValue = document.getElementById('identifierValue');
+            const formIdIndicator = document.getElementById('formIdIndicator');
+            const formIdValue = document.getElementById('clearanceFormId');
+
+            if (data.student_number) {
+                identifierLabel.textContent = 'Student #:';
+                identifierValue.textContent = data.student_number;
+                userIdentifier.style.display = 'flex';
+            } else if (data.employee_number) {
+                identifierLabel.textContent = 'Employee #:';
+                identifierValue.textContent = data.employee_number;
+                userIdentifier.style.display = 'flex';
+            } else {
+                userIdentifier.style.display = 'none';
+            }
+
+            if (data.clearance_form_id) {
+                formIdValue.textContent = data.clearance_form_id;
+                formIdIndicator.style.display = 'flex';
+            } else {
+                formIdIndicator.style.display = 'none';
             }
 
             // Update Status Cards
             document.getElementById('clearanceStatus').textContent = data.clearance.status || 'Not Started';
             document.getElementById('clearanceProgress').textContent = data.clearance.progress_text || '--/--';
             
-            // Update Period Status
-            const periodStatusEl = document.getElementById('periodStatus');
-            if (data.period) {
-                periodStatusEl.textContent = 'Active';
-            } else {
-                periodStatusEl.textContent = 'Inactive';
-            }
-
             // Update Main Action Button
             updateMainActionButton(data);
 
@@ -233,26 +245,39 @@
     function updateMainActionButton(data) {
         const btn = document.getElementById('applyClearanceBtn');
         const text = document.getElementById('applyBtnText');
-
         const icon = btn.querySelector('i');
+        const statusText = document.getElementById('actionStatusText');
 
         if (!data.period) { // No active period
             btn.disabled = true;
             text.textContent = 'Clearance Period Closed';
             icon.className = 'fas fa-clock';
             btn.title = 'There is no active clearance period.';
+            
+            // Simple text message
+            if (statusText) {
+                statusText.textContent = 'No active clearance period at this time';
+            }
         } else if (data.clearance.status !== 'Not Started' && data.clearance.status !== 'Unapplied') {
             // Already applied
             text.textContent = 'Go to My Clearance';
             icon.className = 'fas fa-eye';
             btn.title = 'View your clearance status and progress.';
             btn.disabled = false;
+            
+            if (statusText) {
+                statusText.textContent = 'You have an active clearance application';
+            }
         } else {
             // Can apply
             text.textContent = 'Apply for Clearance';
             icon.className = 'fas fa-file-alt';
             btn.title = 'Begin your clearance application for the current semester.';
             btn.disabled = false;
+            
+            if (statusText) {
+                statusText.textContent = 'Clearance period is open — Apply now!';
+            }
         }
     }
 

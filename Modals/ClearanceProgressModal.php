@@ -371,6 +371,12 @@
 
 <script>
 // Clearance Progress Modal Functions
+
+// Store the current clearance form data for export
+let currentClearanceFormId = null;
+let currentPersonName = '';
+let currentPersonType = '';
+
 window.openClearanceProgressModal = function(personId, personType, personName, schoolTerm = '') {
     try {
         const modal = document.getElementById('clearanceProgressModal');
@@ -487,8 +493,18 @@ function loadClearanceProgressData(personId, personType, schoolTerm = '') {
                 throw new Error(res.message||'Failed to load progress');
             }
 
+            // Store the clearance_form_id for export functionality
+            currentClearanceFormId = res.clearance_form_id || null;
+            currentPersonName = document.getElementById('progressPersonName')?.textContent || 'User';
+            currentPersonType = personType;
+            
+            console.log('[ClearanceProgressModal] Stored for export - Form ID:', currentClearanceFormId, 'Person:', currentPersonName, 'Type:', currentPersonType);
+
             // Handle empty response (no form found for selected term)
             if (res.message && res.message.includes('No clearance forms found')) {
+                // Reset export data since there's no form
+                currentClearanceFormId = null;
+                
                 const signatoriesList = document.getElementById('signatoriesList');
                 if (signatoriesList) {
                     signatoriesList.innerHTML = `
@@ -539,6 +555,10 @@ function loadClearanceProgressData(personId, personType, schoolTerm = '') {
         })
         .catch(err=>{
             console.error('Failed to load clearance progress:', err);
+            
+            // Reset export data on error
+            currentClearanceFormId = null;
+            
             const signatoriesList = document.getElementById('signatoriesList');
             signatoriesList.innerHTML = `<div class="error-state" style="padding: 2rem; text-align: center; color: var(--danger-red);">
                                             <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 0.5rem;"></i>
@@ -606,10 +626,32 @@ function updateProgressDisplay(data) {
 }
 
 function exportClearanceForm() {
-    const personName = document.getElementById('progressPersonName').textContent;
-    showToastNotification(`Exporting clearance form for ${personName}...`, 'info');
-    // In a real application, this would generate and download the clearance form PDF
-    // This will be developed in the near future
+    const personName = document.getElementById('progressPersonName')?.textContent || currentPersonName || 'User';
+    
+    // Check if we have a clearance form ID loaded
+    if (!currentClearanceFormId) {
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('No clearance form loaded. Please wait for data to load or select a valid clearance period.', 'warning');
+        } else {
+            alert('No clearance form loaded. Please wait for data to load or select a valid clearance period.');
+        }
+        return;
+    }
+    
+    // Show loading notification
+    if (typeof showToastNotification === 'function') {
+        showToastNotification(`Preparing clearance form export for ${personName}...`, 'info');
+    }
+    
+    console.log('[ClearanceProgressModal] Exporting clearance form:', {
+        formId: currentClearanceFormId,
+        personName: personName,
+        personType: currentPersonType
+    });
+    
+    // Call the admin export API - this will trigger a file download
+    // The API handles authorization (Admin, School Administrator, Regular Staff, Program Head)
+    window.location.href = `../../api/clearance/export_report_admin.php?form_id=${currentClearanceFormId}`;
 }
 
 // Make export function globally available

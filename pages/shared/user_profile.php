@@ -839,14 +839,6 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
 
         // Mobile-specific enhancements
         function initMobileEnhancements() {
-            // Prevent double-tap zoom on buttons
-            const buttons = document.querySelectorAll('.tab-btn, .btn, .edit-btn');
-            buttons.forEach(button => {
-                button.addEventListener('touchstart', function(e) {
-                    e.preventDefault();
-                }, { passive: false });
-            });
-            
             // Improve touch scrolling
             document.body.style.webkitOverflowScrolling = 'touch';
             
@@ -855,6 +847,25 @@ $currentRoleDisplay = isset($roleDisplayNames[$currentRole]) ? $roleDisplayNames
                 setTimeout(function() {
                     window.scrollTo(0, 0);
                 }, 100);
+            });
+            
+            // Ensure buttons are clickable on mobile
+            // Use touch-action: manipulation in CSS instead of preventing default
+            // This allows clicks while preventing double-tap zoom
+            const buttons = document.querySelectorAll('.tab-btn, .btn, .edit-btn, .profile-edit-btn');
+            buttons.forEach(button => {
+                // Ensure pointer events are enabled
+                button.style.pointerEvents = 'auto';
+                button.style.touchAction = 'manipulation';
+                
+                // Add active state for better touch feedback
+                button.addEventListener('touchstart', function() {
+                    this.style.opacity = '0.8';
+                }, { passive: true });
+                
+                button.addEventListener('touchend', function() {
+                    this.style.opacity = '1';
+                }, { passive: true });
             });
         }
 

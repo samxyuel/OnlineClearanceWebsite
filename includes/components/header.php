@@ -111,7 +111,7 @@ if ($userRole === 'Staff' && $userPosition) {
                     <button class="dropdown-toggle">▼</button>
                     <div class="dropdown-menu">
                         <a href="../../pages/shared/user_profile.php">Profile</a>
-                        <a href="../../pages/shared/settings.php">Settings</a>
+                        <!-- <a href="../../pages/shared/settings.php">Settings</a> -->
                         <a href="../../pages/auth/logout.php" class="logout-link">Logout</a>
                     </div>
                 </div>

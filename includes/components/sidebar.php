@@ -100,7 +100,7 @@ $sidebarLinks = [
         ],
         'bottom' => [
             ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
-            ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
+            //['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]
     ],
@@ -116,7 +116,7 @@ $sidebarLinks = [
         ],
         'bottom' => [
             ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
-            ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
+            //['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]
     ],
@@ -138,7 +138,7 @@ $sidebarLinks = [
         ],
         'bottom' => [
             ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
-            ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
+            //['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]
     ],
@@ -154,7 +154,7 @@ $sidebarLinks = [
         ],
         'bottom' => [
             ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
-            ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
+            //['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]
     ],
@@ -171,7 +171,7 @@ $sidebarLinks = [
         ],
         'bottom' => [
             ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
-            ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
+            //['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]
     ],
@@ -187,7 +187,7 @@ $sidebarLinks = [
         ],
         'bottom' => [
             ['icon' => 'fas fa-user', 'text' => 'Profile', 'link' => '../../pages/shared/user_profile.php'],
-            ['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
+            //['icon' => 'fas fa-cog', 'text' => 'Settings', 'link' => '../../pages/shared/settings.php'],
             ['icon' => 'fas fa-sign-out-alt', 'text' => 'Logout', 'link' => '../../pages/auth/logout.php']
         ]
     ]
