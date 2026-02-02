@@ -15,10 +15,29 @@
             <form id="editDepartmentForm">
                 <input type="hidden" id="editDepartmentId" name="departmentId">
                 
+                <!-- Cross-Sector Warning Banner -->
+                <div id="crossSectorWarning" class="cross-sector-warning" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div>
+                        <strong>Cross-Sector Department</strong>
+                        <p id="crossSectorSectors"></p>
+                        <p class="warning-text">Updating name or code will affect all sectors where this department exists.</p>
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label for="editDepartmentName">Department Name *</label>
                     <input type="text" id="editDepartmentName" name="departmentName" required 
                            placeholder="Enter department name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="editDepartmentCode">Department Code *</label>
+                    <input type="text" id="editDepartmentCode" name="departmentCode" required
+                           placeholder="e.g., ICT" maxlength="10" pattern="[A-Z0-9]+"
+                           title="Uppercase letters and numbers only"
+                           style="text-transform: uppercase;">
+                    <small class="form-help">Must be unique across all sectors</small>
                 </div>
                 
                 <div class="form-group">
@@ -27,6 +46,7 @@
                         <option value="">Select department type</option>
                         <option value="college">College</option>
                         <option value="senior-high">Senior High School</option>
+                        <option value="faculty">Faculty Only</option>
                     </select>
                 </div>
                 
@@ -36,12 +56,6 @@
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                     </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="editDepartmentDescription">Description</label>
-                    <textarea id="editDepartmentDescription" name="departmentDescription" 
-                              placeholder="Enter department description (optional)"></textarea>
                 </div>
             </form>
             
@@ -352,7 +366,7 @@
 </style>
 
 <script>
-function openEditDepartmentModalInternal(departmentId) {
+async function openEditDepartmentModalInternal(departmentId) {
     try {
         const modal = document.getElementById('editDepartmentModal');
         if (!modal) {
@@ -362,32 +376,90 @@ function openEditDepartmentModalInternal(departmentId) {
             return;
         }
 
-        // Simulate fetching department data
-        const departmentData = getDepartmentData(departmentId);
+        // Fetch department with cross-sector info
+        const response = await fetch('../../api/departments/list.php?limit=500', {
+            credentials: 'include'
+        });
+        const data = await response.json();
         
-        // Populate form fields
-        const deptIdField = document.getElementById('editDepartmentId');
-        const deptNameField = document.getElementById('editDepartmentName');
-        const deptTypeField = document.getElementById('editDepartmentType');
-        const deptStatusField = document.getElementById('editDepartmentStatus');
-        const deptDescField = document.getElementById('editDepartmentDescription');
+        // Find the department
+        let department = null;
+        data.departments.forEach(dept => {
+            dept.sectors.forEach(sector => {
+                if (sector.department_id == departmentId) {
+                    department = { 
+                        ...dept, 
+                        current_department_id: sector.department_id,
+                        current_sector_id: sector.sector_id
+                    };
+                }
+            });
+        });
         
-        if (deptIdField) deptIdField.value = departmentId;
-        if (deptNameField) deptNameField.value = departmentData.name;
-        if (deptTypeField) deptTypeField.value = departmentData.type;
-        if (deptStatusField) deptStatusField.value = departmentData.status;
-        if (deptDescField) deptDescField.value = departmentData.description || '';
+        if (!department) {
+            showToastNotification('Department not found', 'error');
+            return;
+        }
         
-        // Load department courses
-        if (departmentId) {
-            loadDepartmentCourses(departmentId);
+        // Populate form
+        document.getElementById('editDepartmentId').value = department.current_department_id;
+        document.getElementById('editDepartmentName').value = department.department_name;
+        document.getElementById('editDepartmentCode').value = department.department_code || '';
+        
+        // Set department type based on sectors
+        const hasCollege = department.sectors.some(s => s.sector_id === 1);
+        const hasSHS = department.sectors.some(s => s.sector_id === 2);
+        const hasFaculty = department.sectors.some(s => s.sector_id === 3);
+        
+        let deptType = '';
+        if (hasCollege && hasFaculty && !hasSHS) {
+            deptType = 'college';
+        } else if (hasSHS && hasFaculty && !hasCollege) {
+            deptType = 'senior-high';
+        } else if (hasFaculty && !hasCollege && !hasSHS) {
+            deptType = 'faculty';
+        }
+        
+        document.getElementById('editDepartmentType').value = deptType;
+        document.getElementById('editDepartmentStatus').value = department.is_active ? 'active' : 'inactive';
+        
+        // Show cross-sector warning if shared
+        const warningDiv = document.getElementById('crossSectorWarning');
+        const sectorsP = document.getElementById('crossSectorSectors');
+        if (department.is_shared && department.sectors.length > 1) {
+            const sectorsList = department.sectors.map(s => s.sector_name).join(', ');
+            sectorsP.textContent = `This department exists in: ${sectorsList}`;
+            warningDiv.style.display = 'flex';
+        } else {
+            warningDiv.style.display = 'none';
+        }
+        
+        // Show/hide course management section based on eligibility
+        const courseSection = document.querySelector('.course-management-section');
+        const canAddCourses = department.sectors.some(s => s.sector_id === 1 || s.sector_id === 2);
+        
+        if (courseSection) {
+            if (canAddCourses) {
+                courseSection.style.display = 'block';
+                loadDepartmentCourses(departmentId);
+            } else {
+                courseSection.style.display = 'none';
+                // Show faculty-only message
+                const noCoursesMsg = document.getElementById('noCoursesMessage');
+                if (noCoursesMsg) {
+                    noCoursesMsg.innerHTML = `
+                        <i class="fas fa-info-circle"></i>
+                        <p>This is a faculty-only department. Courses are not applicable.</p>
+                    `;
+                    noCoursesMsg.style.display = 'block';
+                }
+            }
         }
         
         // Use window.openModal if available, otherwise fallback
         if (typeof window.openModal === 'function') {
             window.openModal('editDepartmentModal');
         } else {
-            // Fallback to direct manipulation
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             document.body.classList.add('modal-open');
@@ -396,8 +468,9 @@ function openEditDepartmentModalInternal(departmentId) {
             });
         }
     } catch (error) {
+        console.error('Error loading department data:', error);
         if (typeof showToastNotification === 'function') {
-            showToastNotification('Unable to open edit department modal. Please try again.', 'error');
+            showToastNotification('Unable to load department data. Please try again.', 'error');
         }
     }
 }
@@ -473,28 +546,49 @@ function updateDepartment() {
         id: formData.get('departmentId'),
         name: formData.get('departmentName'),
         type: formData.get('departmentType'),
-        status: formData.get('departmentStatus'),
-        description: formData.get('departmentDescription')
+        status: formData.get('departmentStatus')
     };
     
     // Show loading notification
     showToastNotification('Updating department...', 'info', 2000);
     
-    // Simulate API call
-    console.log('Updating department:', departmentData);
-    
-    setTimeout(() => {
-        // Show success message
-        showToastNotification('Department updated successfully!', 'success', 3000);
-        
-        // Close modal
-        closeEditDepartmentModal();
-        
-        // Refresh the page or update the UI
-        setTimeout(() => {
-            location.reload();
-        }, 1000);
-    }, 1500);
+    // Call API to update department
+    fetch('../../api/departments/update.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(departmentData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            let message = data.message || 'Department updated successfully!';
+            if (data.is_cross_sector) {
+                message += ` (Updated ${data.updated_records} sector records)`;
+            }
+            showToastNotification(message, 'success', 3000);
+            
+            // Close modal
+            closeEditDepartmentModal();
+            
+            // Refresh the page
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            showToastNotification(
+                data.message || 'Failed to update department', 
+                'error', 
+                4000
+            );
+        }
+    })
+    .catch(error => {
+        console.error('Error updating department:', error);
+        showToastNotification('An error occurred while updating the department', 'error', 4000);
+    });
 }
 
 function getDepartmentData(departmentId) {
@@ -546,45 +640,56 @@ function getDepartmentData(departmentId) {
     };
 }
 
-function loadDepartmentCourses(departmentId) {
-    // Simulate API call to get department courses
-    const departmentCourses = {
-        'ICT': [
-            { code: 'BSIT', name: 'BS in Information Technology', status: 'active' },
-            { code: 'BSCS', name: 'BS in Computer Science', status: 'active' },
-            { code: 'BSCpE', name: 'BS in Computer Engineering', status: 'inactive' }
-        ],
-        'BSA': [
-            { code: 'BSBA', name: 'BS in Business Administration', status: 'active' },
-            { code: 'BSA', name: 'BS in Accountancy', status: 'active' },
-            { code: 'BSAIS', name: 'BS in Accounting Information System', status: 'inactive' },
-            { code: 'BMMA', name: 'Bachelor of Multimedia Arts', status: 'active' },
-            { code: 'BAC', name: 'BA in Communication', status: 'active' }
-        ],
-        'THM': [
-            { code: 'BSHM', name: 'BS in Hospitality Management', status: 'active' },
-            { code: 'BSCM', name: 'BS in Culinary Management', status: 'active' },
-            { code: 'BSTM', name: 'BS in Tourism Management', status: 'inactive' }
-        ],
-        'ACADEMIC': [
-            { code: 'ABM', name: 'Accountancy, Business, Management', status: 'active' },
-            { code: 'STEM', name: 'Science, Technology, Engineering, and Mathematics', status: 'active' },
-            { code: 'HUMSS', name: 'Humanities and Social Sciences', status: 'active' },
-            { code: 'GA', name: 'General Academic', status: 'inactive' }
-        ],
-        'TVL': [
-            { code: 'DIGITAL_ARTS', name: 'Digital Arts', status: 'active' },
-            { code: 'MAWD', name: 'IT in Mobile app and Web development (MAWD)', status: 'inactive' }
-        ],
-        'HOME_ECON': [
-            { code: 'TOURISM_OPS', name: 'Tourism Operations', status: 'active' },
-            { code: 'RESTAURANT_OPS', name: 'Restaurant and Cafe Operations', status: 'active' },
-            { code: 'CULINARY_ARTS', name: 'Culinary Arts', status: 'inactive' }
-        ]
-    };
+async function loadDepartmentCourses(departmentId) {
+    const coursesList = document.getElementById('departmentCoursesList');
+    const noCoursesMessage = document.getElementById('noCoursesMessage');
     
-    const courses = departmentCourses[departmentId] || [];
-    displayDepartmentCourses(courses);
+    // Show loading state
+    if (coursesList) {
+        coursesList.innerHTML = '<div class="loading-spinner" style="text-align: center; padding: 20px; color: var(--medium-muted-blue);"><i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i><p style="margin-top: 10px;">Loading courses...</p></div>';
+        coursesList.style.display = 'flex';
+    }
+    if (noCoursesMessage) {
+        noCoursesMessage.style.display = 'none';
+    }
+    
+    try {
+        const response = await fetch(`../../api/programs/list.php?department_id=${departmentId}`, {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.programs) {
+            // Map API response to expected format
+            const courses = data.programs.map(program => ({
+                code: program.program_code,
+                name: program.program_name,
+                status: program.is_active ? 'active' : 'inactive',
+                program_id: program.program_id
+            }));
+            
+            displayDepartmentCourses(courses);
+        } else {
+            throw new Error(data.message || 'Failed to load courses');
+        }
+    } catch (error) {
+        console.error('Error loading courses:', error);
+        if (coursesList) {
+            coursesList.style.display = 'none';
+        }
+        if (noCoursesMessage) {
+            noCoursesMessage.innerHTML = `
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Error loading courses. Please try again.</p>
+            `;
+            noCoursesMessage.style.display = 'block';
+        }
+    }
 }
 
 function displayDepartmentCourses(courses) {
@@ -619,7 +724,7 @@ function displayDepartmentCourses(courses) {
                            onchange="toggleCourseStatus('${course.code}', this.checked)">
                     <span class="course-status-slider"></span>
                 </label>
-                <button class="remove-course-btn" onclick="removeCourse('${course.code}')">
+                <button class="remove-course-btn" onclick="removeCourse(${course.program_id}, '${course.code}', '${course.name}')">
                     <i class="fas fa-trash"></i>
                     Remove
                 </button>
@@ -629,22 +734,49 @@ function displayDepartmentCourses(courses) {
     });
 }
 
-function removeCourse(courseCode) {
+function removeCourse(programId, courseCode, courseName) {
+    const label = courseName ? `${courseCode} - ${courseName}` : courseCode;
     showConfirmationModal(
-        `Are you sure you want to remove the course "${courseCode}"?`,
+        `Are you sure you want to remove the course "${label}"?`,
         'This action cannot be undone. The course will be permanently removed from this department.',
         'Remove Course',
         'Cancel',
         () => {
-            // Simulate API call to remove course
-            console.log('Removing course:', courseCode);
+            showToastNotification('Removing course...', 'info', 1500);
             
-            // Show success message
-            showToastNotification(`Course ${courseCode} removed successfully`, 'success');
-            
-            // Refresh the courses list
-            const departmentId = document.getElementById('editDepartmentId').value;
-            loadDepartmentCourses(departmentId);
+            // Call API to delete course
+            fetch('../../api/programs/delete.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({ program_id: programId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToastNotification(
+                        data.message || `Course ${courseCode} removed successfully`, 
+                        'success', 
+                        3000
+                    );
+                    
+                    // Refresh the courses list
+                    const departmentId = document.getElementById('editDepartmentId').value;
+                    loadDepartmentCourses(departmentId);
+                } else {
+                    showToastNotification(
+                        data.message || 'Failed to remove course', 
+                        'error', 
+                        4000
+                    );
+                }
+            })
+            .catch(error => {
+                console.error('Error removing course:', error);
+                showToastNotification('An error occurred while removing the course', 'error', 4000);
+            });
         },
         'danger'
     );

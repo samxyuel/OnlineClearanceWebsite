@@ -31,18 +31,7 @@
                     <label for="courseDepartment">Department *</label>
                     <select id="courseDepartment" name="courseDepartment" required>
                         <option value="">Select department</option>
-                        <!-- College Departments -->
-                        <optgroup label="College Departments">
-                            <option value="ICT">INFORMATION & COMMUNICATION TECHNOLOGY (ICT)</option>
-                            <option value="BSA">BUSINESS & MANAGEMENT, Arts, and Sciences (BSA)</option>
-                            <option value="THM">Tourism and Hospitality Management (THM)</option>
-                        </optgroup>
-                        <!-- Senior High Departments -->
-                        <optgroup label="Senior High School Departments">
-                            <option value="ACADEMIC">ACADEMIC TRACK</option>
-                            <option value="TVL">TECHNICAL-VOCATIONAL LIVELIHOOD TRACK</option>
-                            <option value="HOME_ECON">HOME ECONOMICS</option>
-                        </optgroup>
+                        <!-- Departments will be populated dynamically -->
                     </select>
                 </div>
                 
@@ -52,12 +41,6 @@
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                     </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="courseDescription">Description</label>
-                    <textarea id="courseDescription" name="courseDescription" 
-                              placeholder="Enter course description (optional)"></textarea>
                 </div>
             </form>
         </div>
@@ -141,7 +124,77 @@
 </style>
 
 <script>
-function openAddCourseModalInternal(departmentId) {
+async function populateCourseDepartments() {
+    const deptSelect = document.getElementById('courseDepartment');
+    if (!deptSelect) return;
+    
+    try {
+        const response = await fetch('../../api/departments/list.php?limit=500', {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.success && data.departments) {
+            deptSelect.innerHTML = '<option value="">Select department</option>';
+            
+            // FILTER: Only include departments that have College or SHS sectors (course-eligible)
+            const courseEligibleDepts = data.departments.filter(dept => {
+                return dept.sectors.some(sector => 
+                    sector.sector_id === 1 || sector.sector_id === 2
+                );
+            });
+            
+            // Group by sector (only College and SHS)
+            const bySector = {};
+            courseEligibleDepts.forEach(dept => {
+                dept.sectors.forEach(sector => {
+                    // Only include College and SHS sectors
+                    if (sector.sector_id === 1 || sector.sector_id === 2) {
+                        const sectorName = sector.sector_name || 'Unknown';
+                        if (!bySector[sectorName]) bySector[sectorName] = [];
+                        bySector[sectorName].push({
+                            department_id: sector.department_id, // Use student sector's ID
+                            department_name: dept.department_name,
+                            department_code: dept.department_code,
+                            is_shared: dept.is_shared
+                        });
+                    }
+                });
+            });
+            
+            // Show departments grouped by sector (College, SHS only)
+            const sectorOrder = ['College', 'Senior High School'];
+            sectorOrder.forEach(sector => {
+                if (bySector[sector] && bySector[sector].length > 0) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = sector;
+                    
+                    bySector[sector].forEach(dept => {
+                        const option = document.createElement('option');
+                        option.value = dept.department_id;
+                        let text = dept.department_name;
+                        if (dept.department_code) {
+                            text += ` (${dept.department_code})`;
+                        }
+                        // Show indicator if shared
+                        if (dept.is_shared) {
+                            text += ' [Shared]';
+                        }
+                        option.textContent = text;
+                        optgroup.appendChild(option);
+                    });
+                    
+                    deptSelect.appendChild(optgroup);
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load departments:', error);
+        deptSelect.innerHTML = '<option value="">Error loading departments</option>';
+    }
+}
+
+async function openAddCourseModalInternal(departmentId) {
     try {
         const modal = document.getElementById('addCourseModal');
         if (!modal) {
@@ -157,6 +210,9 @@ function openAddCourseModalInternal(departmentId) {
             deptIdField.value = departmentId;
         }
         
+        // Populate departments dropdown
+        await populateCourseDepartments();
+        
         // Pre-select the department in dropdown
         const deptSelect = document.getElementById('courseDepartment');
         if (deptSelect && departmentId) {
@@ -166,6 +222,11 @@ function openAddCourseModalInternal(departmentId) {
         // Reset form
         const form = document.getElementById('addCourseForm');
         if (form) form.reset();
+        
+        // Re-set department if provided
+        if (deptSelect && departmentId) {
+            deptSelect.value = departmentId;
+        }
         
         // Use window.openModal if available, otherwise fallback
         if (typeof window.openModal === 'function') {
@@ -271,27 +332,48 @@ function saveCourse() {
         name: formData.get('courseName'),
         departmentId: formData.get('departmentId'),
         department: formData.get('courseDepartment'),
-        status: formData.get('courseStatus'),
-        description: formData.get('courseDescription')
+        status: formData.get('courseStatus')
     };
     
     // Show loading notification
     showToastNotification('Adding course...', 'info', 2000);
     
-    // Simulate API call
-    console.log('Adding course:', courseData);
-    
-    setTimeout(() => {
-        // Show success message
-        showToastNotification('Course added successfully!', 'success', 3000);
-        
-        // Close modal
-        closeAddCourseModal();
-        
-        // Refresh the page or update the UI
-        setTimeout(() => {
-            location.reload();
-        }, 1000);
-    }, 1500);
+    // Call API to create course
+    fetch('../../api/programs/create.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(courseData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToastNotification(
+                data.message || 'Course added successfully!', 
+                'success', 
+                3000
+            );
+            
+            // Close modal
+            closeAddCourseModal();
+            
+            // Refresh the page
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            showToastNotification(
+                data.message || 'Failed to add course', 
+                'error', 
+                4000
+            );
+        }
+    })
+    .catch(error => {
+        console.error('Error adding course:', error);
+        showToastNotification('An error occurred while adding the course', 'error', 4000);
+    });
 }
 </script> 

@@ -510,11 +510,15 @@ function assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssign
             error_log("✅ AUTO-APPROVING 'Program Head' for faculty member {$user['user_id']} who is also a Program Head.");
             $action = 'Approved';
             $actualUserId = $user['user_id']; // The user signs for themselves.
+            $signatoryFirstName = $user['first_name'] ?? null;
+            $signatoryLastName = $user['last_name'] ?? null;
             $dateSigned = 'NOW()';
         } else {
             error_log("✅ Assigning designation '{$assignment['designation_name']}' to form {$clearanceFormId}");
             $action = 'Unapplied';
             $actualUserId = null;
+            $signatoryFirstName = null;
+            $signatoryLastName = null;
             $dateSigned = 'NULL';
         }
         
@@ -524,10 +528,12 @@ function assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssign
                 clearance_form_id,
                 designation_id,
                 actual_user_id,
+                signatory_first_name,
+                signatory_last_name,
                 action,
                 created_at,
                 date_signed
-            ) VALUES (?, ?, ?, ?, NOW(), $dateSigned)
+            ) VALUES (?, ?, ?, ?, ?, ?, NOW(), $dateSigned)
         ";
         
         $stmt = $connection->prepare($sql);
@@ -535,6 +541,8 @@ function assignSignatoriesToForm($connection, $clearanceFormId, $signatoryAssign
             $clearanceFormId,
             $assignment['designation_id'],
             $actualUserId,
+            $signatoryFirstName,
+            $signatoryLastName,
             $action
         ]);
         

@@ -106,7 +106,6 @@ try {
                     'approved_count' => 0,
                     'total_count' => 0
                 ],
-                'recent_activity' => [],
                 'sector' => null,
                 'department' => $departmentName,
                 'program' => $programName,
@@ -150,7 +149,6 @@ try {
             'approved_count' => 0,
             'total_count' => 0
         ],
-        'recent_activity' => [],
         'sector' => $userSector,
         'department' => $departmentName,
         'program' => $programName,
@@ -198,21 +196,6 @@ try {
                 'total_count' => $total
             ];
             $dashboardData['clearance_form_id'] = $clearanceForm['clearance_form_id'];
-
-            // 4. Get recent activity for this form
-            $activityStmt = $pdo->prepare("
-                SELECT 
-                    cs.action, 
-                    cs.date_signed,
-                    d.designation_name
-                FROM clearance_signatories cs
-                JOIN designations d ON cs.designation_id = d.designation_id
-                WHERE cs.clearance_form_id = ? AND cs.action != 'Pending'
-                ORDER BY cs.date_signed DESC
-                LIMIT 5
-            ");
-            $activityStmt->execute([$clearanceForm['clearance_form_id']]);
-            $dashboardData['recent_activity'] = $activityStmt->fetchAll(PDO::FETCH_ASSOC);
         }
     }
 

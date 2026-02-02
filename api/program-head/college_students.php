@@ -10,6 +10,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../includes/config/database.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
+require_once __DIR__ . '/../../includes/helpers/department_helpers.php';
 
 function send_json_response($success, $data = [], $message = '', $statusCode = 200) {
     http_response_code($statusCode);
@@ -26,20 +27,12 @@ try {
     $userId = $auth->getUserId();
     $pdo = Database::getInstance()->getConnection();
 
-    // 1. Verify user is a Program Head and get their assigned departments
-    $deptStmt = $pdo->prepare("
-        SELECT d.department_id, d.department_name
-        FROM staff s
-        JOIN departments d ON s.department_id = d.department_id
-        WHERE s.user_id = ? AND s.staff_category = 'Program Head' AND s.is_active = 1
-    ");
-    $deptStmt->execute([$userId]);
-    $departments = $deptStmt->fetchAll(PDO::FETCH_ASSOC);
+    // 1. Verify user is a Program Head and get their assigned departments (cross-sector)
+    $departmentIds = getCrossSectorDepartmentIds($pdo, $userId);
 
-    if (empty($departments)) {
+    if (empty($departmentIds)) {
         send_json_response(false, [], 'You are not assigned to any departments as a Program Head.', 403);
     }
-    $departmentIds = array_column($departments, 'department_id');
     
     // Create named placeholders for the IN clause to avoid mixing with other named params
     $deptPlaceholders = [];

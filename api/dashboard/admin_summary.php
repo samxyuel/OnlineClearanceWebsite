@@ -92,22 +92,7 @@ try {
     $activeClearances = $activeClearancesStmt->fetch(PDO::FETCH_ASSOC);
     $totalUsers['active_clearances'] = (int)$activeClearances['active_clearances'];
 
-    // 4. Get recent activity (last 10 activities)
-    $recentActivityStmt = $pdo->query("
-        SELECT 
-            'clearance_completed' as activity_type,
-            CONCAT(u.first_name, ' ', u.last_name) as user_name,
-            cf.clearance_type,
-            cf.updated_at as activity_time
-        FROM clearance_forms cf
-        JOIN users u ON cf.user_id = u.user_id
-        WHERE cf.clearance_form_progress = 'Completed'
-        ORDER BY cf.updated_at DESC
-        LIMIT 10
-    ");
-    $recentActivity = $recentActivityStmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // 5. Get active clearance periods by sector
+    // 4. Get active clearance periods by sector
     $periodsStmt = $pdo->query("
         SELECT 
             cp.sector,
@@ -133,7 +118,6 @@ try {
         'active_term' => $activeTerm,
         'sector_stats' => $sectorStats,
         'total_users' => $totalUsers,
-        'recent_activity' => $recentActivity,
         'active_periods' => $periodsBySector,
         'college' => $sectorStats['College'] ?? ['applied' => 0, 'completed' => 0],
         'shs' => $sectorStats['Senior High School'] ?? ['applied' => 0, 'completed' => 0],

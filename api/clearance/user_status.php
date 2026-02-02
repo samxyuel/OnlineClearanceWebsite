@@ -321,8 +321,10 @@ try {
             cs.created_at,
             cs.updated_at,
             d.designation_name,
-            u_signatory.first_name as signatory_first_name,
-            u_signatory.last_name as signatory_last_name,
+            cs.signatory_first_name as preserved_first_name,
+            cs.signatory_last_name as preserved_last_name,
+            u_signatory.first_name as live_first_name,
+            u_signatory.last_name as live_last_name,
             u_signatory.username as signatory_username
         FROM clearance_signatories cs
         INNER JOIN designations d ON cs.designation_id = d.designation_id
@@ -397,7 +399,11 @@ try {
             'date_signed' => $signatory['date_signed'],
             'created_at' => $signatory['created_at'],
             'updated_at' => $signatory['updated_at'],
-            'signatory_name' => trim(($signatory['signatory_first_name'] ?? '') . ' ' . ($signatory['signatory_last_name'] ?? '')),
+            // Use COALESCE logic: preserved names first, then live names from users table
+            'signatory_name' => trim(
+                (($signatory['preserved_first_name'] ?? '') . ' ' . ($signatory['preserved_last_name'] ?? '')) 
+                ?: (($signatory['live_first_name'] ?? '') . ' ' . ($signatory['live_last_name'] ?? ''))
+            ),
             'signatory_username' => $signatory['signatory_username']
         ];
     }

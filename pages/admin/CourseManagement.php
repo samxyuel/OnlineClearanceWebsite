@@ -95,10 +95,6 @@
                                                 <i class="fas fa-download"></i>
                                                 <span>Import</span>
                                             </button>
-                                            <button class="btn btn-outline btn-compact" onclick="openExportModal()">
-                                                <i class="fas fa-upload"></i>
-                                                <span>Export</span>
-                                            </button>
                                             </div>
                                             <div class="right-actions">
                                                 <button class="btn btn-primary btn-compact" onclick="openAddDepartmentModal()">
@@ -169,7 +165,6 @@
                 <?php include '../../Modals/AddCourseModal.php'; ?>
                 <?php include '../../Modals/EditCourseModal.php'; ?>
                 <?php include '../../Modals/CourseImportModal.php'; ?>
-                <?php include '../../Modals/CourseExportModal.php'; ?>
                 <?php // include '../../Modals/AssignProgramHeadModal.php'; ?>
                 
                 <!-- Add Modal Function Wrappers -->
@@ -294,30 +289,6 @@
                             }
                         }
                     }
-                    
-                    function openExportModal() {
-                        try {
-                            if (typeof window.openExportModalInternal === 'function') {
-                                window.openExportModalInternal();
-                            } else {
-                                // Fallback to window.openModal or direct manipulation
-                                const modal = document.getElementById('courseExportModal');
-                                if (modal) {
-                                    if (typeof window.openModal === 'function') {
-                                        window.openModal('courseExportModal');
-                                    } else {
-                                        modal.style.display = 'flex';
-                                        document.body.style.overflow = 'hidden';
-                                        document.body.classList.add('modal-open');
-                                    }
-                                }
-                            }
-                        } catch (error) {
-                            if (typeof showToastNotification === 'function') {
-                                showToastNotification('Unable to open export modal. Please try again.', 'error');
-                            }
-                        }
-                    }
                 </script>
             </main>
             </div> <!-- Close dashboard-layout -->
@@ -335,9 +306,6 @@
                 // Initialize alerts system
                 document.addEventListener('DOMContentLoaded', function() {
                     console.log('Alerts system initialized successfully');
-                    
-                        console.log('Activity Tracker initialized');
-                    }
                 });
             </script>
             
@@ -408,33 +376,196 @@
 
                     updateStatistics(normalized);
                     renderDepartments(normalized);
+                    updateTabCrossSectorBadges(); // ADD: Update badges when switching tabs
+                }
+
+                /**
+                 * Merge cross-sector department information with course data
+                 * @param {Object} deptData - Response from api/departments/list.php
+                 * @param {Object} courseData - Response from api/course_data.php
+                 * @returns {Object} Merged data with cross-sector info
+                 */
+                function mergeDepartmentAndCourseData(deptData, courseData) {
+                    // Create map: department_id -> cross-sector info
+                    const crossSectorMap = new Map();
+                    deptData.departments.forEach((dept) => {
+                        dept.sectors.forEach((sector) => {
+                            crossSectorMap.set(sector.department_id, {
+                                is_shared: dept.is_shared,
+                                sectors: dept.sectors,
+                                department_name: dept.department_name,
+                                department_code: dept.department_code,
+                            });
+                        });
+                    });
+
+                    // Merge into course data
+                    const merged = {
+                        departments: {
+                            college: [],
+                            senior_high: [],
+                            faculty: [],
+                        },
+                    };
+
+                    ["college", "senior_high", "faculty"].forEach((sectorKey) => {
+                        const depts = courseData.data?.departments[sectorKey] || [];
+                        depts.forEach((dept) => {
+                            const crossSectorInfo = crossSectorMap.get(dept.department_id);
+                            if (crossSectorInfo) {
+                                Object.assign(dept, crossSectorInfo);
+                                // Add course eligibility flag
+                                dept.canAddCourses = crossSectorInfo.sectors.some(
+                                    (s) => s.sector_id === 1 || s.sector_id === 2
+                                );
+                            } else {
+                                // Fallback for departments not in cross-sector map
+                                dept.canAddCourses = false;
+                            }
+                        });
+                        merged.departments[sectorKey] = depts;
+                    });
+
+                    return merged;
+                }
+
+                /**
+                 * Get sector key from sector ID
+                 * @param {number} sectorId - Sector ID (1=College, 2=SHS, 3=Faculty)
+                 * @returns {string} Sector key
+                 */
+                function getSectorKeyFromId(sectorId) {
+                    const map = { 1: "college", 2: "senior_high", 3: "faculty" };
+                    return map[sectorId] || null;
+                }
+
+                /**
+                 * Create cross-sector badge element
+                 * @param {Array<string>} otherSectors - Array of other sector names
+                 * @returns {HTMLElement} Badge element
+                 */
+                function createCrossSectorBadge(otherSectors) {
+                    const badge = document.createElement("div");
+                    badge.className = "cross-sector-badge";
+                    badge.innerHTML = `
+                        <i class="fas fa-link"></i>
+                        <span>Also in: ${otherSectors.join(", ")}</span>
+                    `;
+                    return badge;
+                }
+
+                /**
+                 * Create sector badges showing all sectors
+                 * @param {Array} sectors - Array of sector objects
+                 * @param {string} currentSectorKey - Current tab's sector key
+                 * @returns {HTMLElement} Container with sector badges
+                 */
+                function createSectorBadges(sectors, currentSectorKey) {
+                    const container = document.createElement("span");
+                    container.className = "sector-badges";
+
+                    sectors.forEach((sector) => {
+                        const badge = document.createElement("span");
+                        badge.className = `sector-badge sector-${getSectorKeyFromId(
+                            sector.sector_id
+                        )}`;
+                        badge.textContent = sector.sector_name;
+                        container.appendChild(badge);
+                    });
+
+                    return container;
+                }
+
+                /**
+                 * Update tab badges with cross-sector department counts
+                 */
+                function updateTabCrossSectorBadges() {
+                    const tabs = {
+                        college: document.querySelector("[onclick*=\"switchTab('college'\"]"),
+                        "senior-high": document.querySelector(
+                            "[onclick*=\"switchTab('senior-high'\"]"
+                        ),
+                        faculty: document.querySelector("[onclick*=\"switchTab('faculty'\"]"),
+                    };
+
+                    ["college", "senior_high", "faculty"].forEach((sectorKey) => {
+                        const departments = getDepartmentsForSector(sectorKey);
+                        const sharedCount = departments.filter(
+                            (d) => d.is_shared && d.sectors && d.sectors.length > 1
+                        ).length;
+
+                        const tabKey = sectorKey === "senior_high" ? "senior-high" : sectorKey;
+                        const tabButton = tabs[tabKey];
+
+                        if (tabButton && sharedCount > 0) {
+                            // Remove existing badge if any
+                            const existingBadge = tabButton.querySelector(".tab-shared-badge");
+                            if (existingBadge) {
+                                existingBadge.remove();
+                            }
+
+                            // Add new badge
+                            const badge = document.createElement("span");
+                            badge.className = "tab-shared-badge";
+                            badge.textContent = sharedCount;
+                            badge.title = `${sharedCount} department${
+                                sharedCount > 1 ? "s" : ""
+                            } shared with other sectors`;
+                            tabButton.appendChild(badge);
+                        } else if (tabButton) {
+                            // Remove badge if count is 0
+                            const existingBadge = tabButton.querySelector(".tab-shared-badge");
+                            if (existingBadge) {
+                                existingBadge.remove();
+                            }
+                        }
+                    });
                 }
 
                 async function fetchCourseData() {
                     setLoadingState(true);
                     try {
-                        const query = courseManagementState.includeInactive ? '?include_inactive=1' : '';
-                        const response = await fetch(`../../api/course_data.php${query}`, { credentials: 'include' });
-                        if (!response.ok) {
-                            throw new Error('Failed to fetch course data.');
+                        // Fetch departments with cross-sector info
+                        const deptResponse = await fetch(
+                            "../../api/departments/list.php?limit=500",
+                            {
+                                credentials: "include",
+                            }
+                        );
+                        const deptData = await deptResponse.json();
+
+                        // Fetch course data (programs)
+                        const query = courseManagementState.includeInactive
+                            ? "?include_inactive=1"
+                            : "";
+                        const courseResponse = await fetch(`../../api/course_data.php${query}`, {
+                            credentials: "include",
+                        });
+                        const coursePayload = await courseResponse.json();
+
+                        if (!coursePayload || coursePayload.success !== true) {
+                            throw new Error((coursePayload && coursePayload.message) || 'Unable to load course data.');
                         }
 
-                        const payload = await response.json();
-                        if (!payload || payload.success !== true) {
-                            throw new Error((payload && payload.message) || 'Unable to load course data.');
-                        }
+                        // Merge data: combine cross-sector department info with course data
+                        const mergedData = mergeDepartmentAndCourseData(deptData, coursePayload);
 
-                        courseManagementState.data = payload.data || null;
+                        courseManagementState.data = {
+                            ...coursePayload.data,
+                            departments: mergedData.departments,
+                        };
+
                         setLoadingState(false);
 
-                        sectorOrder.forEach(sectorKey => {
+                        sectorOrder.forEach((sectorKey) => {
                             renderDepartments(sectorKey);
                         });
                         updateStatistics(courseManagementState.activeSector);
+                        updateTabCrossSectorBadges(); // Add this call
                     } catch (error) {
-                        console.error('Error loading course data:', error);
+                        console.error("Error loading course data:", error);
                         setLoadingState(false);
-                        showErrorState(error.message || 'Unable to load course data.');
+                        showErrorState(error.message || "Unable to load course data.");
                     }
                 }
 
@@ -564,6 +695,11 @@
                     card.dataset.departmentName = (department.department_name || '').toLowerCase();
                     card.dataset.departmentCode = (department.department_code || '').toLowerCase();
 
+                    // Add shared class if cross-sector
+                    if (department.is_shared && department.sectors && department.sectors.length > 1) {
+                        card.classList.add('shared-department');
+                    }
+
                     const header = document.createElement('div');
                     header.className = 'department-card-header';
 
@@ -577,6 +713,24 @@
                     idSpan.textContent = department.department_code || `ID-${department.department_id}`;
                     header.appendChild(idSpan);
 
+                    // ADD: Cross-sector badge if shared
+                    if (department.is_shared && department.sectors && department.sectors.length > 1) {
+                        const otherSectors = department.sectors
+                            .filter((s) => getSectorKeyFromId(s.sector_id) !== sectorKey)
+                            .map((s) => s.sector_name);
+
+                        if (otherSectors.length > 0) {
+                            const badge = createCrossSectorBadge(otherSectors);
+                            header.appendChild(badge);
+                        }
+                    }
+
+                    // ADD: Sector badges showing all sectors
+                    if (department.sectors && department.sectors.length > 0) {
+                        const sectorBadges = createSectorBadges(department.sectors, sectorKey);
+                        header.appendChild(sectorBadges);
+                    }
+
                     card.appendChild(header);
 
                     const body = document.createElement('div');
@@ -586,6 +740,22 @@
                     nameEl.className = 'department-name';
                     nameEl.textContent = department.department_name || 'Unnamed Department';
                     body.appendChild(nameEl);
+
+                    // ADD: Faculty-only indicator if applicable
+                    if (
+                        !department.canAddCourses &&
+                        department.sectors &&
+                        department.sectors.length === 1 &&
+                        department.sectors[0].sector_id === 3
+                    ) {
+                        const facultyOnlyIndicator = document.createElement('div');
+                        facultyOnlyIndicator.className = 'faculty-only-indicator';
+                        facultyOnlyIndicator.innerHTML = `
+                            <i class="fas fa-info-circle"></i>
+                            <span>Faculty-only (No courses)</span>
+                        `;
+                        body.appendChild(facultyOnlyIndicator);
+                    }
 
                     const programCount = (department.programs || []).length;
                     const coursesEl = document.createElement('p');
@@ -610,7 +780,8 @@
                     const departmentCode = department.department_code || departmentId;
                     const sectorLabel = department.sector_label || getSectorLabel(sectorKey);
 
-                    if (sectorKey !== 'faculty') {
+                    // MODIFY: Only show "Add Course" if department is course-eligible
+                    if (department.canAddCourses && sectorKey !== 'faculty') {
                         actions.appendChild(createActionButton(
                             'btn btn-sm btn-outline-primary',
                             '<i class="fas fa-plus"></i> Add Course',
@@ -799,11 +970,42 @@
                         'Delete Department',
                         'Cancel',
                         () => {
-                            showToastNotification('Deleting department and all associated courses...', 'info', 2000);
-                            setTimeout(() => {
-                                showToastNotification(`Department ${label} and all courses deleted successfully`, 'success', 3000);
-                                fetchCourseData();
-                            }, 1500);
+                            showToastNotification('Deleting department...', 'info', 2000);
+                            
+                            // Call API to delete department
+                            fetch('../../api/departments/delete.php', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                credentials: 'include',
+                                body: JSON.stringify({ department_id: departmentId })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    let message = data.message || `Department ${label} deleted successfully`;
+                                    if (data.is_cross_sector) {
+                                        message += ` (Removed from ${data.deleted_records} sectors)`;
+                                    }
+                                    showToastNotification(message, 'success', 3000);
+                                    
+                                    // Refresh the data
+                                    setTimeout(() => {
+                                        fetchCourseData();
+                                    }, 1000);
+                                } else {
+                                    showToastNotification(
+                                        data.message || 'Failed to delete department', 
+                                        'error', 
+                                        4000
+                                    );
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error deleting department:', error);
+                                showToastNotification('An error occurred while deleting the department', 'error', 4000);
+                            });
                         },
                         'danger'
                     );

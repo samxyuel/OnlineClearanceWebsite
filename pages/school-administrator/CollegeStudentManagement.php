@@ -214,9 +214,11 @@ handleStudentManagementPageRequest('College');
                                             <i class="fas fa-times"></i> Reject
                                         </button>
                                         
+                                        <!-- Reset Clearance feature temporarily disabled
                                         <button class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
                                             <i class="fas fa-redo"></i> Reset Clearance
                                         </button>
+                                        -->
                                     </div>
                                 </div>
                                 <div class="table-controls">
@@ -809,6 +811,7 @@ handleStudentManagementPageRequest('College');
             openRejectionRemarksModal(null, null, 'student', true, selectedIds);
     }
 
+    /* Graduated function temporarily disabled
     function markGraduated() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
@@ -842,8 +845,9 @@ handleStudentManagementPageRequest('College');
                 'info'
             );
         }
+        */
 
-        // Reset clearance status for new term
+        /* Reset Clearance function temporarily disabled
         function resetClearanceForNewTerm() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
@@ -1937,18 +1941,12 @@ handleStudentManagementPageRequest('College');
             }catch(e){ return null; }
         }
         async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null){
-            // Fetch the current staff's actual designation from the API to ensure accuracy.
+            // Get the selected designation from the roleSelector dropdown
+            const roleSelector = document.getElementById('roleSelector');
             let currentDesignation = CURRENT_STAFF_POSITION || 'School Administrator'; // Fallback
             
-            try {
-                const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
-                const desigData = await desigResponse.json();
-                
-                if (desigData.success && desigData.designation_name) { 
-                    currentDesignation = desigData.designation_name;
-                }
-            } catch (e) { 
-                // Use fallback if API call fails
+            if (roleSelector) {
+                currentDesignation = roleSelector.value;
             }
 
             // Get the currently selected school term from the filter to ensure approval goes to the correct period

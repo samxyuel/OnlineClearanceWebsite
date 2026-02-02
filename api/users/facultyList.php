@@ -167,12 +167,15 @@ try {
     $baseQuery = "
         FROM faculty f
         JOIN users u ON f.user_id = u.user_id
-        LEFT JOIN departments d ON f.department_id = d.department_id
+        LEFT JOIN user_department_assignments uda ON u.user_id = uda.user_id AND uda.is_active = 1
+        LEFT JOIN departments d ON uda.department_id = d.department_id
         $clearanceFormJoin
     ";
     $selectFields = "
         f.employee_number, u.user_id, u.first_name, u.last_name, u.middle_name,
-        u.email, u.contact_number, d.department_name, f.employment_status, u.account_status,
+        u.email, u.contact_number,
+        GROUP_CONCAT(DISTINCT d.department_name ORDER BY uda.is_primary DESC SEPARATOR ', ') as departments,
+        f.employment_status, u.account_status,
         u.created_at as user_created_at,
         COALESCE(cf.clearance_form_progress, 'Unapplied') as clearance_status
     ";
@@ -212,17 +215,18 @@ try {
         $params[':clearanceStatus'] = $clearanceStatus;
     }
     if ($departmentId) {
-        $where .= " AND f.department_id = :departmentId";
+        $where .= " AND uda.department_id = :departmentId";
         $params[':departmentId'] = $departmentId;
     }
 
-    // Get total count
-    $countStmt = $pdo->prepare("SELECT COUNT(u.user_id) $baseQuery $where");
+    // Get total count (use COUNT DISTINCT since we're joining with user_department_assignments)
+    $countStmt = $pdo->prepare("SELECT COUNT(DISTINCT u.user_id) $baseQuery $where");
     $countStmt->execute($params);
     $total = $countStmt->fetchColumn();
 
-    // Get paginated data
-    $dataStmt = $pdo->prepare("SELECT $selectFields $baseQuery $where ORDER BY u.last_name, u.first_name LIMIT :limit OFFSET :offset");
+    // Get paginated data with GROUP BY for aggregation
+    $groupBy = "GROUP BY f.employee_number, u.user_id, u.first_name, u.last_name, u.middle_name, u.email, u.contact_number, f.employment_status, u.account_status, u.created_at, cf.clearance_form_progress";
+    $dataStmt = $pdo->prepare("SELECT $selectFields $baseQuery $where $groupBy ORDER BY u.last_name, u.first_name LIMIT :limit OFFSET :offset");
     $dataStmt->bindValue(':limit', $limit, PDO::PARAM_INT);
     $dataStmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     foreach ($params as $key => &$val) {
@@ -309,8 +313,8 @@ try {
         unset($row);
     }
 
-    // Get statistics
-    $statsQuery = "SELECT u.account_status, COUNT(*) as count $baseQuery $where GROUP BY u.account_status";
+    // Get statistics (use COUNT DISTINCT since we're joining with user_department_assignments)
+    $statsQuery = "SELECT u.account_status, COUNT(DISTINCT u.user_id) as count $baseQuery $where GROUP BY u.account_status";
     $statsStmt = $pdo->prepare($statsQuery);
 
     // Bind the same parameters as the main query for accurate stats

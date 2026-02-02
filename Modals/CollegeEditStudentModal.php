@@ -15,9 +15,6 @@
     
     <!-- Supporting Text -->
     <div class="modal-supporting-text">Update college student information and account settings.</div>
-
-    <!-- Close Button -->
-    <button class="modal-close" onclick="closeEditStudentModal()">&times;</button>
     
     <!-- Content Area -->
     <div class="modal-content-area">
@@ -33,14 +30,17 @@
                  style="background-color: var(--very-light-off-white); color: var(--medium-muted-blue);">
         </div>
         
-        <!-- Department (College Only, Editable) -->
-        <div class="form-group">
+        <!-- Department (College Only, Editable for Admin, View-only for Program Head) -->
+        <div class="form-group" id="editDepartmentGroup">
           <label for="editDepartment">Department *</label>
           <select id="editDepartment" name="department" required onchange="handleDepartmentChange()"></select>
+          <small id="editDepartmentHelp" class="form-help" style="display: none;">
+            <i class="fas fa-lock"></i> Department assignments are managed by administrators
+          </small>
         </div>
         
         <!-- Program (College Only, Editable) -->
-        <div class="form-group">
+        <div class="form-group" id="editProgramGroup">
           <label for="editProgram">Program *</label>
           <select id="editProgram" name="program" required>
             <option value="">Select Program</option>
@@ -55,6 +55,14 @@
           </select>
         </div>
         
+        <!-- Section (Editable) - Simple text input like registry modal -->
+        <div class="form-group">
+          <label for="editSection">Section *</label>
+          <input type="text" id="editSection" name="section" required 
+                 placeholder="e.g., 1/1-1" maxlength="10">
+        </div>
+        
+        <?php /* COMMENTED OUT: Term, Section Number, and Generated Section Format fields
         <!-- Term for Section (Editable) -->
         <div class="form-group">
           <label for="editSectionTerm">Term *</label>
@@ -85,6 +93,7 @@
           <input type="text" id="editGeneratedSection" name="generatedSection" readonly 
                  placeholder="e.g., 3/2-1" style="background-color: var(--very-light-off-white); color: var(--medium-muted-blue);">
         </div>
+        */ ?>
         
         <!-- Last Name (Read-only) -->
         <div class="form-group">
@@ -155,26 +164,139 @@
 </div>
 
 <script>
-// --- Dynamic Filter Population ---
-async function populateSelect(selectId, url, placeholder, valueField = 'value', textField = 'text') {
-    const select = document.getElementById(selectId);
+// ============================================
+// GLOBAL STATE VARIABLES (Fix 8)
+// ============================================
+window.editStudentCurrentUserId = null;
+window.editStudentDepartmentsData = [];
+
+// ============================================
+// ROLE-BASED ACCESS CONTROL (Fix 4)
+// ============================================
+/**
+ * Detects if the current user is a Program Head (restricted mode)
+ * Program Heads cannot change department assignments
+ */
+function isEditStudentRestrictedMode() {
+    return (
+        typeof DEPARTMENT_IDS !== 'undefined' &&
+        Array.isArray(DEPARTMENT_IDS) &&
+        DEPARTMENT_IDS.length > 0
+    );
+}
+
+/**
+ * Apply role-based UI restrictions
+ */
+function applyEditStudentRoleRestrictions() {
+    const isRestricted = isEditStudentRestrictedMode();
+    
+    const departmentSelect = document.getElementById('editDepartment');
+    const departmentHelp = document.getElementById('editDepartmentHelp');
+    
+    if (isRestricted) {
+        // Program Head: Disable department only
+        if (departmentSelect) {
+            departmentSelect.disabled = true;
+            departmentSelect.style.cursor = 'not-allowed';
+            departmentSelect.style.opacity = '0.7';
+        }
+        if (departmentHelp) departmentHelp.style.display = 'block';
+        
+        // Program dropdown stays ENABLED but filtered to assigned departments
+    } else {
+        // Admin: Enable all
+        if (departmentSelect) {
+            departmentSelect.disabled = false;
+            departmentSelect.style.cursor = '';
+            departmentSelect.style.opacity = '';
+        }
+        if (departmentHelp) departmentHelp.style.display = 'none';
+    }
+}
+
+// ============================================
+// DYNAMIC DROPDOWN POPULATION
+// ============================================
+// populateCollegeEditSelect function - Updated 2024-12-26 to use innerHTML instead of appendChild
+// Renamed from populateSelect to avoid conflicts with ExportModal.php
+async function populateCollegeEditSelect(selectId, url, placeholder, valueField = 'value', textField = 'text') {
+    console.log(`[CollegeEditStudentModal] populateCollegeEditSelect v2 called for: ${selectId}`);
+    
+    // Helper function to safely get the select element
+    const getSelectElement = () => {
+        const element = document.getElementById(selectId);
+        if (!element) {
+            console.error(`[CollegeEditStudentModal] Select element not found: ${selectId}`);
+            return null;
+        }
+        if (!(element instanceof HTMLSelectElement)) {
+            console.error(`[CollegeEditStudentModal] Element ${selectId} is not a select element:`, element);
+            return null;
+        }
+        return element;
+    };
+    
+    // Try to get element, with retry if needed
+    let selectElement = getSelectElement();
+    if (!selectElement) {
+        // Wait a bit and try again
+        await new Promise(resolve => setTimeout(resolve, 100));
+        selectElement = getSelectElement();
+        if (!selectElement) {
+            console.error(`[CollegeEditStudentModal] Select element ${selectId} not found after retry`);
+            return;
+        }
+    }
+    
     try {
-        select.innerHTML = `<option value="">Loading...</option>`;
+        // Set loading state using innerHTML (NO appendChild used anywhere)
+        selectElement.innerHTML = `<option value="">Loading...</option>`;
+        
         const response = await fetch(url, { credentials: 'include' });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
         const data = await response.json();
 
-        select.innerHTML = `<option value="">${placeholder}</option>`;
-        if (data.success && data.options) {
+        // Re-get element to ensure it's still valid
+        selectElement = getSelectElement();
+        if (!selectElement) {
+            throw new Error(`Select element ${selectId} is no longer available`);
+        }
+
+        // Build options HTML string - NO appendChild, only innerHTML
+        let optionsHTML = `<option value="">${placeholder}</option>`;
+        
+        if (data.success && data.options && Array.isArray(data.options)) {
             data.options.forEach(option => {
-                const optionElement = document.createElement('option');
-                optionElement.value = typeof option === 'object' ? option[valueField] : option;
-                optionElement.textContent = typeof option === 'object' ? option[textField] : option;
-                select.appendChild(optionElement);
+                try {
+                    const value = typeof option === 'object' ? option[valueField] : option;
+                    const text = typeof option === 'object' ? option[textField] : option;
+                    // Escape HTML to prevent XSS
+                    const escapedText = String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    const escapedValue = String(value || '').replace(/"/g, '&quot;');
+                    optionsHTML += `<option value="${escapedValue}">${escapedText}</option>`;
+                } catch (optError) {
+                    console.error(`[CollegeEditStudentModal] Error processing option:`, optError, option);
+                }
             });
         }
+        
+        // Set all options at once using innerHTML - NO appendChild
+        selectElement.innerHTML = optionsHTML;
+        
+        console.log(`[CollegeEditStudentModal] Successfully populated ${selectId} with ${data.options?.length || 0} options`);
+        
     } catch (error) {
-        console.error(`Error loading options for ${selectId}:`, error);
-        select.innerHTML = `<option value="">Error loading</option>`;
+        console.error(`[CollegeEditStudentModal] Error loading options for ${selectId}:`, error);
+        const errorSelect = getSelectElement();
+        if (errorSelect) {
+            errorSelect.innerHTML = `<option value="">Error loading options</option>`;
+        }
+        throw error; // Re-throw to be caught by caller
     }
 }
 
@@ -182,17 +304,24 @@ async function loadEditDepartments() {
     const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
     url.searchParams.append('type', 'departments');
     url.searchParams.append('sector', 'College');
-    await populateSelect('editDepartment', url, 'Select Department', 'value', 'text');
+    await populateCollegeEditSelect('editDepartment', url, 'Select Department', 'value', 'text');
 }
 
 async function loadEditPrograms(departmentId = '') {
     const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
     url.searchParams.append('type', 'programs');
     url.searchParams.append('sector', 'College');
-    if (departmentId) {
+    
+    // Fix 5: Program dropdown filtering for Program Heads
+    if (isEditStudentRestrictedMode()) {
+        // Program Head: API will automatically filter by logged-in user's assigned departments
+        // No need to pass department_id - the API handles this based on auth
+    } else if (departmentId) {
+        // Admin: Use selected department
         url.searchParams.append('department_id', departmentId);
     }
-    await populateSelect('editProgram', url, 'Select Program', 'value', 'text');
+    
+    await populateCollegeEditSelect('editProgram', url, 'Select Program', 'value', 'text');
 }
 
 async function loadEditYearLevels() {
@@ -200,7 +329,7 @@ async function loadEditYearLevels() {
     url.searchParams.append('type', 'enum');
     url.searchParams.append('table', 'students');
     url.searchParams.append('column', 'year_level');
-    await populateSelect('editYearLevel', url, 'Select Year Level');
+    await populateCollegeEditSelect('editYearLevel', url, 'Select Year Level');
 }
 
 async function updateEditProgramsAndYearLevels() {
@@ -283,58 +412,53 @@ function generateSecurePassword(length = 12) {
     return password;
 }
 
+<?php /* COMMENTED OUT: Section generation function
 // Update generated section display
 function updateGeneratedSection() {
   const yearLevelSelect = document.getElementById('editYearLevel');
-  const yearLevelText = yearLevelSelect.value; // e.g., "1st Year"
-  const term = document.getElementById('editSectionTerm').value;
-  const sectionNumber = document.getElementById('editSectionNumber').value;
+  const yearLevelText = yearLevelSelect ? yearLevelSelect.value : '';
+  const term = document.getElementById('editSectionTerm')?.value || '';
+  const sectionNumber = document.getElementById('editSectionNumber')?.value || '';
   const generatedSection = document.getElementById('editGeneratedSection');
   
   // Extract the number from the year level text (e.g., "1st Year" -> "1")
   const yearLevelNum = yearLevelText ? yearLevelText.match(/\d+/)?.[0] : null;
 
-  if (yearLevelNum && term && sectionNumber) {
+  if (yearLevelNum && term && sectionNumber && generatedSection) {
     generatedSection.value = `${yearLevelNum}/${term}-${sectionNumber}`;
-  } else {
+  } else if (generatedSection) {
     generatedSection.value = '';
   }
 }
+*/ ?>
 
-// Add event listeners for section generation
-document.addEventListener('DOMContentLoaded', function() {
-  const termSelect = document.getElementById('editSectionTerm');
-  const sectionSelect = document.getElementById('editSectionNumber');
-  
-  if (termSelect) termSelect.addEventListener('change', updateGeneratedSection);
-  if (sectionSelect) sectionSelect.addEventListener('change', updateGeneratedSection);
-});
-
-// Form validation
+// Form validation (Fix 4: Role-based validation)
 function validateEditStudentForm() {
   const form = document.getElementById('editStudentForm');
+  const isRestricted = isEditStudentRestrictedMode();
   
-  // Check required fields
-  const requiredFields = ['editDepartment', 'editProgram', 'editYearLevel', 'editAccountStatus'];
+  // Required fields - Program Heads don't need department/program validation (they're disabled)
+  const requiredFields = isRestricted 
+    ? ['editProgram', 'editYearLevel', 'editSection', 'editAccountStatus']
+    : ['editDepartment', 'editProgram', 'editYearLevel', 'editSection', 'editAccountStatus'];
   
   for (const field of requiredFields) {
     const input = form.querySelector(`#${field}`);
-    if (!input.value.trim()) {
-      showToastNotification(`Please fill in the ${field.replace('edit', '').replace(/([A-Z])/g, ' $1').toLowerCase()}`, 'error');
-      input.focus();
+    if (!input || !input.value.trim()) {
+      const fieldName = field.replace('edit', '').replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+      showToastNotification(`Please fill in the ${fieldName}`, 'error');
+      if (input) input.focus();
       return false;
     }
   }
   
-  // Password reset is handled separately via handlePasswordReset() function
-  
-  // Validate email format
-  const email = document.getElementById('editEmail').value;
-  if (email.trim() !== '') { // Only validate if an email is entered
+  // Validate email format if provided
+  const email = document.getElementById('editEmail')?.value || '';
+  if (email.trim() !== '') {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       showToastNotification('Please enter a valid email address', 'error');
-      document.getElementById('editEmail').focus();
+      document.getElementById('editEmail')?.focus();
       return false;
     }
   }
@@ -342,7 +466,7 @@ function validateEditStudentForm() {
   return true;
 }
 
-// Submit form
+// Submit form (Fix 6: Event dispatching)
 function submitEditStudentForm() {
   if (!validateEditStudentForm()) {
     return;
@@ -351,23 +475,36 @@ function submitEditStudentForm() {
   const form = document.getElementById('editStudentForm');
   const formData = new FormData(form);
   const submitBtn = document.getElementById('editSubmitBtn');
+  const studentNumber = document.getElementById('editStudentNumber')?.value || '';
   
-  // Disable submit button
   submitBtn.disabled = true;
   submitBtn.textContent = 'Updating...';
   
-  // Submit form
   fetch(form.dataset.endpoint, {
     method: 'POST',
     body: formData,
     credentials: 'include'
   })
-  .then(response => response.json())
+  .then(response => {
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    return response.json();
+  })
   .then(data => {
     if (data.success) {
       showToastNotification('Student updated successfully!', 'success');
       closeEditStudentModal();
-      // Refresh the student list
+      
+      // Fix 6: Dispatch custom event for parent page refresh
+      document.dispatchEvent(new CustomEvent('student-updated', {
+        detail: { 
+          student_number: studentNumber, 
+          user_id: window.editStudentCurrentUserId 
+        }
+      }));
+      
+      // Also call loadStudentsData if available (legacy support)
       if (typeof loadStudentsData === 'function') {
         loadStudentsData();
       }
@@ -376,17 +513,16 @@ function submitEditStudentForm() {
     }
   })
   .catch(error => {
-    console.error('Error:', error);
+    console.error('[CollegeEditStudentModal] Error:', error);
     showToastNotification('An error occurred while updating the student', 'error');
   })
   .finally(() => {
-    // Re-enable submit button
     submitBtn.disabled = false;
     submitBtn.textContent = 'Update Student';
   });
 }
 
-// Close modal - Make globally available
+// Close modal (Fix 8: State cleanup)
 window.closeEditStudentModal = function() {
   console.log('[CollegeEditStudentModal] closeEditStudentModal() called');
   try {
@@ -395,174 +531,242 @@ window.closeEditStudentModal = function() {
       console.warn('[CollegeEditStudentModal] Modal not found');
       return;
     }
-    console.log('[CollegeEditStudentModal] Closing modal:', modal.id);
 
-    // Use window.closeModal if available, otherwise fallback
     if (typeof window.closeModal === 'function') {
       window.closeModal('collegeEditStudentModal');
     } else {
-      // Fallback to direct manipulation
       modal.style.display = 'none';
       document.body.style.overflow = 'auto';
       document.body.classList.remove('modal-open');
       modal.classList.remove('active');
     }
     
-    // Reset form
+    // Reset form and state
     const form = document.getElementById('editStudentForm');
-    if (form) form.reset();
+    if (form) {
+      form.reset();
+      form.dataset.userId = '';
+    }
     
-    // Form reset is handled by form.reset() above
+    // Clear global state
+    window.editStudentCurrentUserId = null;
+    
   } catch (error) {
-    // Silent error handling
+    console.error('[CollegeEditStudentModal] Error closing modal:', error);
   }
 };
 
-// Open modal function (called from parent page) - Make globally available
-window.openEditStudentModal = function(studentId) {
-  console.log('[CollegeEditStudentModal] ===== openEditStudentModal called =====');
-  console.log('[CollegeEditStudentModal] studentId:', studentId);
+// Open modal function (Fix 3: userId validation)
+window.openEditStudentModal = function(userId) {
+  console.log('[CollegeEditStudentModal] openEditStudentModal called with userId:', userId);
+  
+  // Fix 3: Validate userId before proceeding
+  if (!userId || userId === 'undefined' || userId === 'null') {
+    console.error('[CollegeEditStudentModal] Invalid userId:', userId);
+    if (typeof showToastNotification === 'function') {
+      showToastNotification('Cannot edit student: Invalid user ID.', 'error');
+    }
+    return;
+  }
   
   try {
     const modal = document.getElementById('collegeEditStudentModal');
-    console.log('[CollegeEditStudentModal] Modal element search result:', modal);
     
     if (!modal) {
-      console.error('[CollegeEditStudentModal] ❌ Modal element not found!');
-      console.error('[CollegeEditStudentModal] Searching for alternative selectors...');
-      const altModal = document.querySelector('.edit-student-modal-overlay');
-      console.log('[CollegeEditStudentModal] Found by class selector:', altModal);
-      
+      console.error('[CollegeEditStudentModal] Modal element not found');
       if (typeof showToastNotification === 'function') {
         showToastNotification('Edit student modal not found. Please refresh the page.', 'error');
       }
       return;
     }
     
-    console.log('[CollegeEditStudentModal] ✅ Modal element found');
-    console.log('[CollegeEditStudentModal] Modal current display:', window.getComputedStyle(modal).display);
-    console.log('[CollegeEditStudentModal] Modal current opacity:', window.getComputedStyle(modal).opacity);
-    console.log('[CollegeEditStudentModal] Modal has active class:', modal.classList.contains('active'));
-    console.log('[CollegeEditStudentModal] Modal inline style:', modal.style.display);
+    // Store userId in global state
+    window.editStudentCurrentUserId = userId;
     
-    // Use window.openModal if available, otherwise fallback
+    // Open the modal
     if (typeof window.openModal === 'function') {
-      console.log('[CollegeEditStudentModal] Using window.openModal()');
       window.openModal('collegeEditStudentModal');
-      console.log('[CollegeEditStudentModal] window.openModal() called');
-      
-      // Verify modal is now visible
-      setTimeout(() => {
-        const finalDisplay = window.getComputedStyle(modal).display;
-        const finalOpacity = window.getComputedStyle(modal).opacity;
-        console.log('[CollegeEditStudentModal] After openModal - display:', finalDisplay);
-        console.log('[CollegeEditStudentModal] After openModal - opacity:', finalOpacity);
-        console.log('[CollegeEditStudentModal] After openModal - has active class:', modal.classList.contains('active'));
-        
-        if (finalDisplay === 'none' || finalDisplay === '') {
-          console.error('[CollegeEditStudentModal] ❌ Modal still hidden! Display:', finalDisplay);
-        } else {
-          console.log('[CollegeEditStudentModal] ✅ Modal should be visible');
-        }
-      }, 100);
     } else {
-      console.log('[CollegeEditStudentModal] window.openModal not available, using fallback');
-      // Fallback to direct manipulation
       modal.style.display = 'flex';
       document.body.style.overflow = 'hidden';
       document.body.classList.add('modal-open');
       requestAnimationFrame(() => {
         modal.classList.add('active');
-        console.log('[CollegeEditStudentModal] Fallback: Added active class');
-        
-        // Verify
-        setTimeout(() => {
-          const finalDisplay = window.getComputedStyle(modal).display;
-          const finalOpacity = window.getComputedStyle(modal).opacity;
-          console.log('[CollegeEditStudentModal] Fallback - display:', finalDisplay);
-          console.log('[CollegeEditStudentModal] Fallback - opacity:', finalOpacity);
-        }, 50);
       });
     }
 
-    // Load student data
-    if (studentId) {
-      console.log('[CollegeEditStudentModal] Loading student data for:', studentId);
-      loadStudentData(studentId);
-    }
+    // Wait for modal to be fully rendered before loading data
+    // Use requestAnimationFrame to ensure DOM is ready
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        loadStudentData(userId);
+      }, 100);
+    });
+    
   } catch (error) {
-    console.error('[CollegeEditStudentModal] ❌ Error opening modal:', error);
-    console.error('[CollegeEditStudentModal] Error stack:', error.stack);
+    console.error('[CollegeEditStudentModal] Error opening modal:', error);
     if (typeof showToastNotification === 'function') {
       showToastNotification('Unable to open edit student modal. Please try again.', 'error');
     }
   }
 };
 
-// Load student data for editing
+// Load student data (Fix 1 & 2: Error handling and HTTP response validation)
 async function loadStudentData(userId) {
     const form = document.getElementById('editStudentForm');
     const submitBtn = document.getElementById('editSubmitBtn');
-    form.classList.add('loading');
-
-    // Ensure dropdowns are populated before setting values
-    await Promise.all([loadEditDepartments(), loadEditYearLevels()]);
-
-    submitBtn.disabled = true;
-
+    
+    // Ensure form elements exist before proceeding
+    if (!form) {
+        console.error('[CollegeEditStudentModal] Form element not found');
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Form elements not found. Please refresh the page.', 'error');
+        }
+        return;
+    }
+    
+    // Fix 1: Wrap EVERYTHING in try-catch
     try {
-        // Fetch student data from the API using the user_id
+        console.log('[CollegeEditStudentModal] Loading data for userId:', userId);
+        
+        // Show loading state
+        form.classList.add('loading');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Loading...';
+        }
+        
+        // Wait a bit to ensure modal elements are fully rendered
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Verify select elements exist before trying to populate
+        const deptSelect = document.getElementById('editDepartment');
+        const yearSelect = document.getElementById('editYearLevel');
+        
+        if (!deptSelect || !yearSelect) {
+            throw new Error('Form select elements not found. Modal may not be fully loaded.');
+        }
+        
+        // Fix 1: Move dropdown loading INSIDE try-catch
+        await Promise.all([loadEditDepartments(), loadEditYearLevels()]);
+        
+        // Apply role restrictions after dropdowns are loaded
+        applyEditStudentRoleRestrictions();
+        
+        // Fetch student data from the API
         const response = await fetch(`../../api/users/get_student.php?user_id=${userId}`, {
             credentials: 'include'
         });
+        
+        // Fix 2: Check response.ok before parsing
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[CollegeEditStudentModal] API error response:', errorText);
+            throw new Error(`Failed to fetch student data. Status: ${response.status}`);
+        }
+        
         const data = await response.json();
+        console.log('[CollegeEditStudentModal] API response:', data);
 
         if (data.success && data.student) {
             const student = data.student;
 
             // Store user_id in form dataset for password reset
-            if (form) form.dataset.userId = student.user_id;
+            form.dataset.userId = student.user_id;
             
             // Populate form fields
             document.getElementById('editStudentId').value = student.user_id;
-            document.getElementById('editStudentNumber').value = student.student_id;
-            document.getElementById('editLastName').value = student.last_name;
-            document.getElementById('editFirstName').value = student.first_name;
+            document.getElementById('editStudentNumber').value = student.student_id || '';
+            document.getElementById('editLastName').value = student.last_name || '';
+            document.getElementById('editFirstName').value = student.first_name || '';
             document.getElementById('editMiddleName').value = student.middle_name || '';
             document.getElementById('editEmail').value = student.email || '';
             document.getElementById('editContactNumber').value = student.contact_number || '';
             document.getElementById('editAccountStatus').value = student.account_status || 'inactive';
 
-            // Populate and select department, then trigger program/year update
+            // Set department and load programs
             const departmentSelect = document.getElementById('editDepartment');
-            departmentSelect.value = student.department_id; // Set the department
-            await updateEditProgramsAndYearLevels(); // Wait for programs to load based on the department
-
-            // Set program and year level after options are loaded
-            // Now this will work correctly because the options exist.
-            document.getElementById('editProgram').value = student.program_id;
-            document.getElementById('editYearLevel').value = student.year_level;
-
-            // Populate section fields
-            const sectionParts = (student.section || '').split('/');
-            if (sectionParts.length === 2 && sectionParts[1].includes('-')) {
-                const termAndSection = sectionParts[1].split('-');
-                document.getElementById('editSectionTerm').value = termAndSection[0];
-                document.getElementById('editSectionNumber').value = termAndSection[1];
+            if (departmentSelect && student.department_id) {
+                departmentSelect.value = student.department_id;
+                await updateEditProgramsAndYearLevels();
             }
 
-            updateGeneratedSection(); // Update the generated section display
+            // Set program and year level after options are loaded
+            const programSelect = document.getElementById('editProgram');
+            const yearLevelSelect = document.getElementById('editYearLevel');
+            
+            if (programSelect && student.program_id) {
+                programSelect.value = student.program_id;
+            }
+            if (yearLevelSelect && student.year_level) {
+                yearLevelSelect.value = student.year_level;
+            }
+
+            // Set section directly (no parsing needed)
+            if (student.section) {
+                document.getElementById('editSection').value = student.section;
+            }
+
+            <?php /* COMMENTED OUT: Section parsing logic
+            // Populate section fields from section string (e.g., "3/2-1")
+            if (student.section) {
+                const sectionParts = student.section.split('/');
+                if (sectionParts.length === 2 && sectionParts[1].includes('-')) {
+                    const termAndSection = sectionParts[1].split('-');
+                    document.getElementById('editSectionTerm').value = termAndSection[0] || '';
+                    document.getElementById('editSectionNumber').value = termAndSection[1] || '';
+                }
+            }
+
+            updateGeneratedSection();
+            */ ?>
+            
+            console.log('[CollegeEditStudentModal] Form populated successfully');
 
         } else {
-            throw new Error(data.message || 'Failed to load student data.');
+            throw new Error(data.message || 'Student not found or failed to load data.');
         }
+        
     } catch (error) {
-        console.error('Error loading student data:', error);
-        showToastNotification(error.message, 'error');
-        closeEditStudentModal(); // Close modal on error
+        console.error('[CollegeEditStudentModal] Error loading student data:', error);
+        
+        // Show error toast
+        if (typeof showToastNotification === 'function') {
+            showToastNotification(error.message || 'Failed to load student data', 'error');
+        }
+        
+        // Close modal on error
+        closeEditStudentModal();
+        
     } finally {
-        form.classList.remove('loading');
-        submitBtn.disabled = false;
+        // Always restore button state
+        if (form) form.classList.remove('loading');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Update Student';
+        }
     }
 }
+
+// ============================================
+// EVENT LISTENERS (Fix 9: Year Level handler)
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Department change handler
+    const departmentSelect = document.getElementById('editDepartment');
+    if (departmentSelect) {
+        departmentSelect.addEventListener('change', handleDepartmentChange);
+    }
+    
+    <?php /* COMMENTED OUT: Section generation event listeners
+    // Section generation handlers (Fix 9: Added year level)
+    const termSelect = document.getElementById('editSectionTerm');
+    const sectionSelect = document.getElementById('editSectionNumber');
+    const yearLevelSelect = document.getElementById('editYearLevel');
+    
+    if (termSelect) termSelect.addEventListener('change', updateGeneratedSection);
+    if (sectionSelect) sectionSelect.addEventListener('change', updateGeneratedSection);
+    if (yearLevelSelect) yearLevelSelect.addEventListener('change', updateGeneratedSection);
+    */ ?>
+});
 </script>

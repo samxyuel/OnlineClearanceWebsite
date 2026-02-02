@@ -351,6 +351,7 @@ handleFacultyManagementPageRequest();
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
+                                                <th>Department(s)</th>
                                                 <th>Employment Status</th>
                                                 <th>Account Status</th>
                                                 <th>Clearance Form Progress</th>
@@ -641,7 +642,7 @@ handleFacultyManagementPageRequest();
             console.log('📊 FACULTY FETCH DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
             
             const tableBody = document.getElementById('facultyTableBody');
-            tableBody.innerHTML = `<tr><td colspan="7" class="loading-row"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i><span>Loading faculty data...</span></div></td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="8" class="loading-row"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i><span>Loading faculty data...</span></div></td></tr>`;
 
             const clearanceStatus = document.getElementById('clearanceStatusFilter').value;
             const accountStatus = document.getElementById('accountStatusFilter').value;
@@ -709,7 +710,7 @@ handleFacultyManagementPageRequest();
             } catch (error) {
                 console.error('📊 FACULTY FETCH DEBUG: ❌ Exception:', error);
                 console.error('📊 FACULTY FETCH DEBUG: Exception stack:', error.stack);
-                tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:red;">A network error occurred.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:red;">A network error occurred.</td></tr>`;
             }
         }
 
@@ -817,6 +818,7 @@ handleFacultyManagementPageRequest();
                 <td class="checkbox-column"><input type="checkbox" class="faculty-checkbox" data-id="${faculty.id}" ${checkboxDisabled ? 'disabled' : ''}></td>
                 <td data-label="Employee Number:">${faculty.id}</td>
                 <td data-label="Name:">${escapeHtml(faculty.name)}</td>
+                <td data-label="Department(s):">${escapeHtml(faculty.departments || 'N/A')}</td>
                 <td data-label="Employment Status:"><span class="status-badge employment-${(faculty.employment_status || '').toLowerCase().replace(/ /g, '-')}">${escapeHtml(faculty.employment_status || 'N/A')}</span></td>
                 <td data-label="Account Status:"><span class="status-badge account-${accountStatus}">${faculty.account_status || 'N/A'}</span></td>
                 <td data-label="Clearance Form Progress:" class="clearance-status-cell">${clearanceProgressContent}</td>
@@ -980,7 +982,7 @@ handleFacultyManagementPageRequest();
             const tbody = document.getElementById('facultyTableBody');
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="empty-state">
+                    <td colspan="8" class="empty-state">
                         <i class="fas fa-users-slash"></i>
                         <div>${message}</div>
                     </td>
@@ -1999,26 +2001,15 @@ handleFacultyManagementPageRequest();
                 CURRENT_STAFF_POSITION
             });
             
-            // Fetch the current staff's actual designation from the API to ensure accuracy.
+            // Get the selected designation from the roleSelector dropdown
+            const roleSelector = document.getElementById('roleSelector');
             let designationName = CURRENT_STAFF_POSITION; // Fallback
-            console.log('🟡 FACULTY SEND_ACTION DEBUG: Initial designation (fallback):', designationName);
             
-            try {
-                console.log('🟡 FACULTY SEND_ACTION DEBUG: Fetching current staff designation...');
-                const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
-                console.log('🟡 FACULTY SEND_ACTION DEBUG: Designation response status:', desigResponse.status);
-                
-                const desigData = await desigResponse.json();
-                console.log('🟡 FACULTY SEND_ACTION DEBUG: Designation response data:', desigData);
-                
-                if (desigData.success) {
-                    designationName = desigData.designation_name;
-                    console.log('🟡 FACULTY SEND_ACTION DEBUG: ✅ Using designation from API:', designationName);
-                } else {
-                    console.warn('🟡 FACULTY SEND_ACTION DEBUG: ⚠️ API designation not available, using fallback');
-                }
-            } catch (e) { 
-                console.warn('🟡 FACULTY SEND_ACTION DEBUG: ⚠️ Could not fetch designation, using fallback:', e.message);
+            if (roleSelector) {
+                designationName = roleSelector.value;
+                console.log('🟡 FACULTY SEND_ACTION DEBUG: Using selected designation from dropdown:', designationName);
+            } else {
+                console.warn('🟡 FACULTY SEND_ACTION DEBUG: roleSelector not found, using fallback:', designationName);
             }
 
             // Get the currently selected school term from the filter to ensure approval goes to the correct period

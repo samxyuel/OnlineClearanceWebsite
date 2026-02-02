@@ -95,7 +95,7 @@
                 <div id="editProgramHeadAssignmentSection" class="program-head-assignment-section" style="display: none;">
                     <!-- Current Assignments Display -->
                     <div id="editCurrentAssignmentsContainer" class="current-assignments-container" style="display: none;">
-                        <h4 class="current-assignments-title">
+                        <h4 class="current-assignments-title" style="margin: 0 0 12px 0; font-size: 1rem; color: var(--deep-navy-blue);">
                             <i class="fas fa-list-check"></i> Current Department Assignments
                         </h4>
                         <div id="editCurrentAssignmentsList" class="current-assignments-list">
@@ -103,30 +103,41 @@
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="editProgramHeadCategory">Program Head Assignment <span class="required-asterisk">*</span></label>
-                        <select id="editProgramHeadCategory" name="programHeadCategory" onchange="updateEditDepartmentCheckboxes()">
-                            <option value="">Select Category</option>
-                            <option value="College">College</option>
-                            <option value="Senior High School">Senior High School</option>
-                            <option value="Faculty">Faculty</option>
-                        </select>
-                        <small class="form-help">Select the category this Program Head will manage</small>
+                    <div class="ph-assignment-header" style="margin-top: 16px;">
+                        <h3 style="margin: 0 0 8px 0; font-size: 1.1rem; color: var(--deep-navy-blue);">Program Head Assignment</h3>
+                        <p class="ph-assignment-description" style="margin: 0 0 16px 0; color: #6c757d; font-size: 0.9rem;">
+                            Select departments this Program Head will manage. Access will be granted across all sectors where each department exists.
+                        </p>
                     </div>
-                    
-                    <div id="editDepartmentCheckboxesContainer" class="department-checkboxes-container" style="display: none;">
-                        <label class="checkbox-section-label">Available Departments <span class="required-asterisk">*</span></label>
-                        <small class="form-help">Select at least one department for Program Head assignment</small>
+
+                    <hr class="section-separator" style="margin: 16px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+                    <!-- Department List -->
+                    <div class="ph-dept-list">
+                        <label class="section-label" style="display: block; font-weight: 600; margin-bottom: 12px; color: var(--deep-navy-blue);">Available Departments</label>
                         <div id="editDepartmentCheckboxesList" class="checkbox-group">
-                            <!-- Checkboxes will be populated dynamically -->
+                            <!-- Departments will be populated dynamically -->
                         </div>
-                        <div class="form-group" style="margin-top:10px;">
-                            <label class="checkbox-label" style="display:flex; align-items:center; gap:8px;">
-                                <input type="checkbox" id="editPhTransferToggle" checked>
-                                <span>Transfer existing Program Head if a department is already assigned</span>
-                            </label>
-                            <small class="form-help">When checked, assigning will replace the current Program Head for occupied departments.</small>
+                    </div>
+
+                    <hr class="section-separator" style="margin: 16px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+                    <!-- Summary -->
+                    <div class="ph-assignment-summary">
+                        <label class="section-label" style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--deep-navy-blue);">Assignment Summary</label>
+                        <div class="summary-text" style="color: #6c757d; font-size: 0.95rem;">
+                            Selected: <span id="editSelectedDeptCount" style="font-weight: 600; color: var(--darker-saturated-blue);">0</span> departments
                         </div>
+                    </div>
+
+                    <hr class="section-separator" style="margin: 16px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+                    <!-- Transfer Toggle -->
+                    <div class="ph-transfer-section">
+                        <label class="transfer-toggle-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="editPhTransferToggle" checked>
+                            <span style="color: #374151; font-size: 0.9rem;">Transfer existing Program Head if a department is already assigned</span>
+                        </label>
                     </div>
                 </div>
                 
@@ -336,18 +347,9 @@ window.loadExistingAssignments = async function(staffData) {
             // Display current assignments
             displayCurrentAssignments(data.assignments);
 
-            // Determine the sector from existing assignments
-            const sectors = [...new Set(data.assignments.map(a => a.sector_name || a.department_type))];
-            if (sectors.length > 0) {
-                // Set the sector
-                const sectorSelect = document.getElementById('editProgramHeadCategory');
-                if (sectorSelect) {
-                    sectorSelect.value = sectors[0];
-                    // Wait for checkboxes to be loaded, then mark existing assignments
-                    await updateEditDepartmentCheckboxes();
-                    markExistingAssignments(data.assignments);
-                }
-            }
+            // Load departments and mark existing assignments
+            await updateEditDepartmentCheckboxes();
+            markExistingAssignments(data.assignments);
         } else {
             // No existing assignments, hide current assignments display
             hideCurrentAssignments();
@@ -564,12 +566,12 @@ window.submitEditStaffForm = function() {
     const editValidationFinalPosition = editValidationStandardPosition || editValidationCustomPosition;
     
     if (editValidationFinalPosition === 'Program Head') {
-        const programHeadCategory = document.getElementById('editProgramHeadCategory').value;
+        // Program Head validation - no category needed
         const assignedDepartments = document.querySelectorAll('input[name="assignedDepartments[]"]:checked');
         
         if (!programHeadCategory) {
             showToastNotification('Please select a category for Program Head assignment.', 'error');
-            document.getElementById('editProgramHeadCategory').focus();
+            // Focus on department checkboxes
             return;
         }
         
@@ -850,6 +852,8 @@ window.removeAllAssignments = function(userId) {
             // Animate in
             setTimeout(() => {
                 programHeadSection.style.opacity = '1';
+                // Load departments when section is shown
+                updateEditDepartmentCheckboxes();
             }, 10);
         } else {
             // Hide Program Head assignment section
@@ -865,23 +869,14 @@ window.removeAllAssignments = function(userId) {
 
     // Update edit department checkboxes based on selected category
     window.updateEditDepartmentCheckboxes = function() {
-        const categorySelect = document.getElementById('editProgramHeadCategory');
-        const checkboxesContainer = document.getElementById('editDepartmentCheckboxesContainer');
         const checkboxesList = document.getElementById('editDepartmentCheckboxesList');
         
-        if (!categorySelect || !checkboxesContainer || !checkboxesList) return;
-        
-        const selectedCategory = categorySelect.value;
-        
-        if (!selectedCategory) {
-            checkboxesContainer.style.display = 'none'; 
-            return Promise.resolve(); // Return a resolved promise
-        }
+        if (!checkboxesList) return Promise.resolve();
         
         return new Promise((resolve, reject) => {
-            // Load departments from API filtered by sector/category
-            const url = `../../api/departments/list.php?sector=${encodeURIComponent(selectedCategory)}&include_ph=1&limit=500`;
-            checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">Loading departments...</div>';
+            // Load ALL departments from API (not filtered by sector)
+            const url = `../../api/departments/list.php?include_ph=1&limit=500`;
+            checkboxesList.innerHTML = '<div style="padding:12px;color:#6c757d;text-align:center;">Loading departments...</div>';
             
             fetch(url, { credentials: 'include' })
                 .then(r => r.json())
@@ -892,78 +887,156 @@ window.removeAllAssignments = function(userId) {
                         reject(new Error('Failed to load departments'));
                         return;
                     }
+                    
                     const departments = resp.departments || [];
                     if (departments.length === 0) {
-                        checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">No departments found for this sector</div>';
+                        checkboxesList.innerHTML = '<div style="padding:8px;color:#6c757d;">No departments found</div>';
+                        updateEditPHSummary();
+                        resolve();
+                        return;
                     }
                     
-                    departments.forEach(dep => {
-                        const depId = dep.department_id;
-                        const depName = dep.department_name;
-                        const phUserId = dep.current_program_head_user_id || null;
-                        const phName = dep.current_program_head_name || '';
-                        const phEmployeeNumber = dep.current_program_head_employee_number || '';
+                    // Get currently assigned departments for this staff member
+                    const currentAssignments = window.currentProgramHeadAssignments || [];
+                    const currentDeptIds = currentAssignments.map(a => a.department_id);
+                    
+                    // Group departments by name/code to show cross-sector info
+                    departments.forEach(dept => {
+                        const deptKey = dept.department_code || dept.department_name;
+                        const isShared = dept.is_shared || false;
+                        const sectors = dept.sectors || [];
                         
-                        const disabled = false; // Always allow selection, transfer toggle will handle logic
+                        // Get the first department_id from the first sector (for assignment)
+                        const primaryDeptId = sectors.length > 0 ? sectors[0].department_id : null;
+                        if (!primaryDeptId) return;
+                        
+                        const isCurrentlyAssigned = currentDeptIds.includes(primaryDeptId);
+                        
+                        // Build sector info text
+                        const sectorNames = sectors.map(s => s.sector_name).join(', ');
+                        const isFacultyOnly = sectors.length === 1 && sectors[0].sector_name === 'Faculty';
+                        
                         const option = document.createElement('div');
                         option.className = 'checkbox-option';
-                        const inputId = `edit_dept_${depId}`;
+                        option.style.marginBottom = '12px';
+                        option.style.padding = '12px';
+                        option.style.border = '1px solid #e5e7eb';
+                        option.style.borderRadius = '6px';
+                        option.style.backgroundColor = isCurrentlyAssigned ? '#e0f2fe' : '#f9fafb';
                         
-                        // Create enhanced label with Program Head info
-                        let phInfo = '';
-                        if (phUserId) { // Show info if a PH is assigned
-                            phInfo = `
-                                <div class="current-ph-info">
-                                    <span class="ph-assigned-label">Currently assigned to:</span>
-                                    <span class="ph-name">${phName}</span>
-                                    <span class="ph-employee">(${phEmployeeNumber})</span>
-                                </div>
-                            `;
+                        const inputId = `edit_dept_${primaryDeptId}`;
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.id = inputId;
+                        checkbox.name = 'assignedDepartments[]';
+                        checkbox.value = primaryDeptId;
+                        checkbox.checked = isCurrentlyAssigned;
+                        checkbox.addEventListener('change', updateEditPHSummary);
+                        
+                        const label = document.createElement('label');
+                        label.htmlFor = inputId;
+                        label.style.cursor = 'pointer';
+                        label.style.display = 'flex';
+                        label.style.flexDirection = 'column';
+                        label.style.gap = '4px';
+                        
+                        // Department name with code
+                        const nameSpan = document.createElement('span');
+                        nameSpan.style.fontWeight = '600';
+                        nameSpan.style.color = 'var(--deep-navy-blue)';
+                        nameSpan.textContent = dept.department_name;
+                        if (dept.department_code) {
+                            nameSpan.textContent += ` (${dept.department_code})`;
+                        }
+                        if (isCurrentlyAssigned) {
+                            nameSpan.innerHTML += ' <span style="color:#28a745;font-size:0.85rem;">(Currently Assigned)</span>';
                         }
                         
-                        option.innerHTML = `
-                            <input type="checkbox" id="${inputId}" name="assignedDepartments[]" value="${depId}" ${disabled ? 'disabled' : ''}>
-                            <label for="${inputId}">
-                                <div class="dept-label-main">${depName}</div>
-                                ${phInfo}
-                            </label>
-                        `;
+                        // Sector info
+                        const sectorInfo = document.createElement('span');
+                        sectorInfo.style.fontSize = '0.85rem';
+                        sectorInfo.style.color = '#6c757d';
+                        
+                        if (isFacultyOnly) {
+                            sectorInfo.innerHTML = '<span style="color:#dc3545;font-weight:600;">[Faculty Only]</span> Available in: Faculty only<br>Access: Faculty members only';
+                        } else if (isShared) {
+                            sectorInfo.textContent = `Available in: ${sectorNames}\nAccess: Students and Faculty members`;
+                        } else {
+                            sectorInfo.textContent = `Available in: ${sectorNames}`;
+                        }
+                        
+                        label.appendChild(nameSpan);
+                        label.appendChild(sectorInfo);
+                        
+                        option.appendChild(checkbox);
+                        option.appendChild(label);
                         checkboxesList.appendChild(option);
-                    });
-
-                    // Sync visual selection state with checked state (multi-select)
-                    checkboxesList.addEventListener('change', function(e){
-                        if (e.target && e.target.matches('input[type="checkbox"]')) {
-                            const container = e.target.closest('.checkbox-option');
-                            if (container) {
-                                if (e.target.checked) container.classList.add('selected');
-                                else container.classList.remove('selected');
+                        
+                        // Add click handler for the entire option
+                        option.addEventListener('click', function(e) {
+                            if (e.target.type !== 'checkbox') {
+                                checkbox.checked = !checkbox.checked;
+                                checkbox.dispatchEvent(new Event('change'));
                             }
+                        });
+                    });
+                    
+                    // Sync visual selection state
+                    const syncSelectedClass = () => {
+                        const allOptions = checkboxesList.querySelectorAll('.checkbox-option');
+                        allOptions.forEach(opt => {
+                            const cb = opt.querySelector('input[type="checkbox"]');
+                            if (cb && cb.checked) {
+                                opt.classList.add('selected');
+                                opt.style.backgroundColor = '#e0f2fe';
+                                opt.style.borderColor = 'var(--darker-saturated-blue)';
+                            } else {
+                                opt.classList.remove('selected');
+                                opt.style.backgroundColor = '#f9fafb';
+                                opt.style.borderColor = '#e5e7eb';
+                            }
+                        });
+                    };
+                    
+                    checkboxesList.addEventListener('change', function(e) {
+                        if (e.target && e.target.matches('input[type="checkbox"]')) {
+                            syncSelectedClass();
+                            updateEditPHSummary();
                         }
                     });
-                    resolve(); // Resolve the promise when done
+                    
+                    syncSelectedClass();
+                    updateEditPHSummary();
+                    resolve();
                 })
                 .catch((err) => {
-                    checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Error loading departments</div>';
-                    reject(err); // Reject the promise on error
-                })
-                .finally(() => {
-                    checkboxesContainer.style.display = 'block';
-                    checkboxesContainer.style.opacity = '0';
-                    setTimeout(() => { checkboxesContainer.style.opacity = '1'; }, 10);
+                    console.error('Error loading departments:', err);
+                    checkboxesList.innerHTML = '<div style="padding:8px;color:#dc3545;">Error loading departments. Please try again.</div>';
+                    updateEditPHSummary();
+                    reject(err);
                 });
         });
     };
+    
+    // Update Edit Program Head assignment summary
+    function updateEditPHSummary() {
+        const selected = document.querySelectorAll('#editProgramHeadAssignmentSection input[name="assignedDepartments[]"]:checked');
+        const count = selected.length;
+        const countSpan = document.getElementById('editSelectedDeptCount');
+        if (countSpan) {
+            countSpan.textContent = count;
+        }
+    }
+    
+    window.updateEditPHSummary = updateEditPHSummary;
 
     // Clear edit Program Head fields
     function clearEditProgramHeadFields() {
-        const categorySelect = document.getElementById('editProgramHeadCategory');
-        const checkboxesContainer = document.getElementById('editDepartmentCheckboxesContainer');
         const checkboxesList = document.getElementById('editDepartmentCheckboxesList');
-        
-        if (categorySelect) categorySelect.value = '';
-        if (checkboxesContainer) checkboxesContainer.style.display = 'none';
-        if (checkboxesList) checkboxesList.innerHTML = '';
+        if (checkboxesList) {
+            checkboxesList.innerHTML = '';
+        }
+        updateEditPHSummary();
     }
 
 // Form validation

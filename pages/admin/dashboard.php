@@ -132,10 +132,6 @@
                             </div>
                         </div>
                     </div>
-
-
-                    <!-- Recent Activity -->
-                    <?php include '../../includes/components/recent-activity.php'; ?>
                 </div>
                 </div>
             </div>

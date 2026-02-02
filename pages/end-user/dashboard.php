@@ -158,16 +158,6 @@
                         </div>
                         <?php endif; ?>
                 </div>
-
-
-                <!-- Content Grid -->
-                <div class="content-grid">
-                    <!-- Recent Activity Section -->
-                    <?php include '../../includes/components/recent-activity.php'; ?>
-
-                    <!-- Notifications Panel -->
-                    <?php include '../../includes/components/notifications.php'; ?>
-                </div>
             </div>
         </div>
     </main>
@@ -230,9 +220,6 @@
             // Update Main Action Button
             updateMainActionButton(data);
 
-            // Update Recent Activity
-            updateRecentActivity(data.recent_activity);
-
             // Update User Information Indicators
             updateUserInfoIndicators(data);
 
@@ -279,44 +266,6 @@
                 statusText.textContent = 'Clearance period is open — Apply now!';
             }
         }
-    }
-
-    function updateRecentActivity(activities) {
-        const timeline = document.getElementById('activityTimeline');
-        if (!activities || activities.length === 0) {
-            timeline.innerHTML = '<div class="activity-item"><div class="activity-content"><p>No recent activity.</p></div></div>';
-            return;
-        }
-
-        timeline.innerHTML = activities.map(activity => {
-            let iconClass = 'fas fa-info-circle';
-            let statusClass = 'pending';
-            let title = `Update from ${activity.designation_name}`;
-
-            if (activity.action === 'Approved') {
-                iconClass = 'fas fa-check-circle';
-                statusClass = 'completed';
-                title = `${activity.designation_name} Approved`;
-            } else if (activity.action === 'Rejected') {
-                iconClass = 'fas fa-times-circle';
-                statusClass = 'rejected';
-                title = `${activity.designation_name} Rejected`;
-            }
-
-            const date = new Date(activity.date_signed);
-            const formattedDate = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-            return `
-                <div class="activity-item ${statusClass}">
-                    <div class="activity-marker"></div>
-                    <div class="activity-content">
-                        <h4>${title}</h4>
-                        <p>Action recorded for your clearance form.</p>
-                        <span class="activity-date">${formattedDate}</span>
-                    </div>
-                </div>
-            `;
-        }).join('');
     }
 
     function updateUserInfoIndicators(data) {

@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../../includes/config/database.php';
 require_once '../../includes/classes/Auth.php';
+require_once '../../includes/helpers/department_helpers.php';
 
 $auth = new Auth();
 // Temporarily disable auth for testing
@@ -47,9 +48,8 @@ try {
 
     $programHeadDepts = [];
     if ($userRole === 'Program Head') {
-        $stmt = $pdo->prepare("SELECT department_id FROM user_department_assignments WHERE user_id = ?");
-        $stmt->execute([$currentUserId]);
-        $programHeadDepts = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        // Use cross-sector department matching
+        $programHeadDepts = getCrossSectorDepartmentIds($pdo, $currentUserId);
         if (empty($programHeadDepts)) {
             // A program head with no departments sees no one.
             echo json_encode(['success'=> true, 'page' => $page, 'limit' => $limit, 'total' => 0, 'staff' => []]);
@@ -71,10 +71,10 @@ try {
         $params[':q4'] = "%$q%";
     }
 
-    // If the user is a Program Head, filter staff list to their departments
+    // If the user is a Program Head, filter staff list to their departments (cross-sector)
     if (!empty($programHeadDepts)) {
         $placeholders = implode(',', array_fill(0, count($programHeadDepts), '?'));
-        $where[] = "s.user_id IN (SELECT DISTINCT uda.user_id FROM user_department_assignments uda WHERE uda.department_id IN ($placeholders))";
+        $where[] = "s.user_id IN (SELECT DISTINCT uda.user_id FROM user_department_assignments uda WHERE uda.department_id IN ($placeholders) AND uda.is_active = 1)";
         $params = array_merge($params, $programHeadDepts);
     }
 

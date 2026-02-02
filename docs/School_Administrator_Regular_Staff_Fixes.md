@@ -1305,3 +1305,415 @@ $estimatedLines = max(1, ceil(mb_strlen($deptText) / $charsPerLine));
 **Status:** ✅ Export functionality fully restored for Regular Staff  
 **Date Fixed:** November 27, 2025  
 **Fixed By:** Adding explicit `ext-mbstring` requirement to `composer.json`
+
+---
+
+## Program Head Signatory Actions Fixes (Added November 27, 2025)
+
+### Overview
+
+Fixed signatory action functions (approve/reject) in Program Head management pages to simplify function signatures, add `school_term` support for historical terms, and align with Regular Staff approach.
+
+---
+
+### Issue 1: Function Signature Mismatch
+
+**Problem:**
+
+- `approveSignatory()` and `rejectSignatory()` functions expected 3 parameters: `(targetUserId, clearanceFormId, signatoryId)`
+- But buttons only passed 1 parameter: `approveSignatory('${student.user_id}')`
+- Reject button passed 3 parameters but in wrong order/meaning: `rejectSignatory('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(student.signatory_id)}')`
+- Functions ignored passed parameters and extracted data from DOM anyway
+
+**Root Cause:**
+
+- API (`signatory_action.php`) only needs `applicant_user_id` and `designation_name`
+- API automatically resolves `clearanceFormId` and `signatoryId` from these values
+- Extra parameters were unnecessary and caused confusion
+
+**Fix:**
+
+Simplified function signatures to only require `targetUserId`:
+
+```javascript
+// BEFORE:
+async function approveSignatory(targetUserId, clearanceFormId, signatoryId)
+async function rejectSignatory(targetUserId, clearanceFormId, signatoryId)
+
+// AFTER:
+async function approveSignatory(targetUserId)
+async function rejectSignatory(targetUserId)
+```
+
+**Files Modified:**
+
+- `pages/program-head/CollegeStudentManagement.php` (lines 2292, 2330, 1778)
+- `pages/program-head/SeniorHighStudentManagement.php` (line 2138 - button call only)
+
+**Files Already Correct (No Changes Needed):**
+
+- `pages/program-head/FacultyManagement.php` - Already had `school_term` support via `sendSignatoryAction()` helper function (lines 1929-1944). Both `approveFacultyClearance()` and `rejectFacultyClearance()` use this helper, so they already support historical terms.
+
+---
+
+### Issue 2: Missing school_term in Approve Payload
+
+**Problem:**
+
+- `approveSignatory()` didn't include `school_term` in API payload
+- This prevented approving clearances for historical terms
+- `rejectSignatory()` already included `school_term` (inconsistent)
+
+**Fix:**
+
+Added `school_term` extraction and inclusion in approve payload:
+
+```javascript
+// Get current school term from filter (for historical term support)
+const schoolTermFilter = document.getElementById("schoolTermFilter");
+const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : "";
+
+const approvalPayload = {
+  applicant_user_id: targetUserId,
+  action: "Approved",
+  remarks: "Approved by Program Head",
+  designation_name: "Program Head",
+};
+
+// Include school_term if a specific term is selected
+if (currentSchoolTerm && currentSchoolTerm.trim() !== "") {
+  approvalPayload.school_term = currentSchoolTerm.trim();
+}
+```
+
+**Files Modified:**
+
+- `pages/program-head/CollegeStudentManagement.php` (lines 2296-2316)
+
+**Note:**
+
+- `SeniorHighStudentManagement.php` already had `school_term` support via `sendSignatoryAction()` helper function.
+- `FacultyManagement.php` also already had `school_term` support via `sendSignatoryAction()` helper function (lines 1929-1944). Both `approveFacultyClearance()` and `rejectFacultyClearance()` use this helper, so no changes were needed.
+
+---
+
+### Issue 3: Button Call Parameter Cleanup
+
+**Problem:**
+
+- Reject button passed unnecessary parameters: `rejectSignatory('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(student.signatory_id)}')`
+- `escapeHtml(student.name)` was redundant (function extracts name from DOM)
+- `escapeHtml(student.signatory_id)` was not used
+
+**Fix:**
+
+Simplified button calls to match new function signatures:
+
+```javascript
+// BEFORE:
+onclick =
+  "rejectSignatory('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(student.signatory_id)}')";
+
+// AFTER:
+onclick = "rejectSignatory('${student.user_id}')";
+```
+
+**Files Modified:**
+
+- `pages/program-head/CollegeStudentManagement.php` (line 1778)
+- `pages/program-head/SeniorHighStudentManagement.php` (line 2138)
+
+---
+
+### Issue 4: Clearance Status Display Fix (Previously Implemented)
+
+**Problem:**
+
+- Program Head saw "Pending" clearance status even when not assigned as signatory for that sector's clearance period
+- Status was coming from other signatories (Cashier, Registrar, etc.) instead of Program Head's own assignments
+
+**Fix:**
+
+Modified `api/clearance/signatoryList.php` to filter signatory join condition for Program Head:
+
+```php
+// Filter signatory join for Program Head to only show their own assignments
+if ($isProgramHead) {
+    // Get Program Head designation ID
+    $programHeadDesigId = null;
+    foreach ($staffDesignations as $desig) {
+        if (strcasecmp($desig['designation_name'], 'Program Head') === 0) {
+            $programHeadDesigId = $desig['designation_id'];
+            break;
+        }
+    }
+
+    if ($programHeadDesigId) {
+        $signatoryJoinCondition = "cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id = :programHeadDesigId";
+        $params[':programHeadDesigId'] = $programHeadDesigId;
+    }
+}
+```
+
+**Result:**
+
+- Program Head only sees clearance status from their own signatory assignments
+- If not assigned, status shows as NULL/Unapplied (not "Pending" from other signatories)
+
+**Files Modified:**
+
+- `api/clearance/signatoryList.php` (lines 252-266, applied to both faculty and student queries)
+
+---
+
+### About escapeHtml() Function
+
+**Purpose:**
+
+- Prevents XSS (Cross-Site Scripting) attacks by escaping HTML special characters
+- Converts: `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`, `"` → `&quot;`, `'` → `&#039;`
+
+**When to Use:**
+
+✅ **Use when:**
+
+- Direct HTML injection: `element.innerHTML = escapeHtml(userInput)`
+- Template literals in HTML attributes: `onclick="doSomething('${escapeHtml(name)}')"`
+- Displaying user-generated content in HTML
+
+❌ **Not needed when:**
+
+- Using `textContent` (already safe)
+- Extracting from DOM (already rendered safely)
+- Using `JSON.stringify()` (handles escaping automatically)
+- Function extracts data from DOM anyway (redundant)
+
+**In Program Head Context:**
+
+- `escapeHtml(student.user_id)` - Not needed (numeric ID, no special chars)
+- `escapeHtml(student.name)` - Optional (defense in depth, but function extracts from DOM anyway)
+- `escapeHtml(student.signatory_id)` - Not needed (not used by function)
+
+---
+
+### Summary of Changes
+
+| File                              | Function              | Change                                    | Status           |
+| --------------------------------- | --------------------- | ----------------------------------------- | ---------------- |
+| `CollegeStudentManagement.php`    | `approveSignatory`    | Simplified signature, added `school_term` | ✅ Fixed         |
+| `CollegeStudentManagement.php`    | `rejectSignatory`     | Simplified signature                      | ✅ Fixed         |
+| `CollegeStudentManagement.php`    | Button calls          | Removed extra parameters                  | ✅ Fixed         |
+| `SeniorHighStudentManagement.php` | Button calls          | Removed extra parameters                  | ✅ Fixed         |
+| `FacultyManagement.php`           | `sendSignatoryAction` | Already had `school_term` support         | ✅ No fix needed |
+| `signatoryList.php`               | Query join            | Filter by Program Head designation        | ✅ Fixed         |
+
+---
+
+### Testing Results
+
+**Before Fixes:**
+
+- ❌ Approve button worked but didn't support historical terms
+- ❌ Reject button had parameter mismatch (function ignored extra params)
+- ❌ Clearance status showed "Pending" from other signatories
+- ⚠️ Inconsistent with Regular Staff approach
+
+**After Fixes:**
+
+- ✅ Approve button supports historical terms via `school_term`
+- ✅ Reject button simplified and consistent
+- ✅ Clearance status only shows Program Head's own assignments
+- ✅ Consistent with Regular Staff approach (simplified signatures)
+- ✅ No linting errors
+
+---
+
+### Benefits
+
+1. **Simplified Code:** Functions only require essential parameter (`targetUserId`)
+2. **Historical Term Support:** Approve actions now work for past terms
+3. **Consistency:** Matches Regular Staff implementation pattern
+4. **Correct Status Display:** Only shows Program Head's own clearance status
+5. **Maintainability:** Less parameter confusion, easier to understand
+
+---
+
+**Status:** ✅ All Program Head signatory action fixes implemented  
+**Date Fixed:** November 27, 2025  
+**Fixed By:** Simplifying function signatures, adding `school_term` support, and filtering clearance status by designation
+
+---
+
+## Program Head Button State & Role Detection Fixes (Added November 30, 2025)
+
+### Overview
+
+Fixed two critical issues preventing Program Head signatory action buttons from being enabled:
+
+1. **CSS Selector Mismatch:** The `updateActionButtonsState()` function used incorrect selectors to find clearance status badges
+2. **Role Detection Issue:** The PHP controllers used `sector_signatory_assignments` table to detect signatory roles, but Program Heads are enabled via `sector_clearance_settings.include_program_head`
+
+---
+
+### Issue 1: CSS Selector Mismatch in Button State Management
+
+**Problem:**
+
+- `updateActionButtonsState()` used selector `.status-badge[class*="clearance-"]`
+- But clearance status badges are rendered with class `status-badge-compact signatory-*`
+- This caused the status detection to fail, defaulting to 'Unapplied' and disabling buttons
+
+**Root Cause Analysis:**
+
+In `createStudentRow()` / `createFacultyRow()`:
+
+```javascript
+// Status badge classes use 'signatory-' prefix
+const clearanceStatusClass = `signatory-${clearanceStatus
+  .toLowerCase()
+  .replace(/ /g, "-")}`;
+
+// HTML output:
+`<span class="status-badge-compact ${clearanceStatusClass}">${clearanceStatus}</span>`;
+```
+
+But in `updateActionButtonsState()`:
+
+```javascript
+// ❌ Wrong selector - looking for 'clearance-' but badges use 'signatory-'
+const clearanceBadge = row.querySelector('.status-badge[class*="clearance-"]');
+```
+
+**Fix:**
+
+Changed selector to match actual badge classes:
+
+```javascript
+// ✅ Correct selector
+const clearanceBadge = row.querySelector(
+  '.status-badge-compact[class*="signatory-"]'
+);
+```
+
+**Files Modified:**
+
+- `pages/program-head/CollegeStudentManagement.php` (2 locations)
+- `pages/program-head/SeniorHighStudentManagement.php` (4 locations)
+- `pages/program-head/FacultyManagement.php` (2 locations)
+
+---
+
+### Issue 2: Role Detection in PHP Controllers
+
+**Problem:**
+
+- Controllers checked `sector_signatory_assignments` table for signatory designations
+- Program Heads are NOT in `sector_signatory_assignments`
+- Program Heads are enabled via `sector_clearance_settings.include_program_head = 1`
+- Result: "No active signatory roles" displayed even when Program Head is enabled for the sector
+
+**Root Cause Analysis:**
+
+```php
+// ❌ Original logic - doesn't find Program Head
+$signatoryCheck = $pdo->prepare("
+    SELECT DISTINCT designation_id
+    FROM sector_signatory_assignments
+    WHERE designation_id IN ($placeholders) AND clearance_type = ? AND is_active = 1
+");
+```
+
+Program Heads use a different mechanism:
+
+```php
+// ✅ sector_clearance_settings table
+// include_program_head = 1 means Program Head can sign for this sector
+```
+
+**Fix:**
+
+Added separate handling for Program Head designation:
+
+```php
+// 1. First, check if user has Program Head designation
+$isProgramHeadDesignation = null;
+foreach ($userDesignations as $designation) {
+    if (strcasecmp($designation['designation_name'], 'Program Head') === 0) {
+        $isProgramHeadDesignation = $designation;
+        break;
+    }
+}
+
+// 2. Handle Program Head separately via sector_clearance_settings
+if ($isProgramHeadDesignation) {
+    $settingStmt = $pdo->prepare("
+        SELECT include_program_head
+        FROM sector_clearance_settings
+        WHERE clearance_type = ? AND include_program_head = 1
+    ");
+    $settingStmt->execute([$sector]);
+    if ($settingStmt->fetchColumn()) {
+        // Program Head is enabled for this sector
+        $userSignatoryDesignations[] = $isProgramHeadDesignation;
+    }
+}
+
+// 3. Check sector_signatory_assignments for other designations (not Program Head)
+$otherDesignations = array_filter($userDesignations, function($d) {
+    return strcasecmp($d['designation_name'], 'Program Head') !== 0;
+});
+
+if (!empty($otherDesignations)) {
+    // ... existing sector_signatory_assignments check
+}
+```
+
+**Files Modified:**
+
+- `controllers/StudentManagementController.php`
+- `controllers/FacultyManagementController.php`
+
+---
+
+### Summary of Changes
+
+| File                              | Change                                                       | Impact                                    |
+| --------------------------------- | ------------------------------------------------------------ | ----------------------------------------- |
+| `CollegeStudentManagement.php`    | Fixed CSS selector in 2 functions                            | Buttons now correctly enabled/disabled    |
+| `SeniorHighStudentManagement.php` | Fixed CSS selector in 4 functions                            | Buttons now correctly enabled/disabled    |
+| `FacultyManagement.php`           | Fixed CSS selector in 2 functions                            | Buttons now correctly enabled/disabled    |
+| `StudentManagementController.php` | Added Program Head detection via `sector_clearance_settings` | "Program Head" now shows in role selector |
+| `FacultyManagementController.php` | Added Program Head detection via `sector_clearance_settings` | "Program Head" now shows in role selector |
+
+---
+
+### CSS Class Reference
+
+| Element                      | Class Pattern                       | Example                                   |
+| ---------------------------- | ----------------------------------- | ----------------------------------------- |
+| Account Status Badge         | `.status-badge.account-*`           | `.status-badge.account-active`            |
+| Clearance Form Progress      | `.status-badge-compact.clearance-*` | `.status-badge-compact.clearance-pending` |
+| Clearance Status (Signatory) | `.status-badge-compact.signatory-*` | `.status-badge-compact.signatory-pending` |
+
+---
+
+### Testing Results
+
+**Before Fixes:**
+
+- ❌ Approve/Reject buttons always disabled despite `canPerformSignatoryActions = true`
+- ❌ "No active signatory roles" displayed even when Program Head enabled for sector
+- ❌ Bulk selection filters didn't find clearance status badges
+
+**After Fixes:**
+
+- ✅ Approve/Reject buttons correctly enabled for Pending/Rejected statuses
+- ✅ "Program Head" appears in role selector when enabled for sector
+- ✅ Bulk selection filters correctly identify clearance status
+- ✅ Row-level button state management works correctly
+
+---
+
+**Status:** ✅ Program Head button state and role detection fixes implemented  
+**Date Fixed:** November 30, 2025  
+**Fixed By:** Correcting CSS selectors and adding Program Head detection via `sector_clearance_settings`

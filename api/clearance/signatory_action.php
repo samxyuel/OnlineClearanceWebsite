@@ -55,6 +55,13 @@ if ($action !== 'Approved' && $action !== 'Rejected') {
 try {
     $pdo = Database::getInstance()->getConnection();
     
+    // Fetch the acting user's name for signatory snapshot
+    $signerStmt = $pdo->prepare("SELECT first_name, last_name FROM users WHERE user_id = ?");
+    $signerStmt->execute([$actingUserId]);
+    $signerInfo = $signerStmt->fetch(PDO::FETCH_ASSOC);
+    $signerFirstName = $signerInfo['first_name'] ?? null;
+    $signerLastName = $signerInfo['last_name'] ?? null;
+    
     // Get the acting user's designation_id from the staff table based on their session user_id
     // If a designation_name is passed (like 'Program Head'), we might not need to look up the staff's single designation.
     if (!$designationId && !$designationName) {
@@ -293,23 +300,25 @@ try {
     if ($get->fetch()) {
         if ($action === 'Approved') {
             // On approval, set the user ID and the signing date, clear rejection info.
-            $upd = $pdo->prepare("UPDATE clearance_signatories SET action=?, remarks=?, reason_id=NULL, additional_remarks=NULL, updated_at=NOW(), actual_user_id=?, date_signed=NOW() WHERE clearance_form_id=? AND designation_id=?");
-            $upd->execute([$action, $remarks, $actingUserId, $formId, $designationId]); // Use $remarks for general remarks
+            $upd = $pdo->prepare("UPDATE clearance_signatories SET action=?, remarks=?, reason_id=NULL, additional_remarks=NULL, updated_at=NOW(), actual_user_id=?, signatory_first_name=?, signatory_last_name=?, date_signed=NOW() WHERE clearance_form_id=? AND designation_id=?");
+            $upd->execute([$action, $remarks, $actingUserId, $signerFirstName, $signerLastName, $formId, $designationId]); // Use $remarks for general remarks
         } else {
-            // On rejection, set rejection reason and additional remarks, clear actual_user_id and date_signed.
+            // On rejection, set rejection reason and additional remarks, preserve name and user_id for audit trail, clear date_signed.
             // The 'remarks' from frontend is treated as 'additional_remarks' for rejection.
-            $upd = $pdo->prepare("UPDATE clearance_signatories SET action=?, remarks=NULL, reason_id=?, additional_remarks=?, updated_at=NOW(), actual_user_id=NULL, date_signed=NULL WHERE clearance_form_id=? AND designation_id=?");
-            $upd->execute([$action, $reasonId, $remarks, $formId, $designationId]);
+            $upd = $pdo->prepare("UPDATE clearance_signatories SET action=?, remarks=NULL, reason_id=?, additional_remarks=?, updated_at=NOW(), actual_user_id=?, signatory_first_name=?, signatory_last_name=?, date_signed=NULL WHERE clearance_form_id=? AND designation_id=?");
+            $upd->execute([$action, $reasonId, $remarks, $actingUserId, $signerFirstName, $signerLastName, $formId, $designationId]);
         }
     } else {
-        // Corrected INSERT logic
-        $userIdToInsert = ($action === 'Approved') ? $actingUserId : null;
-        $dateToInsert = ($action === 'Approved') ? date('Y-m-d H:i:s') : null;
+        // Corrected INSERT logic - always capture user_id and name for audit trail
+        $userIdToInsert = $actingUserId; // Always capture who took the action
+        $firstNameToInsert = $signerFirstName; // Always capture name
+        $lastNameToInsert = $signerLastName; // Always capture name
+        $dateToInsert = ($action === 'Approved') ? date('Y-m-d H:i:s') : null; // Only date for approvals
         $generalRemarks = ($action === 'Approved') ? $remarks : null;
         $rejectionRemarks = ($action === 'Rejected') ? $remarks : null;
 
-        $ins = $pdo->prepare("INSERT INTO clearance_signatories (clearance_form_id, designation_id, action, remarks, reason_id, additional_remarks, created_at, updated_at, actual_user_id, date_signed) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?)");
-        $ins->execute([$formId, $designationId, $action, $generalRemarks, $reasonId, $rejectionRemarks, $userIdToInsert, $dateToInsert]);
+        $ins = $pdo->prepare("INSERT INTO clearance_signatories (clearance_form_id, designation_id, action, remarks, reason_id, additional_remarks, created_at, updated_at, actual_user_id, signatory_first_name, signatory_last_name, date_signed) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?)");
+        $ins->execute([$formId, $designationId, $action, $generalRemarks, $reasonId, $rejectionRemarks, $userIdToInsert, $firstNameToInsert, $lastNameToInsert, $dateToInsert]);
     }
 
     // Optionally lift overall status to In Progress or Complete

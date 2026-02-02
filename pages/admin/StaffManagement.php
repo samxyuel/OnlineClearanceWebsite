@@ -101,9 +101,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                     <!-- <button class="btn btn-secondary import-btn" onclick="openStaffImportModal()">
                         <i class="fas fa-file-import"></i> Import Staff
                     </button> -->
-                    <button class="btn btn-secondary export-btn" onclick="openStaffExportModal()">
-                        <i class="fas fa-file-export"></i> Export Staff
-                    </button>
                 </div>
             </div>
 
@@ -220,7 +217,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     include '../../Modals/EditStaffModal.php';
     // Staff Import disabled - not implemented in bulk import system
     // include '../../Modals/StaffImportModal.php';
-    include '../../Modals/StaffExportModal.php';
     include '../../Modals/GeneratedCredentialsModal.php';
     ?>
 
@@ -378,7 +374,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                     <button class="btn btn-sm btn-outline-primary" onclick="openEditStaffModal('${staff.id}')">
                         <i class="fas fa-edit"></i> Edit
                     </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteStaff('${staff.id}')">
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteStaff(${staff.user_id})">
                         <i class="fas fa-trash"></i> Delete
                     </button>
                 </div>
@@ -544,72 +540,45 @@ $adminName = 'Admin User'; // Temporary admin name for testing
         }
 
         // Staff actions
-        async function deleteStaff(staffId) {
+        function deleteStaff(userId) {
+            // Find staff info for confirmation message
+            const staff = staffData.find(s => s.user_id === userId);
+            if (!staff) {
+                showToastNotification('Staff member not found', 'error');
+                return;
+            }
+            
             showConfirmationModal(
-                'Delete Staff Member',
-                `Are you sure you want to delete staff member ${staffId}? This action cannot be undone.`,
-                'Delete',
+                'Delete Staff',
+                `Are you sure you want to delete ${staff.name}? This will permanently remove their data, including clearance forms and applications. This action cannot be undone.`,
+                'Delete Permanently',
                 'Cancel',
-                async () => {
-                    try {
-                        // First attempt: fail if PH has assignments (to show prompt)
-                        let r = await fetch('../../api/signatories/delete_staff.php', {
-                            method:'POST',
-                            headers:{'Content-Type':'application/json'},
-                            credentials:'include',
-                            body: JSON.stringify({ employee_id: staffId })
-                        });
-                        let res = await r.json();
-                        if (r.status === 409 && res && Array.isArray(res.departments)) {
-                            // Program Head assigned to departments – prompt to unassign then delete
-                            const depCount = res.departments.length;
-                            showConfirmationModal(
-                                'Unassign Program Head',
-                                `This Program Head is assigned to ${depCount} department(s). Unassign and proceed with deletion?`,
-                                'Unassign and Delete',
-                                'Cancel',
-                                async () => {
-                                    try {
-                                        const r2 = await fetch('../../api/signatories/delete_staff.php', {
-                                            method:'POST',
-                                            headers:{'Content-Type':'application/json'},
-                                            credentials:'include',
-                                            body: JSON.stringify({ employee_id: staffId, ph_resolution: 'unassign' })
-                                        });
-                                        const res2 = await r2.json();
-                                        if (!r2.ok || !res2.success) {
-                                            throw new Error(res2.message || 'Delete failed');
-                                        }
-                                        // Remove from UI lists
-                                        const index = staffData.findIndex(staff => staff.id === staffId);
-                                        if (index > -1) staffData.splice(index, 1);
-                                        filteredData = filteredData.filter(staff => staff.id !== staffId);
-                                        renderStaffCards();
-                                        updatePagination();
-                                        showToastNotification('Staff member deleted (PH unassigned).', 'success');
-                                    } catch (e) {
-                                        showToastNotification(e.message || 'Delete failed', 'error');
-                                    }
-                                },
-                                'warning'
-                            );
-                            return;
-                        }
-                        if (!r.ok || !res.success) {
-                            throw new Error(res.message || 'Delete failed');
-                        }
-                        // Success – remove from UI lists
-                        const index = staffData.findIndex(staff => staff.id === staffId);
+                () => {
+                    fetch('../../api/users/delete.php', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            user_type: 'staff',
+                            user_id: userId
+                        })
+                    })
+                    .then(r => r.json())
+                    .then(res => {
+                        if (!res.success) throw new Error(res.message);
+                        
+                        // Remove from UI lists
+                        const index = staffData.findIndex(s => s.user_id === userId);
                         if (index > -1) staffData.splice(index, 1);
-                        filteredData = filteredData.filter(staff => staff.id !== staffId);
+                        filteredData = filteredData.filter(s => s.user_id !== userId);
                         renderStaffCards();
                         updatePagination();
-                        showToastNotification('Staff member deleted successfully!', 'success');
-                    } catch (err) {
-                        showToastNotification(err.message || 'Delete failed', 'error');
-                    }
-                },
-                'danger'
+                        showToastNotification('Staff deleted successfully', 'success');
+                    })
+                    .catch(err => {
+                        showToastNotification('Error: ' + err.message, 'error');
+                    });
+                }
             );
         }
 
@@ -771,34 +740,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
         //         document.body.classList.add('modal-open');
         //     }
         // }
-
-        function openStaffExportModal() {
-            try {
-                const modal = document.querySelector('.staff-export-modal-overlay');
-                if (!modal) {
-                    if (typeof showToastNotification === 'function') {
-                        showToastNotification('Staff export modal not found. Please refresh the page.', 'error');
-                    }
-                    return;
-                }
-
-                // Use window.openModal if available, otherwise fallback
-                if (typeof window.openModal === 'function') {
-                    window.openModal(modal);
-                } else {
-                    // Fallback to direct manipulation
-                    modal.style.display = 'flex';
-                    document.body.classList.add('modal-open');
-                    requestAnimationFrame(() => {
-                        modal.classList.add('active');
-                    });
-                }
-            } catch (error) {
-                if (typeof showToastNotification === 'function') {
-                    showToastNotification('Unable to open staff export modal. Please try again.', 'error');
-                }
-            }
-        }
 
         // Toggle sidebar
         function toggleSidebar() {

@@ -101,6 +101,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                                     <p>Inactive Students</p>
                                 </div>
                             </div>
+                            <!-- Graduated statistics card temporarily disabled
                             <div class="stat-card">
                                 <div class="stat-icon graduated">
                                     <i class="fas fa-graduation-cap"></i>
@@ -110,6 +111,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                                     <p>Graduated</p>
                                 </div>
                             </div>
+                            -->
                         </div>
 
                         <!-- Quick Actions Section -->
@@ -197,9 +199,11 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                                     <button class="btn btn-outline-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
+                                    <!-- ?php /* Batch Update feature temporarily disabled
                                     <button class="btn btn-success" onclick="openCollegeBatchUpdateModal()">
                                         <i class="fas fa-users-cog"></i> Batch Update
                                     </button>
+                                    */ ? -->
                                     <div class="selection-counter-pill" onclick="clearAllSelectionsAndFilters()" id="selectionCounterPill">
                                         <span id="selectionCounter">0 selected</span>
                                         <i class="fas fa-times" id="clearSelectionIcon"></i>
@@ -214,12 +218,16 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                                         <button class="btn btn-danger" onclick="rejectSelected()" disabled>
                                             <i class="fas fa-times"></i> Reject
                                         </button>
+                                        <!-- Graduated feature temporarily disabled
                                         <button class="btn btn-info" onclick="markGraduated()" disabled>
                                             <i class="fas fa-graduation-cap"></i> Graduated
                                         </button>
+                                        -->
+                                        <!-- Reset Clearance feature temporarily disabled
                                         <button class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
                                             <i class="fas fa-redo"></i> Reset Clearance
                                         </button>
+                                        -->
                                         <button class="btn btn-danger" onclick="deleteSelected()" disabled>
                                             <i class="fas fa-trash"></i> Delete
                                         </button>
@@ -354,9 +362,6 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
     
     <!-- Include Import Modal -->
     <?php include '../../Modals/ImportModal.php'; ?>
-    
-    <!-- Include College Batch Update Modal -->
-    <?php include '../../Modals/CollegeBatchUpdateModal.php'; ?>
 
     <!-- Include Clearance Progress Modal -->
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
@@ -389,11 +394,13 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                                 <span class="checkmark"></span>
                                 with "inactive"
                             </label>
+                            <!-- Graduated filter temporarily disabled
                             <label class="custom-checkbox">
                                 <input type="checkbox" id="filterGraduated" value="graduated">
                                 <span class="checkmark"></span>
                                 with "graduated"
                             </label>
+                            -->
                         </div>
                     </div>
                     
@@ -649,26 +656,101 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         }
 
         function deleteSelected() {
-            const selectedCount = getSelectedCount();
+            const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+            const selectedCount = selectedCheckboxes.length;
+            
             if (selectedCount === 0) {
                 showToastNotification('Please select students to delete', 'warning');
                 return;
             }
             
+            // Collect all user IDs from selected rows
+            const userIds = [];
+            const rows = [];
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                const userId = row.getAttribute('data-user-id');
+                if (userId) {
+                    userIds.push(parseInt(userId));
+                    rows.push(row);
+                }
+            });
+            
+            if (userIds.length === 0) {
+                showToastNotification('Could not identify students to delete', 'error');
+                return;
+            }
+            
             showConfirmationModal(
                 'Delete Students',
-                `Are you sure you want to delete ${selectedCount} selected students? This action cannot be undone.`,
+                `Are you sure you want to delete <strong>${selectedCount}</strong> selected student(s)? This action will permanently remove the students' data, including all clearance forms and clearance applications. This action cannot be undone.`,
                 'Delete Permanently',
                 'Cancel',
-                () => {
-                    const selectedRows = document.querySelectorAll('.student-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        row.remove();
-                    });
-                    
-                    updateBulkStatistics('delete', selectedCount);
-                    showToastNotification(`✓ Successfully deleted ${selectedCount} students`, 'success');
+                async () => {
+                    try {
+                        // Show loading state on delete button
+                        const deleteBtn = document.getElementById('bulkDeleteBtn');
+                        if (deleteBtn) {
+                            deleteBtn.disabled = true;
+                            deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+                        }
+                        
+                        // Call API for bulk deletion
+                        const response = await fetch('../../api/users/delete.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                user_type: 'student',
+                                user_ids: userIds
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        // Reset button state
+                        if (deleteBtn) {
+                            deleteBtn.disabled = false;
+                            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+                        }
+                        
+                        if (result.success) {
+                            // Reload data to refresh table and statistics
+                            loadStudentsData();
+                            
+                            // Clear selections
+                            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+                            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+                            updateBulkButtons();
+                            updateSelectionCounter();
+                            
+                            // Show success notification
+                            const message = result.errors && result.errors.length > 0
+                                ? `Deleted ${result.deleted_count} student(s). ${result.failed_count} failed.`
+                                : `✓ Successfully deleted ${result.deleted_count} student(s)`;
+                            
+                            showToastNotification(message, result.errors && result.errors.length > 0 ? 'warning' : 'success');
+                            
+                            if (result.errors && result.errors.length > 0) {
+                                console.error('Deletion errors:', result.errors);
+                            }
+                        } else {
+                            showToastNotification('Failed to delete students: ' + result.message, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error in bulk delete:', error);
+                        showToastNotification('Error deleting students: ' + error.message, 'error');
+                        
+                        // Reset button state
+                        const deleteBtn = document.getElementById('bulkDeleteBtn');
+                        if (deleteBtn) {
+                            deleteBtn.disabled = false;
+                            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+                        }
+                    }
                 },
                 'danger'
             );
@@ -780,29 +862,59 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         }
 
         // Individual Delete with Confirmation
-        function deleteStudent(studentId) {
-            const checkbox = document.querySelector(`.student-checkbox[data-id="${studentId}"]`);
-            
-            if (!checkbox) {
-                console.error('Student checkbox not found for ID:', studentId);
+        function deleteStudent(userId) {
+            // Get student info from the table row
+            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+            if (!row) {
                 showToastNotification('Error: Could not find student', 'error');
                 return;
             }
             
-            const row = checkbox.closest('tr');
-            const studentName = row.querySelector('td:nth-child(3)').textContent;
+            const studentName = row.querySelector('td:nth-child(3)')?.textContent?.trim() || 'this student';
             
             showConfirmationModal(
                 'Delete Student',
-                `Are you sure you want to delete ${studentName}? This action cannot be undone.`,
+                `Are you sure you want to delete <strong>${escapeHtml(studentName)}</strong>? This action will permanently remove the student's data, including all clearance forms and clearance applications. This action cannot be undone.`,
                 'Delete Permanently',
                 'Cancel',
-                () => {
-                    row.remove();
-                    showToastNotification(`${studentName} has been deleted`, 'success');
+                async () => {
+                    try {
+                        const response = await fetch('../../api/users/delete.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                user_type: 'student',
+                                user_id: userId
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            // Reload data to refresh table and statistics
+                            loadStudentsData();
+                            showToastNotification(`✓ Student ${studentName} deleted successfully`, 'success');
+                        } else {
+                            showToastNotification('Failed to delete student: ' + result.message, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting student:', error);
+                        showToastNotification('Error deleting student: ' + error.message, 'error');
+                    }
                 },
                 'danger'
             );
+        }
+        
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         
@@ -811,6 +923,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             openEditStudentModal(studentId);
         }
 
+        /* Graduated function temporarily disabled
         function markGraduated() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
@@ -842,7 +955,9 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 'info'
             );
         }
+        */
 
+        /* Reset Clearance function temporarily disabled
         function resetClearanceForNewTerm() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
@@ -873,15 +988,17 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 'warning'
             );
         }
+        */
 
         function updateBulkStatistics(action, count) {
             const activeCount = document.getElementById('activeStudents');
             const inactiveCount = document.getElementById('inactiveStudents');
-            const graduatedCount = document.getElementById('graduatedStudents');
+            // Graduated statistics temporarily disabled
+            // const graduatedCount = document.getElementById('graduatedStudents');
             
             let currentActive = parseInt(activeCount.textContent.replace(',', ''));
             let currentInactive = parseInt(inactiveCount.textContent.replace(',', ''));
-            let currentGraduated = parseInt(graduatedCount.textContent.replace(',', ''));
+            // let currentGraduated = parseInt(graduatedCount.textContent.replace(',', ''));
             
             if (action === 'activate') {
                 currentActive += count;
@@ -889,14 +1006,17 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             } else if (action === 'deactivate') {
                 currentActive -= count;
                 currentInactive += count;
+            /* Graduated action temporarily disabled
             } else if (action === 'graduated') {
                 currentGraduated += count;
                 currentActive -= count;
+            */
             }
             
             activeCount.textContent = currentActive.toLocaleString();
             inactiveCount.textContent = currentInactive.toLocaleString();
-            graduatedCount.textContent = currentGraduated.toLocaleString();
+            // Graduated statistics temporarily disabled
+            // graduatedCount.textContent = currentGraduated.toLocaleString();
         }
 
         function updateStatistics(action) {
@@ -1241,7 +1361,8 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             const filters = {
                 active: document.getElementById('filterActive').checked,
                 inactive: document.getElementById('filterInactive').checked,
-                graduated: document.getElementById('filterGraduated').checked,
+                // Graduated filter temporarily disabled
+                // graduated: document.getElementById('filterGraduated').checked,
                 pending: document.getElementById('filterPending').checked,
                 approved: document.getElementById('filterApproved').checked,
                 rejected: document.getElementById('filterRejected').checked
@@ -1297,7 +1418,8 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 }
                 
                 const accountBadge = row.querySelector('.status-badge[class*="account-"]');
-                const clearanceBadge = row.querySelector('.status-badge[class*="clearance-"]');
+                // Note: Clearance status badges use 'signatory-*' classes for signatory action status
+                const clearanceBadge = row.querySelector('.status-badge-compact[class*="signatory-"]');
                 
                 let accountMatch = false;
                 let statusMatch = false;
@@ -1336,7 +1458,8 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         function resetBulkSelectionFilters() {
             document.getElementById('filterActive').checked = false;
             document.getElementById('filterInactive').checked = false;
-            document.getElementById('filterGraduated').checked = false;
+            // Graduated filter temporarily disabled
+            // document.getElementById('filterGraduated').checked = false;
             document.getElementById('filterPending').checked = false;
             document.getElementById('filterApproved').checked = false;
             document.getElementById('filterRejected').checked = false;
@@ -1595,7 +1718,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             // Clearance signatory actions - controlled by canPerformSignatoryActions
             const bulkActionSelectors = [
                 '.bulk-selection-filters-btn',
-                '.bulk-controls .btn-success', // batch update
+                // '.bulk-controls .btn-success', // batch update (temporarily disabled)
                 '.bulk-buttons button', // approve/reject/graduate/reset/delete
                 '.clear-selection-btn',
                 '.selection-counter-pill',
@@ -1631,9 +1754,10 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
 
             // Row-level button disabling based on individual clearance status
             // Approve/Reject buttons should only be enabled for Pending/Rejected statuses (actionable)
+            // Note: Clearance status badges use 'signatory-*' classes (e.g., signatory-pending, signatory-approved)
             const rows = document.querySelectorAll('#studentsTableBody tr');
             rows.forEach(row => {
-                const clearanceBadge = row.querySelector('.status-badge[class*="clearance-"]');
+                const clearanceBadge = row.querySelector('.status-badge-compact[class*="signatory-"]');
                 const clearanceStatus = clearanceBadge ? clearanceBadge.textContent.trim() : 'Unapplied';
                 
                 // Only Pending and Rejected are actionable
@@ -1775,10 +1899,10 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                         <button class="btn-icon approve-btn" onclick="approveSignatory('${student.user_id}')" title="Approve Signatory" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-check"></i>
                         </button>
-                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}', '${escapeHtml(student.name)}', '${escapeHtml(student.signatory_id)}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
+                        <button class="btn-icon reject-btn" onclick="rejectSignatory('${student.user_id}')" title="${rejectButtonTitle}" ${!isActionable ? 'disabled' : ''}>
                             <i class="fas fa-times"></i>
                         </button>
-                        <button class="btn-icon delete-btn" onclick="deleteStudent('${student.id}')" title="Delete Student">
+                        <button class="btn-icon delete-btn" onclick="deleteStudent('${student.user_id}')" title="Delete Student">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -1805,7 +1929,8 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             document.getElementById('totalStudents').textContent = stats.total || 0;
             document.getElementById('activeStudents').textContent = stats.active || 0;
             document.getElementById('inactiveStudents').textContent = stats.inactive || 0;
-            document.getElementById('graduatedStudents').textContent = stats.graduated || 0;
+            // Graduated statistics temporarily disabled
+            // document.getElementById('graduatedStudents').textContent = stats.graduated || 0;
         }
 
         // Edit student function
@@ -1814,55 +1939,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             showToastNotification('Edit student functionality will be implemented', 'info');
         }
 
-        // Delete student function
-        function deleteStudent(student_id) {
-            // Get student name from the table row
-            const row = document.querySelector(`tr[data-user-id="${studentId}"]`);
-            const studentName = row ? row.querySelector('td:nth-child(3)').textContent : 'Student';
-            
-            showConfirmationModal(
-                'Delete Student',
-                `Are you sure you want to delete ${studentName}? This action cannot be undone.`,
-                'Delete',
-                'Cancel',
-                async () => {
-                    try {
-                        // Call delete API
-                        const response = await fetch('../../api/users/delete_student.php', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            credentials: 'include',
-                            body: JSON.stringify({
-                                student_id: student_id
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success) {
-                            // Remove row from table
-                            const row = document.querySelector(`tr[data-student-id="${student_id}"]`);
-                            if (row) {
-                                row.remove();
-                            }
-                            
-                            // Update statistics
-                            updateStatisticsAfterDelete();
-                            
-                            showToastNotification(`Student ${studentName} deleted successfully`, 'success');
-                        } else {
-                            showToastNotification('Failed to delete student: ' + result.message, 'error');
-                        }
-                    } catch (error) {
-                        console.error('Error deleting student:', error);
-                        showToastNotification('Error deleting student: ' + error.message, 'error');
-                    }
-                },
-                'danger'
-            );
-        }
+        // Note: deleteStudent function is defined earlier in the file (around line 865)
 
         // Update statistics after delete
         function updateStatisticsAfterDelete() {
@@ -2035,6 +2112,12 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 if (event.key === 'Enter') {
                     applyFilters();
                 }
+            });
+            
+            // Listen for student-updated event from edit modal
+            document.addEventListener('student-updated', function(e) {
+                console.log('[ProgramHead] Student updated event received:', e.detail);
+                loadStudentsData();
             });
         });
 
@@ -2289,9 +2372,13 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             }
         }
 
-        async function approveSignatory(targetUserId, clearanceFormId, signatoryId) {
+        async function approveSignatory(targetUserId) {
             const row = document.querySelector(`tr[data-user-id="${targetUserId}"]`);
             const studentName = row ? row.cells[2].textContent : 'this student';
+
+            // Get current school term from filter (for historical term support)
+            const schoolTermFilter = document.getElementById('schoolTermFilter');
+            const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
 
             showConfirmationModal(
                 'Approve Clearance',
@@ -2300,16 +2387,23 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 'Cancel',
                 async () => {
                     try {
+                        const approvalPayload = {
+                            applicant_user_id: targetUserId,
+                            action: 'Approved',
+                            remarks: 'Approved by Program Head',
+                            designation_name: 'Program Head'
+                        };
+                        
+                        // Include school_term if a specific term is selected
+                        if (currentSchoolTerm && currentSchoolTerm.trim() !== '') {
+                            approvalPayload.school_term = currentSchoolTerm.trim();
+                        }
+
                         const response = await fetch('../../api/clearance/signatory_action.php', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             credentials: 'include',
-                            body: JSON.stringify({
-                                applicant_user_id: targetUserId,
-                                action: 'Approved',
-                                remarks: 'Approved by Program Head',
-                                designation_name: 'Program Head'
-                            })
+                            body: JSON.stringify(approvalPayload)
                         });
                         const result = await response.json();
                         if (result.success) {
@@ -2327,12 +2421,12 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             );
         }
 
-        async function rejectSignatory(targetUserId, clearanceFormId, signatoryId) {
+        async function rejectSignatory(targetUserId) {
             try {
                 const row = document.querySelector(`tr[data-user-id='${targetUserId}']`);
                 const studentName = row ? row.cells[2].textContent : 'Student';
-                // Open rejection modal
-                openRejectionRemarksModal(targetUserId, clearanceFormId, signatoryId, studentName);
+                // Open rejection modal (clearanceFormId and signatoryId not needed - API resolves automatically)
+                openRejectionRemarksModal(targetUserId, null, null, studentName);
             } catch (error) {
                 console.error('Error opening rejection modal:', error);
                 showToastNotification('Error opening rejection modal: ' + error.message, 'error');

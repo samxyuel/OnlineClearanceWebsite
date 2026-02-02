@@ -17,9 +17,9 @@
           <label for="employmentStatus">Employment Status *</label>
           <select id="employmentStatus" name="employmentStatus" required>
             <option value="">Select Employment Status</option>
-            <option value="full-time">Full Time</option>
-            <option value="part-time">Part Time</option>
-            <option value="part-time-full-load">Part Time - Full Load</option>
+            <option value="Full Time">Full Time</option>
+            <option value="Part Time">Part Time</option>
+            <option value="Part Time - Full Load">Part Time - Full Load</option>
           </select>
         </div>
         <div class="form-group">
@@ -43,24 +43,35 @@
           <input type="text" id="contactNumber" name="contactNumber" placeholder="e.g., +63 912 345 6789">
         </div>
 
-        <!-- Multi-Department Assignment Section -->
-        <div class="form-section-divider">
-          <hr>
-          <span class="divider-text">Department Assignments (Optional)</span>
-        </div>
+        <!-- Primary Department (Required) - matches student registration pattern -->
         <div class="form-group">
-          <label>Additional Departments</label>
-          <small class="form-help">Select additional departments for this faculty member</small>
-          <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
-            <select id="additionalDepartmentSelect" style="flex: 1; padding: 6px;">
-              <option value="">Select a department...</option>
-            </select>
-            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addAdditionalDepartment()">
-              <i class="fas fa-plus"></i> Add
-            </button>
+          <label for="primaryDepartment">Department *</label>
+          <select id="primaryDepartment" name="primaryDepartment" required>
+            <option value="">Loading Departments...</option>
+          </select>
+          <small class="form-help" id="departmentHelpText">Select the primary department for this faculty member</small>
+        </div>
+
+        <!-- Multi-Department Assignment Section (Optional) -->
+        <div id="additionalDepartmentsSection">
+          <div class="form-section-divider">
+            <hr>
+            <span class="divider-text">Additional Department Assignments (Optional)</span>
           </div>
-          <div id="departmentsList" style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
-            <!-- Additional departments will appear as chips here -->
+          <div class="form-group">
+            <label>Additional Departments</label>
+            <small class="form-help">Assign this faculty member to additional departments beyond their primary</small>
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+              <select id="additionalDepartmentSelect" style="flex: 1; padding: 6px;">
+                <option value="">Select a department...</option>
+              </select>
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="addAdditionalDepartment()">
+                <i class="fas fa-plus"></i> Add
+              </button>
+            </div>
+            <div id="departmentsList" style="margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+              <!-- Additional departments will appear as chips here -->
+            </div>
           </div>
         </div>
       </form>
@@ -75,10 +86,201 @@
 <script>
   // Store additional departments for faculty registration
   window.additionalDepartments = [];
+  
+  // Store loaded departments data for reuse
+  window.facultyDepartmentsData = [];
+  
+  // Check if we're in Program Head context (restricted mode)
+  // DEPARTMENT_IDS is set by Program Head pages, undefined for Admin pages
+  function isRestrictedMode() {
+    return typeof DEPARTMENT_IDS !== 'undefined' 
+           && Array.isArray(DEPARTMENT_IDS) 
+           && DEPARTMENT_IDS.length > 0;
+  }
+  
+  // Get the restricted department IDs (Program Head's assigned departments)
+  function getRestrictedDepartmentIds() {
+    return isRestrictedMode() ? DEPARTMENT_IDS : [];
+  }
+
+  // Populate primary department dropdown with cross-sector support
+  async function populatePrimaryDepartmentDropdown() {
+    const sel = document.getElementById('primaryDepartment');
+    const helpText = document.getElementById('departmentHelpText');
+    const additionalSection = document.getElementById('additionalDepartmentsSection');
+    if (!sel) return;
+    
+    try {
+      // Fetch Faculty sector departments
+      const response = await fetch('../../api/departments/list.php?sector=Faculty&limit=500', { 
+        credentials: 'include' 
+      });
+      const data = await response.json();
+      
+      if (!data || data.success !== true) {
+        sel.innerHTML = '<option value="">Error loading departments</option>';
+        return;
+      }
+      
+      // Store for reuse
+      window.facultyDepartmentsData = data.departments || [];
+      
+      // Check if restricted mode (Program Head)
+      const restrictedIds = getRestrictedDepartmentIds();
+      const isRestricted = restrictedIds.length > 0;
+      
+      // Filter departments based on mode
+      let departmentsToShow = window.facultyDepartmentsData;
+      
+      if (isRestricted) {
+        // Program Head mode: only show their assigned departments (Faculty sector versions)
+        departmentsToShow = window.facultyDepartmentsData.filter(dept => {
+          // Check if any sector's department_id is in the restricted list
+          return dept.sectors && dept.sectors.some(s => restrictedIds.includes(s.department_id));
+        });
+      }
+      
+      // Build the dropdown
+      sel.innerHTML = '';
+      
+      if (departmentsToShow.length === 0) {
+        sel.innerHTML = '<option value="">No departments available</option>';
+        if (helpText) helpText.textContent = 'No Faculty sector departments found for your assignments.';
+        return;
+      }
+      
+      // For Program Head with single department: auto-select and make readonly
+      if (isRestricted && departmentsToShow.length === 1) {
+        const dept = departmentsToShow[0];
+        const facultySector = dept.sectors.find(s => s.sector_name === 'Faculty');
+        const deptId = facultySector ? facultySector.department_id : (dept.sectors[0]?.department_id || '');
+        
+        const option = document.createElement('option');
+        option.value = deptId;
+        option.textContent = dept.department_name + (dept.department_code ? ` (${dept.department_code})` : '');
+        option.selected = true;
+        sel.appendChild(option);
+        
+        // Make readonly
+        sel.disabled = true;
+        sel.style.backgroundColor = '#e9ecef';
+        sel.style.cursor = 'not-allowed';
+        
+        // Update help text
+        if (helpText) {
+          helpText.innerHTML = '<i class="fas fa-lock" style="margin-right: 4px;"></i> Faculty will be registered under your assigned department.';
+          helpText.style.color = '#6c757d';
+        }
+        
+        // Hide additional departments section for single-department Program Heads
+        if (additionalSection) {
+          additionalSection.style.display = 'none';
+        }
+        
+        return;
+      }
+      
+      // Multiple departments available - show dropdown
+      sel.disabled = false;
+      sel.style.backgroundColor = '';
+      sel.style.cursor = '';
+      
+      // Show additional departments section
+      if (additionalSection) {
+        additionalSection.style.display = 'block';
+      }
+      
+      // Add placeholder
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = 'Select primary department...';
+      sel.appendChild(placeholder);
+      
+      if (isRestricted) {
+        // Program Head mode: simple list (no grouping needed)
+        departmentsToShow.forEach(dept => {
+          const facultySector = dept.sectors.find(s => s.sector_name === 'Faculty');
+          const deptId = facultySector ? facultySector.department_id : (dept.sectors[0]?.department_id || '');
+          
+          const option = document.createElement('option');
+          option.value = deptId;
+          option.textContent = dept.department_name + (dept.department_code ? ` (${dept.department_code})` : '');
+          sel.appendChild(option);
+        });
+        
+        if (helpText) {
+          helpText.textContent = 'Select from your assigned departments.';
+        }
+      } else {
+        // Admin mode: group by cross-sector vs faculty-only with indicators
+        const crossSectorDepts = departmentsToShow.filter(d => d.is_shared);
+        const facultyOnlyDepts = departmentsToShow.filter(d => !d.is_shared);
+        
+        // Cross-Sector Departments group
+        if (crossSectorDepts.length > 0) {
+          const crossGroup = document.createElement('optgroup');
+          crossGroup.label = '── Cross-Sector Departments ──';
+          
+          crossSectorDepts.forEach(dept => {
+            const facultySector = dept.sectors.find(s => s.sector_name === 'Faculty');
+            const deptId = facultySector ? facultySector.department_id : (dept.sectors[0]?.department_id || '');
+            
+            // Build shared sectors text (excluding Faculty)
+            const sharedWith = dept.sectors
+              .filter(s => s.sector_name !== 'Faculty')
+              .map(s => s.sector_name)
+              .join(', ');
+            
+            const option = document.createElement('option');
+            option.value = deptId;
+            let text = dept.department_name;
+            if (dept.department_code) text += ` (${dept.department_code})`;
+            if (sharedWith) text += ` [Shared with: ${sharedWith}]`;
+            option.textContent = text;
+            crossGroup.appendChild(option);
+          });
+          
+          sel.appendChild(crossGroup);
+        }
+        
+        // Faculty-Only Departments group
+        if (facultyOnlyDepts.length > 0) {
+          const facultyGroup = document.createElement('optgroup');
+          facultyGroup.label = '── Faculty-Only Departments ──';
+          
+          facultyOnlyDepts.forEach(dept => {
+            const facultySector = dept.sectors.find(s => s.sector_name === 'Faculty');
+            const deptId = facultySector ? facultySector.department_id : (dept.sectors[0]?.department_id || '');
+            
+            const option = document.createElement('option');
+            option.value = deptId;
+            let text = dept.department_name;
+            if (dept.department_code) text += ` (${dept.department_code})`;
+            option.textContent = text;
+            facultyGroup.appendChild(option);
+          });
+          
+          sel.appendChild(facultyGroup);
+        }
+        
+        if (helpText) {
+          helpText.textContent = 'Select the primary department for this faculty member. Cross-sector departments are shared with student sectors.';
+        }
+      }
+      
+      // Also populate additional departments dropdown
+      populateAdditionalDepartmentSelect();
+      
+    } catch (error) {
+      console.error('[FacultyRegistryModal] Error loading departments:', error);
+      sel.innerHTML = '<option value="">Error loading departments</option>';
+    }
+  }
 
   // Add additional department
   window.addAdditionalDepartment = function() {
     const sel = document.getElementById('additionalDepartmentSelect');
+    const primarySel = document.getElementById('primaryDepartment');
     if (!sel) return;
     const val = sel.value;
     const text = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
@@ -91,6 +293,13 @@
     const deptId = parseInt(val, 10);
     if (isNaN(deptId)) {
       showToastNotification('Invalid department selected', 'error');
+      return;
+    }
+    
+    // Prevent selecting the primary department as additional
+    const primaryDeptId = parseInt(primarySel?.value, 10);
+    if (deptId === primaryDeptId) {
+      showToastNotification('This is already the primary department', 'warning');
       return;
     }
 
@@ -126,11 +335,48 @@
     `).join('');
   }
 
-  // Populate department select on modal open
+  // Populate additional department select (uses stored data)
   function populateAdditionalDepartmentSelect() {
     const sel = document.getElementById('additionalDepartmentSelect');
     if (!sel) return;
-    const url = '../../api/departments/list.php?limit=500';
+    
+    // If we already have data, use it
+    if (window.facultyDepartmentsData && window.facultyDepartmentsData.length > 0) {
+      sel.innerHTML = '';
+      const ph = document.createElement('option');
+      ph.value = '';
+      ph.text = 'Select a department...';
+      sel.appendChild(ph);
+      
+      // Get restricted IDs for Program Head mode
+      const restrictedIds = getRestrictedDepartmentIds();
+      const isRestricted = restrictedIds.length > 0;
+      
+      let departmentsToShow = window.facultyDepartmentsData;
+      if (isRestricted) {
+        departmentsToShow = window.facultyDepartmentsData.filter(dept => {
+          return dept.sectors && dept.sectors.some(s => restrictedIds.includes(s.department_id));
+        });
+      }
+      
+      departmentsToShow.forEach(dept => {
+        const facultySector = dept.sectors.find(s => s.sector_name === 'Faculty');
+        const deptId = facultySector ? facultySector.department_id : (dept.sectors[0]?.department_id || '');
+        
+        const o = document.createElement('option');
+        o.value = deptId;
+        let text = dept.department_name;
+        if (dept.department_code) text += ` (${dept.department_code})`;
+        if (dept.is_shared && !isRestricted) text += ' [Shared]';
+        o.text = text;
+        sel.appendChild(o);
+      });
+      sel.selectedIndex = 0;
+      return;
+    }
+    
+    // Fallback: fetch from API
+    const url = '../../api/departments/list.php?sector=Faculty&limit=500';
     fetch(url, { credentials: 'include' })
       .then(r => r.json())
       .then(data => {
@@ -140,10 +386,16 @@
         ph.value = '';
         ph.text = 'Select a department...';
         sel.appendChild(ph);
-        (data.departments || []).forEach(d => {
+        (data.departments || []).forEach(dept => {
+          const facultySector = dept.sectors.find(s => s.sector_name === 'Faculty');
+          const deptId = facultySector ? facultySector.department_id : (dept.sectors[0]?.department_id || '');
+          
           const o = document.createElement('option');
-          o.value = d.department_id;
-          o.text = d.department_name;
+          o.value = deptId;
+          let text = dept.department_name;
+          if (dept.department_code) text += ` (${dept.department_code})`;
+          if (dept.is_shared) text += ' [Shared]';
+          o.text = text;
           sel.appendChild(o);
         });
         sel.selectedIndex = 0;
@@ -167,6 +419,15 @@
         showFieldSuccess(fieldId);
       }
     });
+    
+    // Primary department validation
+    const primaryDept = document.getElementById('primaryDepartment');
+    if (primaryDept && !primaryDept.value) {
+      showFieldError('primaryDepartment', 'Please select a department');
+      isValid = false;
+    } else if (primaryDept && primaryDept.value) {
+      showFieldSuccess('primaryDepartment');
+    }
     
     // Email validation
     const email = document.getElementById('email').value.trim();
@@ -261,10 +522,28 @@
         });
       }
 
+      // Reset state
       window.additionalDepartments = [];
+      window.facultyDepartmentsData = [];
       const deptList = document.getElementById('departmentsList');
       if (deptList) deptList.innerHTML = '';
-      populateAdditionalDepartmentSelect();
+      
+      // Reset primary department dropdown
+      const primaryDept = document.getElementById('primaryDepartment');
+      if (primaryDept) {
+        primaryDept.disabled = false;
+        primaryDept.style.backgroundColor = '';
+        primaryDept.style.cursor = '';
+      }
+      
+      // Show additional departments section (may be hidden for single-dept Program Heads)
+      const additionalSection = document.getElementById('additionalDepartmentsSection');
+      if (additionalSection) {
+        additionalSection.style.display = 'block';
+      }
+      
+      // Populate departments (primary and additional)
+      populatePrimaryDepartmentDropdown();
     } catch (error) {
       console.error('[FacultyRegistryModal] ❌ Error:', error);
       console.error('[FacultyRegistryModal] Error stack:', error.stack);
@@ -299,8 +578,31 @@
       const form = document.getElementById('facultyRegistrationForm');
       if (form) form.reset();
       window.additionalDepartments = [];
+      window.facultyDepartmentsData = [];
       const deptList = document.getElementById('departmentsList');
       if (deptList) deptList.innerHTML = '';
+      
+      // Reset primary department dropdown
+      const primaryDept = document.getElementById('primaryDepartment');
+      if (primaryDept) {
+        primaryDept.innerHTML = '<option value="">Loading Departments...</option>';
+        primaryDept.disabled = false;
+        primaryDept.style.backgroundColor = '';
+        primaryDept.style.cursor = '';
+      }
+      
+      // Reset help text
+      const helpText = document.getElementById('departmentHelpText');
+      if (helpText) {
+        helpText.textContent = 'Select the primary department for this faculty member';
+        helpText.style.color = '';
+      }
+      
+      // Show additional departments section
+      const additionalSection = document.getElementById('additionalDepartmentsSection');
+      if (additionalSection) {
+        additionalSection.style.display = 'block';
+      }
       
       // Clear error messages
       const errorDivs = modal.querySelectorAll('.field-error');
@@ -362,6 +664,16 @@
 
   function confirmFacultyCreation(credentialData) {
     const form = document.getElementById('facultyRegistrationForm');
+    
+    // Get selected primary department
+    const primaryDeptSelect = document.getElementById('primaryDepartment');
+    const selectedDepartmentId = primaryDeptSelect ? parseInt(primaryDeptSelect.value, 10) : null;
+    
+    if (!selectedDepartmentId || isNaN(selectedDepartmentId)) {
+      showToastNotification('Please select a department', 'error');
+      return;
+    }
+    
     const data = {
       employee_number: form.employeeNumber.value.trim(),
       employment_status: form.employmentStatus.value,
@@ -372,12 +684,17 @@
       contact_number: form.contactNumber.value.trim() || null,
       username: credentialData.username,
       password: credentialData.password,
-      department_id: 50 // Automatically assign to General Education department
+      department_id: selectedDepartmentId // Use selected department
     };
 
-    // Add additional departments if any
+    // Add additional departments if any (excluding primary to avoid duplicates)
     if (window.additionalDepartments && window.additionalDepartments.length > 0) {
-      data['assignedDepartments'] = window.additionalDepartments.map(d => d.department_id);
+      const additionalIds = window.additionalDepartments
+        .map(d => d.department_id)
+        .filter(id => id !== selectedDepartmentId); // Exclude primary
+      if (additionalIds.length > 0) {
+        data['assignedDepartments'] = additionalIds;
+      }
     }
 
     const confirmBtn = document.getElementById('credentialModalConfirmBtn');

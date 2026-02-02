@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once '../includes/config/database.php';
 require_once '../includes/classes/Auth.php';
 require_once '../includes/classes/UserManager.php'; // Assuming UserManager handles user table updates
+require_once '../includes/helpers/student_validation.php';
 
 $auth = new Auth();
 if (!$auth->isLoggedIn()) {
@@ -102,10 +103,12 @@ try {
         $studentUpdateData = [];
         $currentStudentDeptId = null;
 
-        // Fetch current student's department for PH scope check
-        $stmt = $pdo->prepare("SELECT department_id FROM students WHERE user_id = ?");
+        // Fetch current student's department and sector for validation
+        $stmt = $pdo->prepare("SELECT department_id, sector FROM students WHERE user_id = ?");
         $stmt->execute([$targetUserId]);
-        $currentStudentDeptId = $stmt->fetchColumn();
+        $currentStudentData = $stmt->fetch(PDO::FETCH_ASSOC);
+        $currentStudentDeptId = $currentStudentData['department_id'];
+        $currentStudentSector = $currentStudentData['sector'] ?? null;
 
         // Program Head specific checks
         if ($isProgramHead) {
@@ -151,6 +154,49 @@ try {
             }
             if (isset($_POST['yearLevel'])) $studentUpdateData['year_level'] = trim($_POST['yearLevel']);
             if (isset($_POST['generatedSection'])) $studentUpdateData['section'] = trim($_POST['generatedSection']);
+        }
+
+        // Validate year level if it's being updated
+        if (isset($studentUpdateData['year_level'])) {
+            $newYearLevel = $studentUpdateData['year_level'];
+            
+            // Determine the student's sector (use current sector or check if department is being changed)
+            $studentSector = $currentStudentSector;
+            
+            // If department is being changed, we need to get the sector from the new department
+            if (isset($studentUpdateData['department_id'])) {
+                $deptSectorStmt = $pdo->prepare("
+                    SELECT s.sector_name 
+                    FROM departments d
+                    JOIN sectors s ON d.sector_id = s.sector_id
+                    WHERE d.department_id = ?
+                ");
+                $deptSectorStmt->execute([$studentUpdateData['department_id']]);
+                $studentSector = $deptSectorStmt->fetchColumn();
+            }
+            
+            // If we still don't have a sector, try to get it from the current student data
+            if (!$studentSector && $currentStudentDeptId) {
+                $deptSectorStmt = $pdo->prepare("
+                    SELECT s.sector_name 
+                    FROM departments d
+                    JOIN sectors s ON d.sector_id = s.sector_id
+                    WHERE d.department_id = ?
+                ");
+                $deptSectorStmt->execute([$currentStudentDeptId]);
+                $studentSector = $deptSectorStmt->fetchColumn();
+            }
+            
+            // Validate year level for the sector
+            if ($studentSector && !isValidYearLevelForSector($newYearLevel, $studentSector)) {
+                $maxYearLevel = getMaxYearLevelForSector($studentSector);
+                $validYearLevels = getValidYearLevelsForSector($studentSector);
+                throw new Exception(
+                    "Invalid year level '{$newYearLevel}' for {$studentSector} students. " .
+                    "Valid year levels are: " . implode(', ', $validYearLevels) . 
+                    ($maxYearLevel ? " (Maximum: {$maxYearLevel})" : "")
+                );
+            }
         }
 
         if (!empty($studentUpdateData)) {

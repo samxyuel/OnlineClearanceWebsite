@@ -72,6 +72,13 @@ try {
     $pdo = Database::getInstance()->getConnection();
     $pdo->beginTransaction();
 
+    // --- Fetch the acting user's name for signatory snapshot ---
+    $signerStmt = $pdo->prepare("SELECT first_name, last_name FROM users WHERE user_id = ?");
+    $signerStmt->execute([$actingUserId]);
+    $signerInfo = $signerStmt->fetch(PDO::FETCH_ASSOC);
+    $signerFirstName = $signerInfo['first_name'] ?? null;
+    $signerLastName = $signerInfo['last_name'] ?? null;
+
     // --- Get Designation ID ---
     $desigStmt = $pdo->prepare("SELECT designation_id FROM designations WHERE designation_name = ?");
     $desigStmt->execute([$designationName]);
@@ -140,11 +147,11 @@ try {
     $updateParams = [$action];
 
     if ($action === 'Approved') {
-        $updateSql .= ", remarks = ?, reason_id = NULL, additional_remarks = NULL, actual_user_id = ?, date_signed = NOW()";
-        array_push($updateParams, $remarks, $actingUserId);
-    } else { // Rejected
-        $updateSql .= ", remarks = NULL, reason_id = ?, additional_remarks = ?, actual_user_id = NULL, date_signed = NULL";
-        array_push($updateParams, $reasonId, $remarks);
+        $updateSql .= ", remarks = ?, reason_id = NULL, additional_remarks = NULL, actual_user_id = ?, signatory_first_name = ?, signatory_last_name = ?, date_signed = NOW()";
+        array_push($updateParams, $remarks, $actingUserId, $signerFirstName, $signerLastName);
+    } else { // Rejected - preserve name for audit trail
+        $updateSql .= ", remarks = NULL, reason_id = ?, additional_remarks = ?, actual_user_id = ?, signatory_first_name = ?, signatory_last_name = ?, date_signed = NULL";
+        array_push($updateParams, $reasonId, $remarks, $actingUserId, $signerFirstName, $signerLastName);
     }
 
     $updateSql .= " WHERE clearance_form_id IN ($formPlaceholders) AND designation_id = ?";

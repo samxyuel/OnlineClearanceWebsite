@@ -98,11 +98,15 @@ try {
 
     // Fetch signatories from existing clearance form
     $sigStmt = $pdo->prepare("SELECT cs.designation_id, d.designation_name, cs.action, cs.updated_at, cs.remarks,
-        CONCAT(u.first_name,' ',u.last_name) AS signatory_name
+        COALESCE(
+            CONCAT(cs.signatory_first_name, ' ', cs.signatory_last_name),
+            CONCAT(u.first_name, ' ', u.last_name),
+            'Unknown'
+        ) AS signatory_name
         FROM clearance_signatories cs
         JOIN designations d ON d.designation_id = cs.designation_id
+        LEFT JOIN users u ON u.user_id = cs.actual_user_id
         LEFT JOIN staff s ON s.designation_id = cs.designation_id AND s.is_active = 1
-        LEFT JOIN users u ON u.user_id = s.user_id
         WHERE cs.clearance_form_id = ?");
     $sigStmt->execute([$form['clearance_form_id']]);
     $signatories = $sigStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -136,7 +140,7 @@ function getAssignedSignatories($pdo, $clearanceType, $userId = null) {
     $sql = "SELECT 
                 d.designation_id,
                 d.designation_name,
-                CONCAT(u.first_name,' ',u.last_name) AS signatory_name
+                CONCAT(u.first_name, ' ', u.last_name) AS signatory_name
             FROM signatory_assignments sa
             JOIN designations d ON d.designation_id = sa.designation_id
             LEFT JOIN staff s ON s.designation_id = d.designation_id AND s.is_active = 1
@@ -163,7 +167,7 @@ function getAssignedSignatories($pdo, $clearanceType, $userId = null) {
                 $phSql = "SELECT 
                             d.designation_id,
                             d.designation_name,
-                            CONCAT(u.first_name,' ',u.last_name) AS signatory_name
+                            CONCAT(u.first_name, ' ', u.last_name) AS signatory_name
                           FROM signatory_assignments sa
                           JOIN designations d ON d.designation_id = sa.designation_id
                           JOIN staff s ON s.user_id = sa.user_id AND s.designation_id = sa.designation_id AND s.is_active = 1

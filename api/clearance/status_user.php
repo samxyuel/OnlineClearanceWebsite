@@ -61,11 +61,14 @@ try{
                     cs.action,
                     cs.updated_at,
                     cs.remarks,
-                    -- default signatory name by designation linkage (generic)
-                    CONCAT(u.first_name,' ',u.last_name) AS generic_signatory_name,
+                    -- Use preserved name if actual_user_id is NULL, otherwise fetch from users table
+                    COALESCE(
+                        CONCAT(cs.signatory_first_name, ' ', cs.signatory_last_name),
+                        CONCAT(u.first_name, ' ', u.last_name)
+                    ) AS generic_signatory_name,
                     -- program head name for applicant's department (if resolvable)
                     (
-                        SELECT CONCAT(u2.first_name,' ',u2.last_name)
+                        SELECT CONCAT(u2.first_name, ' ', u2.last_name)
                         FROM staff sp
                         JOIN users u2 ON u2.user_id = sp.user_id
                         WHERE sp.staff_category = 'Program Head' AND sp.is_active = 1
@@ -74,8 +77,8 @@ try{
                     ) AS ph_signatory_name
                 FROM clearance_signatories cs 
                 JOIN designations d ON d.designation_id=cs.designation_id 
+                LEFT JOIN users u ON u.user_id=cs.actual_user_id
                 LEFT JOIN staff s ON s.designation_id=cs.designation_id AND s.is_active=1 
-                LEFT JOIN users u ON u.user_id=s.user_id 
                 WHERE cs.clearance_form_id=?";
     $sigStmt=$pdo->prepare($sqlSig);
     $bindDept = $deptId !== null ? $deptId : null;

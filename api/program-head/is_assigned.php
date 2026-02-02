@@ -8,6 +8,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../includes/config/database.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
+require_once __DIR__ . '/../../includes/helpers/department_helpers.php';
 
 $auth = new Auth();
 if (!$auth->isLoggedIn()) {
@@ -43,27 +44,27 @@ try {
         exit;
     }
 
-    // Get all department types the Program Head is assigned to
-    $deptStmt = $pdo->prepare("
-        SELECT DISTINCT d.department_type 
-        FROM user_department_assignments uda
-        JOIN departments d ON uda.department_id = d.department_id
-        WHERE uda.user_id = ? AND uda.is_active = 1
-    ");
-    $deptStmt->execute([$userId]);
-    $assignedDeptTypes = $deptStmt->fetchAll(PDO::FETCH_COLUMN);
-    
-    // Normalize for comparison
-    $assignedDeptTypesNormalized = array_map('strtolower', array_map('trim', $assignedDeptTypes));
-    $clearanceTypeNormalized = strtolower(trim($clearanceType));
+    // Get all department IDs across sectors using cross-sector matching
+    $allDeptIds = getCrossSectorDepartmentIds($pdo, $userId);
 
-    // 2. Check if the requested clearance type is within the user's scope
-    $hasDepartmentScope = in_array($clearanceTypeNormalized, $assignedDeptTypesNormalized);
-
-    // If the clearance type is 'Faculty', a program head of a 'College' department should have scope.
-    if ($clearanceTypeNormalized === 'faculty' && in_array('college', $assignedDeptTypesNormalized)) {
-        $hasDepartmentScope = true;
+    if (empty($allDeptIds)) {
+        echo json_encode(["success" => true, "can_take_action" => false, "debug" => ["reason" => "no_departments_assigned"]]);
+        exit;
     }
+
+    // Check if any of these departments exist in the requested clearance type sector
+    $placeholders = implode(',', array_fill(0, count($allDeptIds), '?'));
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM departments d
+        JOIN sectors s ON d.sector_id = s.sector_id
+        WHERE d.department_id IN ($placeholders)
+        AND s.sector_name = ?
+        AND d.is_active = 1
+    ");
+    $params = array_merge($allDeptIds, [$clearanceType]);
+    $stmt->execute($params);
+    $hasDepartmentScope = $stmt->fetchColumn() > 0;
 
     // 3. Check if Program Head is enabled for this clearance_type via sector_clearance_settings
     $includePhSetting = 0;
@@ -78,13 +79,13 @@ try {
     $canTakeAction = $hasDepartmentScope && ($includePhSetting === 1);
 
     // Log debug info
-    error_log('is_assigned_debug: user_id=' . $userId . ' clearance_type=' . $clearanceType . ' designationId=' . $designationId . ' assigned_dept_types=' . json_encode($assignedDeptTypes) . ' has_scope=' . ($hasDepartmentScope ? '1' : '0') . ' includePhSetting=' . $includePhSetting . ' canTakeAction=' . ($canTakeAction ? '1' : '0'));
+    error_log('is_assigned_debug: user_id=' . $userId . ' clearance_type=' . $clearanceType . ' designationId=' . $designationId . ' all_dept_ids=' . json_encode($allDeptIds) . ' has_scope=' . ($hasDepartmentScope ? '1' : '0') . ' includePhSetting=' . $includePhSetting . ' canTakeAction=' . ($canTakeAction ? '1' : '0'));
 
     echo json_encode([
         "success" => true,
         "can_take_action" => $canTakeAction,
         "debug" => [
-            "assigned_department_types" => $assignedDeptTypes,
+            "cross_sector_department_ids" => $allDeptIds,
             "requested_clearance_type" => $clearanceType,
             "has_department_scope" => $hasDepartmentScope,
             "include_program_head_setting" => $includePhSetting

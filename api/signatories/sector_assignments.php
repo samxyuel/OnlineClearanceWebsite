@@ -104,7 +104,7 @@ function getProgramHeadsBySector($pdo, $clearanceType) {
 function assignSignatory($pdo, $data) {
     $requiredFields = ['clearance_type', 'user_id', 'designation_id'];
     foreach ($requiredFields as $field) {
-        if (!isset($data[$field])) {
+        if (!array_key_exists($field, $data)) {
             throw new Exception("Missing required field: $field");
         }
     }

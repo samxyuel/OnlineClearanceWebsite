@@ -120,16 +120,6 @@
                             </div>
                         </div>
 
-
-                        <!-- Content Grid -->
-                        <div class="content-grid">
-                            <!-- Recent Activity Section -->
-                            <?php include '../../includes/components/recent-activity.php'; ?>
-
-                            <!-- Notifications Panel -->
-                            <?php include '../../includes/components/notifications.php'; ?>
-                        </div>
-
                         <!-- Department Overview -->
                         <div class="management-section">
                             <div class="section-header">

@@ -2191,9 +2191,9 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                     
                     return `
                         <div class="${itemClass}">
-                            <span class="signatory-name">${it.designation_name} — ${[it.first_name, it.last_name].filter(Boolean).join(' ')}${departmentInfo}</span>
+                            <span class="signatory-name">${it.designation_name}${departmentInfo}</span>
                             ${requirementText}
-                            <button class="remove-signatory" onclick="removeScope('${type}', ${it.user_id}, ${it.designation_id}, '${it.designation_name.replace(/'/g, "\'")}')">
+                            <button class="remove-signatory" onclick="removeScope('${type}', ${it.user_id || null}, ${it.designation_id}, '${it.designation_name.replace(/'/g, "\'")}')">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -2242,7 +2242,7 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                 // Check if trying to remove Required First signatory
                 if (settings.required_first_enabled && settings.required_first_designation_id) {
                     const signatoryData = await fetchJSON(`../../api/signatories/sector_assignments.php?clearance_type=${encodeURIComponent(normalizedType)}`);
-                    const signatory = signatoryData.signatories?.find(s => s.user_id === userId);
+                    const signatory = signatoryData.signatories?.find(s => s.designation_id === designationId);
                     
                     if (signatory && signatory.designation_id === settings.required_first_designation_id) {
                         showToast('This signatory is currently set as Required First. Please disable this feature in Settings before removing the signatory.', 'warning');
@@ -2253,7 +2253,7 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                 // Check if trying to remove Required Last signatory
                 if (settings.required_last_enabled && settings.required_last_designation_id) {
                     const signatoryData = await fetchJSON(`../../api/signatories/sector_assignments.php?clearance_type=${encodeURIComponent(normalizedType)}`);
-                    const signatory = signatoryData.signatories?.find(s => s.user_id === userId);
+                    const signatory = signatoryData.signatories?.find(s => s.designation_id === designationId);
                     
                     if (signatory && signatory.designation_id === settings.required_last_designation_id) {
                         showToast('This signatory is currently set as Required Last. Please disable this feature in Settings before removing the signatory.', 'warning');
@@ -2354,9 +2354,9 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
         }
 
         let scopeSearchTimer = null;
-        window.scopeSelectedIds = new Set();
-        window.scopeSelectedLabels = new Map();
-        window.scopeStaffData = new Map(); // Store staff data for designation lookup
+        window.scopeSelectedIds = new Set(); // Now stores designation_id
+        window.scopeSelectedLabels = new Map(); // Now stores designation name
+        window.scopeDesignationData = new Map(); // Store designation data
         async function openAddScopeModal(type){
             // Normalize clearance type
             const normalizedType = type === 'faculty' ? 'Faculty' : type;
@@ -2419,42 +2419,45 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                 console.error('[ClearanceManagement] Program Head preview failed, but modal is still open:', err);
             });
             
-            // Load all staff table (excluding PH)
+            // Load all designations
             try {
-                // First, get the IDs of already assigned signatories for this sector
+                // First, get the designation_ids of already assigned signatories for this sector
                 const assignedData = await fetchJSON(`../../api/signatories/sector_assignments.php?clearance_type=${encodeURIComponent(normalizedType)}`);
-                const assignedUserIds = new Set((assignedData.signatories || []).map(s => s.user_id));
+                const assignedDesignationIds = new Set((assignedData.signatories || []).map(s => s.designation_id).filter(id => id !== null));
 
-                // Then, get all staff, and we will filter out the assigned ones
-                const data = await fetchJSON('../../api/staff/list.php?limit=200&exclude_program_head=1');
+                // Then, get all active designations
+                const data = await fetchJSON('../../api/users/designations.php?limit=200');
                 
-                // Store staff data for designation lookup
-                window.scopeStaffData.clear();
-                const availableStaff = (data.staff || []).filter(s => !assignedUserIds.has(s.user_id));
+                // Store designation data
+                window.scopeDesignationData.clear();
+                const allDesignations = data.designations || [];
 
-                availableStaff.forEach(s => {
-                    window.scopeStaffData.set(s.user_id, s);
+                allDesignations.forEach(d => {
+                    window.scopeDesignationData.set(d.designation_id, d);
                 });
                 
                 const tb = document.getElementById('scopeAllStaffTable');
                 if (tb){
-                    const rows = availableStaff.map(s => {
-                        const uid = s.user_id;
-                        const label = `${(s.first_name||'').trim()} ${(s.last_name||'').trim()} • ${(s.employee_number||s.username||'')}`.trim();
-                        const checked = window.scopeSelectedIds.has(uid) ? 'checked' : '';
+                    const rows = allDesignations.map(d => {
+                        const designationId = d.designation_id;
+                        const designationName = d.designation_name || '';
+                        const checked = window.scopeSelectedIds.has(designationId) ? 'checked' : '';
+                        const isAssigned = assignedDesignationIds.has(designationId);
+                        const disabled = isAssigned ? 'disabled' : '';
+                        const assignedBadge = isAssigned ? '<span style="color:#9e9e9e;font-size:11px;margin-left:8px;">(Already assigned)</span>' : '';
+                        const rowStyle = isAssigned ? 'background:#fafafa;color:#9e9e9e;' : '';
+                        const checkedAttr = isAssigned ? 'checked' : checked;
                         return `
-                        <tr data-user-id=\"${uid}\"> 
-                            <td style=\"padding:8px 10px;border-top:1px solid #eef2f6;text-align:center;\"><input type=\"checkbox\" ${checked} onchange=\"toggleScopeUser(${uid}, '${label.replace(/'/g, "\'")}')\"></td>
-                            <td style=\"padding:8px 10px;border-top:1px solid #eef2f6;\">${[s.first_name||'', s.last_name||''].join(' ').trim()}</td>
-                            <td style=\"padding:8px 10px;border-top:1px solid #eef2f6;\">${s.employee_number||s.username||''}</td>
-                            <td style=\"padding:8px 10px;border-top:1px solid #eef2f6;\">${s.designation_name||''}</td>
+                        <tr data-designation-id=\"${designationId}\" style=\"${rowStyle}\"> 
+                            <td style=\"padding:8px 10px;border-top:1px solid #eef2f6;text-align:center;\"><input type=\"checkbox\" ${checkedAttr} ${disabled} onchange=\"toggleScopeDesignation(${designationId}, '${designationName.replace(/'/g, "\'")}')\"></td>
+                            <td style=\"padding:8px 10px;border-top:1px solid #eef2f6;\">${designationName}${assignedBadge}</td>
                         </tr>`;
                     }).join('');
-                    tb.innerHTML = rows || '<tr><td style="padding:10px 10px;color:#6c757d;" colspan="4">No staff found</td></tr>';
+                    tb.innerHTML = rows || '<tr><td style="padding:10px 10px;color:#6c757d;" colspan="2">No designations found</td></tr>';
                 }
             }catch(e){
                 const tb = document.getElementById('scopeAllStaffTable');
-                if (tb){ tb.innerHTML = '<tr><td style="padding:10px 10px;color:#dc3545;" colspan="3">Failed to load staff</td></tr>'; }
+                if (tb){ tb.innerHTML = '<tr><td style="padding:10px 10px;color:#dc3545;" colspan="2">Failed to load designations</td></tr>'; }
             }
         }
 
@@ -2552,7 +2555,7 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                 const sel = document.querySelector('#scopeSearchResults .selected');
                 if (sel) sel.classList.remove('selected');
                 const searchResults = document.getElementById('scopeSearchResults');
-                if (searchResults) searchResults.dataset.selectedUserId = '';
+                if (searchResults) searchResults.dataset.selectedDesignationId = '';
             } catch (error) {
                 // Silent error handling
             }
@@ -2567,61 +2570,77 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             const box = document.getElementById('scopeSearchResults');
             if (!q){ box.innerHTML = ''; return; }
             try{
-                const data = await fetchJSON(`../../api/staff/list.php?limit=20&exclude_program_head=1&search=${encodeURIComponent(q)}`);
-                const users = data.staff || [];
-                if (!users.length){ box.innerHTML='<div style="color:#6c757d;">No results</div>'; return; }
-                box.innerHTML = users.map(u => {
-                    const uid = u.user_id;
-                    const emp = (u.employee_number||u.username||'');
-                    const label = `${(u.first_name||'').trim()} ${(u.last_name||'').trim()} • ${emp}`.trim();
-                    const checked = window.scopeSelectedIds.has(uid) ? 'checked' : '';
-                    const desig = u.designation_name || '';
+                const data = await fetchJSON(`../../api/users/designations.php?limit=20&q=${encodeURIComponent(q)}`);
+                const designations = data.designations || [];
+                if (!designations.length){ box.innerHTML='<div style="color:#6c757d;">No results</div>'; return; }
+                
+                // Get already assigned designations to mark them as disabled
+                const type = document.getElementById('scopeTypeField').value;
+                const assignedData = await fetchJSON(`../../api/signatories/sector_assignments.php?clearance_type=${encodeURIComponent(type)}`);
+                const assignedDesignationIds = new Set((assignedData.signatories || []).map(s => s.designation_id).filter(id => id !== null));
+                
+                box.innerHTML = designations.map(d => {
+                    const designationId = d.designation_id;
+                    const designationName = d.designation_name || '';
+                    const checked = window.scopeSelectedIds.has(designationId) ? 'checked' : '';
+                    const isAssigned = assignedDesignationIds.has(designationId);
+                    const disabled = isAssigned ? 'disabled' : '';
+                    const assignedBadge = isAssigned ? '<span style="color:#9e9e9e;font-size:11px;margin-left:8px;">(Already assigned)</span>' : '';
                     return `
-                    <div class=\"result-row\" data-user-id=\"${uid}\" style=\"display:grid;grid-template-columns:28px 1fr;gap:10px;padding:8px 10px;border-bottom:1px solid #eef2f6;align-items:center;\">
-                        <div style=\"display:flex;justify-content:center;\"><input type=\"checkbox\" ${checked} onchange=\"toggleScopeUser(${uid}, '${label.replace(/'/g, "\'")}')\"></div>
-                        <div style=\"display:flex;flex-direction:column;\">
-                            <div style=\"display:flex;align-items:center;gap:8px;\">
-                                <div style=\"font-weight:600;color:#2f3a4b;\">${(u.first_name||'')} ${(u.last_name||'')}</div>
-                                <div style=\"color:#6c757d;\">${emp}</div>
-                            </div>
-                            <div style=\"color:#708090;font-size:12px;\">${desig}</div>
+                    <div class=\"result-row\" data-designation-id=\"${designationId}\" style=\"display:grid;grid-template-columns:28px 1fr;gap:10px;padding:8px 10px;border-bottom:1px solid #eef2f6;align-items:center;${isAssigned ? 'background:#fafafa;color:#9e9e9e;' : ''}\">
+                        <div style=\"display:flex;justify-content:center;\"><input type=\"checkbox\" ${checked} ${disabled} onchange=\"toggleScopeDesignation(${designationId}, '${designationName.replace(/'/g, "\'")}')\"></div>
+                        <div style=\"display:flex;align-items:center;gap:8px;\">
+                            <div style=\"font-weight:600;color:#2f3a4b;\">${designationName}</div>
+                            ${assignedBadge}
                         </div>
                     </div>`;
                 }).join('');
             }catch(e){ box.innerHTML='<div style="color:#dc3545;">Search failed</div>'; }
         }
-        function toggleScopeUser(userId, label){
-            if (window.scopeSelectedIds.has(userId)){
-                window.scopeSelectedIds.delete(userId);
-                window.scopeSelectedLabels.delete(userId);
+        function toggleScopeDesignation(designationId, designationName){
+            if (window.scopeSelectedIds.has(designationId)){
+                window.scopeSelectedIds.delete(designationId);
+                window.scopeSelectedLabels.delete(designationId);
             } else {
-                window.scopeSelectedIds.add(userId);
-                window.scopeSelectedLabels.set(userId, label);
+                window.scopeSelectedIds.add(designationId);
+                window.scopeSelectedLabels.set(designationId, designationName);
             }
             renderScopeSelectedChips();
+            // Update checkbox in table if present
+            const tableRow = document.querySelector(`#scopeAllStaffTable [data-designation-id="${designationId}"] input[type=checkbox]`);
+            if (tableRow && !tableRow.disabled) {
+                tableRow.checked = window.scopeSelectedIds.has(designationId);
+            }
         }
         function renderScopeSelectedChips(){
             const wrap = document.getElementById('scopeSelectedChips');
             if (!wrap) return;
             const items = Array.from(window.scopeSelectedIds);
+            if (items.length === 0) {
+                wrap.innerHTML = '<div style="color:#6c757d;padding:8px;">No designations selected</div>';
+                return;
+            }
             wrap.innerHTML = items.map(id => {
-                const text = window.scopeSelectedLabels.get(id) || `User ${id}`;
+                const text = window.scopeSelectedLabels.get(id) || `Designation ${id}`;
                 return `<span class=\"chip\" style=\"display:inline-flex;align-items:center;gap:6px;background:#eef3f8;border:1px solid #d7dee7;border-radius:16px;padding:4px 10px;\">${text}<button type=\"button\" aria-label=\"remove\" onclick=\"removeScopeSelected(${id})\" style=\"border:none;background:transparent;cursor:pointer;color:#6b7785;\">×</button></span>`;
             }).join('');
         }
-        function removeScopeSelected(userId){
-            window.scopeSelectedIds.delete(userId);
-            window.scopeSelectedLabels.delete(userId);
+        function removeScopeSelected(designationId){
+            window.scopeSelectedIds.delete(designationId);
+            window.scopeSelectedLabels.delete(designationId);
             renderScopeSelectedChips();
-            // also uncheck in results if present
-            const el = document.querySelector(`#scopeSearchResults [data-user-id=\"${userId}\"] input[type=checkbox]`);
-            if (el) el.checked = false;
+            // also uncheck in results and table if present
+            const resultEl = document.querySelector(`#scopeSearchResults [data-designation-id=\"${designationId}\"] input[type=checkbox]`);
+            if (resultEl && !resultEl.disabled) resultEl.checked = false;
+            const tableEl = document.querySelector(`#scopeAllStaffTable [data-designation-id=\"${designationId}\"] input[type=checkbox]`);
+            if (tableEl && !tableEl.disabled) tableEl.checked = false;
         }
         function clearScopeSelection(){
             window.scopeSelectedIds.clear();
             window.scopeSelectedLabels.clear();
             renderScopeSelectedChips();
-            document.querySelectorAll('#scopeSearchResults input[type=checkbox]').forEach(cb => cb.checked = false);
+            document.querySelectorAll('#scopeSearchResults input[type=checkbox]:not([disabled])').forEach(cb => cb.checked = false);
+            document.querySelectorAll('#scopeAllStaffTable input[type=checkbox]:not([disabled])').forEach(cb => cb.checked = false);
         }
         async function submitAddScope(){
             const type = document.getElementById('scopeTypeField').value;
@@ -2632,9 +2651,9 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             const settingsData = await fetchJSON(`../../api/signatories/sector_settings.php?clearance_type=${encodeURIComponent(type)}`);
             const currentIncludePH = settingsData.settings?.[0]?.include_program_head == 1;
 
-            // Allow saving if new staff are selected OR if the PH checkbox state is being changed.
+            // Allow saving if new designations are selected OR if the PH checkbox state is being changed.
             if (ids.length === 0 && includePH === currentIncludePH) {
-                showToast('No changes to save. Select staff or toggle the Program Head setting.', 'warning');
+                showToast('No changes to save. Select designations or toggle the Program Head setting.', 'warning');
                 return;
             }
             
@@ -2660,15 +2679,15 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                 }
             }catch(e){ /* surface but continue adds */ showToast('Saved PH setting with warnings','warning'); }
             
-            // Add staff in parallel (limit fanout) using new sector-based API
+            // Add designations in parallel (limit fanout) using new sector-based API
             let ok = 0, fail = 0;
-            for (const uid of ids){
+            for (const designationId of ids){
                 try{
-                    // Get staff designation_id from stored data
-                    const staff = window.scopeStaffData.get(uid);
+                    // Get designation data from stored data
+                    const designation = window.scopeDesignationData.get(designationId);
                     
-                    if (!staff || !staff.designation_id) {
-                        console.error(`No designation found for user ${uid}`);
+                    if (!designation || !designation.designation_id) {
+                        console.error(`No designation found for designation_id ${designationId}`);
                         fail++;
                         continue;
                     }
@@ -2676,14 +2695,14 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                     await fetchJSON('../../api/signatories/sector_assignments.php',{
                         method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
                         body: JSON.stringify({ 
-                            user_id: uid, 
+                            user_id: null, 
                             clearance_type: type,
-                            designation_id: staff.designation_id
+                            designation_id: designationId
                         })
                     });
                     ok++;
                 }catch(e){ 
-                    console.error(`Error adding signatory ${uid}:`, e);
+                    console.error(`Error adding signatory designation ${designationId}:`, e);
                     fail++; 
                 }
             }

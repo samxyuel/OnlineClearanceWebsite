@@ -118,6 +118,16 @@ function handleImportRequest() {
                     $auth
                 );
                 break;
+            case 'course_import':
+                $result = importCourseData(
+                    $file,
+                    $importMode,
+                    $validateData,
+                    $validateOnly,
+                    $importPolicy,
+                    $auth
+                );
+                break;
             default:
                 throw new Exception('Import type not yet implemented');
         }
@@ -1887,5 +1897,307 @@ function normalizeFacultyRow(array $row): array {
     $normalized['email'] = isset($row['email']) ? trim($row['email']) : null;
     $normalized['contact_number'] = isset($row['contact_number']) ? trim($row['contact_number']) : null;
     return $normalized;
+}
+
+/**
+ * Import Course Data
+ * Handles CSV/Excel import with cross-sector support (auto-creates faculty counterparts)
+ */
+function importCourseData($file, $importMode, $validateData, $validateOnly, $importPolicy, $auth) {
+    global $connection;
+    
+    try {
+        // Parse file
+        $data = [];
+        $fileExtension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        
+        if ($fileExtension === 'csv') {
+            $data = parseCSVFile($file['tmp_name']);
+        } else if (in_array($fileExtension, ['xls', 'xlsx'])) {
+            $data = parseExcelFile($file['tmp_name']);
+        } else {
+            return ['success' => false, 'message' => 'Invalid file format. Only CSV and Excel files are supported.'];
+        }
+        
+        if (empty($data)) {
+            return ['success' => false, 'message' => 'No data found in file or file is empty.'];
+        }
+        
+        // Validate headers
+        $requiredHeaders = ['Course Code', 'Course Name', 'Department', 'Status'];
+        $headers = array_shift($data); // Remove first row (headers)
+        
+        // Normalize headers (case-insensitive)
+        $headers = array_map('trim', $headers);
+        
+        foreach ($requiredHeaders as $required) {
+            $found = false;
+            foreach ($headers as $header) {
+                if (strcasecmp($header, $required) === 0) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                return ['success' => false, 'message' => "Missing required column: $required"];
+            }
+        }
+        
+        // Map headers to indices (case-insensitive)
+        $headerMap = [];
+        foreach ($headers as $index => $header) {
+            $headerMap[strtolower($header)] = $index;
+        }
+        
+        $stats = [
+            'total' => count($data),
+            'imported' => 0,
+            'updated' => 0,
+            'skipped' => 0,
+            'errors' => []
+        ];
+        
+        // Validate-only mode
+        if ($validateOnly) {
+            $validationErrors = validateCourseData($data, $headerMap);
+            return [
+                'success' => empty($validationErrors),
+                'message' => empty($validationErrors) ? 'Validation passed' : 'Validation failed',
+                'errors' => $validationErrors,
+                'stats' => ['total' => count($data)]
+            ];
+        }
+        
+        $connection->beginTransaction();
+        
+        try {
+            foreach ($data as $rowIndex => $row) {
+                $rowNum = $rowIndex + 2; // +2 for header row and 0-index
+                
+                // Extract data with case-insensitive lookup
+                $programCode = trim($row[$headerMap['course code']] ?? '');
+                $programName = trim($row[$headerMap['course name']] ?? '');
+                $departmentName = trim($row[$headerMap['department']] ?? '');
+                $status = trim($row[$headerMap['status']] ?? 'Active');
+                
+                // Validate required fields
+                if (empty($programCode) || empty($programName) || empty($departmentName)) {
+                    $stats['errors'][] = "Row $rowNum: Missing required fields";
+                    $stats['skipped']++;
+                    
+                    if ($importPolicy === 'strict') {
+                        throw new Exception("Row $rowNum: Missing required fields. Import stopped (strict mode).");
+                    }
+                    continue;
+                }
+                
+                // Determine sectors based on department sector
+                // Check if department exists in College or SHS sectors
+                $stmt = $connection->prepare("
+                    SELECT d.department_id, s.sector_name, d.department_name
+                    FROM departments d
+                    JOIN sectors s ON d.sector_id = s.sector_id
+                    WHERE (d.department_name = :dept_name OR d.department_code = :dept_name)
+                    AND d.is_active = 1
+                    AND s.sector_name IN ('College', 'Senior High School')
+                ");
+                $stmt->execute([':dept_name' => $departmentName]);
+                $studentDepartments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                if (empty($studentDepartments)) {
+                    $stats['errors'][] = "Row $rowNum: Department '$departmentName' not found in College or SHS sectors";
+                    $stats['skipped']++;
+                    
+                    if ($importPolicy === 'strict') {
+                        throw new Exception("Row $rowNum: Department '$departmentName' not found. Import stopped (strict mode).");
+                    }
+                    continue;
+                }
+                
+                $courseImported = false;
+                $courseUpdated = false;
+                $courseSkipped = false;
+                
+                // For each student sector department, create course and find/create faculty counterpart
+                foreach ($studentDepartments as $studentDept) {
+                    $studentDeptId = $studentDept['department_id'];
+                    $sectorName = $studentDept['sector_name'];
+                    $actualDeptName = $studentDept['department_name'];
+                    
+                    // Find faculty counterpart department (same name/code, Faculty sector)
+                    $stmt = $connection->prepare("
+                        SELECT d.department_id 
+                        FROM departments d
+                        JOIN sectors s ON d.sector_id = s.sector_id
+                        WHERE (d.department_name = :dept_name OR d.department_code = :dept_name)
+                        AND d.is_active = 1
+                        AND s.sector_name = 'Faculty'
+                        LIMIT 1
+                    ");
+                    $stmt->execute([':dept_name' => $actualDeptName]);
+                    $facultyDeptId = $stmt->fetchColumn();
+                    
+                    if (!$facultyDeptId) {
+                        $stats['errors'][] = "Row $rowNum: No Faculty counterpart found for department '$actualDeptName'. Course will only be created in $sectorName.";
+                        // Continue anyway - create only in student sector
+                    }
+                    
+                    // Import to student sector (College/SHS)
+                    $result1 = importSingleCourse($connection, $programCode, $programName, $studentDeptId, $status, $importMode);
+                    
+                    // Import to faculty sector (auto-create counterpart) if exists
+                    $result2 = null;
+                    if ($facultyDeptId) {
+                        $result2 = importSingleCourse($connection, $programCode, $programName, $facultyDeptId, $status, $importMode);
+                    }
+                    
+                    // Track stats
+                    if ($result1['action'] === 'imported' || ($result2 && $result2['action'] === 'imported')) {
+                        $courseImported = true;
+                    }
+                    if ($result1['action'] === 'updated' || ($result2 && $result2['action'] === 'updated')) {
+                        $courseUpdated = true;
+                    }
+                    if ($result1['action'] === 'skipped' && (!$result2 || $result2['action'] === 'skipped')) {
+                        $courseSkipped = true;
+                    }
+                }
+                
+                // Update overall stats (only count once per row)
+                if ($courseImported) {
+                    $stats['imported']++;
+                } else if ($courseUpdated) {
+                    $stats['updated']++;
+                } else if ($courseSkipped) {
+                    $stats['skipped']++;
+                }
+            }
+            
+            $connection->commit();
+            
+            $message = "Import completed: {$stats['imported']} imported, {$stats['updated']} updated, {$stats['skipped']} skipped";
+            if (!empty($stats['errors'])) {
+                $message .= ". " . count($stats['errors']) . " error(s) encountered.";
+            }
+            
+            return [
+                'success' => true,
+                'message' => $message,
+                'stats' => $stats
+            ];
+            
+        } catch (Exception $e) {
+            $connection->rollback();
+            return ['success' => false, 'message' => 'Import failed: ' . $e->getMessage()];
+        }
+        
+    } catch (Exception $e) {
+        return ['success' => false, 'message' => 'Error processing file: ' . $e->getMessage()];
+    }
+}
+
+/**
+ * Validate course data before import
+ */
+function validateCourseData($data, $headerMap) {
+    global $connection;
+    $errors = [];
+    
+    foreach ($data as $rowIndex => $row) {
+        $rowNum = $rowIndex + 2;
+        
+        $programCode = trim($row[$headerMap['course code']] ?? '');
+        $programName = trim($row[$headerMap['course name']] ?? '');
+        $departmentName = trim($row[$headerMap['department']] ?? '');
+        $status = trim($row[$headerMap['status']] ?? 'Active');
+        
+        // Required fields
+        if (empty($programCode)) {
+            $errors[] = "Row $rowNum: Course Code is required";
+        }
+        if (empty($programName)) {
+            $errors[] = "Row $rowNum: Course Name is required";
+        }
+        if (empty($departmentName)) {
+            $errors[] = "Row $rowNum: Department is required";
+        }
+        
+        // Validate status
+        if (!in_array(ucfirst(strtolower($status)), ['Active', 'Inactive'])) {
+            $errors[] = "Row $rowNum: Status must be 'Active' or 'Inactive'";
+        }
+        
+        // Validate department exists
+        if (!empty($departmentName)) {
+            $stmt = $connection->prepare("
+                SELECT COUNT(*) 
+                FROM departments d
+                JOIN sectors s ON d.sector_id = s.sector_id
+                WHERE (d.department_name = :dept_name OR d.department_code = :dept_name)
+                AND d.is_active = 1
+                AND s.sector_name IN ('College', 'Senior High School')
+            ");
+            $stmt->execute([':dept_name' => $departmentName]);
+            $count = $stmt->fetchColumn();
+            
+            if ($count == 0) {
+                $errors[] = "Row $rowNum: Department '$departmentName' not found in College or SHS sectors";
+            }
+        }
+    }
+    
+    return $errors;
+}
+
+/**
+ * Import a single course to a specific department
+ * Returns: ['action' => 'imported'|'updated'|'skipped', 'reason' => string]
+ */
+function importSingleCourse($connection, $programCode, $programName, $departmentId, $status, $importMode) {
+    $isActive = (strtolower($status) === 'active') ? 1 : 0;
+    
+    // Check if course already exists in this department (using composite unique key)
+    $stmt = $connection->prepare("
+        SELECT program_id, program_name, is_active 
+        FROM programs 
+        WHERE program_code = :code AND department_id = :dept_id
+    ");
+    $stmt->execute([':code' => $programCode, ':dept_id' => $departmentId]);
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($existing) {
+        // Course exists in this department
+        if ($importMode === 'skip') {
+            return ['action' => 'skipped', 'reason' => 'duplicate'];
+        } else if ($importMode === 'update') {
+            // Update existing course
+            $stmt = $connection->prepare("
+                UPDATE programs 
+                SET program_name = :name, is_active = :active, updated_at = NOW()
+                WHERE program_code = :code AND department_id = :dept_id
+            ");
+            $stmt->execute([
+                ':name' => $programName,
+                ':active' => $isActive,
+                ':code' => $programCode,
+                ':dept_id' => $departmentId
+            ]);
+            return ['action' => 'updated'];
+        }
+    }
+    
+    // Insert new course
+    $stmt = $connection->prepare("
+        INSERT INTO programs (program_code, program_name, department_id, is_active, created_at, updated_at)
+        VALUES (:code, :name, :dept_id, :active, NOW(), NOW())
+    ");
+    $stmt->execute([
+        ':code' => $programCode,
+        ':name' => $programName,
+        ':dept_id' => $departmentId,
+        ':active' => $isActive
+    ]);
+    
+    return ['action' => 'imported'];
 }
 ?>

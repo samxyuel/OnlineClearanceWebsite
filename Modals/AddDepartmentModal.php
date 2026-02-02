@@ -20,12 +20,27 @@
                 </div>
                 
                 <div class="form-group">
+                    <label for="departmentCode">Department Code *</label>
+                    <input type="text" id="departmentCode" name="departmentCode" required
+                           placeholder="e.g., ICT" maxlength="10" pattern="[A-Z0-9]+"
+                           title="Uppercase letters and numbers only"
+                           style="text-transform: uppercase;">
+                    <small class="form-help">Used for cross-sector department matching (must be unique)</small>
+                </div>
+                
+                <div class="form-group">
                     <label for="departmentType">Department Type *</label>
-                    <select id="departmentType" name="departmentType" required>
+                    <select id="departmentType" name="departmentType" required onchange="updateDepartmentTypeInfo()">
                         <option value="">Select department type</option>
-                        <option value="college">College</option>
-                        <option value="senior-high">Senior High School</option>
+                        <optgroup label="Single Sector">
+                            <option value="college">College</option>
+                            <option value="senior-high">Senior High School</option>
+                            <option value="faculty">Faculty Only</option>
+                        </optgroup>
                     </select>
+                    <div id="departmentTypeInfo" class="form-info" style="display: none; margin-top: 8px;">
+                        <!-- Dynamic info will appear here -->
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -34,12 +49,6 @@
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                     </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="departmentDescription">Description</label>
-                    <textarea id="departmentDescription" name="departmentDescription" 
-                              placeholder="Enter department description (optional)"></textarea>
                 </div>
             </form>
         </div>
@@ -177,6 +186,24 @@ window.closeAddDepartmentModal = function() {
     }
 };
 
+function updateDepartmentTypeInfo() {
+    const type = document.getElementById('departmentType').value;
+    const infoDiv = document.getElementById('departmentTypeInfo');
+    
+    const info = {
+        college: 'Will be created in College and Faculty sectors. This department can have courses.',
+        'senior-high': 'Will be created in Senior High School and Faculty sectors. This department can have courses.',
+        faculty: 'Will be created in Faculty sector only. Faculty-only departments cannot have courses.'
+    };
+    
+    if (type && info[type]) {
+        infoDiv.innerHTML = `<small style="color: var(--deep-navy-blue);">${info[type]}</small>`;
+        infoDiv.style.display = 'block';
+    } else {
+        infoDiv.style.display = 'none';
+    }
+}
+
 function saveDepartment() {
     const form = document.getElementById('addDepartmentForm');
     
@@ -184,6 +211,7 @@ function saveDepartment() {
     if (!form.checkValidity()) {
         // Check specific fields and show custom error messages
         const departmentName = form.querySelector('[name="departmentName"]');
+        const departmentCode = form.querySelector('[name="departmentCode"]');
         const departmentType = form.querySelector('[name="departmentType"]');
         const departmentStatus = form.querySelector('[name="departmentStatus"]');
         
@@ -196,6 +224,20 @@ function saveDepartment() {
         if (departmentName.value.trim().length < 3) {
             showToastNotification('Department name must be at least 3 characters long', 'error', 4000);
             departmentName.focus();
+            return;
+        }
+        
+        if (!departmentCode.value.trim()) {
+            showToastNotification('Department code is required', 'error', 4000);
+            departmentCode.focus();
+            return;
+        }
+        
+        // Validate department code format
+        const codePattern = /^[A-Z0-9]+$/;
+        if (!codePattern.test(departmentCode.value.trim())) {
+            showToastNotification('Department code must contain only uppercase letters and numbers', 'error', 4000);
+            departmentCode.focus();
             return;
         }
         
@@ -217,29 +259,51 @@ function saveDepartment() {
     
     const formData = new FormData(form);
     const departmentData = {
-        name: formData.get('departmentName'),
+        name: formData.get('departmentName').trim(),
+        code: formData.get('departmentCode').trim().toUpperCase(),
         type: formData.get('departmentType'),
-        status: formData.get('departmentStatus'),
-        description: formData.get('departmentDescription')
+        status: formData.get('departmentStatus')
     };
     
     // Show loading notification
     showToastNotification('Adding department...', 'info', 2000);
     
-    // Simulate API call
-    console.log('Adding department:', departmentData);
-    
-    setTimeout(() => {
-        // Show success message
-        showToastNotification('Department added successfully!', 'success', 3000);
-        
-        // Close modal
-        closeAddDepartmentModal();
-        
-        // Refresh the page or update the UI
-        setTimeout(() => {
-            location.reload();
-        }, 1000);
-    }, 1500);
+    // Call the new API endpoint
+    fetch('../../api/departments/create.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(departmentData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToastNotification(
+                `Department(s) created successfully in ${data.sectors_created} sector(s)!`, 
+                'success', 
+                3000
+            );
+            
+            // Close modal
+            closeAddDepartmentModal();
+            
+            // Refresh the page or update the UI
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            showToastNotification(
+                data.message || 'Failed to create department', 
+                'error', 
+                4000
+            );
+        }
+    })
+    .catch(error => {
+        console.error('Error creating department:', error);
+        showToastNotification('An error occurred while creating the department', 'error', 4000);
+    });
 }
 </script> 

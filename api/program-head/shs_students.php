@@ -17,6 +17,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../includes/config/database.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
+require_once __DIR__ . '/../../includes/helpers/department_helpers.php';
 
 function send_json_response($success, $data = [], $message = '', $statusCode = 200) {
     http_response_code($statusCode);
@@ -44,36 +45,38 @@ try {
         send_json_response(false, [], 'Access Denied: You do not have permission to view this data.', 403);
     }
 
-    // 2. Verify the user is a Program Head for the 'Senior High School' sector.
-    // If so, get all department IDs belonging to that sector.
-    $shsAuthStmt = $pdo->prepare("
-        SELECT COUNT(s.user_id)
-        FROM staff s
-        JOIN departments d ON s.department_id = d.department_id
-        JOIN sectors sec ON d.sector_id = sec.sector_id
-        WHERE s.user_id = ? 
-          AND s.staff_category = 'Program Head'
-          AND s.is_active = 1 
-          AND sec.sector_name = 'Senior High School'
-    ");
-    $shsAuthStmt->execute([$userId]);
-    $isShsProgramHead = (int)$shsAuthStmt->fetchColumn() > 0;
+    // 2. Get Program Head's assigned departments across all sectors (cross-sector matching)
+    $allDepartmentIds = getCrossSectorDepartmentIds($pdo, $userId);
 
-    if (!$isShsProgramHead && $role !== 'admin') {
-        send_json_response(true, ['students' => [], 'stats' => ['total' => 0, 'active' => 0, 'inactive' => 0, 'graduated' => 0]], 'You are not assigned as a Program Head for the Senior High School sector.');
+    if (empty($allDepartmentIds) && $role !== 'admin') {
+        send_json_response(true, ['students' => [], 'stats' => ['total' => 0, 'active' => 0, 'inactive' => 0, 'graduated' => 0]], 'You are not assigned to any departments as a Program Head.');
     }
 
-    // Since one person covers all SHS, we fetch all SHS department IDs.
-    $shsDeptsStmt = $pdo->query("
-        SELECT d.department_id 
-        FROM departments d
-        JOIN sectors s ON d.sector_id = s.sector_id
-        WHERE s.sector_name = 'Senior High School'
-    ");
-    $departmentIds = $shsDeptsStmt->fetchAll(PDO::FETCH_COLUMN);
+    // Filter to only SHS department IDs
+    if ($role !== 'admin') {
+        $placeholders = implode(',', array_fill(0, count($allDepartmentIds), '?'));
+        $shsDeptsStmt = $pdo->prepare("
+            SELECT d.department_id 
+            FROM departments d
+            JOIN sectors s ON d.sector_id = s.sector_id
+            WHERE s.sector_name = 'Senior High School'
+            AND d.department_id IN ($placeholders)
+        ");
+        $shsDeptsStmt->execute($allDepartmentIds);
+        $departmentIds = $shsDeptsStmt->fetchAll(PDO::FETCH_COLUMN);
+    } else {
+        // Admin can see all SHS departments
+        $shsDeptsStmt = $pdo->query("
+            SELECT d.department_id 
+            FROM departments d
+            JOIN sectors s ON d.sector_id = s.sector_id
+            WHERE s.sector_name = 'Senior High School'
+        ");
+        $departmentIds = $shsDeptsStmt->fetchAll(PDO::FETCH_COLUMN);
+    }
 
     if (empty($departmentIds)) {
-        send_json_response(true, ['students' => [], 'stats' => ['total' => 0, 'active' => 0, 'inactive' => 0, 'graduated' => 0]], 'No Senior High School departments found in the system.');
+        send_json_response(true, ['students' => [], 'stats' => ['total' => 0, 'active' => 0, 'inactive' => 0, 'graduated' => 0]], 'No Senior High School departments found in your assigned departments.');
     }
 
     // 3. Get the active clearance period for the SHS sector

@@ -1832,26 +1832,15 @@ handleStudentManagementPageRequest('College');
                 CURRENT_STAFF_POSITION
             });
             
-            // Fetch the current staff's actual designation from the API to ensure accuracy.
+            // Get the selected designation from the roleSelector dropdown
+            const roleSelector = document.getElementById('roleSelector');
             let currentDesignation = CURRENT_STAFF_POSITION; // Fallback
-            console.log('🟡 SEND_ACTION DEBUG: Initial designation (fallback):', currentDesignation);
             
-            try {
-                console.log('🟡 SEND_ACTION DEBUG: Fetching current staff designation...');
-                const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
-                console.log('🟡 SEND_ACTION DEBUG: Designation response status:', desigResponse.status);
-                
-                const desigData = await desigResponse.json();
-                console.log('🟡 SEND_ACTION DEBUG: Designation response data:', desigData);
-                
-                if (desigData.success && desigData.designation_name) { 
-                    currentDesignation = desigData.designation_name;
-                    console.log('🟡 SEND_ACTION DEBUG: ✅ Using designation from API:', currentDesignation);
-                } else {
-                    console.warn('🟡 SEND_ACTION DEBUG: ⚠️ API designation not available, using fallback');
-                }
-            } catch (e) { 
-                console.warn('🟡 SEND_ACTION DEBUG: ⚠️ Could not fetch designation, using fallback:', e.message);
+            if (roleSelector) {
+                currentDesignation = roleSelector.value;
+                console.log('🟡 SEND_ACTION DEBUG: Using selected designation from dropdown:', currentDesignation);
+            } else {
+                console.warn('🟡 SEND_ACTION DEBUG: roleSelector not found, using fallback:', currentDesignation);
             }
 
             // Get the currently selected school term from the filter to ensure approval goes to the correct period

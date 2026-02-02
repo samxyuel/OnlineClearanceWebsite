@@ -271,13 +271,20 @@ function handleApproveOperation($connection, $userId, $input) {
         'designation_id' => $existingSignatory['designation_id']
     ] : 'SIGNATORY NOT FOUND'));
 
+    // Fetch the acting user's name for signatory snapshot
+    $signerStmt = $connection->prepare("SELECT first_name, last_name FROM users WHERE user_id = ?");
+    $signerStmt->execute([$userId]);
+    $signerInfo = $signerStmt->fetch(PDO::FETCH_ASSOC);
+    $signerFirstName = $signerInfo['first_name'] ?? null;
+    $signerLastName = $signerInfo['last_name'] ?? null;
+
     // Update the signatory status to 'Approved'
     $stmt = $connection->prepare("
         UPDATE clearance_signatories 
-        SET action = 'Approved', remarks = ?, updated_at = NOW() 
+        SET action = 'Approved', remarks = ?, updated_at = NOW(), actual_user_id = ?, signatory_first_name = ?, signatory_last_name = ?, date_signed = NOW() 
         WHERE signatory_id = ? AND clearance_form_id = ?
     ");
-    $result = $stmt->execute([$remarks, $signatoryId, $clearanceFormId]);
+    $result = $stmt->execute([$remarks, $userId, $signerFirstName, $signerLastName, $signatoryId, $clearanceFormId]);
     
     // DEBUG: Log update result
     error_log('[apply_signatory.php - Approve] Update result: ' . json_encode([
@@ -394,13 +401,20 @@ function handleRejectOperation($connection, $userId, $input) {
         'designation_id' => $existingSignatory['designation_id']
     ] : 'SIGNATORY NOT FOUND'));
 
-    // Update the signatory status to 'Rejected'
+    // Fetch the acting user's name for preservation
+    $signerStmt = $connection->prepare("SELECT first_name, last_name FROM users WHERE user_id = ?");
+    $signerStmt->execute([$userId]);
+    $signerInfo = $signerStmt->fetch(PDO::FETCH_ASSOC);
+    $signerFirstName = $signerInfo['first_name'] ?? null;
+    $signerLastName = $signerInfo['last_name'] ?? null;
+
+    // Update the signatory status to 'Rejected' - preserve name for audit trail
     $stmt = $connection->prepare("
         UPDATE clearance_signatories 
-        SET action = 'Rejected', remarks = ?, rejection_reason_id = ?, updated_at = NOW() 
+        SET action = 'Rejected', remarks = ?, reason_id = ?, additional_remarks = ?, updated_at = NOW(), actual_user_id = ?, signatory_first_name = ?, signatory_last_name = ?, date_signed = NULL 
         WHERE signatory_id = ? AND clearance_form_id = ?
     ");
-    $result = $stmt->execute([$remarks, $rejectionReasonId, $signatoryId, $clearanceFormId]);
+    $result = $stmt->execute([null, $rejectionReasonId, $remarks, $userId, $signerFirstName, $signerLastName, $signatoryId, $clearanceFormId]);
     
     // DEBUG: Log update result
     error_log('[apply_signatory.php - Reject] Update result: ' . json_encode([
@@ -461,6 +475,13 @@ function handleBulkApproveOperation($connection, $userId, $input) {
         exit;
     }
     
+    // Fetch the acting user's name for signatory snapshot
+    $signerStmt = $connection->prepare("SELECT first_name, last_name FROM users WHERE user_id = ?");
+    $signerStmt->execute([$userId]);
+    $signerInfo = $signerStmt->fetch(PDO::FETCH_ASSOC);
+    $signerFirstName = $signerInfo['first_name'] ?? null;
+    $signerLastName = $signerInfo['last_name'] ?? null;
+    
     $successCount = 0;
     $errors = [];
     
@@ -485,10 +506,10 @@ function handleBulkApproveOperation($connection, $userId, $input) {
             // Update the signatory status to 'Approved'
             $stmt = $connection->prepare("
                 UPDATE clearance_signatories 
-                SET action = 'Approved', remarks = ?, updated_at = NOW() 
+                SET action = 'Approved', remarks = ?, updated_at = NOW(), actual_user_id = ?, signatory_first_name = ?, signatory_last_name = ?, date_signed = NOW() 
                 WHERE signatory_id = ? AND clearance_form_id = ?
             ");
-            $result = $stmt->execute([$remarks, $signatoryId, $clearanceFormId]);
+            $result = $stmt->execute([$remarks, $userId, $signerFirstName, $signerLastName, $signatoryId, $clearanceFormId]);
             
             if ($result && $stmt->rowCount() > 0) {
                 // Check if all signatories are approved to update form status
@@ -540,6 +561,13 @@ function handleBulkRejectOperation($connection, $userId, $input) {
     $remarks = $input['remarks'] ?? '';
     $rejectionReasonId = $input['rejection_reason_id'] ?? null;
     
+    // Fetch the acting user's name for preservation
+    $signerStmt = $connection->prepare("SELECT first_name, last_name FROM users WHERE user_id = ?");
+    $signerStmt->execute([$userId]);
+    $signerInfo = $signerStmt->fetch(PDO::FETCH_ASSOC);
+    $signerFirstName = $signerInfo['first_name'] ?? null;
+    $signerLastName = $signerInfo['last_name'] ?? null;
+    
     if (!is_array($targetUserIds) || !is_array($clearanceFormIds) || count($targetUserIds) !== count($clearanceFormIds)) {
         http_response_code(400);
         echo json_encode([
@@ -570,13 +598,13 @@ function handleBulkRejectOperation($connection, $userId, $input) {
                 continue;
             }
             
-            // Update the signatory status to 'Rejected'
+            // Update the signatory status to 'Rejected' - preserve name for audit trail
             $stmt = $connection->prepare("
                 UPDATE clearance_signatories 
-                SET action = 'Rejected', remarks = ?, rejection_reason_id = ?, updated_at = NOW() 
+                SET action = 'Rejected', remarks = NULL, reason_id = ?, additional_remarks = ?, updated_at = NOW(), actual_user_id = ?, signatory_first_name = ?, signatory_last_name = ?, date_signed = NULL 
                 WHERE signatory_id = ? AND clearance_form_id = ?
             ");
-            $result = $stmt->execute([$remarks, $rejectionReasonId, $signatoryId, $clearanceFormId]);
+            $result = $stmt->execute([$rejectionReasonId, $remarks, $userId, $signerFirstName, $signerLastName, $signatoryId, $clearanceFormId]);
             
             if ($result && $stmt->rowCount() > 0) {
                 $successCount++;

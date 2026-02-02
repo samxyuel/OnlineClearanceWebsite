@@ -111,6 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_
 
 require_once '../../includes/config/database.php';
 require_once '../../includes/classes/Auth.php';
+require_once '../../includes/helpers/student_validation.php';
 
 $auth = new Auth();
 if (!$auth->isLoggedIn()) {
@@ -179,38 +180,54 @@ try {
     $sem2Id = (int)$pdo->lastInsertId();
 
     // ============================================
-    // YEAR LEVEL INCREMENT LOGIC
+    // YEAR LEVEL INCREMENT LOGIC (SECTOR-AWARE)
     // ============================================
     // Increment year levels for all active students, except:
     // 1. Students with retain_year_level_for_next_year = TRUE (they keep their current year level)
     // 2. Students with account_status = 'graduated' (they are excluded)
+    // 3. SHS students at '2nd Year' (max year level - they stay at 2nd Year)
+    // 4. College students at '4th Year' (max year level - they stay at 4th Year)
     
-    // Year level mapping for increment
-    $yearLevelMap = [
+    // College year level mapping
+    $collegeYearLevelMap = [
         '1st Year' => '2nd Year',
         '2nd Year' => '3rd Year',
         '3rd Year' => '4th Year',
-        // Note: 4th Year students should have been marked as graduated before creating new year
-        // But if any remain, they won't be incremented (they'll stay at 4th Year)
+    ];
+    
+    // Senior High School year level mapping
+    $shsYearLevelMap = [
+        '1st Year' => '2nd Year',
+        // SHS students at '2nd Year' should NOT be incremented (max year level)
     ];
     
     // Get all active students (not graduated) who are not retained
+    // Filter by sector and year level to only get students eligible for increment
     $studentsToIncrement = $pdo->prepare("
         SELECT s.student_id, s.user_id, s.year_level, s.sector, u.first_name, u.last_name
         FROM students s
         JOIN users u ON s.user_id = u.user_id
         WHERE u.account_status = 'active'
         AND (s.retain_year_level_for_next_year = FALSE OR s.retain_year_level_for_next_year IS NULL)
-        AND s.year_level IN ('1st Year', '2nd Year', '3rd Year')
+        AND (
+            (s.sector = 'College' AND s.year_level IN ('1st Year', '2nd Year', '3rd Year'))
+            OR
+            (s.sector = 'Senior High School' AND s.year_level = '1st Year')
+        )
     ");
     $studentsToIncrement->execute();
     $students = $studentsToIncrement->fetchAll(PDO::FETCH_ASSOC);
     
     $incrementedCount = 0;
     $retainedCount = 0;
+    $shsSkippedCount = 0;
     
     foreach ($students as $student) {
         $currentYearLevel = $student['year_level'];
+        $sector = $student['sector'];
+        
+        // Select the appropriate year level map based on sector
+        $yearLevelMap = ($sector === 'Senior High School') ? $shsYearLevelMap : $collegeYearLevelMap;
         
         // Check if this year level should be incremented
         if (isset($yearLevelMap[$currentYearLevel])) {
@@ -238,7 +255,31 @@ try {
                     'student_name' => $student['first_name'] . ' ' . $student['last_name'],
                     'old_year_level' => $currentYearLevel,
                     'new_year_level' => $newYearLevel,
-                    'sector' => $student['sector'],
+                    'sector' => $sector,
+                    'academic_year' => $year,
+                    'timestamp' => date('Y-m-d H:i:s')
+                ]),
+                $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+                $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+            ]);
+        } elseif ($sector === 'Senior High School' && $currentYearLevel === '2nd Year') {
+            // Log skipped SHS students at 2nd Year (they remain at max year level)
+            // These students are not incremented but remain active and eligible for clearance
+            $shsSkippedCount++;
+            
+            $logStmt = $pdo->prepare("
+                INSERT INTO user_activities (user_id, activity_type, activity_details, ip_address, user_agent) 
+                VALUES (?, 'year_level_skipped', ?, ?, ?)
+            ");
+            $logStmt->execute([
+                $student['user_id'],
+                json_encode([
+                    'action' => 'year_level_skipped',
+                    'student_id' => $student['student_id'],
+                    'student_name' => $student['first_name'] . ' ' . $student['last_name'],
+                    'year_level' => $currentYearLevel,
+                    'sector' => $sector,
+                    'reason' => 'SHS student at maximum year level (2nd Year) - not incremented',
                     'academic_year' => $year,
                     'timestamp' => date('Y-m-d H:i:s')
                 ]),
@@ -281,6 +322,7 @@ try {
             'academic_year' => $year,
             'incremented_count' => $incrementedCount,
             'retained_count' => $retainedCount,
+            'shs_skipped_count' => $shsSkippedCount,
             'retention_flags_reset' => $resetCount,
             'timestamp' => date('Y-m-d H:i:s')
         ]),
@@ -304,6 +346,7 @@ try {
         'year_level_increment' => [
             'incremented_count' => $incrementedCount,
             'retained_count' => $retainedCount,
+            'shs_skipped_count' => $shsSkippedCount,
             'retention_flags_reset' => $resetCount
         ]
     ]);

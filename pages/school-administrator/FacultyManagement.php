@@ -312,6 +312,7 @@ handleFacultyManagementPageRequest();
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
+                                                <th>Department(s)</th>
                                                 <th>Employment Status</th>
                                                 <th>Account Status</th>
                                                 <th>Clearance Form Progress</th>
@@ -827,6 +828,7 @@ handleFacultyManagementPageRequest();
             openRejectionRemarksModal(null, null, 'faculty', true, selectedIds);
         }
 
+        /* Resigned function temporarily disabled
         function markResigned() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
@@ -856,8 +858,9 @@ handleFacultyManagementPageRequest();
                 'info'
             );
         }
+        */
 
-        // Reset clearance status for new term
+        /* Reset Clearance function temporarily disabled
         function resetClearanceForNewTerm() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
@@ -886,6 +889,7 @@ handleFacultyManagementPageRequest();
                 'warning'
             );
         }
+        */
 
         function getSelectedCount() {
             return document.querySelectorAll('.faculty-checkbox:checked').length;
@@ -1261,7 +1265,7 @@ handleFacultyManagementPageRequest();
         // Fetch faculty list from backend and build table body
         async function fetchFaculty() {
             const tableBody = document.getElementById('facultyTableBody');
-            tableBody.innerHTML = `<tr><td colspan="7" class="loading-row"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i><span>Loading faculty data...</span></div></td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="9" class="loading-row"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i><span>Loading faculty data...</span></div></td></tr>`;
 
             const accountStatus = document.getElementById('accountStatusFilter').value;
             const employmentStatus = document.getElementById('employmentStatusFilter').value;
@@ -1425,6 +1429,7 @@ handleFacultyManagementPageRequest();
                 <td class="checkbox-column"><input type="checkbox" class="faculty-checkbox" data-id="${faculty.id}"  onchange="updateBulkButtons()" ${checkboxDisabled ? 'disabled' : ''}></td>
                 <td data-label="Employee Number:">${faculty.id}</td>
                 <td data-label="Name:">${escapeHtml(faculty.name)}</td>
+                <td data-label="Department(s):">${escapeHtml(faculty.departments || 'N/A')}</td>
                 <td data-label="Employment Status:"><span class="status-badge employment-${(faculty.employment_status || '').toLowerCase().replace(/ /g, '-')}">${escapeHtml(faculty.employment_status || 'N/A')}</span></td>
                 <td data-label="Account Status:"><span class="status-badge account-${accountStatus}">${faculty.account_status || 'N/A'}</span></td>
                 <td data-label="Clearance Form Progress:" class="clearance-status-cell">${clearanceProgressContent}</td>
@@ -1468,7 +1473,7 @@ handleFacultyManagementPageRequest();
             const tbody = document.getElementById('facultyTableBody');
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="empty-state">
+                    <td colspan="9" class="empty-state">
                         <i class="fas fa-users-slash"></i>
                         <div>${message}</div>
                     </td>
@@ -2426,18 +2431,12 @@ handleFacultyManagementPageRequest();
             }
         }
         async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null){
-            // Fetch the current staff's actual designation from the API to ensure accuracy.
+            // Get the selected designation from the roleSelector dropdown
+            const roleSelector = document.getElementById('roleSelector');
             let currentDesignation = CURRENT_STAFF_POSITION || 'School Administrator'; // Fallback
             
-            try {
-                const desigResponse = await fetch('../../api/users/get_current_staff_designation.php', { credentials: 'include' });
-                const desigData = await desigResponse.json();
-                
-                if (desigData.success && desigData.designation_name) { 
-                    currentDesignation = desigData.designation_name;
-                }
-            } catch (e) { 
-                // Use fallback if API call fails
+            if (roleSelector) {
+                currentDesignation = roleSelector.value;
             }
 
             // Get the currently selected school term from the filter to ensure approval goes to the correct period

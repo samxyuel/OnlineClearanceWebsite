@@ -63,6 +63,7 @@ ob_start();
                                     <p>Inactive</p>
                                 </div>
                             </div>
+                            <!-- Resigned statistics card temporarily disabled
                             <div class="stat-card">
                                 <div class="stat-icon graduated">
                                     <i class="fas fa-user-slash"></i>
@@ -72,6 +73,7 @@ ob_start();
                                     <p>Resigned</p>
                                 </div>
                             </div>
+                            -->
                         </div>
 
                         <!-- Quick Actions Section -->
@@ -87,13 +89,13 @@ ob_start();
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
-                            <?php /* Signatory Override UI temporarily disabled ?>
+                            <!-- ?php /* Signatory Override UI temporarily disabled ?>
                             <div class="override-actions">
                                 <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
                                     <i class="fas fa-user-shield"></i> Signatory Override
                                 </button>
                             </div>
-                            <?php */ ?>
+                            ?php */ ? -->
                         </div>
 
                         <!-- Current Period Wrapper -->
@@ -160,9 +162,11 @@ ob_start();
                                     <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
+                                    <!-- ?php /* Batch Update feature temporarily disabled
                                     <button class="btn btn-success" onclick="openFacultyBatchUpdateModal()">
                                         <i class="fas fa-users-cog"></i> Batch Update
                                     </button>
+                                    */ ? -->
                                     <button class="selection-counter-display" id="selectionCounterPill" type="button" title="">
                                         <span id="selectionCounter">0 selected</span>
                                     </button>
@@ -174,12 +178,16 @@ ob_start();
                                         <button id="bulkDeactivateBtn" class="btn btn-warning" onclick="deactivateSelected()" disabled>
                                             <i class="fas fa-user-times"></i> Deactivate
                                         </button>
+                                        <!-- Resigned feature temporarily disabled
                                         <button class="btn btn-info" onclick="markResigned()" disabled id="bulkResignedBtn">
                                             <i class="fas fa-user-slash"></i> Resigned
                                         </button>
+                                        -->
+                                        <!-- Reset Clearance feature temporarily disabled
                                         <button id="bulkResetBtn" class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
                                             <i class="fas fa-redo"></i> Reset Clearance
                                         </button>
+                                        -->
                                         <button id="bulkDeleteBtn" class="btn btn-danger" onclick="deleteSelected()" disabled>
                                             <i class="fas fa-trash"></i> Delete
                                         </button>
@@ -202,6 +210,7 @@ ob_start();
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
+                                                <th>Department(s)</th>
                                                 <th>Employment Status</th>
                                                 <th>Account Status</th>
                                                 <th>Clearance Form Progress</th>
@@ -386,9 +395,6 @@ ob_start();
     <?php include '../../Modals/ExportModal.php'; ?>
     <?php include '../../Modals/ImportModal.php'; ?>
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
-    
-    <!-- Include Faculty Batch Update Modal -->
-    <?php include '../../Modals/FacultyBatchUpdateModal.php'; ?>
 
     <!-- Include Generated Credentials Modal (shared, include only once) -->
     <?php include '../../Modals/GeneratedCredentialsModal.php'; ?>
@@ -440,11 +446,13 @@ ob_start();
                                 <span class="checkmark"></span>
                                 with "inactive"
                             </label>
+                            <!-- Resigned filter temporarily disabled
                             <label class="custom-checkbox">
                                 <input type="checkbox" id="filterResigned" value="resigned">
                                 <span class="checkmark"></span>
                                 with "resigned"
                             </label>
+                            -->
                         </div>
                     </div>
                     
@@ -701,61 +709,46 @@ ob_start();
             const checkedBoxes = document.querySelectorAll('.faculty-checkbox:checked');
             const selectedCount = checkedBoxes.length;
             updateSelectAllCheckbox();
-            // Counters
-            let activeCount = 0, inactiveCount = 0, resignedCount = 0, eligibleReset = 0;
+            // Counters for account status
+            let activeCount = 0, inactiveCount = 0;
             checkedBoxes.forEach(cb=>{
                 const row = cb.closest('tr');
                 const accountBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
-                const clearanceBadge = row.querySelector('.status-badge.clearance-unapplied, .status-badge.clearance-applied, .status-badge.clearance-in-progress, .status-badge.clearance-complete');
                 if(accountBadge){
                     if(accountBadge.classList.contains('account-active')) activeCount++;
                     else if(accountBadge.classList.contains('account-inactive')) inactiveCount++;
-                    else if(accountBadge.classList.contains('account-resigned')) resignedCount++;
-                }
-                if(clearanceBadge && (clearanceBadge.classList.contains('clearance-applied') || clearanceBadge.classList.contains('clearance-in-progress') || clearanceBadge.classList.contains('clearance-complete'))){
-                    eligibleReset++;
                 }
             });
-            // Tab context
-            const tabStatus = window.currentTabStatus || '';
+            
+            // Get button references
             const activateBtn   = document.getElementById('bulkActivateBtn');
             const deactivateBtn = document.getElementById('bulkDeactivateBtn');
-            const resignedBtn   = document.getElementById('bulkResignedBtn');
-            const resetBtn      = document.getElementById('bulkResetBtn');
             const deleteBtn     = document.getElementById('bulkDeleteBtn');
-
-            // Default disable all
-            activateBtn.disabled = deactivateBtn.disabled = resignedBtn.disabled = resetBtn.disabled = deleteBtn.disabled = true;
-            deleteBtn.disabled = selectedCount === 0;
             
-            // Smart button enablement based on selection and tab context
-            if(tabStatus === 'active'){
-                // In Active tab: only deactivate and other actions enabled
-                deactivateBtn.disabled = selectedCount === 0;
-                resignedBtn.disabled = selectedCount === 0;
-            } else if(tabStatus === 'inactive'){
-                // In Inactive tab: only activate and other actions enabled
-                activateBtn.disabled = selectedCount === 0;
-                resignedBtn.disabled = selectedCount === 0;
-            } else { // overall tab
-                // Smart logic for mixed selections
-                if(activeCount > 0 && inactiveCount === 0 && resignedCount === 0){
-                    // All selected are active - can only deactivate
-                    deactivateBtn.disabled = false;
-                } else if(inactiveCount > 0 && activeCount === 0 && resignedCount === 0){
-                    // All selected are inactive - can only activate
-                    activateBtn.disabled = false;
-                } else if(activeCount > 0 && inactiveCount > 0){
-                    // Mixed active/inactive - both buttons disabled
-                    activateBtn.disabled = true;
-                    deactivateBtn.disabled = true;
-                }
-                // Resigned button always available in overall tab
-                resignedBtn.disabled = selectedCount === 0;
+            // Reset clearance and resigned buttons temporarily disabled
+            // const resignedBtn   = document.getElementById('bulkResignedBtn');
+            // const resetBtn      = document.getElementById('bulkResetBtn');
+            
+            // Enable/disable buttons based on selection
+            if (selectedCount === 0) {
+                // No selection - disable all buttons
+                activateBtn.disabled = true;
+                deactivateBtn.disabled = true;
+                deleteBtn.disabled = true;
+            } else {
+                // Delete button always enabled when there are selections
+                deleteBtn.disabled = false;
+                
+                // Activate button: enabled if there are inactive items
+                activateBtn.disabled = inactiveCount === 0;
+                
+                // Deactivate button: enabled if there are active items
+                deactivateBtn.disabled = activeCount === 0;
             }
             
-            // Reset clearance enable - works across all tabs
-            resetBtn.disabled = !(selectedCount > 0 && eligibleReset > 0);
+            // Reset clearance and resigned buttons temporarily disabled
+            // resignedBtn.disabled = selectedCount === 0;
+            // resetBtn.disabled = !(selectedCount > 0 && eligibleReset > 0);
 
             updateSelectionCounter();
         }
@@ -771,7 +764,7 @@ ob_start();
         }
 
         // Bulk Actions with Confirmation
-        function activateSelected() {
+        async function activateSelected() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
                 showToastNotification('Please select faculty to activate', 'warning');
@@ -783,27 +776,68 @@ ob_start();
                 `Are you sure you want to activate ${selectedCount} selected faculty?`,
                 'Activate',
                 'Cancel',
-                () => {
-                    // Perform activation
-                    const selectedRows = document.querySelectorAll('.faculty-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
-                        
-                        statusBadge.textContent = 'Active';
-                        statusBadge.classList.remove('account-inactive', 'account-resigned');
-                        statusBadge.classList.add('account-active');
+                async () => {
+                    // Collect user IDs from selected checkboxes
+                    const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
+                    const userIds = [];
+                    selectedCheckboxes.forEach(checkbox => {
+                        const userId = checkbox.getAttribute('data-user-id');
+                        if (userId) {
+                            userIds.push(parseInt(userId));
+                        }
                     });
                     
-                    // Update statistics
-                    updateBulkStatistics('activate', selectedCount);
-                    showToastNotification(`✓ Successfully activated ${selectedCount} faculty`, 'success');
+                    if (userIds.length === 0) {
+                        showToastNotification('No valid faculty selected', 'error');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('../../api/users/account_status.php', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                action: 'activate',
+                                user_ids: userIds
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            showToastNotification(`✓ Successfully activated ${result.affected_count} faculty`, 'success');
+                            
+                            // Update UI for each activated faculty
+                            selectedCheckboxes.forEach(checkbox => {
+                                const row = checkbox.closest('tr');
+                                const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
+                                
+                                if (statusBadge) {
+                                    statusBadge.textContent = 'Active';
+                                    statusBadge.classList.remove('account-inactive', 'account-resigned');
+                                    statusBadge.classList.add('account-active');
+                                }
+                            });
+                            
+                            // Update statistics
+                            updateBulkStatistics('activate', result.affected_count);
+                            
+                            // Refresh table to ensure data consistency
+                            refreshFacultyTable();
+                        } else {
+                            showToastNotification(result.message || 'Failed to activate faculty', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Activation error:', error);
+                        showToastNotification('An error occurred while activating faculty', 'error');
+                    }
                 },
                 'info'
             );
         }
 
-        function deactivateSelected() {
+        async function deactivateSelected() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
                 showToastNotification('Please select faculty to deactivate', 'warning');
@@ -815,26 +849,68 @@ ob_start();
                 `Are you sure you want to deactivate ${selectedCount} selected faculty?`,
                 'Deactivate',
                 'Cancel',
-                () => {
-                    // Perform deactivation
-                    const selectedRows = document.querySelectorAll('.faculty-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
-                        
-                        statusBadge.textContent = 'Inactive';
-                        statusBadge.classList.remove('account-active', 'account-resigned');
-                        statusBadge.classList.add('account-inactive');
+                async () => {
+                    // Collect user IDs from selected checkboxes
+                    const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
+                    const userIds = [];
+                    selectedCheckboxes.forEach(checkbox => {
+                        const userId = checkbox.getAttribute('data-user-id');
+                        if (userId) {
+                            userIds.push(parseInt(userId));
+                        }
                     });
                     
-                    // Update statistics
-                    updateBulkStatistics('deactivate', selectedCount);
-                    showToastNotification(`✓ Successfully deactivated ${selectedCount} faculty`, 'success');
+                    if (userIds.length === 0) {
+                        showToastNotification('No valid faculty selected', 'error');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('../../api/users/account_status.php', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                action: 'deactivate',
+                                user_ids: userIds
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            showToastNotification(`✓ Successfully deactivated ${result.affected_count} faculty`, 'success');
+                            
+                            // Update UI for each deactivated faculty
+                            selectedCheckboxes.forEach(checkbox => {
+                                const row = checkbox.closest('tr');
+                                const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive, .status-badge.account-resigned');
+                                
+                                if (statusBadge) {
+                                    statusBadge.textContent = 'Inactive';
+                                    statusBadge.classList.remove('account-active', 'account-resigned');
+                                    statusBadge.classList.add('account-inactive');
+                                }
+                            });
+                            
+                            // Update statistics
+                            updateBulkStatistics('deactivate', result.affected_count);
+                            
+                            // Refresh table to ensure data consistency
+                            refreshFacultyTable();
+                        } else {
+                            showToastNotification(result.message || 'Failed to deactivate faculty', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Deactivation error:', error);
+                        showToastNotification('An error occurred while deactivating faculty', 'error');
+                    }
                 },
                 'warning'
             );
         }
 
+        /* Resigned function temporarily disabled
         function markResigned() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
@@ -868,7 +944,9 @@ ob_start();
                 'info'
             );
         }
+        */
 
+        /* Reset Clearance function temporarily disabled
         // Reset clearance status for new term
         function resetClearanceForNewTerm() {
             const selectedCheckboxes=document.querySelectorAll('.faculty-checkbox:checked');
@@ -906,15 +984,18 @@ ob_start();
                             }
                         });
                         showToastNotification(`✓ Clearance reset for ${res.reset_count} faculty`, 'success');
-                        refreshFacultyTable().then(()=>initializePagination());
+                        refreshFacultyTable();
                     }).catch(err=>{console.error(err);showToastNotification(err.message,'error');});
                 },
                 'warning'
             );
         }
+        */
 
         function deleteSelected() {
-            const selectedCount = getSelectedCount();
+            const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
+            const selectedCount = selectedCheckboxes.length;
+            
             if (selectedCount === 0) {
                 showToastNotification('Please select faculty to delete', 'warning');
                 return;
@@ -922,20 +1003,69 @@ ob_start();
             
             showConfirmationModal(
                 'Delete Faculty',
-                `Are you sure you want to delete ${selectedCount} selected faculty? This action cannot be undone.`,
+                `<strong>Warning:</strong> You are about to permanently delete <strong>${selectedCount} faculty member(s)</strong>.<br><br>
+                This will remove all their data including:<br>
+                • User accounts<br>
+                • Clearance forms and applications<br>
+                • Department assignments<br><br>
+                <strong>This action cannot be undone.</strong>`,
                 'Delete Permanently',
                 'Cancel',
-                () => {
-                    // Perform deletion
-                    const selectedRows = document.querySelectorAll('.faculty-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        row.remove();
+                async () => {
+                    // Collect user IDs from selected checkboxes
+                    const userIds = [];
+                    selectedCheckboxes.forEach(checkbox => {
+                        const userId = checkbox.getAttribute('data-user-id');
+                        if (userId) {
+                            userIds.push(parseInt(userId));
+                        }
                     });
                     
-                    // Update statistics
-                    updateBulkStatistics('delete', selectedCount);
-                    showToastNotification(`✓ Successfully deleted ${selectedCount} faculty`, 'success');
+                    if (userIds.length === 0) {
+                        showToastNotification('No valid faculty selected', 'error');
+                        return;
+                    }
+                    
+                    // Delete each faculty member (API handles one at a time for faculty)
+                    let successCount = 0;
+                    let failCount = 0;
+                    
+                    for (const userId of userIds) {
+                        try {
+                            const response = await fetch('../../api/users/delete.php', {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({
+                                    user_type: 'faculty',
+                                    user_id: userId
+                                })
+                            });
+                            const result = await response.json();
+                            
+                            if (result.success) {
+                                successCount++;
+                            } else {
+                                failCount++;
+                                console.error(`Failed to delete user ${userId}: ${result.message}`);
+                            }
+                        } catch (err) {
+                            failCount++;
+                            console.error(`Error deleting user ${userId}:`, err);
+                        }
+                    }
+                    
+                    // Show result notification
+                    if (failCount === 0) {
+                        showToastNotification(`✓ Successfully deleted ${successCount} faculty member(s)`, 'success');
+                    } else if (successCount > 0) {
+                        showToastNotification(`Deleted ${successCount} faculty, ${failCount} failed`, 'warning');
+                    } else {
+                        showToastNotification('Failed to delete faculty members', 'error');
+                    }
+                    
+                    // Refresh table
+                    refreshFacultyTable();
                 },
                 'danger'
             );
@@ -948,11 +1078,12 @@ ob_start();
         function updateBulkStatistics(action, count) {
             const activeCount = document.getElementById('activeFaculty');
             const inactiveCount = document.getElementById('inactiveFaculty');
-            const resignedCount = document.getElementById('resignedFaculty');
+            // Resigned statistics temporarily disabled
+            // const resignedCount = document.getElementById('resignedFaculty');
             
             let currentActive = parseInt(activeCount.textContent.replace(',', ''));
             let currentInactive = parseInt(inactiveCount.textContent.replace(',', ''));
-            let currentResigned = parseInt(resignedCount.textContent.replace(',', ''));
+            // let currentResigned = parseInt(resignedCount.textContent.replace(',', ''));
             
             if (action === 'activate') {
                 currentActive += count;
@@ -960,12 +1091,14 @@ ob_start();
             } else if (action === 'deactivate') {
                 currentActive -= count;
                 currentInactive += count;
+            /* Resigned action temporarily disabled
             } else if (action === 'resigned') {
                 // Move from active/inactive to resigned
                 currentResigned += count;
                 // We'd need to track which faculty were active vs inactive
                 // For now, we'll assume they were active
                 currentActive -= count;
+            */
             } else if (action === 'delete') {
                 // For delete, we just need to update the total count
                 // The specific counts (active, inactive, resigned) might not change
@@ -976,38 +1109,15 @@ ob_start();
             
             activeCount.textContent = currentActive.toLocaleString();
             inactiveCount.textContent = currentInactive.toLocaleString();
-            resignedCount.textContent = currentResigned.toLocaleString();
+            // Resigned statistics temporarily disabled
+            // resignedCount.textContent = currentResigned.toLocaleString();
         }
 
         // Individual faculty actions
-        async function populateEditFormLive(empId){
-            try{
-                const res = await fetch(`../../api/users/facultyList.php?employee_number=${encodeURIComponent(empId)}`,{credentials:'include'});
-                const data = await res.json();
-                if(!data.success){showToastNotification(data.message||'Failed to load faculty','error');return;}
-                const f = data.faculty;
-                if (!f) {
-                    showToastNotification('Faculty data not found', 'error');
-                    return;
-                }
-                document.getElementById('editFacultyForm').dataset.userId = f.user_id; // Store user_id
-                document.getElementById('editFacultyId').value = empId;
-                document.getElementById('editEmployeeNumber').value = empId;
-                // Safely handle employment_status - it might be undefined or null
-                const employmentStatus = f.employment_status || '';
-                document.getElementById('editEmploymentStatus').value = employmentStatus ? employmentStatus.toLowerCase().replace(/ /g,'-') : '';
-                document.getElementById('editLastName').value = f.last_name || '';
-                document.getElementById('editFirstName').value = f.first_name || '';
-                document.getElementById('editMiddleName').value = f.middle_name||'';
-                document.getElementById('editEmail').value = f.email||'';
-                document.getElementById('editContactNumber').value = f.contact_number||'';
-                document.getElementById('editAccountStatus').value = f.account_status || '';
-            }catch(err){console.error(err);showToastNotification('Network error','error');}
-        }
-
         function editFaculty(facultyId) {
             if (typeof window.openEditFacultyModal === 'function') {
                 window.openEditFacultyModal(facultyId);
+                // Modal now handles its own data loading (populateEditFacultyForm)
             } else {
                 console.error('openEditFacultyModal function not found');
                 if (typeof showToastNotification === 'function') {
@@ -1015,59 +1125,53 @@ ob_start();
                 }
                 return;
             }
-            populateEditFormLive(facultyId);
         }
 
-        // intercept update faculty submit
-        window.submitEditFacultyForm = function(){
-            const btn=document.getElementById('editSubmitBtn');
-            const form=document.getElementById('editFacultyForm');
-            const data={
-                employee_number: form.editEmployeeNumber.value,
-                email: form.editEmail.value,
-                contact_number: form.editContactNumber.value,
-                status: form.editAccountStatus.value
-            };
-
-            // Only include employment_status if the dropdown has a value (admin actually selected or populated)
-            const empVal = form.editEmploymentStatus.value;
-            if(empVal!=='' && empVal!==null){
-                data.employment_status = empVal;
-            }
-
-            btn.disabled=true;btn.textContent='Updating...';
-            fetch('../../api/users/update_faculty.php',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
-            .then(r=>r.json())
-            .then(res=>{
-                if(res.success){showToastNotification('Faculty updated','success');closeEditFacultyModal();refreshFacultyTable().then(()=>initializePagination());}
-                else showToastNotification(res.message,'error');
-            })
-            .catch(err=>{console.error(err);showToastNotification('Network error', 'error');})
-            .finally(()=>{btn.disabled=false;btn.textContent='Update Faculty';});
-        }
+        // Listen for faculty updates from the EditFacultyModal
+        // The modal handles its own form submission and dispatches this event on success
+        document.addEventListener('faculty-updated', function(e) {
+            console.log('Faculty updated event received:', e.detail);
+            refreshFacultyTable();
+        });
 
 
-        function deleteFaculty(facultyId) {
-            const row = document.querySelector(`.faculty-checkbox[data-id="${facultyId}"]`).closest('tr');
+        function deleteFaculty(userId) {
+            const row = document.querySelector(`.faculty-checkbox[data-user-id="${userId}"]`).closest('tr');
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
             
             showConfirmationModal(
                 'Delete Faculty',
-                `Are you sure you want to delete ${facultyName}? This action cannot be undone.`,
+                `<strong>Warning:</strong> You are about to permanently delete <strong>${facultyName}</strong>.<br><br>
+                This will remove all their data including:<br>
+                • User account<br>
+                • Clearance forms and applications<br>
+                • Department assignments<br><br>
+                <strong>This action cannot be undone.</strong>`,
                 'Delete Permanently',
                 'Cancel',
                 () => {
-                    // call backend
-                    fetch('../../api/users/delete_faculty.php',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({employee_number:facultyId})})
-                    .then(r=>r.json())
-                    .then(res=>{
-                        if(!res.success){throw new Error(res.message||'Delete failed');}
-                        // remove row and refresh stats
-                        row.remove(); // This is a UI-only change. A table refresh is better.
-                        showToastNotification('Faculty deleted successfully','success');
-                        refreshFacultyTable().then(()=>initializePagination());
+                    // Call unified delete API with user_id
+                    fetch('../../api/users/delete.php', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            user_type: 'faculty',
+                            user_id: userId
+                        })
                     })
-                    .catch(err=>{console.error(err);showToastNotification(err.message,'error');});
+                    .then(r => r.json())
+                    .then(res => {
+                        if (!res.success) {
+                            throw new Error(res.message || 'Delete failed');
+                        }
+                        showToastNotification('Faculty deleted successfully', 'success');
+                        refreshFacultyTable();
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        showToastNotification(err.message, 'error');
+                    });
                 },
                 'danger'
             );
@@ -1160,7 +1264,8 @@ ob_start();
             document.getElementById('totalFaculty').textContent = totalCount;
             document.getElementById('activeFaculty').textContent = activeCount;
             document.getElementById('inactiveFaculty').textContent = inactiveCount;
-            document.getElementById('resignedFaculty').textContent = resignedCount;
+            // Resigned statistics temporarily disabled
+            // document.getElementById('resignedFaculty').textContent = resignedCount;
             
             // Apply filters to update table view
             applyFilters();
@@ -1170,7 +1275,7 @@ ob_start();
         async function refreshFacultyTable(){
             try{
                 const tbody=document.getElementById('facultyTableBody');
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;">Loading faculty...</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;">Loading faculty...</td></tr>`;
 
                 const url = new URL('../../api/users/facultyList.php', window.location.href);
                 url.searchParams.append('limit', entriesPerPage);
@@ -1185,12 +1290,12 @@ ob_start();
                 const data = await res.json();
                 if(!data.success){
                     console.error(data);
-                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
                     return;
                 }
 
                 if (!data.faculty || data.faculty.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;">No faculty members found.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;">No faculty members found.</td></tr>`;
                     updateStatistics(data.stats || { total: 0, active: 0, inactive: 0, resigned: 0 });
                     updatePaginationUI(0, 1, entriesPerPage);
                     return;
@@ -1236,16 +1341,17 @@ ob_start();
                         `;
                     }
 
-                    tr.innerHTML=`<td class="checkbox-column"><input type=\"checkbox\" class=\"faculty-checkbox\" data-id=\"${f.employee_number}\"></td>
+                    tr.innerHTML=`<td class="checkbox-column"><input type=\"checkbox\" class=\"faculty-checkbox\" data-id=\"${f.employee_number}\" data-user-id=\"${f.user_id}\"></td>
                                 <td data-label="Employee Number:">${f.employee_number}</td>
                                 <td data-label="Name:">${f.first_name} ${f.last_name}</td>
+                                <td data-label="Department(s):">${f.departments || 'N/A'}</td>
                                 <td data-label="Employment Status:"><span class="status-badge employment-${(f.employment_status || '').toLowerCase().replace(/ /g,'-')}">${f.employment_status}</span></td>
                                 <td data-label="Account Status:"><span class="status-badge account-${accountStatus}">${f.account_status || 'N/A'}</span></td>
                                 <td data-label="Clearance Progress:" class="clearance-status-cell">${clearanceStatusContent}</td>
                                 <td class="action-buttons"><div class="action-buttons">
                                         <button class=\"btn-icon view-progress-btn\" onclick=\"viewClearanceProgress('${f.employee_number}')\" title=\"View Clearance Progress\"><i class=\"fas fa-tasks\"></i></button>
                                         <button class=\"btn-icon edit-btn\" onclick=\"editFaculty('${f.employee_number}')\" title=\"Edit\"><i class=\"fas fa-edit\"></i></button>
-                                        <button class=\"btn-icon delete-btn\" onclick=\"deleteFaculty('${f.employee_number}')\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>
+                                        <button class=\"btn-icon delete-btn\" onclick=\"deleteFaculty(${f.user_id})\" title=\"Delete\"><i class=\"fas fa-trash\"></i></button>
                                    </div></td>`;
 
                     if(accountStatus!=='active'){
@@ -1257,7 +1363,7 @@ ob_start();
                 updatePaginationUI(data.total, data.page, data.limit);
             }catch(err){
                 console.error(err);
-                document.getElementById('facultyTableBody').innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:red;">Error loading data.</td></tr>`;
+                document.getElementById('facultyTableBody').innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:red;">Error loading data.</td></tr>`;
             }
         }
 
@@ -1266,14 +1372,16 @@ ob_start();
             const totalCount = document.getElementById('totalFaculty');
             const activeCount = document.getElementById('activeFaculty');
             const inactiveCount = document.getElementById('inactiveFaculty');
-            const resignedCount = document.getElementById('resignedFaculty');
+            // Resigned statistics temporarily disabled
+            // const resignedCount = document.getElementById('resignedFaculty');
             
             if (typeof statsOrction === 'object' && statsOrction !== null) {
                 // If an object is passed, set the stats directly
                 totalCount.textContent = (statsOrction.total || 0).toLocaleString();
                 activeCount.textContent = (statsOrction.active || 0).toLocaleString();
                 inactiveCount.textContent = (statsOrction.inactive || 0).toLocaleString();
-                resignedCount.textContent = (statsOrction.resigned || 0).toLocaleString();
+                // Resigned statistics temporarily disabled
+                // resignedCount.textContent = (statsOrction.resigned || 0).toLocaleString();
             }
         }
 
@@ -1414,7 +1522,8 @@ ob_start();
             // Update statistics display
             document.getElementById('activeFaculty').textContent = activeCount;
             document.getElementById('inactiveFaculty').textContent = inactiveCount;
-            document.getElementById('resignedFaculty').textContent = resignedCount;
+            // Resigned statistics temporarily disabled
+            // document.getElementById('resignedFaculty').textContent = resignedCount;
         }
 
         // Pagination variables
@@ -2070,7 +2179,7 @@ ob_start();
             }
         }
 
-        // Batch Update Modal Functions (stub - to be implemented)
+        <?php /* Batch Update Modal Functions (stub - to be implemented)
         function openFacultyBatchUpdateModal() {
             try {
                 if (typeof showToastNotification === 'function') {
@@ -2080,6 +2189,7 @@ ob_start();
                 // Silent error handling
             }
         }
+        */ ?>
 
         function resetBulkSelectionFilters() {
             // Reset all filter checkboxes
@@ -2088,7 +2198,8 @@ ob_start();
             document.getElementById('filterPartTimeFullLoad').checked = false;
             document.getElementById('filterActive').checked = false;
             document.getElementById('filterInactive').checked = false;
-            document.getElementById('filterResigned').checked = false;
+            // Resigned filter temporarily disabled
+            // document.getElementById('filterResigned').checked = false;
             document.getElementById('filterUnapplied').checked = false;
             document.getElementById('filterInProgress').checked = false;
             document.getElementById('filterComplete').checked = false;
@@ -2140,7 +2251,8 @@ ob_start();
                 partTimeFullLoad: document.getElementById('filterPartTimeFullLoad').checked,
                 active: document.getElementById('filterActive').checked,
                 inactive: document.getElementById('filterInactive').checked,
-                resigned: document.getElementById('filterResigned').checked,
+                // Resigned filter temporarily disabled
+                // resigned: document.getElementById('filterResigned').checked,
                 unapplied: document.getElementById('filterUnapplied').checked,
                 inProgress: document.getElementById('filterInProgress').checked,
                 complete: document.getElementById('filterComplete').checked

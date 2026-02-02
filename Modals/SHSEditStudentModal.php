@@ -30,13 +30,22 @@
                  style="background-color: var(--very-light-off-white); color: var(--medium-muted-blue);">
         </div>
         
-        <!-- Department is fixed for SHS, so it's a hidden field -->
-        <input type="hidden" id="editDepartment" name="department" value="Senior High School"> <!-- This might be for display/legacy, we'll use departmentId for submission -->
-        <input type="hidden" id="editDepartmentId" name="departmentId"> <!-- This will hold the actual department ID -->
+        <!-- Department (SHS Only, Editable for Admin, View-only for Program Head) -->
+        <div class="form-group" id="editDepartmentGroup">
+          <label for="editDepartment">Department *</label>
+          <select id="editDepartment" name="department" required onchange="handleDepartmentChange()"></select>
+          <small id="editDepartmentHelp" class="form-help" style="display: none;">
+            <i class="fas fa-lock"></i> Department assignments are managed by administrators
+          </small>
+        </div>
+        
+        <!-- Hidden field to store department_id for submission -->
+        <input type="hidden" id="editDepartmentId" name="departmentId">
+        
         <!-- Program (SHS Only, Editable) -->
         <div class="form-group">
           <label for="editProgram">Program *</label>
-          <select id="editProgram" name="program" required onchange="updateDepartmentFromProgram()">
+          <select id="editProgram" name="program" required>
             <option value="">Select Program</option>
           </select>
         </div>
@@ -49,6 +58,14 @@
           </select>
         </div>
         
+        <!-- Section (Editable) - Simple text input like registry modal -->
+        <div class="form-group">
+          <label for="editSection">Section *</label>
+          <input type="text" id="editSection" name="section" required 
+                 placeholder="e.g., 11/1-1" maxlength="10">
+        </div>
+        
+        <?php /* COMMENTED OUT: Term, Section Number, and Generated Section Format fields
         <!-- Term for Section (Editable) -->
         <div class="form-group">
           <label for="editSectionTerm">Term *</label>
@@ -78,6 +95,7 @@
           <label>Generated Section Format</label>
           <input type="text" id="editGeneratedSection" name="generatedSection" readonly placeholder="e.g., 11/2-1" style="background-color: var(--very-light-off-white); color: var(--medium-muted-blue);">
         </div>
+        */ ?>
         
         <!-- Last Name (Read-only) -->
         <div class="form-group">
@@ -149,82 +167,135 @@
 
 <script>
 // --- Dynamic Filter Population ---
-async function populateSelect(selectId, url, placeholder, valueField = 'value', textField = 'text') {
-    const select = document.getElementById(selectId);
+// populateSHSEditSelect function - Updated to use innerHTML instead of appendChild
+// Renamed from populateSelect to avoid conflicts with ExportModal.php
+async function populateSHSEditSelect(selectId, url, placeholder, valueField = 'value', textField = 'text') {
+    console.log(`[SHSEditStudentModal] populateSHSEditSelect v2 called for: ${selectId}`);
     
-    // Check if select element exists before proceeding
-    if (!select) {
-        console.error(`[SHSEditStudentModal] Element with id "${selectId}" not found`);
-        return;
+    // Helper function to safely get the select element
+    const getSelectElement = () => {
+        const element = document.getElementById(selectId);
+        if (!element) {
+            console.error(`[SHSEditStudentModal] Select element not found: ${selectId}`);
+            return null;
+        }
+        if (!(element instanceof HTMLSelectElement)) {
+            console.error(`[SHSEditStudentModal] Element ${selectId} is not a select element:`, element);
+            return null;
+        }
+        return element;
+    };
+    
+    // Try to get element, with retry if needed
+    let selectElement = getSelectElement();
+    if (!selectElement) {
+        // Wait a bit and try again
+        await new Promise(resolve => setTimeout(resolve, 100));
+        selectElement = getSelectElement();
+        if (!selectElement) {
+            console.error(`[SHSEditStudentModal] Select element ${selectId} not found after retry`);
+            return;
+        }
     }
     
     try {
-        select.innerHTML = `<option value="">Loading...</option>`;
+        // Set loading state using innerHTML (NO appendChild used anywhere)
+        selectElement.innerHTML = `<option value="">Loading...</option>`;
+        
         const response = await fetch(url, { credentials: 'include' });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
         const data = await response.json();
 
-        select.innerHTML = `<option value="">${placeholder}</option>`;
-        if (data.success && data.options) {
+        // Re-get element to ensure it's still valid
+        selectElement = getSelectElement();
+        if (!selectElement) {
+            throw new Error(`Select element ${selectId} is no longer available`);
+        }
+
+        // Build options HTML string - NO appendChild, only innerHTML
+        let optionsHTML = `<option value="">${placeholder}</option>`;
+        
+        if (data.success && data.options && Array.isArray(data.options)) {
             data.options.forEach(option => {
-                const optionElement = document.createElement('option');
-                optionElement.value = typeof option === 'object' ? option[valueField] : option;
-                if (typeof option === 'object' && option.department_id) optionElement.dataset.departmentId = option.department_id;
-                optionElement.textContent = typeof option === 'object' ? option[textField] : option;
-                select.appendChild(optionElement);
+                try {
+                    const value = typeof option === 'object' ? option[valueField] : option;
+                    const text = typeof option === 'object' ? option[textField] : option;
+                    // Escape HTML to prevent XSS
+                    const escapedText = String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    const escapedValue = String(value || '').replace(/"/g, '&quot;');
+                    
+                    // Handle department_id dataset if present
+                    let datasetAttr = '';
+                    if (typeof option === 'object' && option.department_id) {
+                        datasetAttr = ` data-department-id="${String(option.department_id).replace(/"/g, '&quot;')}"`;
+                    }
+                    
+                    optionsHTML += `<option value="${escapedValue}"${datasetAttr}>${escapedText}</option>`;
+                } catch (optError) {
+                    console.error(`[SHSEditStudentModal] Error processing option:`, optError, option);
+                }
             });
         }
+        
+        // Set all options at once using innerHTML - NO appendChild
+        selectElement.innerHTML = optionsHTML;
+        
+        console.log(`[SHSEditStudentModal] Successfully populated ${selectId} with ${data.options?.length || 0} options`);
+        
     } catch (error) {
         console.error(`[SHSEditStudentModal] Error loading options for ${selectId}:`, error);
-        if (select) {
-            select.innerHTML = `<option value="">Error loading</option>`;
+        const errorSelect = getSelectElement();
+        if (errorSelect) {
+            errorSelect.innerHTML = `<option value="">Error loading options</option>`;
         }
+        throw error; // Re-throw to be caught by caller
     }
 }
 
-async function loadEditSHSPrograms() {
-    try {
-        const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
-        url.searchParams.append('type', 'programs');
-        url.searchParams.append('sector', 'Senior High School');
-        await populateSelect('editProgram', url, 'Select Program', 'program_id', 'program_name');
-    } catch (error) {
-        console.error('[SHSEditStudentModal] Error loading SHS programs:', error);
-    }
+async function loadEditDepartments() {
+    const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+    url.searchParams.append('type', 'departments');
+    url.searchParams.append('sector', 'Senior High School');
+    await populateSHSEditSelect('editDepartment', url, 'Select Department', 'value', 'text');
 }
 
-async function loadEditSHSYearLevels() {
-    try {
-        const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
-        url.searchParams.append('type', 'enum');
-        url.searchParams.append('table', 'students');
-        url.searchParams.append('column', 'year_level');
-        url.searchParams.append('sector', 'Senior High School');
-        await populateSelect('editYearLevel', url, 'Select Year Level');
-    } catch (error) {
-        console.error('[SHSEditStudentModal] Error loading SHS year levels:', error);
+async function loadEditPrograms(departmentId = '') {
+    const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+    url.searchParams.append('type', 'programs');
+    url.searchParams.append('sector', 'Senior High School');
+    
+    // If departmentId is provided, filter programs by department
+    if (departmentId) {
+        url.searchParams.append('department_id', departmentId);
     }
+    
+    // Use 'value', 'text' to match API response structure (same as College modal)
+    await populateSHSEditSelect('editProgram', url, 'Select Program', 'value', 'text');
+}
+
+async function loadEditYearLevels() {
+    const url = new URL(`../../api/clearance/get_filter_options.php`, window.location.href);
+    url.searchParams.append('type', 'enum');
+    url.searchParams.append('table', 'students');
+    url.searchParams.append('column', 'year_level');
+    url.searchParams.append('sector', 'Senior High School');
+    await populateSHSEditSelect('editYearLevel', url, 'Select Year Level');
 }
 
 async function updateEditProgramsAndYearLevels() {
-    // For SHS, programs and year levels are independent of the department (which is fixed)
-    try {
-        await Promise.all([
-            loadEditSHSPrograms(),
-            loadEditSHSYearLevels()
-        ]);
-    } catch (error) {
-        console.error('[SHSEditStudentModal] Error updating programs and year levels:', error);
-        // Don't throw - allow the form to continue loading even if dropdowns fail
-    }
+    const departmentId = document.getElementById('editDepartment').value;
+    // Load programs based on the selected department
+    await loadEditPrograms(departmentId);
+    // Year levels are independent of the department for SHS
 }
 
-function updateDepartmentFromProgram() {
-    const programSelect = document.getElementById('editProgram');
-    const selectedOption = programSelect.options[programSelect.selectedIndex];
-    const departmentIdField = document.getElementById('editDepartmentId');
-    if (selectedOption && selectedOption.dataset.departmentId) {
-        departmentIdField.value = selectedOption.dataset.departmentId;
-    }
+function handleDepartmentChange() {
+    const departmentId = document.getElementById('editDepartment').value;
+    loadEditPrograms(departmentId);
 }
 // --- Password Reset Logic ---
 
@@ -287,6 +358,7 @@ function generateSecurePassword(length = 12) {
     return password;
 }
 
+<?php /* COMMENTED OUT: Section generation function
 // Update generated section display
 function updateGeneratedSection() {
   const yearLevelSelect = document.getElementById('editYearLevel');
@@ -303,16 +375,25 @@ function updateGeneratedSection() {
     generatedSection.value = '';
   }
 }
+*/ ?>
 
-// Add event listeners for section generation
 document.addEventListener('DOMContentLoaded', function() {
-  const yearLevelSelect = document.getElementById('editYearLevel');
-  const termSelect = document.getElementById('editSectionTerm');
-  const sectionSelect = document.getElementById('editSectionNumber');
-  
-  if (yearLevelSelect) yearLevelSelect.addEventListener('change', updateGeneratedSection);
-  if (termSelect) termSelect.addEventListener('change', updateGeneratedSection);
-  if (sectionSelect) sectionSelect.addEventListener('change', updateGeneratedSection);
+    // Department change handler
+    const departmentSelect = document.getElementById('editDepartment');
+    if (departmentSelect) {
+        departmentSelect.addEventListener('change', handleDepartmentChange);
+    }
+    
+    <?php /* COMMENTED OUT: Section generation event listeners
+    // Add event listeners for section generation
+    const yearLevelSelect = document.getElementById('editYearLevel');
+    const termSelect = document.getElementById('editSectionTerm');
+    const sectionSelect = document.getElementById('editSectionNumber');
+    
+    if (yearLevelSelect) yearLevelSelect.addEventListener('change', updateGeneratedSection);
+    if (termSelect) termSelect.addEventListener('change', updateGeneratedSection);
+    if (sectionSelect) sectionSelect.addEventListener('change', updateGeneratedSection);
+    */ ?>
 });
 
 // Form validation
@@ -320,7 +401,7 @@ function validateEditStudentForm() {
   const form = document.getElementById('editStudentForm');
   
   // Check required fields
-  const requiredFields = ['editProgram', 'editYearLevel', 'editSectionTerm', 'editSectionNumber', 'editAccountStatus'];
+  const requiredFields = ['editDepartment', 'editProgram', 'editYearLevel', 'editSection', 'editAccountStatus'];
   
   for (const field of requiredFields) {
     const input = form.querySelector(`#${field}`);
@@ -507,73 +588,121 @@ window.openEditStudentModal = function(studentId) {
 // Load student data for editing
 async function loadStudentData(userId) {
     const form = document.getElementById('editStudentForm');
+    const submitBtn = document.getElementById('editSubmitBtn');
+    
+    // Ensure form elements exist before proceeding
     if (!form) {
-        console.error('[SHSEditStudentModal] Edit student form not found');
+        console.error('[SHSEditStudentModal] Form element not found');
+        if (typeof showToastNotification === 'function') {
+            showToastNotification('Form elements not found. Please refresh the page.', 'error');
+        }
         return;
     }
     
-    const submitBtn = document.getElementById('editSubmitBtn');
-    form.classList.add('loading');
-
-    // Wait a bit for modal to be fully rendered before accessing elements
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Ensure dropdowns are populated before setting values
-    await updateEditProgramsAndYearLevels();
-
-    submitBtn.disabled = true;
-
+    // Wrap EVERYTHING in try-catch
     try {
-        // Fetch student data from the API using the user_id
+        console.log('[SHSEditStudentModal] Loading data for userId:', userId);
+        
+        // Show loading state
+        form.classList.add('loading');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Loading...';
+        }
+        
+        // Wait a bit to ensure modal elements are fully rendered
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Verify select elements exist before trying to populate
+        const deptSelect = document.getElementById('editDepartment');
+        const yearSelect = document.getElementById('editYearLevel');
+        
+        if (!deptSelect || !yearSelect) {
+            throw new Error('Form select elements not found. Modal may not be fully loaded.');
+        }
+        
+        // Load departments and year levels first
+        await Promise.all([loadEditDepartments(), loadEditYearLevels()]);
+        
+        // Fetch student data from the API
         const response = await fetch(`../../api/users/get_student.php?user_id=${userId}`, {
             credentials: 'include'
         });
+        
+        // Check response.ok before parsing
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[SHSEditStudentModal] API error response:', errorText);
+            throw new Error(`Failed to fetch student data. Status: ${response.status}`);
+        }
+        
         const data = await response.json();
+        console.log('[SHSEditStudentModal] API response:', data);
 
         if (data.success && data.student) {
             const student = data.student;
 
             // Store user_id in form dataset for password reset
-            if (form) form.dataset.userId = student.user_id;
-
+            form.dataset.userId = student.user_id;
+            
             // Populate form fields
             document.getElementById('editStudentId').value = student.user_id;
-            document.getElementById('editStudentNumber').value = student.student_id;
-            document.getElementById('editLastName').value = student.last_name;
-            document.getElementById('editFirstName').value = student.first_name;
+            document.getElementById('editStudentNumber').value = student.student_id || '';
+            document.getElementById('editLastName').value = student.last_name || '';
+            document.getElementById('editFirstName').value = student.first_name || '';
             document.getElementById('editMiddleName').value = student.middle_name || '';
             document.getElementById('editEmail').value = student.email || '';
             document.getElementById('editContactNumber').value = student.contact_number || '';
             document.getElementById('editAccountStatus').value = student.account_status || 'inactive';
 
-            // Set department, program, and year level after options are loaded
-            document.getElementById('editProgram').value = student.program_id;
-            document.getElementById('editYearLevel').value = student.year_level;
+            // Set department and load programs
+            const departmentSelect = document.getElementById('editDepartment');
+            if (departmentSelect && student.department_id) {
+                departmentSelect.value = student.department_id;
+            }
+            // Always load programs (even if no department_id, it will load all SHS programs)
+            await updateEditProgramsAndYearLevels();
 
-            // Trigger department update based on the selected program
-            updateDepartmentFromProgram();
-
-            // Populate section fields by parsing the section string
-            const sectionParts = (student.section || '').split('/');
-            if (sectionParts.length === 2 && sectionParts[1].includes('-')) {
-                const yearLevelNum = sectionParts[0];
-                const termAndSection = sectionParts[1].split('-');
-                document.getElementById('editSectionTerm').value = termAndSection[0];
-                document.getElementById('editSectionNumber').value = termAndSection[1];
+            // Set program and year level after options are loaded
+            const programSelect = document.getElementById('editProgram');
+            const yearLevelSelect = document.getElementById('editYearLevel');
+            
+            if (programSelect && student.program_id) {
+                programSelect.value = student.program_id;
+            }
+            if (yearLevelSelect && student.year_level) {
+                yearLevelSelect.value = student.year_level;
             }
 
-            updateGeneratedSection(); // Update the generated section display
+            // Set section directly (no parsing needed)
+            if (student.section) {
+                document.getElementById('editSection').value = student.section;
+            }
+            
+            console.log('[SHSEditStudentModal] Form populated successfully');
 
         } else {
-            throw new Error(data.message || 'Failed to load student data.');
+            throw new Error(data.message || 'Student not found or failed to load data.');
         }
+        
     } catch (error) {
-        console.error('Error loading student data:', error);
-        showToastNotification(error.message, 'error');
-        closeEditStudentModal(); // Close modal on error
+        console.error('[SHSEditStudentModal] Error loading student data:', error);
+        
+        // Show error toast
+        if (typeof showToastNotification === 'function') {
+            showToastNotification(error.message || 'Failed to load student data', 'error');
+        }
+        
+        // Close modal on error
+        closeEditStudentModal();
+        
     } finally {
-        form.classList.remove('loading');
-        submitBtn.disabled = false;
+        // Always restore button state
+        if (form) form.classList.remove('loading');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Update Student';
+        }
     }
 }
 </script>

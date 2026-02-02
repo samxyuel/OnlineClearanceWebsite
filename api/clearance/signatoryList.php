@@ -11,6 +11,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../includes/config/database.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
+require_once __DIR__ . '/../../includes/helpers/department_helpers.php';
 
 try {
     $auth = new Auth();
@@ -60,10 +61,8 @@ try {
     $isShsProgramHead = false;
 
     if ($isProgramHead) {
-        // For Program Heads, get their assigned department IDs to enforce scope
-        $deptStmt = $pdo->prepare("SELECT department_id FROM user_department_assignments WHERE user_id = ?");
-        $deptStmt->execute([$userId]);
-        $programHeadDepartments = $deptStmt->fetchAll(PDO::FETCH_COLUMN);
+        // For Program Heads, get their assigned department IDs across all sectors using cross-sector matching
+        $programHeadDepartments = getCrossSectorDepartmentIds($pdo, $userId);
     }
 
     // 2. Get the active clearance period for the relevant sector
@@ -245,7 +244,25 @@ try {
         
         // For School Administrators: show all applicants regardless of signatory assignment
         // For Regular Staff: show all applicants (view-only mode enabled), permission check determines if actions are allowed
+        // For Program Head: Only show clearance status from Program Head signatory assignments
         $signatoryJoinCondition = "cf.clearance_form_id = cs.clearance_form_id";
+        
+        // Filter signatory join for Program Head to only show their own assignments
+        if ($isProgramHead) {
+            // Get Program Head designation ID
+            $programHeadDesigId = null;
+            foreach ($staffDesignations as $desig) {
+                if (strcasecmp($desig['designation_name'], 'Program Head') === 0) {
+                    $programHeadDesigId = $desig['designation_id'];
+                    break;
+                }
+            }
+            
+            if ($programHeadDesigId) {
+                $signatoryJoinCondition = "cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id = :programHeadDesigId";
+                $params[':programHeadDesigId'] = $programHeadDesigId;
+            }
+        }
         
         if ($queryDirectByTerm) {
             // Query clearance_forms directly by academic_year_id and semester_id (no clearance_period required)
@@ -328,7 +345,25 @@ try {
         
         // For School Administrators: show all applicants regardless of signatory assignment
         // For Regular Staff: show all applicants (view-only mode enabled), permission check determines if actions are allowed
+        // For Program Head: Only show clearance status from Program Head signatory assignments
         $signatoryJoinCondition = "cf.clearance_form_id = cs.clearance_form_id";
+        
+        // Filter signatory join for Program Head to only show their own assignments
+        if ($isProgramHead) {
+            // Get Program Head designation ID
+            $programHeadDesigId = null;
+            foreach ($staffDesignations as $desig) {
+                if (strcasecmp($desig['designation_name'], 'Program Head') === 0) {
+                    $programHeadDesigId = $desig['designation_id'];
+                    break;
+                }
+            }
+            
+            if ($programHeadDesigId) {
+                $signatoryJoinCondition = "cf.clearance_form_id = cs.clearance_form_id AND cs.designation_id = :programHeadDesigId";
+                $params[':programHeadDesigId'] = $programHeadDesigId;
+            }
+        }
         
         if ($queryDirectByTerm) {
             // Query clearance_forms directly by academic_year_id and semester_id (no clearance_period required)
@@ -418,7 +453,7 @@ try {
         }
     }
 
-    // SERVER-SIDE SCOPING for Program Heads
+    // SERVER-SIDE SCOPING for Program Heads (using cross-sector department matching)
     if ($isProgramHead && !empty($programHeadDepartments)) {
         $phDeptPlaceholders = [];
         foreach ($programHeadDepartments as $i => $id) {
@@ -429,10 +464,10 @@ try {
         $phInClause = implode(',', $phDeptPlaceholders);
 
         if (strtolower($type) === 'faculty') {
-            // This ensures we only get faculty that share at least one department with the Program Head
-            $where .= " AND u.user_id IN (SELECT user_id FROM user_department_assignments WHERE department_id IN ($phInClause))";
+            // Filter faculty by their primary department_id (simpler and more consistent)
+            $where .= " AND f.department_id IN ($phInClause)";
         } else {
-            // For students, we check their assigned department directly
+            // For students, we check their assigned department directly (across sectors)
             $where .= " AND s.department_id IN ($phInClause)";
         }
     }
@@ -447,8 +482,8 @@ try {
         }
         $inClause = implode(',', $deptPlaceholders);
         if (strtolower($type) === 'faculty') {
-            // The main scoping is already done. This is an additional filter.
-            $where .= " AND u.user_id IN (SELECT user_id FROM user_department_assignments WHERE department_id IN ($inClause))";
+            // Additional frontend filter - uses faculty.department_id for consistency
+            $where .= " AND f.department_id IN ($inClause)";
         } else {
             $where .= " AND s.department_id IN ($inClause)";
         }

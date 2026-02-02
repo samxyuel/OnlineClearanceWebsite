@@ -164,17 +164,17 @@ function getProgramHeadsForSector($pdo, $clearanceType) {
             u.first_name,
             u.last_name,
             u.username as employee_number,
-            sda.department_id,
+            s.department_id,
             d.department_name,
             sec.sector_name,
-            sda.is_primary
-        FROM staff_department_assignments sda
-        JOIN staff s ON sda.staff_id = s.employee_number
+            1 as is_primary
+        FROM staff s
         JOIN users u ON s.user_id = u.user_id
-        JOIN departments d ON sda.department_id = d.department_id
+        JOIN departments d ON s.department_id = d.department_id
         JOIN sectors sec ON d.sector_id = sec.sector_id
-        WHERE sec.sector_name = ? AND sda.is_primary > 0
-        ORDER BY sda.is_primary, d.department_name, u.first_name, u.last_name
+        WHERE sec.sector_name = ? 
+            AND s.department_id IS NOT NULL
+        ORDER BY d.department_name, u.first_name, u.last_name
     ";
     
     $stmt = $pdo->prepare($sql);

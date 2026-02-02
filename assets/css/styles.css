@@ -6618,8 +6618,8 @@ button:disabled {
 }
 
 .course-management-container .compact-tab-button.active {
-  background: var(--darker-saturated-blue);
-  color: white;
+  background: var(--bright-golden-yellow);
+  color: var(--deep-navy-blue);
   font-weight: 600;
 }
 
@@ -6658,6 +6658,15 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 5px;
+  flex-wrap: wrap;
+}
+
+/* Ensure all badges in header align on same baseline */
+.course-management-container .department-card-header .cross-sector-badge,
+.course-management-container .department-card-header .sector-badges,
+.course-management-container .department-card-header .sector-badge {
+  vertical-align: middle;
+  align-self: center;
 }
 
 .course-management-container .department-icon {
@@ -7091,10 +7100,10 @@ button:disabled {
   }
 
   .course-management-container .compact-tab-button.active {
-    background: var(--darker-saturated-blue);
-    color: white;
+    background: var(--bright-golden-yellow);
+    color: var(--deep-navy-blue);
     font-weight: 600;
-    box-shadow: 0 1px 3px rgba(12, 85, 145, 0.2);
+    box-shadow: 0 1px 3px rgba(231, 192, 29, 0.2);
   }
 
   .course-management-container .action-buttons .btn {
@@ -7798,10 +7807,10 @@ button:disabled {
   }
 
   .course-management-container .compact-tab-button.active {
-    background: var(--darker-saturated-blue);
-    color: white;
+    background: var(--bright-golden-yellow);
+    color: var(--deep-navy-blue);
     font-weight: 600;
-    box-shadow: 0 1px 2px rgba(12, 85, 145, 0.3);
+    box-shadow: 0 1px 2px rgba(231, 192, 29, 0.3);
   }
 
   .course-management-container .department-card {
@@ -11667,4 +11676,191 @@ button:disabled {
   padding: 6px 12px;
   background-color: var(--light-muted-blue);
   border-radius: 4px;
+}
+
+/* ============================================
+   Cross-Sector Department Indicators
+   ============================================ */
+
+/* Tab Shared Count Badge */
+.course-management-container .tab-shared-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  background: var(--darker-saturated-blue);
+  color: white;
+  border-radius: 9px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  margin-left: 6px;
+  line-height: 1;
+}
+
+.course-management-container .tab-shared-badge:empty {
+  display: none;
+}
+
+/* Cross-Sector Indicator Badge */
+.course-management-container .cross-sector-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: var(--darker-saturated-blue);
+  color: white;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 8px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.course-management-container .cross-sector-badge i {
+  font-size: 0.65rem;
+  opacity: 0.9;
+}
+
+/* Cross-sector icon (minimal style alternative) */
+.course-management-container .cross-sector-icon {
+  color: var(--darker-saturated-blue);
+  font-size: 0.8rem;
+  margin-left: 6px;
+  cursor: help;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.course-management-container .cross-sector-icon:hover {
+  opacity: 1;
+}
+
+/* Shared Department Visual Indicator */
+.course-management-container .department-card.shared-department {
+  border-left: 4px solid var(--darker-saturated-blue);
+  position: relative;
+}
+
+/* Subtle background tint for shared departments */
+.course-management-container .department-card.shared-department::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    to right,
+    rgba(23, 93, 151, 0.03) 0%,
+    transparent 4px
+  );
+  pointer-events: none;
+  border-radius: 8px;
+}
+
+/* Enhanced hover for shared departments */
+.course-management-container .department-card.shared-department:hover {
+  box-shadow: 0 4px 12px rgba(12, 85, 145, 0.2);
+  transform: translateY(-2px);
+  border-left-color: var(--deep-navy-blue);
+}
+
+/* Small indicator dot in top-right corner */
+.course-management-container .department-card.shared-department::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  background: var(--darker-saturated-blue);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px white, 0 0 0 4px var(--darker-saturated-blue);
+  z-index: 1;
+}
+
+/* Sector Badges Container */
+.course-management-container .sector-badges {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+
+/* Individual Sector Badge */
+.course-management-container .sector-badge {
+  background: var(--darker-saturated-blue);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Faculty-Only Department Indicator */
+.course-management-container .faculty-only-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: rgba(
+    95,
+    107,
+    122,
+    0.15
+  ); /* Using --soft-slate-gray with opacity */
+  color: var(--soft-slate-gray);
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  font-style: italic;
+  margin-left: 8px;
+  margin-top: 4px;
+}
+
+.course-management-container .faculty-only-indicator i {
+  font-size: 0.65rem;
+}
+
+/* Cross-Sector Warning (for Edit Modal) */
+.cross-sector-warning {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  align-items: flex-start;
+}
+
+.cross-sector-warning i {
+  color: #f59e0b;
+  font-size: 1.5rem;
+  margin-top: 2px;
+}
+
+.cross-sector-warning strong {
+  display: block;
+  color: #92400e;
+  margin-bottom: 4px;
+}
+
+.cross-sector-warning p {
+  margin: 4px 0;
+  color: #78350f;
+  font-size: 0.9rem;
+}
+
+.cross-sector-warning .warning-text {
+  font-weight: 600;
+  color: #b45309;
 }

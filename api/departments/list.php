@@ -46,12 +46,18 @@ $offset     = ($page - 1) * $limit;
 try {
     $pdo = Database::getInstance()->getConnection();
 
+    // Always include sector information for cross-sector detection
     $select = [
         'dep.department_id AS department_id',
-        'dep.department_name AS department_name'
+        'dep.department_name AS department_name',
+        'dep.department_code AS department_code',
+        'sec.sector_id AS sector_id',
+        'sec.sector_name AS sector_name',
+        'dep.is_active AS is_active'
     ];
 
-    $joins = [];
+    $joins = ['JOIN sectors sec ON dep.sector_id = sec.sector_id'];
+    
     if ($includePH) {
         // Current active Program Head per department (enforce one PH per department)
         $joins[] = "LEFT JOIN staff s ON s.department_id = dep.department_id AND s.staff_category = 'Program Head' AND s.is_active = 1";
@@ -63,72 +69,84 @@ try {
         $select[] = 's.employee_number AS current_program_head_employee_number';
     }
 
-    $where = [];
+    $where = ['dep.is_active = 1'];
     $namedParams = [];
     $widx = 0;
 
     if ($q !== '') {
         $widx++;
         $ph = ':w' . $widx;
-        $where[] = 'dep.department_name LIKE ' . $ph;
+        $where[] = '(dep.department_name LIKE ' . $ph . ' OR dep.department_code LIKE ' . $ph . ')';
         $namedParams[$ph] = '%' . $q . '%';
     }
 
     if ($sector !== '') {
-        // Always join sectors table to filter by name, as sector_id is the reliable link.
-        $joins[] = "JOIN sectors sec ON dep.sector_id = sec.sector_id";
+        // Filter by specific sector
         $widx++;
         $ph = ':w' . $widx;
         $where[] = 'sec.sector_name = ' . $ph;
         $namedParams[$ph] = $sector;
     }
 
-    $whereSql = '';
-    if (!empty($where)) {
-        $whereSql = 'WHERE ' . implode(' AND ', $where);
-    }
+    $whereSql = 'WHERE ' . implode(' AND ', $where);
 
-    $selectSql = 'SELECT ' . implode(', ', $select) . ' FROM departments dep ' . implode(' ', $joins) . ' ' . $whereSql . ' ORDER BY dep.department_name ASC LIMIT :limit OFFSET :offset';
-
-    // Total count (without pagination)
-    $countSql  = 'SELECT COUNT(*) FROM departments dep ' . implode(' ', $joins) . ' ' . $whereSql;
-
-    $countStmt = $pdo->prepare($countSql);
-    foreach ($namedParams as $name => $value) {
-        $countStmt->bindValue($name, $value);
-    }
-    $countStmt->execute();
-    $total = (int)$countStmt->fetchColumn();
-
-    if ($total === 0 && $sector !== '') {
-        // If no results for a specific sector, it's a valid empty set, not an error.
-        echo json_encode([
-            'success' => true,
-            'departments' => [],
-            'page' => $page,
-            'limit' => $limit,
-            'total' => 0,
-            'total_pages' => 0
-        ]);
-        exit;
-    }
-
+    // First, get all departments (without pagination limit for cross-sector grouping)
+    $selectSql = 'SELECT ' . implode(', ', $select) . ' FROM departments dep ' . implode(' ', $joins) . ' ' . $whereSql . ' ORDER BY dep.department_name ASC, sec.sector_name ASC';
+    
     $stmt = $pdo->prepare($selectSql);
     foreach ($namedParams as $name => $value) {
         $stmt->bindValue($name, $value);
     }
-    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $allRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Group departments by name/code to detect cross-sector departments
+    $grouped = [];
+    foreach ($allRows as $dept) {
+        $key = $dept['department_code'] ?: $dept['department_name'];
+        if (!isset($grouped[$key])) {
+            $grouped[$key] = [
+                'department_name' => $dept['department_name'],
+                'department_code' => $dept['department_code'],
+                'sectors' => [],
+                'is_shared' => false
+            ];
+            
+            // Include Program Head info if requested (use first occurrence)
+            if ($includePH) {
+                $grouped[$key]['current_program_head_user_id'] = $dept['current_program_head_user_id'] ?? null;
+                $grouped[$key]['current_program_head_name'] = $dept['current_program_head_name'] ?? null;
+                $grouped[$key]['current_program_head_designation'] = $dept['current_program_head_designation'] ?? null;
+                $grouped[$key]['current_program_head_employee_number'] = $dept['current_program_head_employee_number'] ?? null;
+            }
+        }
+        
+        $grouped[$key]['sectors'][] = [
+            'sector_id' => (int)$dept['sector_id'],
+            'sector_name' => $dept['sector_name'],
+            'department_id' => (int)$dept['department_id']
+        ];
+    }
+
+    // Mark as shared if multiple sectors
+    foreach ($grouped as &$group) {
+        $group['is_shared'] = count($group['sectors']) > 1;
+    }
+    unset($group); // Break reference
+
+    // Convert to indexed array and apply pagination
+    $departments = array_values($grouped);
+    $total = count($departments);
+    $totalPages = ceil($total / $limit);
+    $paginatedDepartments = array_slice($departments, $offset, $limit);
 
     echo json_encode([
         'success' => true,
-        'departments' => $rows,
+        'departments' => $paginatedDepartments,
         'page' => $page,
         'limit' => $limit,
         'total' => $total,
-        'total_pages' => ceil($total / $limit)
+        'total_pages' => $totalPages
     ]);
 
 } catch (PDOException $e) {

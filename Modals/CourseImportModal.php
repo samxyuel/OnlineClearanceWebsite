@@ -361,31 +361,72 @@ function handleFileSelect(event) {
 }
 
 function simulateFilePreview(file) {
-    // Simulate reading file and generating preview
-    const previewData = [
-        { code: 'BSIT', name: 'BS in Information Technology', department: 'ICT', status: 'Active' },
-        { code: 'BSCS', name: 'BS in Computer Science', department: 'ICT', status: 'Active' },
-        { code: 'BSBA', name: 'BS in Business Administration', department: 'BSA', status: 'Active' },
-        { code: 'ABM', name: 'Accountancy, Business, Management', department: 'ACADEMIC', status: 'Active' },
-        { code: 'STEM', name: 'Science, Technology, Engineering, and Mathematics', department: 'ACADEMIC', status: 'Active' }
-    ];
+    // Read CSV file and show preview
+    const reader = new FileReader();
     
-    const tbody = document.getElementById('previewTableBody');
-    tbody.innerHTML = '';
+    reader.onload = function(e) {
+        try {
+            const text = e.target.result;
+            const lines = text.split('\n').filter(line => line.trim());
+            
+            if (lines.length < 2) {
+                showToastNotification('File is empty or has no data rows', 'error');
+                return;
+            }
+            
+            // Parse header
+            const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+            
+            // Parse data rows (show first 5 for preview)
+            const previewRows = lines.slice(1, 6);
+            const previewData = [];
+            
+            previewRows.forEach(line => {
+                const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header.toLowerCase().replace(/ /g, '_')] = values[index] || '';
+                });
+                previewData.push(row);
+            });
+            
+            // Render preview table
+            const tbody = document.getElementById('previewTableBody');
+            tbody.innerHTML = '';
+            
+            previewData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.course_code || row.code || ''}</td>
+                    <td>${row.course_name || row.name || ''}</td>
+                    <td>${row.department || ''}</td>
+                    <td>${row.status || 'Active'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            // Update stats
+            const totalRows = lines.length - 1; // Exclude header
+            document.getElementById('totalRecords').textContent = totalRows;
+            document.getElementById('toImport').textContent = totalRows;
+            document.getElementById('toUpdate').textContent = '0';
+            document.getElementById('toSkip').textContent = '0';
+            
+            document.getElementById('filePreview').style.display = 'block';
+            document.getElementById('importButton').disabled = false;
+            
+            showToastNotification(`Preview loaded: ${totalRows} courses found`, 'success');
+        } catch (error) {
+            showToastNotification('Error reading file: ' + error.message, 'error');
+            console.error('File preview error:', error);
+        }
+    };
     
-    previewData.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${row.code}</td>
-            <td>${row.name}</td>
-            <td>${row.department}</td>
-            <td>${row.status}</td>
-        `;
-        tbody.appendChild(tr);
-    });
+    reader.onerror = function() {
+        showToastNotification('Error reading file', 'error');
+    };
     
-    document.getElementById('filePreview').style.display = 'block';
-    document.getElementById('importButton').disabled = false;
+    reader.readAsText(file);
 }
 
 // Debounce mechanism to prevent multiple calls
@@ -396,11 +437,23 @@ function processImport() {
     if (isProcessingImport) {
         return;
     }
+    
+    if (!selectedFile) {
+        showToastNotification('Please select a file first', 'error');
+        return;
+    }
+    
     isProcessingImport = true;
     
     const skipDuplicates = document.getElementById('skipDuplicates').checked;
     const updateExisting = document.getElementById('updateExisting').checked;
     const importType = document.getElementById('importType').value;
+    
+    // Determine import mode based on checkboxes
+    let importMode = 'skip'; // default
+    if (updateExisting) {
+        importMode = 'update';
+    }
     
     // Build confirmation message based on user's choices
     let confirmationMessage = 'Are you sure you want to import courses with the following settings?\n\n';
@@ -415,40 +468,89 @@ function processImport() {
         confirmationMessage,
         'Import Courses',
         'Cancel',
-        () => {
-            // User confirmed - proceed with import
-            showToastNotification('Importing courses...', 'info', 2000);
-            
-            setTimeout(() => {
-                showToastNotification('Courses imported successfully!', 'success', 3000);
-                closeCourseImportModal();
-                isProcessingImport = false; // Reset processing flag
+        async () => {
+            try {
+                // User confirmed - proceed with import
+                showToastNotification('Importing courses...', 'info', 2000);
                 
-                // Refresh the page
-                setTimeout(() => {
-                    location.reload();
-                }, 1000);
-            }, 2000);
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('importFile', selectedFile);
+                formData.append('importType', 'course_import');
+                formData.append('importMode', importMode);
+                formData.append('validateData', 'off');
+                formData.append('validateOnly', '0');
+                formData.append('importPolicy', 'partial');
+                
+                // Make API call
+                const response = await fetch('../../controllers/importData.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToastNotification(result.message || 'Courses imported successfully!', 'success', 3000);
+                    
+                    // Show detailed stats if available
+                    if (result.stats) {
+                        console.log('Import Stats:', result.stats);
+                        if (result.stats.errors && result.stats.errors.length > 0) {
+                            console.warn('Import Errors:', result.stats.errors);
+                        }
+                    }
+                    
+                    closeCourseImportModal();
+                    isProcessingImport = false;
+                    
+                    // Refresh the page
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    showToastNotification(result.message || 'Import failed', 'error');
+                    isProcessingImport = false;
+                }
+            } catch (error) {
+                showToastNotification('Error importing courses: ' + error.message, 'error');
+                console.error('Import error:', error);
+                isProcessingImport = false;
+            }
         },
         'info'
     );
     
-
+    // If user cancels, reset the flag
+    setTimeout(() => {
+        if (isProcessingImport) {
+            isProcessingImport = false;
+        }
+    }, 1000);
 }
 
 function downloadTemplate() {
-    // Simulate template download
     showToastNotification('Template download started', 'info');
     
-    // Create a dummy CSV content
-    const csvContent = 'Course Code,Course Name,Department,Status\nBSIT,BS in Information Technology,ICT,Active\nBSCS,BS in Computer Science,ICT,Active\nBSBA,BS in Business Administration,BSA,Active';
+    // Create CSV content with proper examples
+    const csvContent = `Course Code,Course Name,Department,Status
+BSIT,Bachelor of Science in Information Technology,ICT,Active
+BSCS,Bachelor of Science in Computer Science,ICT,Active
+BSCPE,Bachelor of Science in Computer Engineering,ICT,Active
+BSBA,Bachelor of Science in Business Administration,Business Administration,Active
+ABM,Accountancy Business and Management,Academic Track,Active
+STEM,Science Technology Engineering and Mathematics,Academic Track,Active`;
     
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'course_import_template.csv';
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+    
+    showToastNotification('Template downloaded successfully', 'success');
 }
 </script> 

@@ -68,7 +68,11 @@ try {
             cs.action,
             cs.remarks,
             cs.date_signed,
-            CONCAT(u_sig.first_name, ' ', u_sig.last_name) as signatory_name
+            COALESCE(
+                CONCAT(cs.signatory_first_name, ' ', cs.signatory_last_name),
+                CONCAT(u_sig.first_name, ' ', u_sig.last_name),
+                'Unknown'
+            ) as signatory_name
         FROM clearance_signatories cs
         JOIN designations d ON cs.designation_id = d.designation_id
         LEFT JOIN users u_sig ON cs.actual_user_id = u_sig.user_id

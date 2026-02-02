@@ -264,9 +264,11 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                                     <button class="btn btn-outline-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
+                                    <!-- ?php /* Batch Update feature temporarily disabled
                                     <button class="btn btn-success" onclick="openFacultyBatchUpdateModal()">
                                         <i class="fas fa-users-cog"></i> Batch Update
                                     </button>
+                                    */ ? -->
                                     <div class="selection-counter-pill" onclick="clearAllSelectionsAndFilters()" id="selectionCounterPill">
                                         <span id="selectionCounter">0 selected</span>
                                         <i class="fas fa-times" id="clearSelectionIcon"></i>
@@ -309,6 +311,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                                                 </th>
                                                 <th>Employee Number</th>
                                                 <th>Name</th>
+                                                <th>Department(s)</th>
                                                 <th>Employment Status</th>
                                                 <th>Account Status</th>
                                                 <th>Clearance Form Progress</th>
@@ -632,7 +635,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             const facultyUserId = row.getAttribute('data-faculty-id');
 
             const facultyName = row.querySelector('td:nth-child(3)').textContent;
-            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
+            const clearanceBadge = row.querySelector('.status-badge-compact.signatory-pending, .status-badge-compact.signatory-rejected');
             
             if (!clearanceBadge) {
                 showToastNotification('Invalid Clearance Status to approve', 'warning');
@@ -667,7 +670,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             const row = document.querySelector(`.faculty-checkbox[data-id="${employeeId}"]`).closest('tr');
             const facultyUserId = row.getAttribute('data-faculty-id');
             const facultyName = row ? row.querySelector('td:nth-child(3)').textContent.trim() : 'Faculty Member';
-            const clearanceBadge = row.querySelector('.status-badge.clearance-pending, .status-badge.clearance-rejected');
+            const clearanceBadge = row.querySelector('.status-badge-compact.signatory-pending, .status-badge-compact.signatory-rejected');
             
             if (!clearanceBadge) {
                 showToastNotification('Invalid Clearance Status to reject', 'warning');
@@ -858,7 +861,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         // Fetch faculty list from backend and build table body
         async function fetchFaculty() {
             const tableBody = document.getElementById('facultyTableBody');
-            tableBody.innerHTML = `<tr><td colspan="7" class="loading-row"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i><span>Loading faculty data...</span></div></td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="8" class="loading-row"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i><span>Loading faculty data...</span></div></td></tr>`;
 
             const accountStatus = document.getElementById('accountStatusFilter').value;
             const employmentStatus = document.getElementById('employmentStatusFilter').value;
@@ -1059,6 +1062,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 <td class="checkbox-column"><input type="checkbox" class="faculty-checkbox" data-id="${faculty.id}" ${checkboxDisabled ? 'disabled' : ''}></td>
                 <td data-label="Employee Number:">${faculty.id}</td>
                 <td data-label="Name:">${escapeHtml(faculty.name)}</td>
+                <td data-label="Department(s):">${escapeHtml(faculty.departments || 'N/A')}</td>
                 <td data-label="Employment Status:"><span class="status-badge employment-${(faculty.employment_status || '').toLowerCase().replace(/ /g, '-')}">${escapeHtml(faculty.employment_status || 'N/A')}</span></td>
                 <td data-label="Account Status:"><span class="status-badge account-${accountStatus}">${faculty.account_status || 'N/A'}</span></td>
                 <td data-label="Clearance Form Progress:" class="clearance-status-cell">${clearanceProgressContent}</td>
@@ -1073,6 +1077,9 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                         </button>
                         <button class="btn-icon reject-btn" onclick="rejectFacultyClearance('${faculty.id}')" title="${rejectTitle}" ${rejectBtnDisabled ? 'disabled' : ''}>
                             <i class="fas fa-times"></i>
+                        </button>
+                        <button class="btn-icon delete-btn" onclick="deleteFaculty('${faculty.user_id}')" title="Delete Faculty">
+                            <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </td>
@@ -1181,9 +1188,10 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
 
             // Row-level button disabling based on individual clearance status
             // Approve/Reject buttons should only be enabled for Pending/Rejected statuses (actionable)
+            // Note: Clearance status badges use 'signatory-*' classes (e.g., signatory-pending, signatory-approved)
             const rows = document.querySelectorAll('#facultyTableBody tr');
             rows.forEach(row => {
-                const clearanceBadge = row.querySelector('.status-badge[class*="clearance-"]');
+                const clearanceBadge = row.querySelector('.status-badge-compact[class*="signatory-"]');
                 const clearanceStatus = clearanceBadge ? clearanceBadge.textContent.trim() : 'Unapplied';
                 
                 // Only Pending and Rejected are actionable
@@ -1210,7 +1218,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             const tbody = document.getElementById('facultyTableBody');
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" class="empty-state">
+                    <td colspan="8" class="empty-state">
                         <i class="fas fa-users-slash"></i>
                         <div>${message}</div>
                     </td>
@@ -1342,7 +1350,8 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 
                 const employmentBadge = row.querySelector('.status-badge[class*="employment-"]');
                 const accountBadge = row.querySelector('.status-badge[class*="account-"]');
-                const clearanceBadge = row.querySelector('.status-badge[class*="clearance-"]');
+                // Note: Clearance status badges use 'signatory-*' classes for signatory action status
+                const clearanceBadge = row.querySelector('.status-badge-compact[class*="signatory-"]');
                 
                 let employmentMatch = false;
                 let accountMatch = false;
@@ -1406,6 +1415,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             resetBulkSelectionFilters();
         }
 
+        /* Resigned function temporarily disabled
         function markResigned() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
@@ -1433,6 +1443,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 'info'
             );
         }
+        */
 
         function updateSelectionCounter() {
             const selectedCount = getSelectedCount();
@@ -1471,43 +1482,41 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         }
 
         // Delete faculty function
-        function deleteFaculty(facultyId) {
-            // Get faculty name from the table row
-            const row = document.querySelector(`tr[data-faculty-id="${facultyId}"]`);
-            const facultyName = row ? row.querySelector('td:nth-child(3)').textContent : 'Faculty Member';
+        function deleteFaculty(userId) {
+            // Get faculty info from the table row
+            const row = document.querySelector(`tr[data-faculty-id="${userId}"]`);
+            if (!row) {
+                showToastNotification('Error: Could not find faculty', 'error');
+                return;
+            }
+            
+            const facultyName = row.querySelector('td:nth-child(3)')?.textContent?.trim() || 'this faculty member';
             
             showConfirmationModal(
                 'Delete Faculty',
-                `Are you sure you want to delete ${facultyName}? This action cannot be undone.`,
-                'Delete',
+                `Are you sure you want to delete <strong>${escapeHtml(facultyName)}</strong>? This action will permanently remove the faculty member's data, including all clearance forms and clearance applications. This action cannot be undone.`,
+                'Delete Permanently',
                 'Cancel',
                 async () => {
                     try {
-                        // Call delete API
-                        const response = await fetch('../../api/users/delete_faculty.php', {
+                        const response = await fetch('../../api/users/delete.php', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
                             credentials: 'include',
                             body: JSON.stringify({
-                                user_id: facultyId
+                                user_type: 'faculty',
+                                user_id: userId
                             })
                         });
                         
                         const result = await response.json();
                         
                         if (result.success) {
-                            // Remove row from table
-                            const row = document.querySelector(`tr[data-faculty-id="${facultyId}"]`);
-                            if (row) {
-                                row.remove();
-                            }
-                            
-                            // Update statistics
-                            updateStatisticsAfterDelete();
-                            
-                            showToastNotification(`Faculty ${facultyName} deleted successfully`, 'success');
+                            // Reload table to refresh data and statistics
+                            fetchFaculty();
+                            showToastNotification(`✓ Faculty ${facultyName} deleted successfully`, 'success');
                         } else {
                             showToastNotification('Failed to delete faculty: ' + result.message, 'error');
                         }
@@ -2123,9 +2132,6 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
     
     <!-- Include Faculty Registry Modal -->
     <?php include '../../Modals/FacultyRegistryModal.php'; ?>
-    
-    <!-- Include Faculty Batch Update Modal -->
-    <?php include '../../Modals/FacultyBatchUpdateModal.php'; ?>
     
     <!-- Include Edit Faculty Modal -->
     <?php include '../../Modals/EditFacultyModal.php'; ?>

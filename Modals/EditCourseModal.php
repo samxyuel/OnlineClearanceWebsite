@@ -31,18 +31,7 @@
                     <label for="editCourseDepartment">Department *</label>
                     <select id="editCourseDepartment" name="courseDepartment" required>
                         <option value="">Select department</option>
-                        <!-- College Departments -->
-                        <optgroup label="College Departments">
-                            <option value="ICT">INFORMATION & COMMUNICATION TECHNOLOGY (ICT)</option>
-                            <option value="BSA">BUSINESS & MANAGEMENT, Arts, and Sciences (BSA)</option>
-                            <option value="THM">Tourism and Hospitality Management (THM)</option>
-                        </optgroup>
-                        <!-- Senior High Departments -->
-                        <optgroup label="Senior High School Departments">
-                            <option value="ACADEMIC">ACADEMIC TRACK</option>
-                            <option value="TVL">TECHNICAL-VOCATIONAL LIVELIHOOD TRACK</option>
-                            <option value="HOME_ECON">HOME ECONOMICS</option>
-                        </optgroup>
+                        <!-- Departments will be populated dynamically -->
                     </select>
                 </div>
                 
@@ -52,12 +41,6 @@
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                     </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="editCourseDescription">Description</label>
-                    <textarea id="editCourseDescription" name="courseDescription" 
-                              placeholder="Enter course description (optional)"></textarea>
                 </div>
             </form>
         </div>
@@ -135,7 +118,74 @@
 </style>
 
 <script>
-function openEditCourseModalInternal(courseCode) {
+async function populateEditCourseDepartments() {
+    const deptSelect = document.getElementById('editCourseDepartment');
+    if (!deptSelect) return;
+    
+    try {
+        const response = await fetch('../../api/departments/list.php?limit=500', {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.success && data.departments) {
+            deptSelect.innerHTML = '<option value="">Select department</option>';
+            
+            // FILTER: Only include course-eligible departments
+            const courseEligibleDepts = data.departments.filter(dept => {
+                return dept.sectors.some(sector => 
+                    sector.sector_id === 1 || sector.sector_id === 2
+                );
+            });
+            
+            // Group by sector (only College and SHS)
+            const bySector = {};
+            courseEligibleDepts.forEach(dept => {
+                dept.sectors.forEach(sector => {
+                    if (sector.sector_id === 1 || sector.sector_id === 2) {
+                        const sectorName = sector.sector_name || 'Unknown';
+                        if (!bySector[sectorName]) bySector[sectorName] = [];
+                        bySector[sectorName].push({
+                            department_id: sector.department_id,
+                            department_name: dept.department_name,
+                            department_code: dept.department_code,
+                            is_shared: dept.is_shared
+                        });
+                    }
+                });
+            });
+            
+            const sectorOrder = ['College', 'Senior High School'];
+            sectorOrder.forEach(sector => {
+                if (bySector[sector] && bySector[sector].length > 0) {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = sector;
+                    
+                    bySector[sector].forEach(dept => {
+                        const option = document.createElement('option');
+                        option.value = dept.department_id;
+                        let text = dept.department_name;
+                        if (dept.department_code) {
+                            text += ` (${dept.department_code})`;
+                        }
+                        if (dept.is_shared) {
+                            text += ' [Shared]';
+                        }
+                        option.textContent = text;
+                        optgroup.appendChild(option);
+                    });
+                    
+                    deptSelect.appendChild(optgroup);
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load departments:', error);
+        deptSelect.innerHTML = '<option value="">Error loading departments</option>';
+    }
+}
+
+async function openEditCourseModalInternal(courseCode) {
     try {
         const modal = document.getElementById('editCourseModal');
         if (!modal) {
@@ -145,8 +195,12 @@ function openEditCourseModalInternal(courseCode) {
             return;
         }
 
-        // Simulate fetching course data
-        const courseData = getCourseData(courseCode);
+        // Populate departments dropdown
+        await populateEditCourseDepartments();
+
+        // Fetch course data (replace mock function with real API call)
+        // const courseData = await fetchCourseData(courseCode);
+        const courseData = getCourseData(courseCode); // Temporary - replace with API call
         
         // Populate form fields
         const courseIdField = document.getElementById('editCourseId');
@@ -154,14 +208,12 @@ function openEditCourseModalInternal(courseCode) {
         const courseNameField = document.getElementById('editCourseName');
         const courseDeptField = document.getElementById('editCourseDepartment');
         const courseStatusField = document.getElementById('editCourseStatus');
-        const courseDescField = document.getElementById('editCourseDescription');
         
         if (courseIdField) courseIdField.value = courseCode;
         if (courseCodeField) courseCodeField.value = courseData.code;
         if (courseNameField) courseNameField.value = courseData.name;
         if (courseDeptField) courseDeptField.value = courseData.department;
         if (courseStatusField) courseStatusField.value = courseData.status;
-        if (courseDescField) courseDescField.value = courseData.description || '';
         
         // Use window.openModal if available, otherwise fallback
         if (typeof window.openModal === 'function') {
@@ -267,28 +319,49 @@ function updateCourse() {
         code: formData.get('courseCode'),
         name: formData.get('courseName'),
         department: formData.get('courseDepartment'),
-        status: formData.get('courseStatus'),
-        description: formData.get('courseDescription')
+        status: formData.get('courseStatus')
     };
     
     // Show loading notification
     showToastNotification('Updating course...', 'info', 2000);
     
-    // Simulate API call
-    console.log('Updating course:', courseData);
-    
-    setTimeout(() => {
-        // Show success message
-        showToastNotification('Course updated successfully!', 'success', 3000);
-        
-        // Close modal
-        closeEditCourseModal();
-        
-        // Refresh the page or update the UI
-        setTimeout(() => {
-            location.reload();
-        }, 1000);
-    }, 1500);
+    // Call API to update course
+    fetch('../../api/programs/update.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(courseData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToastNotification(
+                data.message || 'Course updated successfully!', 
+                'success', 
+                3000
+            );
+            
+            // Close modal
+            closeEditCourseModal();
+            
+            // Refresh the page
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            showToastNotification(
+                data.message || 'Failed to update course', 
+                'error', 
+                4000
+            );
+        }
+    })
+    .catch(error => {
+        console.error('Error updating course:', error);
+        showToastNotification('An error occurred while updating the course', 'error', 4000);
+    });
 }
 
 function getCourseData(courseCode) {

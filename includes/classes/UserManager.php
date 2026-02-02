@@ -450,6 +450,116 @@ class UserManager {
             return ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
         }
     }
+
+    /**
+     * Delete student (hard delete - removes all related data permanently)
+     * Deletion order: clearance_signatories → clearance_forms → students → users
+     * 
+     * @param int $userId The user_id of the student to delete
+     * @return array Result with success status and message
+     */
+    public function deleteStudent($userId) {
+        try {
+            // Get student record from user_id
+            $stmt = $this->connection->prepare("SELECT student_id FROM students WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $student = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$student) {
+                return ['success' => false, 'message' => 'Student record not found'];
+            }
+            
+            $studentId = $student['student_id'];
+            
+            // Check if admin user (prevent deletion)
+            $user = $this->getUserById($userId);
+            if ($user && $user['username'] === 'admin') {
+                return ['success' => false, 'message' => 'Cannot delete admin user'];
+            }
+            
+            $this->connection->beginTransaction();
+            
+            // Step 1: Delete clearance_signatories (using JOIN with clearance_forms)
+            // No CASCADE constraint exists, so must delete manually
+            // NOTE: clearance_forms uses user_id, NOT student_id
+            $stmt = $this->connection->prepare("
+                DELETE cs FROM clearance_signatories cs
+                INNER JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
+                WHERE cf.user_id = ?
+            ");
+            $stmt->execute([$userId]);
+            
+            // Step 2: Delete clearance_forms (uses user_id, NOT student_id)
+            $stmt = $this->connection->prepare("DELETE FROM clearance_forms WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            // Step 3: Delete students record
+            $stmt = $this->connection->prepare("DELETE FROM students WHERE student_id = ?");
+            $stmt->execute([$studentId]);
+            
+            // Step 4: Delete users record (user_roles will CASCADE automatically)
+            $stmt = $this->connection->prepare("DELETE FROM users WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            $this->connection->commit();
+            
+            return ['success' => true, 'message' => 'Student deleted successfully'];
+            
+        } catch (PDOException $e) {
+            if ($this->connection->inTransaction()) {
+                $this->connection->rollBack();
+            }
+            return ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Bulk delete students (hard delete)
+     * 
+     * @param array $userIds Array of user_ids to delete
+     * @return array Result with success status, deleted count, and any errors
+     */
+    public function deleteStudents($userIds) {
+        $results = [
+            'success' => true,
+            'deleted_count' => 0,
+            'failed_count' => 0,
+            'errors' => []
+        ];
+        
+        if (empty($userIds) || !is_array($userIds)) {
+            return [
+                'success' => false,
+                'message' => 'No user IDs provided',
+                'deleted_count' => 0,
+                'failed_count' => 0,
+                'errors' => []
+            ];
+        }
+        
+        foreach ($userIds as $userId) {
+            $result = $this->deleteStudent((int)$userId);
+            
+            if ($result['success']) {
+                $results['deleted_count']++;
+            } else {
+                $results['failed_count']++;
+                $results['errors'][] = "User ID {$userId}: " . $result['message'];
+            }
+        }
+        
+        // Determine overall success
+        if ($results['deleted_count'] === 0 && $results['failed_count'] > 0) {
+            $results['success'] = false;
+            $results['message'] = 'Failed to delete any students';
+        } elseif ($results['failed_count'] > 0) {
+            $results['message'] = "Deleted {$results['deleted_count']} student(s), {$results['failed_count']} failed";
+        } else {
+            $results['message'] = "Successfully deleted {$results['deleted_count']} student(s)";
+        }
+        
+        return $results;
+    }
     
     // Change user password
     public function changePassword($userId, $currentPassword, $newPassword) {
@@ -581,29 +691,146 @@ class UserManager {
     }
 
     // Delete faculty (hard delete faculty row, mark user as deleted)
-    public function deleteFaculty($employeeId){
-        try{
-            // Find faculty
-            $stmt=$this->connection->prepare("SELECT user_id FROM faculty WHERE employee_number=?");
-            $stmt->execute([$employeeId]);
-            $row=$stmt->fetch(PDO::FETCH_ASSOC);
-            if(!$row){return ['success'=>false,'message'=>'Faculty not found'];}
-            $userId=$row['user_id'];
-
+    /**
+     * Delete faculty (hard delete - removes all related data permanently)
+     * Deletion order: clearance_signatories → clearance_forms → sector_signatory_assignments → user_department_assignments → faculty → users
+     * 
+     * @param int $userId The user_id of the faculty to delete
+     * @return array Result with success status and message
+     */
+    public function deleteFaculty($userId) {
+        try {
+            // Get faculty record from user_id
+            $stmt = $this->connection->prepare("SELECT employee_number FROM faculty WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $faculty = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$faculty) {
+                return ['success' => false, 'message' => 'Faculty record not found'];
+            }
+            
+            $employeeNumber = $faculty['employee_number'];
+            
+            // Check if admin user (prevent deletion)
+            $user = $this->getUserById($userId);
+            if ($user && $user['username'] === 'admin') {
+                return ['success' => false, 'message' => 'Cannot delete admin user'];
+            }
+            
             $this->connection->beginTransaction();
-            // Delete faculty row
-            $del=$this->connection->prepare("DELETE FROM faculty WHERE employee_number=?");
-            $del->execute([$employeeId]);
-
-            // Rather than deleting users row (may break FK), mark as deleted
-            $upd=$this->connection->prepare("UPDATE users SET account_status='deleted', updated_at=NOW() WHERE user_id=?");
-            $upd->execute([$userId]);
-
+            
+            // Step 1: Delete clearance_signatories (using JOIN with clearance_forms)
+            // No CASCADE constraint exists, so must delete manually
+            // NOTE: clearance_forms uses user_id, NOT employee_number
+            $stmt = $this->connection->prepare("
+                DELETE cs FROM clearance_signatories cs
+                INNER JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
+                WHERE cf.user_id = ?
+            ");
+            $stmt->execute([$userId]);
+            
+            // Step 2: Delete clearance_forms (uses user_id)
+            $stmt = $this->connection->prepare("DELETE FROM clearance_forms WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            // Step 3: Delete sector_signatory_assignments (prevent ghost signatories)
+            $stmt = $this->connection->prepare("DELETE FROM sector_signatory_assignments WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            // Step 4: Delete user_department_assignments
+            $stmt = $this->connection->prepare("DELETE FROM user_department_assignments WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            // Step 5: Delete faculty record (uses employee_number as primary key)
+            $stmt = $this->connection->prepare("DELETE FROM faculty WHERE employee_number = ?");
+            $stmt->execute([$employeeNumber]);
+            
+            // Step 6: Delete users record (user_roles will CASCADE automatically)
+            $stmt = $this->connection->prepare("DELETE FROM users WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
             $this->connection->commit();
-            return ['success'=>true,'message'=>'Faculty deleted'];
-        }catch(PDOException $e){
-            $this->connection->rollBack();
-            return ['success'=>false,'message'=>$e->getMessage()];
+            
+            return ['success' => true, 'message' => 'Faculty deleted successfully'];
+            
+        } catch (PDOException $e) {
+            if ($this->connection->inTransaction()) {
+                $this->connection->rollBack();
+            }
+            return ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Delete staff (hard delete - removes all related data permanently)
+     * Deletion order: clearance_signatories → clearance_forms → user_designation_assignments → user_department_assignments → staff → users
+     * 
+     * @param int $userId The user_id of the staff to delete
+     * @return array Result with success status and message
+     */
+    public function deleteStaff($userId) {
+        try {
+            // Get staff record from user_id
+            $stmt = $this->connection->prepare("SELECT employee_number FROM staff WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $staff = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$staff) {
+                return ['success' => false, 'message' => 'Staff record not found'];
+            }
+            
+            $employeeNumber = $staff['employee_number'];
+            
+            // Check if admin user (prevent deletion)
+            $user = $this->getUserById($userId);
+            if ($user && $user['username'] === 'admin') {
+                return ['success' => false, 'message' => 'Cannot delete admin user'];
+            }
+            
+            $this->connection->beginTransaction();
+            
+            // Step 1: Delete clearance_signatories (using JOIN with clearance_forms)
+            // NOTE: clearance_forms uses user_id
+            $stmt = $this->connection->prepare("
+                DELETE cs FROM clearance_signatories cs
+                INNER JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
+                WHERE cf.user_id = ?
+            ");
+            $stmt->execute([$userId]);
+            
+            // Step 2: Delete clearance_forms (uses user_id)
+            $stmt = $this->connection->prepare("DELETE FROM clearance_forms WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            // Step 3: Delete sector_signatory_assignments (prevent ghost signatories)
+            $stmt = $this->connection->prepare("DELETE FROM sector_signatory_assignments WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            // Step 4: Delete user_designation_assignments (if this table exists)
+            $stmt = $this->connection->prepare("DELETE FROM user_designation_assignments WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            // Step 5: Delete user_department_assignments
+            $stmt = $this->connection->prepare("DELETE FROM user_department_assignments WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            // Step 6: Delete staff record (uses employee_number as primary key)
+            $stmt = $this->connection->prepare("DELETE FROM staff WHERE employee_number = ?");
+            $stmt->execute([$employeeNumber]);
+            
+            // Step 7: Delete users record (user_roles will CASCADE automatically)
+            $stmt = $this->connection->prepare("DELETE FROM users WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            
+            $this->connection->commit();
+            
+            return ['success' => true, 'message' => 'Staff deleted successfully'];
+            
+        } catch (PDOException $e) {
+            if ($this->connection->inTransaction()) {
+                $this->connection->rollBack();
+            }
+            return ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
         }
     }
 }

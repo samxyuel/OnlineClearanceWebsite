@@ -67,6 +67,7 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <p>Inactive Students</p>
                                 </div>
                             </div>
+                            <!-- Graduated statistics card temporarily disabled
                             <div class="stat-card">
                                 <div class="stat-icon graduated">
                                     <i class="fas fa-graduation-cap"></i>
@@ -76,6 +77,7 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <p>Graduated</p>
                                 </div>
                             </div>
+                            -->
                         </div>
 
                         <!-- Quick Actions Section -->
@@ -176,9 +178,11 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
+                                    <!-- ?php /* Batch Update feature temporarily disabled
                                     <button class="btn btn-success" onclick="openCollegeBatchUpdateModal()">
                                         <i class="fas fa-users-cog"></i> Batch Update
                                     </button>
+                                    */ ? -->
                                     <button class="selection-counter-display" id="selectionCounterPill" type="button" title="">
                                         <span id="selectionCounter">0 selected</span>
                                     </button>
@@ -189,12 +193,16 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <button id="bulkDeactivateBtn" class="btn btn-warning" onclick="deactivateSelected()" disabled>
                                             <i class="fas fa-user-times"></i> Deactivate
                                         </button>
+                                        <!-- Graduated feature temporarily disabled
                                         <button class="btn btn-info" onclick="markGraduated()" disabled id="bulkGraduatedBtn">
                                             <i class="fas fa-graduation-cap"></i> Graduated
                                         </button>
+                                        -->
+                                        <!-- Reset Clearance feature temporarily disabled
                                         <button id="bulkResetBtn" class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
                                             <i class="fas fa-redo"></i> Reset Clearance
                                         </button>
+                                        -->
                                         <button id="bulkDeleteBtn" class="btn btn-danger" onclick="deleteSelected()" disabled>
                                             <i class="fas fa-trash"></i> Delete
                                         </button>
@@ -353,9 +361,6 @@ if (session_status() == PHP_SESSION_NONE) {
     
     <!-- Include Clearance Progress Modal -->
     <?php include '../../Modals/ClearanceProgressModal.php'; ?>
-    
-    <!-- Include College Batch Update Modal -->
-    <?php include '../../Modals/CollegeBatchUpdateModal.php'; ?>
 
     <!-- Include Generated Credentials Modal (shared, include only once) -->
     <?php include '../../Modals/GeneratedCredentialsModal.php'; ?>
@@ -385,11 +390,13 @@ if (session_status() == PHP_SESSION_NONE) {
                                 <span class="checkmark"></span>
                                 with "inactive"
                             </label>
+                            <!-- Graduated filter temporarily disabled
                             <label class="custom-checkbox">
                                 <input type="checkbox" id="filterGraduated" value="graduated">
                                 <span class="checkmark"></span>
                                 with "graduated"
                             </label>
+                            -->
                         </div>
                     </div>
                     
@@ -628,7 +635,8 @@ if (session_status() == PHP_SESSION_NONE) {
             document.getElementById('totalStudents').textContent = stats.total || 0;
             document.getElementById('activeStudents').textContent = stats.active || 0;
             document.getElementById('inactiveStudents').textContent = stats.inactive || 0;
-            document.getElementById('graduatedStudents').textContent = stats.graduated || 0;
+            // Graduated statistics temporarily disabled
+            // document.getElementById('graduatedStudents').textContent = stats.graduated || 0;
         }
 
         // Populate students table
@@ -697,7 +705,7 @@ if (session_status() == PHP_SESSION_NONE) {
             }
 
             row.innerHTML = `
-                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.id}"></td>
+                <td class="checkbox-column"><input type="checkbox" class="student-checkbox" data-id="${student.id}" data-user-id="${student.user_id}"></td>
                 <td data-label="Student Number:">${student.id}</td>
                 <td data-label="Name:">${student.name}</td>
                 <td data-label="Program:">${student.program || 'N/A'}</td>
@@ -734,7 +742,8 @@ if (session_status() == PHP_SESSION_NONE) {
             document.getElementById('totalStudents').textContent = stats.total;
             document.getElementById('activeStudents').textContent = stats.active;
             document.getElementById('inactiveStudents').textContent = stats.inactive;
-            document.getElementById('graduatedStudents').textContent = stats.graduated;
+            // Graduated statistics temporarily disabled
+            // document.getElementById('graduatedStudents').textContent = stats.graduated;
         }
 
         // Load current clearance period
@@ -863,30 +872,107 @@ if (session_status() == PHP_SESSION_NONE) {
         // Bulk actions
 
         function deleteSelected() {
-            const selectedCount = getSelectedCount();
+            const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+            const selectedCount = selectedCheckboxes.length;
+            
             if (selectedCount === 0) {
                 showToastNotification('Please select students to delete', 'warning');
                 return;
             }
             
+            // Collect all user IDs from selected rows
+            const userIds = [];
+            const rows = [];
+            
+            selectedCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                const userId = row.getAttribute('data-user-id');
+                if (userId) {
+                    userIds.push(parseInt(userId));
+                    rows.push(row);
+                }
+            });
+            
+            if (userIds.length === 0) {
+                showToastNotification('Could not identify students to delete', 'error');
+                return;
+            }
+            
             showConfirmationModal(
                 'Delete Students',
-                `Are you sure you want to delete ${selectedCount} selected students? This action cannot be undone.`,
+                `Are you sure you want to delete <strong>${selectedCount}</strong> selected student(s)? This action will permanently remove the students' data, including all clearance forms and clearance applications. This action cannot be undone.`,
                 'Delete Permanently',
                 'Cancel',
-                () => {
-                    const selectedRows = document.querySelectorAll('.student-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        row.remove();
-                    });
-                    
-                    showToastNotification(`✓ Successfully deleted ${selectedCount} students`, 'success');
+                async () => {
+                    try {
+                        // Show loading state on delete button
+                        const deleteBtn = document.getElementById('bulkDeleteBtn');
+                        if (deleteBtn) {
+                            deleteBtn.disabled = true;
+                            deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+                        }
+                        
+                        // Call API for bulk deletion
+                        const response = await fetch('../../api/users/delete.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                user_type: 'student',
+                                user_ids: userIds
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        // Reset button state
+                        if (deleteBtn) {
+                            deleteBtn.disabled = false;
+                            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+                        }
+                        
+                        if (result.success) {
+                            // Reload data to refresh table and statistics
+                            loadStudentsData();
+                            
+                            // Clear selections
+                            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+                            if (selectAllCheckbox) selectAllCheckbox.checked = false;
+                            updateBulkButtons();
+                            updateSelectionCounter();
+                            
+                            // Show success notification
+                            const message = result.errors && result.errors.length > 0
+                                ? `Deleted ${result.deleted_count} student(s). ${result.failed_count} failed.`
+                                : `✓ Successfully deleted ${result.deleted_count} student(s)`;
+                            
+                            showToastNotification(message, result.errors && result.errors.length > 0 ? 'warning' : 'success');
+                            
+                            if (result.errors && result.errors.length > 0) {
+                                console.error('Deletion errors:', result.errors);
+                            }
+                        } else {
+                            showToastNotification('Failed to delete students: ' + result.message, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error in bulk delete:', error);
+                        showToastNotification('Error deleting students: ' + error.message, 'error');
+                        
+                        // Reset button state
+                        const deleteBtn = document.getElementById('bulkDeleteBtn');
+                        if (deleteBtn) {
+                            deleteBtn.disabled = false;
+                            deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+                        }
+                    }
                 },
                 'danger'
             );
         }
 
+        /* Graduated function temporarily disabled
         function markGraduated() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
@@ -917,7 +1003,9 @@ if (session_status() == PHP_SESSION_NONE) {
                 'info'
             );
         }
+        */
 
+        /* Reset Clearance function temporarily disabled
         function resetClearanceForNewTerm() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
@@ -948,6 +1036,7 @@ if (session_status() == PHP_SESSION_NONE) {
                 'warning'
             );
         }
+        */
 
         // Individual student actions
         function editStudent(studentId) {
@@ -955,19 +1044,59 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
 
-        function deleteStudent(studentId) {
+        function deleteStudent(userId) {
+            // Get student info from the table row
+            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+            if (!row) {
+                showToastNotification('Error: Could not find student', 'error');
+                return;
+            }
+            
+            const studentName = row.querySelector('td:nth-child(3)')?.textContent?.trim() || 'this student';
+            
             showConfirmationModal(
                 'Delete Student',
-                'Are you sure you want to delete this student? This action cannot be undone.',
+                `Are you sure you want to delete <strong>${escapeHtml(studentName)}</strong>? This action will permanently remove the student's data, including all clearance forms and clearance applications. This action cannot be undone.`,
                 'Delete Permanently',
                 'Cancel',
-                () => {
-                    const row = document.querySelector(`.student-checkbox[data-id="${studentId}"]`).closest('tr');
-                    row.remove();
-                    showToastNotification('Student has been deleted', 'success');
+                async () => {
+                    try {
+                        const response = await fetch('../../api/users/delete.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                                user_type: 'student',
+                                user_id: userId
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            // Reload data to refresh table and statistics
+                            loadStudentsData();
+                            showToastNotification(`✓ Student ${studentName} deleted successfully`, 'success');
+                        } else {
+                            showToastNotification('Failed to delete student: ' + result.message, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting student:', error);
+                        showToastNotification('Error deleting student: ' + error.message, 'error');
+                    }
                 },
                 'danger'
             );
+        }
+        
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         function viewClearanceProgress(studentId, studentName = '', schoolTerm = '') {
@@ -1460,6 +1589,12 @@ if (session_status() == PHP_SESSION_NONE) {
             // Initialize current period banner and term indicator
             updateCurrentPeriodBanner();
             updateTermIndicatorBanner();
+            
+            // Listen for student-updated event from edit modal
+            document.addEventListener('student-updated', function(e) {
+                console.log('[Admin] Student updated event received:', e.detail);
+                loadStudentsData();
+            });
         });
 
         // Bulk Selection Modal Functions
@@ -1521,7 +1656,7 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
 
-        // Batch Update Modal Functions (stub - to be implemented)
+        <?php /* Batch Update Modal Functions (stub - to be implemented)
         function openCollegeBatchUpdateModal() {
             try {
                 if (typeof showToastNotification === 'function') {
@@ -1531,6 +1666,7 @@ if (session_status() == PHP_SESSION_NONE) {
                 // Silent error handling
             }
         }
+        */ ?>
 
         // Signatory Override Modal Functions (stub - currently disabled)
         function openSignatoryOverrideModal() {
@@ -1567,7 +1703,8 @@ if (session_status() == PHP_SESSION_NONE) {
             // Collect account status filters
             if (document.getElementById('filterActive').checked) selectedFilters.accountStatus.push('active');
             if (document.getElementById('filterInactive').checked) selectedFilters.accountStatus.push('inactive');
-            if (document.getElementById('filterGraduated').checked) selectedFilters.accountStatus.push('graduated');
+            // Graduated filter temporarily disabled
+            // if (document.getElementById('filterGraduated').checked) selectedFilters.accountStatus.push('graduated');
             
             // Collect clearance progress filters  
             if (document.getElementById('filterUnapplied').checked) selectedFilters.clearanceProgress.push('unapplied');
@@ -1722,7 +1859,7 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         // Bulk activation and deactivation functions
-        function activateSelected() {
+        async function activateSelected() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
                 showToastNotification('Please select students to activate', 'warning');
@@ -1734,27 +1871,68 @@ if (session_status() == PHP_SESSION_NONE) {
                 `Are you sure you want to activate ${selectedCount} selected students?`,
                 'Activate',
                 'Cancel',
-                () => {
-                    // Perform activation
-                    const selectedRows = document.querySelectorAll('.student-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-                        
-                        statusBadge.textContent = 'Active';
-                        statusBadge.classList.remove('account-inactive');
-                        statusBadge.classList.add('account-active');
+                async () => {
+                    // Collect user IDs from selected checkboxes
+                    const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+                    const userIds = [];
+                    selectedCheckboxes.forEach(checkbox => {
+                        const userId = checkbox.getAttribute('data-user-id');
+                        if (userId) {
+                            userIds.push(parseInt(userId));
+                        }
                     });
                     
-                    // Update statistics
-                    updateBulkStatistics('activate', selectedCount);
-                    showToastNotification(`✓ Successfully activated ${selectedCount} students`, 'success');
+                    if (userIds.length === 0) {
+                        showToastNotification('No valid students selected', 'error');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('../../api/users/account_status.php', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                action: 'activate',
+                                user_ids: userIds
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            showToastNotification(`✓ Successfully activated ${result.affected_count} students`, 'success');
+                            
+                            // Update UI for each activated student
+                            selectedCheckboxes.forEach(checkbox => {
+                                const row = checkbox.closest('tr');
+                                const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
+                                
+                                if (statusBadge) {
+                                    statusBadge.textContent = 'Active';
+                                    statusBadge.classList.remove('account-inactive');
+                                    statusBadge.classList.add('account-active');
+                                }
+                            });
+                            
+                            // Update statistics
+                            updateBulkStatistics('activate', result.affected_count);
+                            
+                            // Refresh table to ensure data consistency
+                            loadStudentsData();
+                        } else {
+                            showToastNotification(result.message || 'Failed to activate students', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Activation error:', error);
+                        showToastNotification('An error occurred while activating students', 'error');
+                    }
                 },
                 'info'
             );
         }
 
-        function deactivateSelected() {
+        async function deactivateSelected() {
             const selectedCount = getSelectedCount();
             if (selectedCount === 0) {
                 showToastNotification('Please select students to deactivate', 'warning');
@@ -1766,21 +1944,62 @@ if (session_status() == PHP_SESSION_NONE) {
                 `Are you sure you want to deactivate ${selectedCount} selected students?`,
                 'Deactivate',
                 'Cancel',
-                () => {
-                    // Perform deactivation
-                    const selectedRows = document.querySelectorAll('.student-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-                        
-                        statusBadge.textContent = 'Inactive';
-                        statusBadge.classList.remove('account-active');
-                        statusBadge.classList.add('account-inactive');
+                async () => {
+                    // Collect user IDs from selected checkboxes
+                    const selectedCheckboxes = document.querySelectorAll('.student-checkbox:checked');
+                    const userIds = [];
+                    selectedCheckboxes.forEach(checkbox => {
+                        const userId = checkbox.getAttribute('data-user-id');
+                        if (userId) {
+                            userIds.push(parseInt(userId));
+                        }
                     });
                     
-                    // Update statistics
-                    updateBulkStatistics('deactivate', selectedCount);
-                    showToastNotification(`✓ Successfully deactivated ${selectedCount} students`, 'success');
+                    if (userIds.length === 0) {
+                        showToastNotification('No valid students selected', 'error');
+                        return;
+                    }
+                    
+                    try {
+                        const response = await fetch('../../api/users/account_status.php', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                action: 'deactivate',
+                                user_ids: userIds
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            showToastNotification(`✓ Successfully deactivated ${result.affected_count} students`, 'success');
+                            
+                            // Update UI for each deactivated student
+                            selectedCheckboxes.forEach(checkbox => {
+                                const row = checkbox.closest('tr');
+                                const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
+                                
+                                if (statusBadge) {
+                                    statusBadge.textContent = 'Inactive';
+                                    statusBadge.classList.remove('account-active');
+                                    statusBadge.classList.add('account-inactive');
+                                }
+                            });
+                            
+                            // Update statistics
+                            updateBulkStatistics('deactivate', result.affected_count);
+                            
+                            // Refresh table to ensure data consistency
+                            loadStudentsData();
+                        } else {
+                            showToastNotification(result.message || 'Failed to deactivate students', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Deactivation error:', error);
+                        showToastNotification('An error occurred while deactivating students', 'error');
+                    }
                 },
                 'warning'
             );
@@ -1789,11 +2008,12 @@ if (session_status() == PHP_SESSION_NONE) {
         function updateBulkStatistics(action, count) {
             const activeCount = document.getElementById('activeStudents');
             const inactiveCount = document.getElementById('inactiveStudents');
-            const graduatedCount = document.getElementById('graduatedStudents');
+            // Graduated statistics temporarily disabled
+            // const graduatedCount = document.getElementById('graduatedStudents');
             
             let currentActive = parseInt(activeCount.textContent.replace(',', ''));
             let currentInactive = parseInt(inactiveCount.textContent.replace(',', ''));
-            let currentGraduated = parseInt(graduatedCount.textContent.replace(',', ''));
+            // let currentGraduated = parseInt(graduatedCount.textContent.replace(',', ''));
             
             if (action === 'activate') {
                 currentActive += count;
@@ -1801,12 +2021,14 @@ if (session_status() == PHP_SESSION_NONE) {
             } else if (action === 'deactivate') {
                 currentActive -= count;
                 currentInactive += count;
+            /* Graduated action temporarily disabled
             } else if (action === 'graduated') {
                 // Move from active/inactive to graduated
                 currentGraduated += count;
                 // We'd need to track which students were active vs inactive
                 // For now, we'll assume they were active
                 currentActive -= count;
+            */
             } else if (action === 'delete') {
                 // For delete, we just need to update the total count
                 // The specific counts (active, inactive, graduated) might not change
@@ -1817,7 +2039,8 @@ if (session_status() == PHP_SESSION_NONE) {
             
             activeCount.textContent = currentActive.toLocaleString();
             inactiveCount.textContent = currentInactive.toLocaleString();
-            graduatedCount.textContent = currentGraduated.toLocaleString();
+            // Graduated statistics temporarily disabled
+            // graduatedCount.textContent = currentGraduated.toLocaleString();
         }
 
         // Update statistics based on school term selection
@@ -1854,7 +2077,8 @@ if (session_status() == PHP_SESSION_NONE) {
             document.getElementById('totalStudents').textContent = totalCount;
             document.getElementById('activeStudents').textContent = activeCount;
             document.getElementById('inactiveStudents').textContent = inactiveCount;
-            document.getElementById('graduatedStudents').textContent = graduatedCount;
+            // Graduated statistics temporarily disabled
+            // document.getElementById('graduatedStudents').textContent = graduatedCount;
             
             // Apply filters to update table view
             applyFilters();

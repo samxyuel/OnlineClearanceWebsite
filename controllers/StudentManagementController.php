@@ -7,6 +7,7 @@
 // Include necessary files
 require_once __DIR__ . '/../includes/config/database.php';
 require_once __DIR__ . '/../includes/classes/Auth.php';
+require_once __DIR__ . '/../includes/helpers/department_helpers.php';
 
 /**
  * Handle student management page request
@@ -45,23 +46,51 @@ function handleStudentManagementPageRequest($sector) {
         $userDesignations = $designationsStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $userSignatoryDesignations = [];
-        if (!empty($userDesignations)) {
-            // 3. Check which of these designations are assigned to sign for the specific sector
-            $placeholders = implode(',', array_fill(0, count($userDesignations), '?'));
+        $isProgramHeadDesignation = null;
+        
+        // First, check if user has Program Head designation
+        foreach ($userDesignations as $designation) {
+            if (strcasecmp($designation['designation_name'], 'Program Head') === 0) {
+                $isProgramHeadDesignation = $designation;
+                break;
+            }
+        }
+        
+        // 3. Handle Program Head separately - they use sector_clearance_settings, not sector_signatory_assignments
+        if ($isProgramHeadDesignation) {
+            $settingStmt = $pdo->prepare("
+                SELECT include_program_head 
+                FROM sector_clearance_settings 
+                WHERE clearance_type = ? AND include_program_head = 1
+            ");
+            $settingStmt->execute([$sector]);
+            if ($settingStmt->fetchColumn()) {
+                // Program Head is enabled for this sector
+                $userSignatoryDesignations[] = $isProgramHeadDesignation;
+            }
+        }
+        
+        // 4. Check sector_signatory_assignments for other designations (not Program Head)
+        $otherDesignations = array_filter($userDesignations, function($d) {
+            return strcasecmp($d['designation_name'], 'Program Head') !== 0;
+        });
+        
+        if (!empty($otherDesignations)) {
+            $placeholders = implode(',', array_fill(0, count($otherDesignations), '?'));
             $signatoryCheck = $pdo->prepare("
                 SELECT DISTINCT designation_id 
                 FROM sector_signatory_assignments 
                 WHERE designation_id IN ($placeholders) AND clearance_type = ? AND is_active = 1
             ");
             
-            $params = array_column($userDesignations, 'designation_id');
+            $params = array_column($otherDesignations, 'designation_id');
             $params[] = $sector;
             
             $signatoryCheck->execute($params);
             $validSignatoryIds = $signatoryCheck->fetchAll(PDO::FETCH_COLUMN);
 
-            // Filter the user's designations to only those valid for this sector
-            foreach ($userDesignations as $designation) {
+            // Add other valid designations
+            foreach ($otherDesignations as $designation) {
                 if (in_array($designation['designation_id'], $validSignatoryIds)) {
                     $userSignatoryDesignations[] = $designation;
                 }
@@ -90,29 +119,17 @@ function handleStudentManagementPageRequest($sector) {
             $departmentIds[] = $primaryDeptId;
         }
 
-        // b) Get all departments from user_department_assignments for Program Heads
-        $isProgramHead = false;
-        foreach ($userSignatoryDesignations as $designation) {
-            if ($designation['designation_name'] === 'Program Head') {
-                $isProgramHead = true;
-                break;
-            }
-        }
-
-        if ($isProgramHead) {
-            $multiDeptStmt = $pdo->prepare("
-                SELECT uda.department_id
-                FROM user_department_assignments uda
-                JOIN departments d ON uda.department_id = d.department_id
-                WHERE uda.user_id = ? AND uda.is_active = 1 AND d.sector_id = (SELECT sector_id FROM sectors WHERE sector_name = ?)
-            ");
-            $multiDeptStmt->execute([$userId, $sector]);
-            $multiDepartmentIds = $multiDeptStmt->fetchAll(PDO::FETCH_COLUMN);
-            $departmentIds = array_merge($departmentIds, $multiDepartmentIds);
+        // b) Get all departments from user_department_assignments for Program Heads (using cross-sector matching)
+        // Use $isProgramHeadDesignation already determined above
+        if ($isProgramHeadDesignation) {
+            // Get all department IDs across sectors
+            $allDeptIds = getCrossSectorDepartmentIds($pdo, $userId);
+            $departmentIds = array_merge($departmentIds, $allDeptIds);
         }
         
         // Store the unique list of department IDs in the global scope
-        $GLOBALS['userDepartmentIds'] = array_unique($departmentIds);
+        // Use array_values() to reindex the array so json_encode outputs a proper array, not an object
+        $GLOBALS['userDepartmentIds'] = array_values(array_unique($departmentIds));
 
     } catch (Throwable $e) {
         http_response_code(500);
