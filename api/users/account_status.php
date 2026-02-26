@@ -116,9 +116,9 @@ try {
             
             $checkStmt = $pdo->prepare("
                 SELECT COUNT(*) 
-                FROM student_information si
-                WHERE si.user_id IN ($placeholders)
-                AND si.department_id IN ($deptPlaceholders)
+                FROM students s
+                WHERE s.user_id IN ($placeholders)
+                AND s.department_id IN ($deptPlaceholders)
             ");
             
             $checkStmt->execute(array_merge($userIds, $programHeadDepartments));

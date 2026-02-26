@@ -1,4 +1,4 @@
-<?php
+<!---?php
 /**
  * ============================================================================
  * OLD APPROACH: DOCX Template to PDF Conversion
@@ -232,20 +232,20 @@ function generateClearanceTemplatePDF($templateData, $signatories, $schoolTempla
         $headerHtml = '
         <table style="width:100%; border-bottom:1px solid #000; margin-bottom:12px;">
             <tr>
-                <!-- Left: Logo -->
+                < !-- Left: Logo --
                 <td style="width:25%; vertical-align:middle; text-align:left;">
                     <div style="display:flex; align-items:center;">
                         ' . ($logoFragment ? '<img src="' . $logoPath . '" style="height:55px; margin-right:5px; vertical-align:middle;" alt="STI Logo">' : '') . '
                     </div>
                 </td>
 
-                <!-- Center: School Name -->
+                < !-- Center: School Name --
                 <td style="width:50%; text-align:center; vertical-align:middle;">
                     <div style="font-size:18pt; font-weight:bold; margin:0;">STI College Lucena</div>
                     <div style="font-size:12pt; margin:2px 0;">Clearance Form</div>
                 </td>
 
-                <!-- Right: Form ID + Copy Type -->
+                < !-- Right: Form ID + Copy Type --
                 <td style="width:25%; text-align:right; vertical-align:top; font-size:10pt;">
                     <div style="margin-bottom:4px;">Clearance Form ID: <b>' . htmlspecialchars($templateData['CLEARANCE_FORM_ID'] ?? 'N/A') . '</b></div>
                     <div style="font-weight:bold;">' . $copyTypeLabel . '</div>
@@ -314,3 +314,5 @@ function generateClearanceTemplatePDF($templateData, $signatories, $schoolTempla
     }
 }
 */
+
+-->

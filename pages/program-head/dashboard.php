@@ -132,12 +132,6 @@
                                         <!-- Program stats will be loaded dynamically -->
                                     </div>
                                 </div>
-                                <div class="overview-card">
-                                    <h4><i class="fas fa-clipboard-check"></i> Clearance Status</h4>
-                                    <div class="clearance-stats">
-                                        <!-- Clearance stats will be loaded dynamically -->
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -151,58 +145,39 @@
     <script src="../../assets/js/alerts.js"></script>
     <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
-        function viewPendingClearances() {
-            showToast('Opening pending clearances...', 'info');
-            setTimeout(() => {
-                window.location.href = 'StudentManagement.php';
-            }, 1000);
-        }
-
-        function exportClearanceReport() {
-            showConfirmationModal(
-                'Export Clearance Report',
-                'Generate a comprehensive clearance report for your department?',
-                'Export',
-                'Cancel',
-                () => {
-                    showToast('Report generation started...', 'info');
-                    setTimeout(() => {
-                        showToast('Report exported successfully!', 'success');
-                    }, 2000);
-                },
-                'info'
-            );
-        }
-
-        function viewDepartmentStats() {
-            showToast('Opening department statistics...', 'info');
-            // Could redirect to a detailed stats page
-            setTimeout(() => {
-                showToast('Department statistics loaded', 'success');
-            }, 1500);
-        }
-
         // Sidebar toggle function
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
-            const mainContent = document.querySelector('.dashboard-main');
             const backdrop = document.getElementById('sidebar-backdrop');
+            const mainContent = document.querySelector('.main-content');
             
-            if (window.innerWidth <= 768) {
-                if (sidebar.classList.contains('active')) {
-                    sidebar.classList.remove('active');
-                    if (backdrop) backdrop.style.display = 'none';
+            if (sidebar) {
+                if (window.innerWidth <= 768) {
+                    // Mobile: toggle sidebar overlay with backdrop
+                    sidebar.classList.toggle('active');
+                    
+                    // Handle backdrop only on mobile
+                    if (backdrop) {
+                        if (sidebar.classList.contains('active')) {
+                            backdrop.style.display = 'block';
+                            backdrop.classList.add('active');
+                        } else {
+                            backdrop.style.display = 'none';
+                            backdrop.classList.remove('active');
+                        }
+                    }
                 } else {
-                    sidebar.classList.add('active');
-                    if (backdrop) backdrop.style.display = 'block';
-                }
-            } else {
-                if (sidebar.classList.contains('collapsed')) {
-                    sidebar.classList.remove('collapsed');
-                    mainContent.classList.remove('expanded');
-                } else {
-                    sidebar.classList.add('collapsed');
-                    mainContent.classList.add('expanded');
+                    // Desktop: toggle sidebar collapsed state without backdrop
+                    sidebar.classList.toggle('collapsed');
+                    if (mainContent) {
+                        mainContent.classList.toggle('full-width');
+                    }
+                    
+                    // Ensure backdrop is hidden on desktop
+                    if (backdrop) {
+                        backdrop.style.display = 'none';
+                        backdrop.classList.remove('active');
+                    }
                 }
             }
         }
@@ -249,18 +224,36 @@
             const activeTermEl = document.getElementById('currentActiveTerm');
             const termDurationEl = document.getElementById('termDuration');
 
-            if (contextResult.success && contextResult.data) {
-                const data = contextResult.data;
+            if (contextResult.success) {
+                // API returns data directly, not nested in 'data'
+                const academicYear = contextResult.academic_year;
+                const terms = contextResult.terms || [];
+                const activeTerm = terms.find(term => term.is_active === 1);
                 
-                if (academicYearEl) academicYearEl.textContent = data.academic_year || 'No Academic Year';
-                if (activeTermEl) activeTermEl.textContent = data.active_term || 'No Active Term';
-                
-                if (data.active_term && data.term_duration) {
-                    if (termDurationEl) {
-                        termDurationEl.textContent = `Duration: ${data.term_duration} days | Started: ${new Date(data.term_start_date).toLocaleDateString()}`;
+                if (academicYear) {
+                    if (academicYearEl) {
+                        academicYearEl.textContent = academicYear.year || 'No Academic Year';
                     }
                 } else {
-                    if (termDurationEl) termDurationEl.textContent = 'No active term information available.';
+                    if (academicYearEl) {
+                        academicYearEl.textContent = 'No Academic Year';
+                    }
+                }
+                
+                if (activeTerm) {
+                    if (activeTermEl) {
+                        activeTermEl.textContent = activeTerm.semester_name || 'No Active Term';
+                    }
+                    if (termDurationEl) {
+                        termDurationEl.textContent = `Active Term: ${activeTerm.semester_name}`;
+                    }
+                } else {
+                    if (activeTermEl) {
+                        activeTermEl.textContent = 'No Active Term';
+                    }
+                    if (termDurationEl) {
+                        termDurationEl.textContent = 'No active term information available.';
+                    }
                 }
             } else {
                 if (academicYearEl) academicYearEl.textContent = 'No Academic Year';
@@ -272,17 +265,25 @@
         // Update sector status display
         function updateSectorStatusDisplay(sectorData) {
             const sectors = [
-                { id: 'college-status', name: 'College' },
-                { id: 'shs-status', name: 'Senior High School' },
-                { id: 'faculty-status', name: 'Faculty' }
+                { key: 'College', id: 'college-status' },
+                { key: 'Senior High School', id: 'shs-status' },
+                { key: 'Faculty', id: 'faculty-status' }
             ];
 
             sectors.forEach(sector => {
                 const statusElement = document.getElementById(sector.id);
-                if (statusElement && sectorData[sector.name.toLowerCase().replace(' ', '_')]) {
-                    const sectorInfo = sectorData[sector.name.toLowerCase().replace(' ', '_')];
-                    statusElement.textContent = sectorInfo.status || 'Not Started';
-                    statusElement.className = `sector-status status-${(sectorInfo.status || 'not-started').toLowerCase().replace(' ', '-')}`;
+                if (!statusElement) return;
+                
+                const sectorPeriods = sectorData[sector.key];
+                
+                if (sectorPeriods && sectorPeriods.length > 0) {
+                    const latestPeriod = sectorPeriods[0];
+                    const status = latestPeriod.status || 'Not Started';
+                    statusElement.textContent = status;
+                    statusElement.className = `sector-status status-${status.toLowerCase().replace(/\s+/g, '-')}`;
+                } else {
+                    statusElement.textContent = 'Not Started';
+                    statusElement.className = 'sector-status status-not-started';
                 }
             });
         }
@@ -290,14 +291,19 @@
         // Update department information
         function updateDepartmentInfo(data) {
             // Welcome Message and Department Scope
-            if (data.user) {
-                document.getElementById('welcomeMessage').textContent = `Welcome back, ${data.user.first_name}! Monitor your department's clearance status and manage records.`;
+            const welcomeMessageEl = document.getElementById('welcomeMessage');
+            if (welcomeMessageEl && data.user) {
+                welcomeMessageEl.textContent = `Welcome back, ${data.user.first_name || 'User'}! Monitor your department's clearance status and manage records.`;
             }
-            if (data.departments && data.departments.length > 0) {
-                const deptNames = data.departments.map(d => d.department_name).join(', ');
-                document.getElementById('departmentScope').textContent = `Scope: ${deptNames}`;
-            } else {
-                document.getElementById('departmentScope').textContent = 'Scope: No departments assigned';
+            
+            const departmentScopeEl = document.getElementById('departmentScope');
+            if (departmentScopeEl) {
+                if (data.departments && data.departments.length > 0) {
+                    const deptNames = data.departments.map(d => d.department_name).join(', ');
+                    departmentScopeEl.textContent = `Scope: ${deptNames}`;
+                } else {
+                    departmentScopeEl.textContent = 'Scope: No departments assigned';
+                }
             }
 
             // Update handled sector information
@@ -385,47 +391,75 @@
             const programStatsContainer = document.querySelector('.program-stats');
             if (programStatsContainer) {
                 programStatsContainer.innerHTML = '';
-                if (data.programs && data.programs.length > 0) {
+                
+                // Check if programs data exists
+                if (data.programs && Array.isArray(data.programs) && data.programs.length > 0) {
                     data.programs.forEach(prog => {
                         const item = document.createElement('div');
                         item.className = 'program-item';
+                        const studentCount = prog.student_count || 0;
                         item.innerHTML = `
-                            <span class="program-name">${prog.program_code}</span>
-                            <span class="program-count">${prog.student_count} students</span>
+                            <span class="program-name">${prog.program_code || 'Unknown Program'}</span>
+                            <span class="program-count">${studentCount} ${studentCount === 1 ? 'student' : 'students'}</span>
                         `;
                         programStatsContainer.appendChild(item);
                     });
                 } else {
-                    programStatsContainer.innerHTML = '<p>No programs found for your department(s).</p>';
+                    programStatsContainer.innerHTML = '<p class="no-data-message">No programs found for your department(s).</p>';
                 }
-            }
-
-            // Department Overview - Clearance Status
-            const clearanceStatsContainer = document.querySelector('.clearance-stats');
-            if (clearanceStatsContainer) {
-                clearanceStatsContainer.innerHTML = '';
-                const statuses = ['completed', 'pending', 'rejected', 'in-progress'];
-                statuses.forEach(status => {
-                    const count = (data.clearance_stats?.student?.[status] || 0) + (data.clearance_stats?.faculty?.[status] || 0);
-                    const item = document.createElement('div');
-                    item.className = `status-item ${status}`;
-                    item.innerHTML = `
-                        <span class="status-label">${status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}</span>
-                        <span class="status-count">${count.toLocaleString()}</span>
-                    `;
-                    clearanceStatsContainer.appendChild(item);
-                });
             }
         }
 
+
+        // Add backdrop click handler for mobile
+        document.addEventListener('DOMContentLoaded', function() {
+            const backdrop = document.getElementById('sidebar-backdrop');
+            if (backdrop) {
+                backdrop.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        const sidebar = document.querySelector('.sidebar');
+                        if (sidebar) {
+                            sidebar.classList.remove('active');
+                        }
+                        this.style.display = 'none';
+                        this.classList.remove('active');
+                    }
+                });
+            }
+        });
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Program Head Dashboard loaded');
             
+            // Mark that this page handles sidebar functionality
+            window.sidebarHandledByPage = true;
+            
             // Load dynamic content
             loadDashboardData();
-
+            
+            // Handle responsive sidebar behavior
+            function handleResize() {
+                const sidebar = document.querySelector('.sidebar');
+                const backdrop = document.getElementById('sidebar-backdrop');
+                
+                if (window.innerWidth > 768) {
+                    // Desktop: remove mobile active state
+                    if (sidebar) {
+                        sidebar.classList.remove('active');
+                    }
+                    if (backdrop) {
+                        backdrop.style.display = 'none';
+                        backdrop.classList.remove('active');
+                    }
+                }
+            }
+            
+            // Add resize listener
+            window.addEventListener('resize', handleResize);
+            
+            // Initial call
+            handleResize();
         });
     </script>
 </body>

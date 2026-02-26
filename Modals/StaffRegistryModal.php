@@ -684,10 +684,14 @@ async function onUserCreated(newUserId, userSector) {
                     
                     // Add click handler for the entire option
                     option.addEventListener('click', function(e) {
-                        if (e.target.type !== 'checkbox') {
-                            checkbox.checked = !checkbox.checked;
-                            checkbox.dispatchEvent(new Event('change'));
+                        // Don't interfere if clicking checkbox or label (let them handle it naturally)
+                        if (e.target.type === 'checkbox' || e.target.closest('label')) {
+                            return;
                         }
+                        
+                        // Manually toggle only when clicking the option div background
+                        checkbox.checked = !checkbox.checked;
+                        checkbox.dispatchEvent(new Event('change'));
                     });
                 });
                 

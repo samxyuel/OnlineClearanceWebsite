@@ -929,18 +929,6 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
 
-        function resetGraduatedFilters(sector) {
-            graduatedStudentsState[sector].filters = { department: '', program: '', yearLevel: '' };
-            if (graduatedStudentsState[sector].pagination) {
-                graduatedStudentsState[sector].pagination.page = 1;
-            }
-            ['Department', 'Program', 'YearLevel'].forEach(filterKey => {
-                const select = document.getElementById(`graduated${capitalizeSectorKey(sector)}${filterKey}`);
-                if (select) {
-                    select.value = '';
-                }
-            });
-        }
 
         function populateGraduatedFilterOptions(sector) {
             const filtersAvailable = graduatedStudentsState[sector].filtersAvailable;
@@ -3221,14 +3209,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             // Hide global loading indicator if needed
         }
  
-        /* 
-        // DEPRECATED Function
-        function isPeriodLocked(){
-            const cy = schoolYears[currentSchoolYearIndex];
-            if (!cy) return false;
-            return (cy.terms||[]).some(t => t.status === 'active' || t.status === 'deactivated');
-        }
-        */
 
         function isSectorLocked(sector) {
             if (!window.sectorPeriodsData || !window.sectorPeriodsData[sector]) {
@@ -3262,44 +3242,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             });
         }
 
-        /* 
-        // OLD Function that uses isPeriodLocked
-        function updateLockUI(){
-            const locked = isPeriodLocked();
-            // Disable Add New buttons in both accordions
-            document.querySelectorAll('.signatory-actions .btn').forEach(btn => {
-                if (btn && /Add New/i.test(btn.textContent)) {
-                    btn.disabled = locked;
-                }
-            });
-            // Disable remove icons
-            document.querySelectorAll('.remove-signatory').forEach(btn => {
-                btn.disabled = locked;
-                btn.style.pointerEvents = locked ? 'none' : 'auto';
-                btn.style.opacity = locked ? '0.5' : '1';
-            });
-            // Insert or remove lock note
-            ['student-signatories','faculty-signatories'].forEach(id => {
-                const container = document.getElementById(id);
-                if (!container) return;
-                let note = container.querySelector('.lock-note');
-                if (locked) {
-                    if (!note) {
-                        note = document.createElement('div');
-                        note.className = 'lock-note';
-                        note.style.color = '#6c757d';
-                        note.style.fontSize = '12px';
-                        note.style.margin = '6px 0';
-                        note.innerText = 'Changes locked during active/paused period';
-                        const card = container.querySelector('.signatory-card');
-                        if (card) card.insertBefore(note, card.firstChild);
-                    }
-                } else if (note) {
-                    note.remove();
-                }
-            });
-        }
-        */
 
         function navigateSchoolYear(direction) {
             // prev/next disabled for now
@@ -3454,12 +3396,7 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
                             <span class="term-status ${term.status}">${term.status.toUpperCase()}</span>
                         </div>
                         <div class="term-actions">
-                            <button class="btn btn-sm btn-outline-primary" onclick="viewTerm('${term.id}')">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            <button class="btn btn-sm btn-outline-success" onclick="exportTerm('${term.id}')">
-                                <i class="fas fa-download"></i>
-                            </button>
+                            <!-- No actions available for completed years -->
                         </div>
                     `;
                 }
@@ -4421,69 +4358,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
         // Expose function globally so modal can call it
         window.updateStatusBadge = updateSectorStatusBadge;
 
-        // Reset Term function commented out as per requirements
-        /*
-        async function resetTerm(termId) {
-            const currentYear = schoolYears[currentSchoolYearIndex];
-            if (!currentYear) { showToast('Data not loaded yet.', 'warning'); return; }
-            const term = currentYear.terms.find(t => t.id === termId);
-            if (!term) { showToast('Term not found.', 'error'); return; }
-            if (term.status === 'active') { showToast('Cannot reset an active term. Deactivate it first.', 'warning'); return; }
-            if (term.status === 'completed') { showToast('Cannot reset an ended term.', 'info'); return; }
-            if (term.status === 'inactive') { showToast('Cannot reset. No period exists yet for this term.', 'info'); return; }
-            if (term.status !== 'deactivated') { showToast('Reset is allowed only for deactivated terms.', 'warning'); return; }
-
-            const dataSummary = 'This will revert all clearance progress to Unapplied for this paused term.';
-
-            showConfirmation(
-                'Reset Term',
-                `Reset ${term.name}? ${dataSummary}`,
-                'Reset Term',
-                'Cancel',
-                async () => {
-                    try {
-                        if (!term.periodId) { showToast('No period exists for this term.', 'warning'); return; }
-                        await fetchJSON(`${API_BASE}/reset_by_period.php`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ period_id: term.periodId }) });
-                        showToast(`${term.name} reset successfully!`, 'success');
-                        await loadCurrentYearAndTerms();
-                        updateSchoolYearDisplay();
-                    } catch (e) { console.error(e); showToast(e.message || 'Failed to reset term', 'error'); }
-                },
-                'warning'
-            );
-        }
-        */
-
-        async function deleteTerm(termId) {
-            const confirmed = await showConfirmationModal(
-                'Delete Term',
-                `Are you sure you want to delete ${termId}? This action cannot be undone.`,
-                'Delete',
-                'Cancel',
-                'danger'
-            );
-            
-            if (confirmed) {
-                showToast(`${termId} deleted successfully!`, 'success');
-                // Implementation for deleting term
-            }
-        }
-
-        function viewTerm(termId) {
-            showToast(`Viewing ${termId} data...`, 'info');
-        }
-
-        function exportTerm(termId) {
-            showToast(`Exporting ${termId} data...`, 'info');
-        }
-
-        function viewSchoolYear(yearId) {
-            showToast(`Viewing ${yearId} data...`, 'info');
-        }
-
-        function exportSchoolYear(yearId) {
-            showToast(`Exporting ${yearId} data...`, 'info');
-        }
 
         function addSignatory(type) {
             showAddSignatoryModal(type);
@@ -4592,14 +4466,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             
             // Initialize sector buttons based on active term status
             await initializeSectorButtons();
-            
-                // Load grace period monitoring
-                // TODO: Uncomment when grace period functionality is ready
-                // loadGracePeriodMonitoring();
-                
-                // Refresh grace period monitoring every 30 seconds
-                // TODO: Uncomment when grace period functionality is ready
-                // setInterval(loadGracePeriodMonitoring, 30000);
         });
 
         // Sidebar toggle function
@@ -4636,195 +4502,6 @@ window.closeResignedFacultySelectionModal = function({ resetSelection = true } =
             }
         }
 
-        // Grace Period Monitoring Functions
-        // TODO: Uncomment when grace period functionality is ready
-        /*
-        async function loadGracePeriodMonitoring() {
-            try {
-                const sectors = ['College', 'Senior High School', 'Faculty'];
-                const gracePeriodGrid = document.getElementById('grace-period-grid');
-                
-                if (!gracePeriodGrid) return;
-                
-                gracePeriodGrid.innerHTML = '';
-                
-                for (const sector of sectors) {
-                    const gracePeriodData = await fetchGracePeriodData(sector);
-                    const gracePeriodCard = createGracePeriodCard(sector, gracePeriodData);
-                    gracePeriodGrid.appendChild(gracePeriodCard);
-                }
-            } catch (error) {
-                console.error('Error loading grace period monitoring:', error);
-            }
-        }
-        
-        async function fetchGracePeriodData(sector) {
-            try {
-                const response = await fetch(`../../api/clearance/period_status.php?clearance_type=${encodeURIComponent(sector)}&include_grace_period=true`, {
-                    credentials: 'same-origin'
-                });
-                const data = await response.json();
-                return data;
-            } catch (error) {
-                console.error(`Error fetching grace period data for ${sector}:`, error);
-                return null;
-            }
-        }
-        
-        function createGracePeriodCard(sector, data) {
-            const card = document.createElement('div');
-            card.className = 'grace-period-card';
-            card.id = `grace-period-${sector.replace(/\s+/g, '-').toLowerCase()}`;
-            
-            const isInGracePeriod = data && data.grace_period && data.grace_period.is_active;
-            const status = data ? data.period_status : 'unknown';
-            const period = data ? data.period : null;
-            
-            card.innerHTML = `
-                <div class="grace-period-card-header">
-                    <h4><i class="fas fa-${getSectorIcon(sector)}"></i> ${sector}</h4>
-                    <span class="status-badge ${getStatusClass(status)}">${getStatusText(status)}</span>
-                </div>
-                <div class="grace-period-card-content">
-                    ${period ? `
-                        <div class="period-info">
-                            <div class="info-item">
-                                <span class="label">Period:</span>
-                                <span class="value">${period.school_year} - ${period.semester_name}</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">Status:</span>
-                                <span class="value">${period.status}</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="label">Updated:</span>
-                                <span class="value">${formatDateTime(period.updated_at)}</span>
-                            </div>
-                        </div>
-                    ` : '<div class="no-data">No active period</div>'}
-                    
-                    ${isInGracePeriod ? `
-                        <div class="grace-period-active">
-                            <div class="grace-period-timer">
-                                <i class="fas fa-clock"></i>
-                                <span class="countdown" id="countdown-${sector.replace(/\s+/g, '-').toLowerCase()}">
-                                    ${window.gracePeriodUIManager.gracePeriodManager.formatTime(data.grace_period.remaining_seconds)}
-                                </span>
-                            </div>
-                            <div class="grace-period-progress">
-                                <div class="progress-bar" style="width: ${getGracePeriodProgress(data.grace_period)}%"></div>
-                            </div>
-                            <div class="grace-period-actions">
-                                <button class="btn btn-sm btn-warning" onclick="overrideGracePeriod('${sector}')">
-                                    <i class="fas fa-stop"></i> Override Grace Period
-                                </button>
-                            </div>
-                        </div>
-                    ` : `
-                        <div class="grace-period-inactive">
-                            <i class="fas fa-check-circle"></i>
-                            <span>No grace period active</span>
-                        </div>
-                    `}
-                </div>
-            `;
-            
-            // Start countdown if in grace period
-            if (isInGracePeriod) {
-                startGracePeriodCountdown(sector, data.grace_period);
-            }
-            
-            return card;
-        }
-        
-        function getSectorIcon(sector) {
-            switch (sector) {
-                case 'College': return 'university';
-                case 'Senior High School': return 'graduation-cap';
-                case 'Faculty': return 'chalkboard-teacher';
-                default: return 'users';
-            }
-        }
-        
-        function getStatusClass(status) {
-            switch (status) {
-                case 'ongoing': return 'status-active';
-                case 'grace_period': return 'status-warning';
-                case 'paused': return 'status-paused';
-                case 'closed': return 'status-closed';
-                case 'not_started': return 'status-inactive';
-                default: return 'status-unknown';
-            }
-        }
-        
-        function getStatusText(status) {
-            switch (status) {
-                case 'ongoing': return 'Active';
-                case 'grace_period': return 'Grace Period';
-                case 'paused': return 'Paused';
-                case 'closed': return 'Closed';
-                case 'not_started': return 'Not Started';
-                default: return 'Unknown';
-            }
-        }
-        
-        function formatDateTime(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleString();
-        }
-        
-        function getGracePeriodProgress(gracePeriod) {
-            const totalSeconds = gracePeriod.duration_minutes * 60;
-            const elapsed = totalSeconds - gracePeriod.remaining_seconds;
-            return Math.min(100, (elapsed / totalSeconds) * 100);
-        }
-        
-        function startGracePeriodCountdown(sector, gracePeriod) {
-            const countdownElement = document.getElementById(`countdown-${sector.replace(/\s+/g, '-').toLowerCase()}`);
-            if (!countdownElement) return;
-            
-            let remainingSeconds = gracePeriod.remaining_seconds;
-            
-            const timer = setInterval(() => {
-                remainingSeconds--;
-                countdownElement.textContent = window.gracePeriodUIManager.gracePeriodManager.formatTime(remainingSeconds);
-                
-                if (remainingSeconds <= 0) {
-                    clearInterval(timer);
-                    // Refresh the grace period monitoring
-                    setTimeout(() => loadGracePeriodMonitoring(), 1000);
-                }
-            }, 1000);
-        }
-        
-        async function overrideGracePeriod(sector) {
-            if (!confirm(`Are you sure you want to override the grace period for ${sector}? This will immediately allow students to apply.`)) {
-                return;
-            }
-            
-            try {
-                // This would need to be implemented in the backend
-                const response = await fetch('../../api/clearance/override_grace_period.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ sector: sector }),
-                    credentials: 'same-origin'
-                });
-                
-                if (response.ok) {
-                    showToast(`Grace period overridden for ${sector}`, 'success');
-                    loadGracePeriodMonitoring();
-                } else {
-                    throw new Error('Failed to override grace period');
-                }
-            } catch (error) {
-                console.error('Error overriding grace period:', error);
-                showToast('Failed to override grace period', 'error');
-            }
-        }
-        */
 
         // Initial load of scope lists and sector periods
         // This is now handled in the main DOMContentLoaded event above

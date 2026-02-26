@@ -67,17 +67,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <p>Inactive Students</p>
                                 </div>
                             </div>
-                            <!-- Graduated statistics card temporarily disabled
-                            <div class="stat-card">
-                                <div class="stat-icon graduated">
-                                    <i class="fas fa-graduation-cap"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h3 id="graduatedStudents">0</h3>
-                                    <p>Graduated</p>
-                                </div>
-                            </div>
-                            -->
                         </div>
 
                         <!-- Quick Actions Section -->
@@ -93,13 +82,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <i class="fas fa-file-export"></i> Export
                                 </button>
                             </div>
-                            <!-- ?php /* Signatory Override UI temporarily disabled ?>
-                            <div class="override-actions">
-                                <button class="btn btn-warning signatory-override-btn" onclick="openSignatoryOverrideModal()">
-                                    <i class="fas fa-user-shield"></i> Signatory Override
-                                </button>
-                            </div>
-                            <!-- ?php */ ? -->
                         </div>
 
                         <!-- Current Period Wrapper -->
@@ -123,7 +105,7 @@ if (session_status() == PHP_SESSION_NONE) {
                             
                             <div class="filter-dropdowns">
                                 <!-- Program Filter (SHS only) -->
-                                <select id="programFilter" class="filter-select"">
+                                <select id="programFilter" class="filter-select">
                                     <option value="">All Programs</option>
                                     <!-- Options will be populated dynamically -->
                                 </select>
@@ -172,11 +154,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                     <button class="btn btn-primary bulk-selection-filters-btn" onclick="openBulkSelectionModal()">
                                         <i class="fas fa-filter"></i> Bulk Selection Filters
                                     </button>
-                                    <?php /* Batch Update feature temporarily disabled
-                                    <button class="btn btn-success" onclick="openSeniorHighBatchUpdateModal()">
-                                        <i class="fas fa-users-cog"></i> Batch Update
-                                    </button>
-                                    */ ?>
                                     <button class="selection-counter-display" id="selectionCounterPill" type="button" title="">
                                         <span id="selectionCounter">0 selected</span>
                                     </button>
@@ -187,16 +164,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                         <button id="bulkDeactivateBtn" class="btn btn-warning" onclick="deactivateSelected()" disabled>
                                             <i class="fas fa-user-times"></i> Deactivate
                                         </button>
-                                        <!-- Graduated feature temporarily disabled
-                                        <button class="btn btn-info" onclick="markGraduated()" disabled id="bulkGraduatedBtn">
-                                            <i class="fas fa-graduation-cap"></i> Graduated
-                                        </button>
-                                        -->
-                                        <!-- Reset Clearance feature temporarily disabled
-                                        <button id="bulkResetBtn" class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
-                                            <i class="fas fa-redo"></i> Reset Clearance
-                                        </button>
-                                        -->
                                         <button id="bulkDeleteBtn" class="btn btn-danger" onclick="deleteSelected()" disabled>
                                             <i class="fas fa-trash"></i> Delete
                                         </button>
@@ -229,75 +196,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                     </thead>
                                     <tbody id="studentsTableBody">
                                         <!-- Data will be populated by JavaScript -->
-                                        <tr>
-                                            <td><input type="checkbox" class="student-checkbox" data-id="02000288336"></td>
-                                            <td>02000288336</td>
-                                            <td>Lucas Ramirez</td>
-                                            <td>Science, Technology, Engineering and Mathematics (STEM)</td>
-                                            <td>Grade 11</td>
-                                            <td>11/1-1</td>
-                                            <td><span class="status-badge account-active">Active</span></td>
-                                            <td><span class="status-badge clearance-in-progress">In Progress</span></td>
-                                            <td>
-                                                <div class="action-buttons">
-                                                    <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('02000288336')" title="View Clearance Progress">
-                                                        <i class="fas fa-tasks"></i>
-                                                    </button>
-                                                    <button class="btn-icon edit-btn" onclick="editStudent('02000288336')" title="Edit">
-                                                        <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon delete-btn" onclick="deleteStudent('02000288336')" title="Delete">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td><input type="checkbox" class="student-checkbox" data-id="02000288337"></td>
-                                            <td>02000288337</td>
-                                            <td>Emma Flores</td>
-                                            <td>Humanities and Social Sciences (HUMSS)</td>
-                                            <td>Grade 12</td>
-                                            <td>12/1-2</td>
-                                            <td><span class="status-badge account-active">Active</span></td>
-                                            <td><span class="status-badge clearance-complete">Complete</span></td>
-                                            <td>
-                                                <div class="action-buttons">
-                                                    <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('02000288337')" title="View Clearance Progress">
-                                                        <i class="fas fa-tasks"></i>
-                                                    </button>
-                                                    <button class="btn-icon edit-btn" onclick="editStudent('02000288337')" title="Edit">
-                                                        <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon delete-btn" onclick="deleteStudent('02000288337')" title="Delete">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td><input type="checkbox" class="student-checkbox" data-id="02000288338"></td>
-                                            <td>02000288338</td>
-                                            <td>Daniel Cruz</td>
-                                            <td>General Academic (GA)</td>
-                                            <td>Grade 11</td>
-                                            <td>11/2-3</td>
-                                            <td><span class="status-badge account-inactive">Inactive</span></td>
-                                            <td><span class="status-badge clearance-in-progress">In Progress</span></td>
-                                            <td>
-                                                <div class="action-buttons">
-                                                    <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('02000288338')" title="View Clearance Progress">
-                                                        <i class="fas fa-tasks"></i>
-                                                    </button>
-                                                    <button class="btn-icon edit-btn" onclick="editStudent('02000288338')" title="Edit">
-                                                        <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn-icon delete-btn" onclick="deleteStudent('02000288338')" title="Delete">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -384,13 +282,6 @@ if (session_status() == PHP_SESSION_NONE) {
                                 <span class="checkmark"></span>
                                 with "inactive"
                             </label>
-                            <!-- Graduated filter temporarily disabled
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="filterGraduated" value="graduated">
-                                <span class="checkmark"></span>
-                                with "graduated"
-                            </label>
-                            -->
                         </div>
                     </div>
                     
@@ -428,17 +319,6 @@ if (session_status() == PHP_SESSION_NONE) {
 
 
     <script>
-        // Senior High School specific configuration
-        const studentType = 'Senior High School';
-        const strandYearLevels = {
-            'Accountancy, Business, and Management (ABM)': ['Grade 11', 'Grade 12'],
-            'Science, Technology, Engineering and Mathematics (STEM)': ['Grade 11', 'Grade 12'],
-            'Humanities and Social Sciences (HUMSS)': ['Grade 11', 'Grade 12'],
-            'General Academic (GA)': ['Grade 11', 'Grade 12'],
-            'IT in Mobile App and Web Development (MAWD)': ['Grade 11', 'Grade 12'],
-            'Digital Arts (DA)': ['Grade 11', 'Grade 12']
-        };
-
         // Toggle sidebar
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
@@ -501,7 +381,6 @@ if (session_status() == PHP_SESSION_NONE) {
                 }
 
                 const data = await response.json();
-                console.log('Senior High students API response:', data); // For debugging
                 
                 if (data.success) {
                     populateStudentsTable(data.students);
@@ -613,8 +492,6 @@ if (session_status() == PHP_SESSION_NONE) {
             document.getElementById('totalStudents').textContent = stats.total || 0;
             document.getElementById('activeStudents').textContent = stats.active || 0;
             document.getElementById('inactiveStudents').textContent = stats.inactive || 0;
-            // Graduated statistics temporarily disabled
-            // document.getElementById('graduatedStudents').textContent = stats.graduated || 0;
         }
 
         // Load current clearance period
@@ -860,72 +737,6 @@ if (session_status() == PHP_SESSION_NONE) {
             );
         }
 
-        /* Graduated function temporarily disabled
-        function markGraduated() {
-            const selectedCount = getSelectedCount();
-            if (selectedCount === 0) {
-                showToastNotification('Please select students to mark as graduated', 'warning');
-                return;
-            }
-            
-            showConfirmationModal(
-                'Mark Students as Graduated',
-                `Are you sure you want to mark ${selectedCount} selected students as Graduated?`,
-                'Mark as Graduated',
-                'Cancel',
-                () => {
-                    const selectedRows = document.querySelectorAll('.student-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-                        
-                        if (statusBadge) {
-                            statusBadge.textContent = 'Graduated';
-                            statusBadge.classList.remove('account-active', 'account-inactive');
-                            statusBadge.classList.add('account-graduated');
-                        }
-                    });
-                    
-                    showToastNotification(`✓ Successfully marked ${selectedCount} students as Graduated`, 'success');
-                },
-                'info'
-            );
-        }
-        */
-
-        /* Reset Clearance function temporarily disabled
-        function resetClearanceForNewTerm() {
-            const selectedCount = getSelectedCount();
-            if (selectedCount === 0) {
-                showToastNotification('Please select students to reset clearance status', 'warning');
-                return;
-            }
-            
-            showConfirmationModal(
-                'Reset Clearance Status',
-                `Are you sure you want to reset clearance status to "Unapplied" for ${selectedCount} selected students?`,
-                'Reset Clearance',
-                'Cancel',
-                () => {
-                    const selectedRows = document.querySelectorAll('.student-checkbox:checked');
-                    selectedRows.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        const clearanceBadge = row.querySelector('.status-badge.clearance-applied, .status-badge.clearance-complete, .status-badge.clearance-in-progress');
-                        
-                        if (clearanceBadge) {
-                            clearanceBadge.textContent = 'Unapplied';
-                            clearanceBadge.classList.remove('clearance-applied', 'clearance-complete', 'clearance-in-progress');
-                            clearanceBadge.classList.add('clearance-unapplied');
-                        }
-                    });
-                    
-                    showToastNotification(`✓ Successfully reset clearance status for ${selectedCount} students`, 'success');
-                },
-                'warning'
-            );
-        }
-        */
-
         // Individual student actions
         function editStudent(studentId) {
             openEditStudentModal(studentId);
@@ -1103,19 +914,14 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         function triggerExportModal() {
-            console.log('[SeniorHighStudentManagement] triggerExportModal() called');
-            console.log('[SeniorHighStudentManagement] Checking for window.openExportModal:', typeof window.openExportModal);
-            
             try {
                 if (typeof window.openExportModal === 'function') {
-                    console.log('[SeniorHighStudentManagement] Calling window.openExportModal()');
                     window.openExportModal();
                 } else {
                     console.error('[SeniorHighStudentManagement] window.openExportModal is not a function');
                     // Try to find the modal directly
                     const modal = document.getElementById('exportModal');
                     if (modal) {
-                        console.log('[SeniorHighStudentManagement] Modal found, opening directly');
                         if (typeof window.openModal === 'function') {
                             window.openModal('exportModal');
                         } else {
@@ -1145,7 +951,6 @@ if (session_status() == PHP_SESSION_NONE) {
         let currentPage = 1;
         let entriesPerPage = 20;
         let totalEntries = 0;
-        let filteredEntries = [];
 
         // Initialize pagination
         function updatePaginationUI(total, page, limit) {
@@ -1242,26 +1047,19 @@ if (session_status() == PHP_SESSION_NONE) {
         // Change page (previous/next)
         function changePage(direction) {
             if (direction === 'prev' && currentPage > 1) {
-                loadStudentsData(currentPage - 1);
+                currentPage--;
             } else if (direction === 'next') {
-                const totalPages = Math.ceil(totalEntries / entriesPerPage);
-                if (currentPage < totalPages) {
-                    loadStudentsData(currentPage + 1);
-                }
+                currentPage++;
             }
+            loadStudentsData();
         }
 
         // Change entries per page
         function changeEntriesPerPage() {
-            loadStudentsData(1); // Go back to page 1
-        }
-
-        // Update filtered entries for pagination
-        function updateFilteredEntries() {
-            const visibleRows = document.querySelectorAll('#studentsTableBody tr:not([style*="display: none"])');
-            filteredEntries = Array.from(visibleRows);
-            currentPage = 1; // Reset to first page
-            updatePagination();
+            const newEntriesPerPage = parseInt(document.getElementById('entriesPerPage').value);
+            entriesPerPage = newEntriesPerPage;
+            currentPage = 1;
+            loadStudentsData();
         }
 
         function scrollToTop() {
@@ -1550,15 +1348,31 @@ if (session_status() == PHP_SESSION_NONE) {
             );
         }
 
+        function updateBulkStatistics(action, count) {
+            const activeCount = document.getElementById('activeStudents');
+            const inactiveCount = document.getElementById('inactiveStudents');
+            let currentActive = parseInt(activeCount.textContent.replace(',', ''));
+            let currentInactive = parseInt(inactiveCount.textContent.replace(',', ''));
+            
+            if (action === 'activate') {
+                currentActive += count;
+                currentInactive -= count;
+            } else if (action === 'deactivate') {
+                currentActive -= count;
+                currentInactive += count;
+            }
+            
+            activeCount.textContent = currentActive.toLocaleString();
+            inactiveCount.textContent = currentInactive.toLocaleString();
+        }
+
         window.closeBulkSelectionModal = function() {
-            console.log('[SeniorHighStudentManagement] closeBulkSelectionModal() called');
             try {
                 const modal = document.getElementById('bulkSelectionModal');
                 if (!modal) {
                     console.warn('[SeniorHighStudentManagement] Bulk selection modal not found');
                     return;
                 }
-                console.log('[SeniorHighStudentManagement] Closing bulk selection modal:', modal.id);
 
                 // Use window.closeModal if available, otherwise fallback
                 if (typeof window.closeModal === 'function') {
@@ -1578,18 +1392,6 @@ if (session_status() == PHP_SESSION_NONE) {
                 // Silent error handling
             }
         }
-
-        <?php /* Batch Update Modal Functions (stub - to be implemented)
-        function openSeniorHighBatchUpdateModal() {
-            try {
-                if (typeof showToastNotification === 'function') {
-                    showToastNotification('Batch update feature is coming soon.', 'info');
-                }
-            } catch (error) {
-                // Silent error handling
-            }
-        }
-        */ ?>
 
         function resetBulkSelectionFilters() {
             // Reset all filter checkboxes
@@ -1615,8 +1417,6 @@ if (session_status() == PHP_SESSION_NONE) {
             // Collect account status filters
             if (document.getElementById('filterActive').checked) selectedFilters.accountStatus.push('active');
             if (document.getElementById('filterInactive').checked) selectedFilters.accountStatus.push('inactive');
-            // Graduated filter temporarily disabled
-            // if (document.getElementById('filterGraduated').checked) selectedFilters.accountStatus.push('graduated');
             
             // Collect clearance progress filters  
             if (document.getElementById('filterUnapplied').checked) selectedFilters.clearanceProgress.push('unapplied');
@@ -1668,48 +1468,6 @@ if (session_status() == PHP_SESSION_NONE) {
             updateSelectionCounter();
             
             showToastNotification(`Selected ${selectedCount} students matching filters`, 'success');
-        }
-
-        function clearAllSelectionsAndFilters() {
-            // Clear all student checkboxes
-            const studentCheckboxes = document.querySelectorAll('.student-checkbox');
-            studentCheckboxes.forEach(checkbox => {
-                checkbox.checked = false;
-            });
-            
-            // Clear search input
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) searchInput.value = '';
-            
-            // Clear filter dropdowns
-            const programFilter = document.getElementById('programFilter');
-            const yearFilter = document.getElementById('yearFilter');
-            const clearanceFilter = document.getElementById('clearanceStatusFilter');
-            const schoolTermFilter = document.getElementById('schoolTermFilter');
-            const accountStatusFilter = document.getElementById('accountStatusFilter');
-            
-            if (programFilter) programFilter.value = '';
-            if (yearFilter) yearFilter.value = '';
-            if (clearanceFilter) clearanceFilter.value = '';
-            if (schoolTermFilter) schoolTermFilter.value = '';
-            if (accountStatusFilter) accountStatusFilter.value = '';
-            
-            // Reset bulk selection modal filters (if modal is open)
-            resetBulkSelectionFilters();
-            
-            // Update UI states
-            updateSelectionCounter();
-            updateBulkButtons();
-            
-            // Show all rows (remove any filter-based hiding)
-            const tableRows = document.querySelectorAll('#studentsTableBody tr');
-            tableRows.forEach(row => {
-                row.style.display = '';
-            });
-            
-            // Disable clear selection button (since no selections)
-            const clearSelectionBtn = document.getElementById('clearSelectionBtn');
-            if (clearSelectionBtn) clearSelectionBtn.disabled = true;
         }
 
         function clearAllSelections() {
@@ -1765,7 +1523,5 @@ if (session_status() == PHP_SESSION_NONE) {
     <!-- Include Clearance Button Manager -->
     <script src="../../assets/js/clearance-button-manager.js"></script>
     
-    <!-- Include Audit Functions -->
-    <?php include '../../includes/functions/audit_functions.php'; ?>
 </body>
 </html>

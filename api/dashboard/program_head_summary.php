@@ -28,7 +28,7 @@ try {
 
     // 1. Get Program Head's assigned departments
     $deptStmt = $pdo->prepare("
-        SELECT d.department_id, d.department_name 
+        SELECT d.department_id, d.department_name, d.department_code
         FROM staff s
         JOIN departments d ON s.department_id = d.department_id
         WHERE s.user_id = ? 
@@ -41,7 +41,34 @@ try {
     if (empty($departments)) {
         send_json_response(false, [], 'No departments assigned to this Program Head.', 403);
     }
-    $departmentIds = array_column($departments, 'department_id');
+    
+    // Extract department identifiers (names and codes) for cross-sector matching
+    $deptIdentifiers = [];
+    foreach ($departments as $dept) {
+        if (!empty($dept['department_name'])) {
+            $deptIdentifiers[] = $dept['department_name'];
+        }
+        if (!empty($dept['department_code'])) {
+            $deptIdentifiers[] = $dept['department_code'];
+        }
+    }
+    $deptIdentifiers = array_unique($deptIdentifiers);
+    
+    // Get ALL department IDs that match these identifiers across ALL sectors
+    if (!empty($deptIdentifiers)) {
+        $identifierPlaceholders = implode(',', array_fill(0, count($deptIdentifiers), '?'));
+        $crossSectorStmt = $pdo->prepare("
+            SELECT department_id
+            FROM departments
+            WHERE (department_name IN ($identifierPlaceholders) OR department_code IN ($identifierPlaceholders))
+            AND is_active = 1
+        ");
+        $crossSectorStmt->execute(array_merge($deptIdentifiers, $deptIdentifiers));
+        $departmentIds = $crossSectorStmt->fetchAll(PDO::FETCH_COLUMN);
+    } else {
+        // Fallback to original department IDs if no identifiers found
+        $departmentIds = array_column($departments, 'department_id');
+    }
 
     // build placeholders and params for IN (...)
     $placeholders = implode(',', array_fill(0, count($departmentIds), '?'));
@@ -191,16 +218,25 @@ try {
     // 7. Get Program Stats
     $programStmt = $pdo->prepare("
         SELECT 
+            p.program_id,
+            p.program_name,
             p.program_code, 
             COUNT(s.student_id) as student_count
         FROM programs p
         LEFT JOIN students s ON p.program_id = s.program_id
         WHERE p.department_id IN ($placeholders)
-        GROUP BY p.program_id
+          AND p.is_active = 1
+        GROUP BY p.program_id, p.program_name, p.program_code
         ORDER BY student_count DESC
     ");
-    $programStmt->execute($departmentIds);
-    $programs = $programStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    try {
+        $programStmt->execute($departmentIds);
+        $programs = $programStmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Program Head Dashboard - Programs Query Error: " . $e->getMessage());
+        $programs = []; // Set to empty array on error to ensure it's always included in response
+    }
 
     // 8. Get sector statistics for the current period
     $sectorStats = [

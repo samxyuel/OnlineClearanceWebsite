@@ -83,7 +83,7 @@
                                 <button class="btn btn-success" onclick="showAddSchoolYearModal()" id="addSchoolYearBtn">
                                     <i class="fas fa-plus"></i> Add School Year
                                 </button>
-                                <button class="btn btn-primary" onclick="toggleTermStatus()" id="termToggleBtn">
+                                <button class="btn btn-primary" id="termToggleBtn">
                                     <i class="fas fa-play"></i> <span id="termToggleText">Activate Term</span>
                                 </button>
                                 <a href="ClearanceManagement.php" class="btn btn-outline-primary">
@@ -144,28 +144,35 @@
     <!-- Include Audit Functions -->
     <?php include '../../includes/functions/audit_functions.php'; ?>
     
+    <!-- Include Add School Year Modal -->
+    <?php include '../../Modals/AddSchoolYearModal.php'; ?>
+    
     <script>
         // Load dashboard data on page load
         async function loadDashboardData() {
             try {
-                // Load current academic context
-                const contextResponse = await fetch('../../api/clearance/context.php', {
-                    credentials: 'include'
-                });
+                // Load current academic context and sector periods in parallel
+                const [contextResponse, periodsResponse] = await Promise.all([
+                    fetch('../../api/clearance/context.php', { credentials: 'include' }),
+                    fetch('../../api/clearance/sector-periods.php', { credentials: 'include' })
+                ]);
+                
                 const contextData = await contextResponse.json();
+                const periodsData = await periodsResponse.json();
                 
                 if (contextData.success) {
                     updateAcademicYearDisplay(contextData);
                 }
                 
-                // Load sector periods data
-                const periodsResponse = await fetch('../../api/clearance/sector-periods.php', {
-                    credentials: 'include'
-                });
-                const periodsData = await periodsResponse.json();
-                
                 if (periodsData.success) {
                     updateSectorStatusDisplay(periodsData.periods_by_sector || {});
+                }
+                
+                // Update Add School Year button after both context and periods are loaded
+                if (contextData.success) {
+                    const academicYear = contextData.academic_year;
+                    const terms = contextData.terms || [];
+                    await updateAddSchoolYearButton(academicYear, terms);
                 }
                 
                 // Load statistics
@@ -183,29 +190,126 @@
             const activeTerm = contextData.terms?.find(term => term.is_active === 1);
             
             if (academicYear) {
-                document.getElementById('currentAcademicYear').textContent = academicYear.year;
+                const academicYearEl = document.getElementById('currentAcademicYear');
+                if (academicYearEl) {
+                    academicYearEl.textContent = academicYear.year;
+                }
             }
             
+            const termToggleBtn = document.getElementById('termToggleBtn');
+            const addSchoolYearBtn = document.getElementById('addSchoolYearBtn');
+            
             if (activeTerm) {
-                document.getElementById('currentActiveTerm').textContent = activeTerm.semester_name;
-                document.getElementById('termDuration').textContent = `Active since: ${new Date(activeTerm.created_at).toLocaleDateString()}`;
+                const activeTermEl = document.getElementById('currentActiveTerm');
+                const termDurationEl = document.getElementById('termDuration');
                 
-                // Update term toggle button
-                const termToggleBtn = document.getElementById('termToggleBtn');
-                const termToggleText = document.getElementById('termToggleText');
+                if (activeTermEl) {
+                    activeTermEl.textContent = activeTerm.semester_name;
+                }
+                if (termDurationEl) {
+                    termDurationEl.textContent = `Active since: ${new Date(activeTerm.created_at).toLocaleDateString()}`;
+                }
                 
-                termToggleBtn.className = 'btn btn-danger';
-                termToggleBtn.innerHTML = '<i class="fas fa-stop"></i> <span id="termToggleText">End Term</span>';
-                termToggleBtn.onclick = () => endCurrentTerm();
+                // Update term toggle button - End Term
+                if (termToggleBtn) {
+                    termToggleBtn.className = 'btn btn-danger';
+                    termToggleBtn.innerHTML = '<i class="fas fa-stop"></i> <span id="termToggleText">End Term</span>';
+                    termToggleBtn.onclick = () => endCurrentTerm();
+                }
             } else {
-                document.getElementById('currentActiveTerm').textContent = 'No Active Term';
-                document.getElementById('termDuration').textContent = 'No active term found';
+                const activeTermEl = document.getElementById('currentActiveTerm');
+                const termDurationEl = document.getElementById('termDuration');
                 
-                // Update term toggle button
-                const termToggleBtn = document.getElementById('termToggleBtn');
-                termToggleBtn.className = 'btn btn-success';
-                termToggleBtn.innerHTML = '<i class="fas fa-play"></i> <span id="termToggleText">Activate Term</span>';
-                termToggleBtn.onclick = () => activateCurrentTerm();
+                if (activeTermEl) {
+                    activeTermEl.textContent = 'No Active Term';
+                }
+                if (termDurationEl) {
+                    termDurationEl.textContent = 'No active term found';
+                }
+                
+                // Update term toggle button - Activate Term
+                if (termToggleBtn) {
+                    termToggleBtn.className = 'btn btn-success';
+                    termToggleBtn.innerHTML = '<i class="fas fa-play"></i> <span id="termToggleText">Activate Term</span>';
+                    termToggleBtn.onclick = () => activateCurrentTerm();
+                }
+            }
+            
+            // Note: Add School Year button will be updated after periods are loaded in loadDashboardData
+        }
+        
+        // Update Add School Year button state
+        async function updateAddSchoolYearButton(academicYear, terms) {
+            const addSchoolYearBtn = document.getElementById('addSchoolYearBtn');
+            if (!addSchoolYearBtn) return;
+            
+            // If no active academic year, enable the button
+            if (!academicYear) {
+                addSchoolYearBtn.disabled = false;
+                addSchoolYearBtn.className = 'btn btn-success';
+                addSchoolYearBtn.title = 'Create a new school year';
+                return;
+            }
+            
+            // Check if there are any active or non-ended clearance periods
+            try {
+                const periodsResponse = await fetch('../../api/clearance/sector-periods.php', {
+                    credentials: 'include'
+                });
+                const periodsData = await periodsResponse.json();
+                
+                if (periodsData.success && periodsData.periods_by_sector) {
+                    // Check all sectors for active/deactivated periods
+                    const sectors = ['College', 'Senior High School', 'Faculty'];
+                    let hasActivePeriods = false;
+                    
+                    for (const sector of sectors) {
+                        const sectorPeriods = periodsData.periods_by_sector[sector] || [];
+                        if (sectorPeriods.length > 0) {
+                            const latestPeriod = sectorPeriods[0];
+                            if (latestPeriod.status === 'Ongoing' || latestPeriod.status === 'Paused') {
+                                hasActivePeriods = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (hasActivePeriods) {
+                        // Disable button if there are active periods
+                        addSchoolYearBtn.disabled = true;
+                        addSchoolYearBtn.className = 'btn btn-secondary';
+                        addSchoolYearBtn.title = 'Cannot create new school year while there are active clearance periods. End all active periods first.';
+                    } else {
+                        // Check if all terms are ended
+                        const allTermsEnded = terms.every(term => {
+                            // Check if term has any periods that are not closed
+                            const termPeriods = Object.values(periodsData.periods_by_sector || {}).flat()
+                                .filter(p => p.semester_id === term.semester_id);
+                            return termPeriods.length === 0 || termPeriods.every(p => p.status === 'Closed');
+                        });
+                        
+                        if (allTermsEnded) {
+                            addSchoolYearBtn.disabled = false;
+                            addSchoolYearBtn.className = 'btn btn-success';
+                            addSchoolYearBtn.title = 'Create a new school year';
+                        } else {
+                            addSchoolYearBtn.disabled = true;
+                            addSchoolYearBtn.className = 'btn btn-secondary';
+                            addSchoolYearBtn.title = 'Cannot create new school year. End all terms in the current school year first.';
+                        }
+                    }
+                } else {
+                    // If we can't check periods, enable button but with warning
+                    addSchoolYearBtn.disabled = false;
+                    addSchoolYearBtn.className = 'btn btn-success';
+                    addSchoolYearBtn.title = 'Create a new school year';
+                }
+            } catch (error) {
+                console.error('Error checking clearance periods:', error);
+                // On error, disable button to be safe
+                addSchoolYearBtn.disabled = true;
+                addSchoolYearBtn.className = 'btn btn-secondary';
+                addSchoolYearBtn.title = 'Unable to verify school year status. Please refresh the page.';
             }
         }
         
@@ -317,12 +421,6 @@
             }
         }
         
-        // Toggle term status (activate or end)
-        function toggleTermStatus() {
-            // This function will be overridden by the specific activate/end functions
-            console.log('Toggle term status called');
-        }
-        
         // Activate current term
         async function activateCurrentTerm() {
             try {
@@ -354,7 +452,7 @@
                         
                         if (activateData.success) {
                             showToast('Term activated successfully!', 'success');
-                            // Reload dashboard data
+                            // Reload dashboard data to update button states
                             await loadDashboardData();
                         } else {
                             throw new Error(activateData.message || 'Failed to activate term');
@@ -410,7 +508,7 @@
                             
                             if (endData.success) {
                                 showToast('Term ended successfully!', 'success');
-                                // Reload dashboard data
+                                // Reload dashboard data to update button states
                                 await loadDashboardData();
                             } else {
                                 throw new Error(endData.message || 'Failed to end term');

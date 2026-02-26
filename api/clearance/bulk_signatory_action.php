@@ -128,6 +128,29 @@ try {
         throw new Exception("No active clearance period found.");
     }
 
+    // --- Permission Check: Verify user is assigned as signatory for this period ---
+    // Check if the acting user's designation is assigned as a signatory for this period
+    // This prevents unauthorized bulk actions when user is not assigned
+    $signatoryCheckStmt = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM clearance_signatories cs
+        JOIN clearance_forms cf ON cs.clearance_form_id = cf.clearance_form_id
+        WHERE cf.academic_year_id = ? 
+            AND cf.semester_id = ? 
+            AND cs.designation_id = ?
+        LIMIT 1
+    ");
+    $signatoryCheckStmt->execute([
+        $activePeriod['academic_year_id'], 
+        $activePeriod['semester_id'], 
+        $designationId
+    ]);
+    $hasSignatoryAssignment = $signatoryCheckStmt->fetchColumn() > 0;
+
+    if (!$hasSignatoryAssignment) {
+        throw new Exception("You are not assigned as a signatory for this clearance period. This action is not available.");
+    }
+
     // --- Find Clearance Forms for the given users in the active period ---
     $placeholders = implode(',', array_fill(0, count($applicantUserIds), '?'));
     $formSql = "SELECT clearance_form_id FROM clearance_forms WHERE user_id IN ($placeholders) AND academic_year_id = ? AND semester_id = ?";

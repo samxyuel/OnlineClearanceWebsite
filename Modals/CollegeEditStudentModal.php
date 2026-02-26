@@ -135,7 +135,6 @@
             <option value="">Select Status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
-            <option value="graduated">Graduated</option>
           </select>
         </div>
         

@@ -349,7 +349,6 @@ handleStudentManagementPageRequest('Senior High School');
                     </div>
                 </div>
                 
-                <!-- RIGHT SIDE: Activity Tracker -->
             </div>
         </div>
     </main>
@@ -464,7 +463,6 @@ handleStudentManagementPageRequest('Senior High School');
         </div>
     </div>
 
-    <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
         // --- State Management ---
         let currentPage = 1;
@@ -493,7 +491,6 @@ handleStudentManagementPageRequest('Senior High School');
             const roleSelector = document.getElementById('roleSelector');
             if (roleSelector && roleSelector.value) {
                 CURRENT_STAFF_POSITION = roleSelector.value;
-                console.log('Initialized CURRENT_STAFF_POSITION to:', CURRENT_STAFF_POSITION);
             }
         });
 
@@ -502,7 +499,6 @@ handleStudentManagementPageRequest('Senior High School');
             const roleSelector = document.getElementById('roleSelector');
             if (roleSelector) {
                 CURRENT_STAFF_POSITION = roleSelector.value;
-                console.log("Role changed to:", CURRENT_STAFF_POSITION);
                 
                 // Update the position display
                 const positionElement = document.getElementById('positionInfo');
@@ -716,42 +712,6 @@ handleStudentManagementPageRequest('Senior High School');
             document.getElementById('filterApproved').checked = false;
             document.getElementById('filterRejected').checked = false;
         }
-
-        function updateSelectionCounter() {
-            const selectedCount = getSelectedCount();
-            const totalCount = document.querySelectorAll('.student-checkbox').length;
-            const counter = document.getElementById('selectionCounter');
-
-            if (selectedCount === 0) {
-                counter.textContent = '0 selected';
-            } else if (selectedCount > 0 && selectedCount === totalCount) {
-                counter.textContent = `All ${totalCount} selected`;
-            } else {
-                counter.textContent = `${selectedCount} selected`;
-            }
-        }
-
-
-        function updateBulkButtons() {
-            const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
-            const bulkButtons = document.querySelectorAll('.bulk-buttons button');
-            
-            bulkButtons.forEach(button => {
-                // Disable if no selection OR if in view-only mode
-                button.disabled = checkedBoxes.length === 0 || !canPerformSignatoryActions;
-                
-                // Add tooltip for disabled state
-                if (!canPerformSignatoryActions && checkedBoxes.length > 0) {
-                    button.title = 'View Only Mode: You are not assigned as a signatory for this clearance period';
-                } else if (checkedBoxes.length === 0) {
-                    button.title = 'Select students to perform actions';
-                } else {
-                    button.title = '';
-                }
-            });
-            
-            updateSelectionCounter();
-        }
         
         // Update action buttons state based on can_perform_actions flag
         function updateActionButtonsState() {
@@ -895,67 +855,35 @@ handleStudentManagementPageRequest('Senior High School');
 
         // Individual student actions - Staff can only approve/reject clearances
         async function approveStudentClearance(studentId) {
-            console.log('🔵 SHS APPROVE DEBUG: Function called with studentId:', studentId);
-            console.log('🔵 SHS APPROVE DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
-            
-            // Check if signatory actions are allowed
-            console.log('🔵 SHS APPROVE DEBUG: canPerformSignatoryActions:', canPerformSignatoryActions);
+            // Check if signatory actions are allowed (uses global variable updated from API)
             if (!canPerformSignatoryActions) {
-                console.warn('🔵 SHS APPROVE DEBUG: Permission denied - canPerformSignatoryActions is false');
                 showToastNotification('View Only Mode: You are not assigned as a signatory for this clearance period.', 'warning');
                 return;
             }
-
+            
             // Find the row element with null check
             const checkboxSelector = `.student-checkbox[data-id="${studentId}"]`;
-            console.log('🔵 SHS APPROVE DEBUG: Looking for checkbox with selector:', checkboxSelector);
             const checkbox = document.querySelector(checkboxSelector);
             if (!checkbox) {
-                console.error('🔵 SHS APPROVE DEBUG: ❌ Student checkbox not found for ID:', studentId);
-                console.error('🔵 SHS APPROVE DEBUG: Available checkboxes:', document.querySelectorAll('.student-checkbox').length);
                 showToastNotification('Student record not found in table.', 'error');
                 return;
             }
-            console.log('🔵 SHS APPROVE DEBUG: ✅ Checkbox found');
             
             const row = checkbox.closest('tr');
             if (!row) {
-                console.error('🔵 SHS APPROVE DEBUG: ❌ Table row not found for student ID:', studentId);
                 showToastNotification('Student record structure error.', 'error');
                 return;
             }
-            console.log('🔵 SHS APPROVE DEBUG: ✅ Row found');
             
             const studentName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Student';
-            console.log('🔵 SHS APPROVE DEBUG: Student name:', studentName);
             
             const clearanceBadgeSelector = '.status-badge-compact.signatory-pending, .status-badge-compact.signatory-rejected';
-            console.log('🔵 SHS APPROVE DEBUG: Looking for clearance badge with selector:', clearanceBadgeSelector);
             const clearanceBadge = row.querySelector(clearanceBadgeSelector);
-            const clearanceFormId = row.getAttribute('data-clearance-form-id');
-            const signatoryId = row.getAttribute('data-signatory-id');
-            
-            console.log('🔵 SHS APPROVE DEBUG: Clearance badge found:', !!clearanceBadge);
-            console.log('🔵 SHS APPROVE DEBUG: Clearance form ID:', clearanceFormId);
-            console.log('🔵 SHS APPROVE DEBUG: Signatory ID:', signatoryId);
-            console.log('🔵 SHS APPROVE DEBUG: Row data attributes:', {
-                'data-clearance-form-id': clearanceFormId,
-                'data-signatory-id': signatoryId,
-                'data-user-id': row.getAttribute('data-user-id')
-            });
 
             if (!clearanceBadge) {
-                console.warn('🔵 SHS APPROVE DEBUG: ⚠️ No clearance badge found - cannot approve');
-                console.warn('🔵 SHS APPROVE DEBUG: Available badges in row:', row.querySelectorAll('.status-badge').length);
-                console.warn('🔵 SHS APPROVE DEBUG: Row HTML classes:', row.className);
                 showToastNotification('No clearance to approve', 'warning');
                 return;
             }
-            
-            const badgeText = clearanceBadge.textContent.trim();
-            const badgeClasses = clearanceBadge.className;
-            console.log('🔵 SHS APPROVE DEBUG: Clearance badge text:', badgeText);
-            console.log('🔵 SHS APPROVE DEBUG: Clearance badge classes:', badgeClasses);
             
             showConfirmationModal(
                 'Approve Student Clearance',
@@ -963,40 +891,24 @@ handleStudentManagementPageRequest('Senior High School');
                 'Approve',
                 'Cancel',
                 async () => {
-                    console.log('🔵 SHS APPROVE DEBUG: Confirmation modal approved, starting approval process');
                     try {
-                        console.log('🔵 SHS APPROVE DEBUG: Resolving user ID from student number:', studentId);
                         const uid = await resolveUserIdFromStudentNumber(studentId);
-                        console.log('🔵 SHS APPROVE DEBUG: Resolved user ID:', uid);
                         
                         if (uid) {
-                            console.log('🔵 SHS APPROVE DEBUG: Calling sendSignatoryAction with:', {
-                                userId: uid,
-                                action: 'Approved',
-                                remarks: 'Approved by ' + CURRENT_STAFF_POSITION,
-                                designation: CURRENT_STAFF_POSITION
-                            });
-                            
                             // Corrected: Pass remarks in the 4th argument, not concatenated with the designation.
                             const result = await sendSignatoryAction(uid, 'Approved', 'Approved by ' + CURRENT_STAFF_POSITION);
                             
-                            console.log('🔵 SHS APPROVE DEBUG: API Response:', result);
-                            
                             if (result.success) {
-                                console.log('🔵 SHS APPROVE DEBUG: ✅ Approval successful');
                                 showToastNotification('Student clearance approved successfully', 'success');
                                 fetchStudents(); // Refresh the table to update button states
                             } else {
-                                console.error('🔵 SHS APPROVE DEBUG: ❌ Approval failed:', result.message);
                                 showToastNotification('Failed to approve: ' + (result.message || 'Unknown error'), 'error');
                             }
                         } else {
-                            console.error('🔵 SHS APPROVE DEBUG: ❌ Could not resolve user ID from student number:', studentId);
                             showToastNotification('Could not identify user. Please try again.', 'error');
                         }
                     } catch (e) {
-                        console.error('🔵 SHS APPROVE DEBUG: ❌ Exception during approval:', e);
-                        console.error('🔵 SHS APPROVE DEBUG: Exception stack:', e.stack);
+                        console.error('Error during approval:', e);
                         showToastNotification('An error occurred during approval.', 'error');
                     }
                 },
@@ -1005,115 +917,59 @@ handleStudentManagementPageRequest('Senior High School');
         }
 
         async function rejectStudentClearance(studentId) {
-            console.log('🔴 SHS REJECT DEBUG: Function called with studentId:', studentId);
-            console.log('🔴 SHS REJECT DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
-            
-            // Check if signatory actions are allowed
-            console.log('🔴 SHS REJECT DEBUG: canPerformSignatoryActions:', canPerformSignatoryActions);
+            // Check if signatory actions are allowed (uses global variable updated from API)
             if (!canPerformSignatoryActions) {
-                console.warn('🔴 SHS REJECT DEBUG: Permission denied - canPerformSignatoryActions is false');
                 showToastNotification('View Only Mode: You are not assigned as a signatory for this clearance period.', 'warning');
                 return;
             }
             
             // Find the row element with null check
             const checkboxSelector = `.student-checkbox[data-id="${studentId}"]`;
-            console.log('🔴 SHS REJECT DEBUG: Looking for checkbox with selector:', checkboxSelector);
             const checkbox = document.querySelector(checkboxSelector);
             if (!checkbox) {
-                console.error('🔴 SHS REJECT DEBUG: ❌ Student checkbox not found for ID:', studentId);
-                console.error('🔴 SHS REJECT DEBUG: Available checkboxes:', document.querySelectorAll('.student-checkbox').length);
                 showToastNotification('Student record not found in table.', 'error');
                 return;
             }
-            console.log('🔴 SHS REJECT DEBUG: ✅ Checkbox found');
             
             const row = checkbox.closest('tr');
             if (!row) {
-                console.error('🔴 SHS REJECT DEBUG: ❌ Table row not found for student ID:', studentId);
                 showToastNotification('Student record structure error.', 'error');
                 return;
             }
-            console.log('🔴 SHS REJECT DEBUG: ✅ Row found');
             
             const studentName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Student';
-            console.log('🔴 SHS REJECT DEBUG: Student name:', studentName);
             
             const clearanceBadgeSelector = '.status-badge-compact.signatory-pending, .status-badge-compact.signatory-rejected';
-            console.log('🔴 SHS REJECT DEBUG: Looking for clearance badge with selector:', clearanceBadgeSelector);
             const clearanceBadge = row.querySelector(clearanceBadgeSelector);
             const signatoryId = row.getAttribute('data-signatory-id');
-            const clearanceFormId = row.getAttribute('data-clearance-form-id');
-            
-            console.log('🔴 SHS REJECT DEBUG: Clearance badge found:', !!clearanceBadge);
-            console.log('🔴 SHS REJECT DEBUG: Signatory ID:', signatoryId);
-            console.log('🔴 SHS REJECT DEBUG: Clearance form ID:', clearanceFormId);
-            console.log('🔴 SHS REJECT DEBUG: Row data attributes:', {
-                'data-clearance-form-id': clearanceFormId,
-                'data-signatory-id': signatoryId,
-                'data-user-id': row.getAttribute('data-user-id')
-            });
             
             if (!clearanceBadge) {
-                console.warn('🔴 SHS REJECT DEBUG: ⚠️ No clearance badge found - cannot reject');
-                console.warn('🔴 SHS REJECT DEBUG: Available badges in row:', row.querySelectorAll('.status-badge').length);
-                console.warn('🔴 SHS REJECT DEBUG: All badges in row:', Array.from(row.querySelectorAll('.status-badge')).map(b => ({
-                    text: b.textContent.trim(),
-                    classes: b.className
-                })));
-                console.warn('🔴 SHS REJECT DEBUG: Row HTML classes:', row.className);
                 showToastNotification('Invalid clearance status to reject', 'warning');
                 return;
             }
-            
-            const badgeText = clearanceBadge.textContent.trim();
-            const badgeClasses = clearanceBadge.className;
-            console.log('🔴 SHS REJECT DEBUG: Clearance badge text:', badgeText);
-            console.log('🔴 SHS REJECT DEBUG: Clearance badge classes:', badgeClasses);
 
             let existingRemarks = '';
             let existingReasonId = '';
 
-            console.log('🔴 SHS REJECT DEBUG: Fetching existing rejection details for signatory_id:', signatoryId);
             try {
                 const rejectionReasonsUrl = `../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`;
-                console.log('🔴 SHS REJECT DEBUG: Fetching from:', rejectionReasonsUrl);
                 const response = await fetch(rejectionReasonsUrl, { credentials: 'include' });
-                console.log('🔴 SHS REJECT DEBUG: Rejection reasons response status:', response.status);
-                
                 const data = await response.json();
-                console.log('🔴 SHS REJECT DEBUG: Rejection reasons response data:', data);
                 
                 if (data.success && data.details) {
                     existingRemarks = data.details.additional_remarks || '';
                     existingReasonId = data.details.reason_id || '';
-                    console.log('🔴 SHS REJECT DEBUG: Found existing rejection details:', {
-                        remarks: existingRemarks,
-                        reasonId: existingReasonId
-                    });
-                } else {
-                    console.log('🔴 SHS REJECT DEBUG: No existing rejection details found');
                 }
             } catch (error) {
-                console.error('🔴 SHS REJECT DEBUG: ❌ Error fetching rejection details:', error);
-                console.error('🔴 SHS REJECT DEBUG: Error stack:', error.stack);
+                console.error('Error fetching rejection details:', error);
                 showToastNotification('Could not load existing rejection details.', 'error');
             }
-        
-            console.log('🔴 SHS REJECT DEBUG: Opening rejection modal for:', studentName);
-            console.log('🔴 SHS REJECT DEBUG: Existing reason ID:', existingReasonId);
-            console.log('🔴 SHS REJECT DEBUG: Existing remarks:', existingRemarks);
             
             // Open rejection remarks modal for individual rejection
             openRejectionRemarksModal(studentId, studentName, 'student', false, [], existingRemarks, existingReasonId);
         }
 
         async function fetchStudents() {
-            console.log('📊 SHS FETCH_STUDENTS DEBUG: Starting fetch...');
-            console.log('📊 SHS FETCH_STUDENTS DEBUG: Current page:', currentPage);
-            console.log('📊 SHS FETCH_STUDENTS DEBUG: Entries per page:', entriesPerPage);
-            console.log('📊 SHS FETCH_STUDENTS DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
-            
             const tableBody = document.getElementById('studentTableBody');
             tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">Loading students...</td></tr>`;
 
@@ -1121,13 +977,6 @@ handleStudentManagementPageRequest('Senior High School');
             const accountStatus = document.getElementById('accountStatusFilter').value;
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value;
-
-            console.log('📊 SHS FETCH_STUDENTS DEBUG: Filters:', {
-                clearanceStatus,
-                accountStatus,
-                schoolTerm,
-                search
-            });
 
             let url = new URL('../../api/clearance/signatoryList.php', window.location.href);
             url.searchParams.append('type', 'student');
@@ -1144,30 +993,17 @@ handleStudentManagementPageRequest('Senior High School');
             // Pass the current role/designation for filtering
             if (CURRENT_STAFF_POSITION) url.searchParams.append('designation_filter', CURRENT_STAFF_POSITION);
 
-            console.log('📊 SHS FETCH_STUDENTS DEBUG: Fetching from URL:', url.toString());
-
             try {
                 const response = await fetch(url.toString(), { credentials: 'include' });
-                console.log('📊 SHS FETCH_STUDENTS DEBUG: Response status:', response.status);
-                console.log('📊 SHS FETCH_STUDENTS DEBUG: Response ok:', response.ok);
-                
                 const data = await response.json();
-                console.log('📊 SHS FETCH_STUDENTS DEBUG: Response data:', data);
-                console.log('📊 SHS FETCH_STUDENTS DEBUG: Students count:', data.students?.length || 0);
 
                 if (!data.success) {
-                    console.error('📊 SHS FETCH_STUDENTS DEBUG: ❌ API returned success:false:', data.message);
                     tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
                     return;
                 }
 
                 // Update canPerformSignatoryActions from API response
                 canPerformSignatoryActions = data.can_perform_actions === true;
-                console.log('📊 SHS FETCH_STUDENTS DEBUG: can_perform_actions:', data.can_perform_actions, '-> canPerformSignatoryActions:', canPerformSignatoryActions);
-
-                if (data.students && data.students.length > 0) {
-                    console.log('📊 SHS FETCH_STUDENTS DEBUG: Sample student data:', data.students[0]);
-                }
 
                 renderStudentTable(data.students);
                 renderPagination(data.total, data.page, data.limit);
@@ -1178,8 +1014,7 @@ handleStudentManagementPageRequest('Senior High School');
                 updateViewOnlyIndicator();
 
             } catch (error) {
-                console.error('📊 SHS FETCH_STUDENTS DEBUG: ❌ Exception:', error);
-                console.error('📊 SHS FETCH_STUDENTS DEBUG: Exception stack:', error.stack);
+                console.error('Error fetching students:', error);
                 tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:red;">A network error occurred.</td></tr>`;
             }
         }
@@ -1214,12 +1049,6 @@ handleStudentManagementPageRequest('Senior High School');
                 const clearanceStatusClass = `signatory-${clearanceStatus.toLowerCase().replace(/ /g, '-')}`;
                 
                 const accountStatusClass = `account-${(student.account_status || '').toLowerCase()}`;
-
-                // Debug logging for first student only to avoid spam
-                if (students.indexOf(student) === 0) {
-                    console.log('🎨 SHS RENDER DEBUG: Rendering student table with', students.length, 'students');
-                    console.log('🎨 SHS RENDER DEBUG: canPerformSignatoryActions:', canPerformSignatoryActions);
-                }
                 
                 // Enable approve button for 'Pending' and 'Rejected' statuses.
                 let approveBtnDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
@@ -1227,20 +1056,6 @@ handleStudentManagementPageRequest('Senior High School');
                 let rejectBtnDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
                 // Disable checkbox for 'Unapplied' and 'Approved' statuses (same logic as buttons)
                 let checkboxDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
-                
-                // Debug button states for first student
-                if (students.indexOf(student) === 0) {
-                    console.log('🎨 SHS RENDER DEBUG: Sample student button states:', {
-                        studentId: student.id,
-                        clearanceStatus,
-                        userExisted,
-                        canPerformSignatoryActions,
-                        approveBtnDisabled,
-                        rejectBtnDisabled,
-                        checkboxDisabled,
-                        clearanceStatusInList: ['Pending', 'Rejected'].includes(clearanceStatus)
-                    });
-                }
                 
                 let approveTitle = 'Approve Clearance';
                 // Change button title if the student is already rejected.
@@ -1391,7 +1206,8 @@ handleStudentManagementPageRequest('Senior High School');
             const termText = selectedOption.text;
             
             // Check if this is a historical term (not current/ongoing)
-            const isHistorical = true; // TODO: Implement logic to check if term is historical
+            // For now, assume all selected terms are historical (not the current active period)
+            const isHistorical = true;
             
             banner.className = isHistorical ? 'term-indicator-banner historical' : 'term-indicator-banner';
             banner.innerHTML = `
@@ -1417,69 +1233,8 @@ handleStudentManagementPageRequest('Senior High School');
             document.getElementById('clearanceStatusFilter').value = '';
             document.getElementById('accountStatusFilter').value = '';
             document.getElementById('schoolTermFilter').value = '';
-            
-            const tableRows = document.querySelectorAll('#studentTableBody tr');
-            tableRows.forEach(row => {
-                row.style.display = '';
-            });
-            
-            updateFilteredEntries();
-            applyFilters();
+            fetchStudents();
             showToastNotification('All filters cleared', 'info');
-        }
-
-        function initializePagination() {
-            const allRows = document.querySelectorAll('#studentTableBody tr');
-            filteredEntries = Array.from(allRows);
-            updatePagination();
-        }
-
-        function updatePagination() {
-            const totalPages = Math.ceil(filteredEntries.length / entriesPerPage);
-            const startEntry = (currentPage - 1) * entriesPerPage + 1;
-            const endEntry = Math.min(currentPage * entriesPerPage, filteredEntries.length);
-            
-            document.getElementById('paginationInfo').textContent = 
-                `Showing ${startEntry} to ${endEntry} of ${filteredEntries.length} entries`;
-            
-            updatePageNumbers(totalPages);
-            
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage === totalPages;
-            
-        }
-
-        function updatePageNumbers(totalPages) {
-            const pageNumbersContainer = document.getElementById('pageNumbers');
-            pageNumbersContainer.innerHTML = '';
-            
-            if (totalPages <= 7) {
-                for (let i = 1; i <= totalPages; i++) {
-                    addPageButton(i, i === currentPage);
-                }
-            } else {
-                if (currentPage <= 4) {
-                    for (let i = 1; i <= 5; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
-                    addEllipsis();
-                    addPageButton(totalPages, false);
-                } else if (currentPage >= totalPages - 3) {
-                    addPageButton(1, false);
-                    addEllipsis();
-                    for (let i = totalPages - 4; i <= totalPages; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
-                } else {
-                    addPageButton(1, false);
-                    addEllipsis();
-                    for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-                        addPageButton(i, i === currentPage);
-                    }
-                    addEllipsis();
-                    addPageButton(totalPages, false);
-                }
-            }
         }
 
         function addPageButton(pageNum, isActive) {
@@ -1523,13 +1278,6 @@ handleStudentManagementPageRequest('Senior High School');
             fetchStudents();
         }
 
-        function updateFilteredEntries() {
-            const visibleRows = document.querySelectorAll('#studentTableBody tr:not([style*="display: none"])');
-            filteredEntries = Array.from(visibleRows);
-            currentPage = 1;
-            updatePagination();
-        }
-
         function scrollToTop() {
             const tableWrapper = document.getElementById('studentTableWrapper');
             tableWrapper.scrollTo({
@@ -1562,53 +1310,12 @@ handleStudentManagementPageRequest('Senior High School');
             }
         }
 
-        // Check if current user is signatory for this sector
-        async function checkSignatoryStatus(sector) {
-            try {
-                const response = await fetch(`../../api/clearance/check_signatory_status.php?sector=${encodeURIComponent(sector)}`, {
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                return data.success && data.is_signatory;
-            } catch (error) {
-                console.error('Error checking signatory status:', error);
-                return false;
-            }
-        }
-
-        // Initialize signatory buttons based on user's signatory status
-        async function initializeSignatoryButtons() {
-            const isSignatory = await checkSignatoryStatus('Senior High School');
-            console.log('User is signatory for Senior High School:', isSignatory);
-            
-            if (!isSignatory) {
-                // Hide only the approve/reject buttons if user is not a signatory
-                // Keep all data visible, only hide action buttons
-                document.querySelectorAll('.approve-btn, .reject-btn').forEach(btn => {
-                    btn.style.display = 'none';
-                });
-                
-                // Update the Clearance Status column to show "Not Assigned" instead of hiding it
-                document.querySelectorAll('#studentsTableBody tr').forEach(row => {
-                    const cells = row.children;
-                    // Update the Clearance Status column (8th column, index 7) to show "Not Assigned"
-                    if (cells[7]) {
-                        const statusBadge = cells[7].querySelector('.status-badge');
-                        if (statusBadge) {
-                            statusBadge.textContent = 'Not Assigned';
-                            statusBadge.className = 'status-badge clearance-not-assigned';
-                        }
-                    }
-                });
-            }
-        }
-
         async function setDefaultSchoolTerm() {
             try {
                 const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
                 const data = await response.json();
                 if (data.success && data.active_periods && data.active_periods.length > 0) {
-                    // Find the active period specifically for the 'College' sector
+                    // Find the active period specifically for the 'Senior High School' sector
                     const activeSHSPeriod = data.active_periods.find(p => p.sector === 'Senior High School');
 
                     if (activeSHSPeriod) {
@@ -1618,9 +1325,6 @@ handleStudentManagementPageRequest('Senior High School');
                         // Check if the option exists before setting it
                         if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
                             schoolTermFilter.value = termValue;
-                            console.log('Default school term set to:', termValue);
-                        } else {
-                            console.warn('Default school term option not found in filter:', termValue);
                         }
                     }
                 }
@@ -1645,7 +1349,6 @@ handleStudentManagementPageRequest('Senior High School');
                 }
             });
             
-            // Initialize Activity Tracker
             window.sidebarHandledByPage = true;
 
             // Initial data fetch
@@ -1868,12 +1571,6 @@ handleStudentManagementPageRequest('Senior High School');
                 }
 
             } else {
-                // Update individual student row
-                const row = document.querySelector(`.student-checkbox[data-id="${currentRejectionData.targetId}"]`);
-                if (row) {
-
-                    }
-                }
                 // server-side record
                 try {
                     const uid = await resolveUserIdFromStudentNumber(currentRejectionData.targetId); // targetId is student number
@@ -1893,62 +1590,34 @@ handleStudentManagementPageRequest('Senior High School');
                     closeRejectionRemarksModal(); // Close the modal
                 }
             }
+        }
 
         async function resolveUserIdFromStudentNumber(studentNumber){
-            console.log('🟢 SHS RESOLVE_USER DEBUG: Resolving user ID for student number:', studentNumber);
             try{
                 const apiUrl = `../../api/users/read.php?limit=5&search=${encodeURIComponent(studentNumber)}`;
-                console.log('🟢 SHS RESOLVE_USER DEBUG: Fetching from:', apiUrl);
-                
                 const r = await fetch(apiUrl, { credentials:'include' });
-                console.log('🟢 SHS RESOLVE_USER DEBUG: Response status:', r.status);
-                
                 const data = await r.json();
-                console.log('🟢 SHS RESOLVE_USER DEBUG: Response data:', data);
-                
                 const arr = data.users || [];
-                console.log('🟢 SHS RESOLVE_USER DEBUG: Users found:', arr.length);
-                console.log('🟢 SHS RESOLVE_USER DEBUG: Users list:', arr.map(u => ({ username: u.username, user_id: u.user_id })));
-                
                 const match = arr.find(u => String(u.username) === String(studentNumber));
-                console.log('🟢 SHS RESOLVE_USER DEBUG: Match found:', !!match);
-                if (match) {
-                    console.log('🟢 SHS RESOLVE_USER DEBUG: ✅ Resolved user_id:', match.user_id);
-                } else {
-                    console.warn('🟢 SHS RESOLVE_USER DEBUG: ⚠️ No match found for student number:', studentNumber);
-                }
-                
                 return match ? match.user_id : null;
             }catch(e){ 
-                console.error('🟢 SHS RESOLVE_USER DEBUG: ❌ Exception:', e);
-                console.error('🟢 SHS RESOLVE_USER DEBUG: Exception stack:', e.stack);
+                console.error('Error resolving user ID:', e);
                 return null; 
             }
         }
+        
         async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null){
-            console.log('🟡 SHS SEND_ACTION DEBUG: Function called with:', {
-                applicantUserId,
-                action,
-                remarks,
-                reasonId,
-                CURRENT_STAFF_POSITION
-            });
-            
             // Get the selected designation from the roleSelector dropdown
             const roleSelector = document.getElementById('roleSelector');
             let currentDesignation = CURRENT_STAFF_POSITION; // Fallback
             
             if (roleSelector) {
                 currentDesignation = roleSelector.value;
-                console.log('🟡 SHS SEND_ACTION DEBUG: Using selected designation from dropdown:', currentDesignation);
-            } else {
-                console.warn('🟡 SHS SEND_ACTION DEBUG: roleSelector not found, using fallback:', currentDesignation);
             }
 
             // Get the currently selected school term from the filter to ensure approval goes to the correct period
             const schoolTermFilter = document.getElementById('schoolTermFilter');
             const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
-            console.log('🟡 SHS SEND_ACTION DEBUG: School term filter value:', currentSchoolTerm);
 
             const payload = { 
                 applicant_user_id: applicantUserId, 
@@ -1962,19 +1631,8 @@ handleStudentManagementPageRequest('Senior High School');
                 payload.school_term = currentSchoolTerm.trim();
             }
 
-            console.log('🟡 SHS SEND_ACTION DEBUG: Final payload:', payload);
-            console.log('🟡 SHS SEND_ACTION DEBUG: API endpoint: ../../api/clearance/signatory_action.php');
-
             try {
                 const apiUrl = '../../api/clearance/signatory_action.php';
-                console.log('🟡 SHS SEND_ACTION DEBUG: Sending POST request to:', apiUrl);
-                console.log('🟡 SHS SEND_ACTION DEBUG: Request options:', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(payload)
-                });
-                
                 const response = await fetch(apiUrl, {
                     method:'POST', 
                     headers:{'Content-Type':'application/json'}, 
@@ -1982,43 +1640,20 @@ handleStudentManagementPageRequest('Senior High School');
                     body: JSON.stringify(payload)
                 });
                 
-                console.log('🟡 SHS SEND_ACTION DEBUG: Response received:', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    ok: response.ok,
-                    headers: Object.fromEntries(response.headers.entries())
-                });
-                
                 // Check if response is OK (status 200-299)
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error('🟡 SHS SEND_ACTION DEBUG: ❌ HTTP Error Response:', {
-                        status: response.status,
-                        statusText: response.statusText,
-                        body: errorText
-                    });
+                    console.error('HTTP error response:', response.status, errorText);
                     return {
                         success: false,
                         message: `Server error: ${response.status} ${response.statusText}`
                     };
                 }
                 
-                console.log('🟡 SHS SEND_ACTION DEBUG: Parsing JSON response...');
                 const data = await response.json();
-                console.log('🟡 SHS SEND_ACTION DEBUG: ✅ API Response data:', data);
-                
-                if (!data.success) {
-                    console.error('🟡 SHS SEND_ACTION DEBUG: ❌ API returned success:false:', data.message);
-                } else {
-                    console.log('🟡 SHS SEND_ACTION DEBUG: ✅ API returned success:true');
-                }
-                
                 return data;
             } catch (error) {
-                console.error('🟡 SHS SEND_ACTION DEBUG: ❌ Exception caught:', error);
-                console.error('🟡 SHS SEND_ACTION DEBUG: Exception name:', error.name);
-                console.error('🟡 SHS SEND_ACTION DEBUG: Exception message:', error.message);
-                console.error('🟡 SHS SEND_ACTION DEBUG: Exception stack:', error.stack);
+                console.error('Error sending signatory action:', error);
                 return {
                     success: false,
                     message: error.message || 'Network error: Failed to communicate with server'
@@ -2109,9 +1744,23 @@ handleStudentManagementPageRequest('Senior High School');
         }
 
         async function loadSchoolTerms() {
-            const url = `../../api/clearance/get_filter_options.php?type=school_terms`;
-            await populateFilter('schoolTermFilter', url, 'All School Terms');
-        
+            const termSelect = document.getElementById('schoolTermFilter');
+            try {
+                const response = await fetch('../../api/clearance/periods.php', { credentials: 'include' });
+                const data = await response.json();
+
+                termSelect.innerHTML = '<option value="">All School Terms</option>';
+                if (data.success && data.periods) {
+                    const uniqueTerms = [...new Map(data.periods.map(item => [`${item.academic_year}-${item.semester_name}`, item])).values()];
+                    
+                    uniqueTerms.forEach(period => {
+                        const option = document.createElement('option');
+                        option.value = `${period.academic_year}|${period.semester_id}`; // Use a format the backend can parse
+                        option.textContent = `${period.academic_year} - ${period.semester_name}`;
+                        termSelect.appendChild(option);
+                    });
+                }
+            } catch (error) { console.error('Error loading school terms:', error); }
         }
 
         // Clear all selections functionality
@@ -2184,118 +1833,6 @@ handleStudentManagementPageRequest('Senior High School');
             });
             
             updateSelectionCounter();
-        }
-
-        // Signatory Action Functions
-        async function approveSignatory(userId, clearanceFormId, signatoryId) {
-            try {
-                const response = await fetch('../../api/clearance/apply_signatory.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        operation: 'approve',
-                        target_user_id: userId,
-                        signatory_id: signatoryId,
-                        clearance_form_id: clearanceFormId,
-                        remarks: 'Approved by Regular Staff'
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    showToastNotification('Signatory approved successfully', 'success');
-                    updateSignatoryActionUI(userId, 'Approved');
-                } else {
-                    showToastNotification('Failed to approve signatory: ' + result.message, 'error');
-                }
-            } catch (error) {
-                console.error('Error approving signatory:', error);
-                showToastNotification('Error approving signatory: ' + error.message, 'error');
-            }
-        }
-
-        async function rejectSignatory(userId, clearanceFormId, signatoryId) {
-            try {
-                // Open rejection modal
-                openRejectionModal(userId, clearanceFormId, signatoryId);
-            } catch (error) {
-                console.error('Error opening rejection modal:', error);
-                showToastNotification('Error opening rejection modal: ' + error.message, 'error');
-            }
-        }
-
-        function openRejectionModal(userId, clearanceFormId, signatoryId) {
-            try {
-                // Store rejection data for later use
-                window.pendingRejection = {
-                    userId: userId,
-                    clearanceFormId: clearanceFormId,
-                    signatoryId: signatoryId
-                };
-
-                // Check if rejectionRemarksModal exists and open it
-                const modal = document.getElementById('rejectionRemarksModal');
-                if (modal && typeof openRejectionRemarksModal === 'function') {
-                    // Try to get student name from the row
-                    const row = document.querySelector(`tr[data-user-id="${userId}"]`);
-                    const studentName = row ? (row.querySelector('.student-name')?.textContent || 'Student') : 'Student';
-                    openRejectionRemarksModal(userId, studentName, 'student', false, [], '', '');
-                } else {
-                    // Fallback: show toast notification
-                    if (typeof showToastNotification === 'function') {
-                        showToastNotification('Rejection feature is temporarily unavailable.', 'error');
-                    }
-                }
-            } catch (error) {
-                if (typeof showToastNotification === 'function') {
-                    showToastNotification('Unable to open rejection modal. Please try again.', 'error');
-                }
-            }
-        }
-
-        function updateSignatoryActionUI(userId, action) {
-            // Find the row for this user and update the signatory action buttons and status
-            const row = document.querySelector(`tr[data-user-id="${userId}"]`);
-            if (!row) return;
-            
-            // Update the Clearance Status column (8th column)
-            const statusCell = row.children[7]; // Clearance Status column
-            if (statusCell) {
-                const statusBadge = statusCell.querySelector('.status-badge');
-                if (statusBadge) {
-                    if (action === 'Approved') {
-                        statusBadge.textContent = 'Approved';
-                        statusBadge.className = 'status-badge clearance-approved';
-                    } else if (action === 'Rejected') {
-                        statusBadge.textContent = 'Rejected';
-                        statusBadge.className = 'status-badge clearance-rejected';
-                    }
-                }
-            }
-            
-            // Update the action buttons in the Actions column (9th column)
-            const actionCell = row.children[8]; // Actions column
-            if (actionCell) {
-                const approveBtn = actionCell.querySelector('.approve-btn');
-                const rejectBtn = actionCell.querySelector('.reject-btn');
-                
-                if (approveBtn && rejectBtn) {
-                    if (action === 'Approved') {
-                        approveBtn.disabled = true;
-                        approveBtn.classList.add('approved');
-                        rejectBtn.disabled = true;
-                    } else if (action === 'Rejected') {
-                        approveBtn.disabled = false;
-                        approveBtn.title = 'Re-approve Signatory';
-                        rejectBtn.disabled = true;
-                        rejectBtn.classList.add('rejected');
-                    }
-                }
-            }
         }
 
         async function loadRejectionReasons() {

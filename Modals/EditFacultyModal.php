@@ -49,7 +49,6 @@
             <option value="">Select Status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
-            <option value="resigned">Resigned</option>
           </select>
         </div>
 

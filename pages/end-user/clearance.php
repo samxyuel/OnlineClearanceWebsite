@@ -135,12 +135,6 @@
                                     <span class="detail-value" id="overallStatusText">Loading...</span>
                                 </div>
                             </div>
-                            <!--
-                            <div class="form-extra-meta">
-                                <span class="meta-item"><strong>Sector:</strong>  ?php echo $user_sector; ?></span>
-                                <span class="meta-item"><strong>Account:</strong>  ?php echo $first_name . ' ' . $last_name; ?></span>
-                            </div>
-                            -->
                         </div>
                     </div>
                 </div>
@@ -152,9 +146,6 @@
                     </button>
                     <button class="tab-button" onclick="switchTab('table')" data-tab="table">
                         <i class="fas fa-table"></i> Table View
-                    </button>
-                    <button class="tab-button" onclick="switchTab('timeline')" data-tab="timeline">
-                        <i class="fas fa-clock"></i> Timeline
                     </button>
                 </div>
 
@@ -195,42 +186,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Timeline View Tab -->
-                    <div id="timeline-tab" class="tab-pane">
-                        <div class="timeline-container">
-                            <div class="timeline-item pending">
-                                <div class="timeline-marker"></div>
-                                <div class="timeline-content">
-                                    <h4><?php echo ucfirst($user_type); ?> Clearance Application Submitted</h4>
-                                    <p>Application submitted for 2027-2028 1st Semester</p>
-                                    <span class="timeline-date">Dec 15, 2024</span>
-                                </div>
-                            </div>
-                            
-                            <div class="timeline-item pending">
-                                <div class="timeline-marker"></div>
-                                <div class="timeline-content">
-                                    <h4>Awaiting Signatory Approvals</h4>
-                                    <p><?php if ($user_type === 'faculty'): ?>
-                                        All signatories pending: Department Head, Library, Finance, HR
-                                    <?php else: ?>
-                                        All signatories pending: Cashier, Librarian, Program Head, Registrar
-                                    <?php endif; ?></p>
-                                    <span class="timeline-date">In Progress</span>
-                                </div>
-                            </div>
-                            
-                            <div class="timeline-item future">
-                                <div class="timeline-marker"></div>
-                                <div class="timeline-content">
-                                    <h4>Clearance Completion</h4>
-                                    <p>All signatories must approve for clearance completion</p>
-                                    <span class="timeline-date">Pending</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 
@@ -242,17 +197,7 @@
     <script>
     // Global variables
     let currentPeriodData = null;
-    let currentButtonStates = [];
     let refreshInterval = null;
-    
-    // User information from PHP
-    const userInfo = {
-        id: <?php echo $user_id; ?>,
-        type: '<?php echo $user_type; ?>',
-        sector: '<?php echo $user_sector; ?>',
-        firstName: '<?php echo $first_name; ?>',
-        lastName: '<?php echo $last_name; ?>'
-    };
 
     // Tab switching function
     function switchTab(tabName) {
@@ -265,16 +210,13 @@
         tabButtons.forEach(button => button.classList.remove('active'));
         
         // Show selected tab pane
-        document.getElementById(tabName + '-tab').classList.add('active');
+        const targetTab = document.getElementById(tabName + '-tab');
+        if (targetTab) {
+            targetTab.classList.add('active');
+        }
         
         // Add active class to clicked button
         event.target.classList.add('active');
-    }
-    
-    // View details function
-    function viewDetails(signatory) {
-        console.log('Viewing details for:', signatory);
-        showToast(`Viewing details for ${signatory}`, 'info');
     }
     
     // Export clearance function
@@ -505,9 +447,6 @@
 
     // Update the clearance UI based on data
     function updateClearanceUI(data) {
-        // Store button states for use in getActionButton
-        currentButtonStates = data.button_states || [];
-        
         // Store clearance data globally for button logic
         window.currentClearanceData = data;
         currentPeriodData = data;
@@ -767,8 +706,6 @@
     }
 
     function getActionButton(signatory) {
-        const slug = signatory.designation_name.toLowerCase().replace(/\s+/g, '-');
-        
         const clearanceData = window.currentClearanceData;
         if (!clearanceData) return '';
 

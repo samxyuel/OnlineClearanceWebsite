@@ -464,7 +464,6 @@ handleStudentManagementPageRequest('College');
         </div>
     </div>
 
-    <?php include '../../includes/functions/audit_functions.php'; ?>
     <script>
         // --- State Management ---
         let currentPage = 1;
@@ -493,7 +492,6 @@ handleStudentManagementPageRequest('College');
             const roleSelector = document.getElementById('roleSelector');
             if (roleSelector && roleSelector.value) {
                 CURRENT_STAFF_POSITION = roleSelector.value;
-                console.log('Initialized CURRENT_STAFF_POSITION to:', CURRENT_STAFF_POSITION);
             }
         });
 
@@ -502,7 +500,6 @@ handleStudentManagementPageRequest('College');
             const roleSelector = document.getElementById('roleSelector');
             if (roleSelector) {
                 CURRENT_STAFF_POSITION = roleSelector.value;
-                console.log("Role changed to:", CURRENT_STAFF_POSITION);
                 
                 // Update the position display
                 const positionElement = document.getElementById('positionInfo');
@@ -718,41 +715,6 @@ handleStudentManagementPageRequest('College');
             document.getElementById('filterRejected').checked = false;
         }
 
-        function updateSelectionCounter() {
-            const selectedCount = getSelectedCount();
-            const totalCount = document.querySelectorAll('.student-checkbox').length;
-            const counter = document.getElementById('selectionCounter');
-            
-            if (selectedCount === 0) {
-                counter.textContent = '0 selected';
-            } else if (selectedCount > 0 && selectedCount === totalCount) {
-                counter.textContent = `All ${totalCount} selected`;
-            } else {
-                counter.textContent = `${selectedCount} selected`;
-            }
-        }
-
-        function updateBulkButtons() {
-            const checkedBoxes = document.querySelectorAll('.student-checkbox:checked');
-            const bulkButtons = document.querySelectorAll('.bulk-buttons button');
-
-            bulkButtons.forEach(button => {
-                // Disable if no selections OR if signatory actions are not allowed
-                button.disabled = checkedBoxes.length === 0 || !canPerformSignatoryActions;
-
-                // Add tooltip for disabled state due to permissions
-                if (!canPerformSignatoryActions && checkedBoxes.length > 0) {
-                    button.title = 'View Only Mode: You are not assigned as a signatory for this clearance period';
-                } else if (checkedBoxes.length === 0) {
-                    button.title = 'Select students to perform actions';
-                } else {
-                    button.title = '';
-                }
-            });
-            
-            updateSelectionCounter();
-        }
-
         // Bulk Actions - Staff can only approve/reject clearances
         function approveSelected() {
             const selectedCount = getSelectedCount();
@@ -842,67 +804,35 @@ handleStudentManagementPageRequest('College');
 
         // Individual student actions - Staff can only approve/reject clearances
         async function approveStudentClearance(studentId) {
-            console.log('🔵 APPROVE DEBUG: Function called with studentId:', studentId);
-            console.log('🔵 APPROVE DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
-            
             // Check if signatory actions are allowed (uses global variable updated from API)
-            console.log('🔵 APPROVE DEBUG: canPerformSignatoryActions:', canPerformSignatoryActions);
             if (!canPerformSignatoryActions) {
-                console.warn('🔵 APPROVE DEBUG: Permission denied - canPerformSignatoryActions is false');
                 showToastNotification('View Only Mode: You are not assigned as a signatory for this clearance period.', 'warning');
                 return;
             }
-
+            
             // Find the row element with null check
             const checkboxSelector = `.student-checkbox[data-id="${studentId}"]`;
-            console.log('🔵 APPROVE DEBUG: Looking for checkbox with selector:', checkboxSelector);
             const checkbox = document.querySelector(checkboxSelector);
             if (!checkbox) {
-                console.error('🔵 APPROVE DEBUG: ❌ Student checkbox not found for ID:', studentId);
-                console.error('🔵 APPROVE DEBUG: Available checkboxes:', document.querySelectorAll('.student-checkbox').length);
                 showToastNotification('Student record not found in table.', 'error');
                 return;
             }
-            console.log('🔵 APPROVE DEBUG: ✅ Checkbox found');
             
             const row = checkbox.closest('tr');
             if (!row) {
-                console.error('🔵 APPROVE DEBUG: ❌ Table row not found for student ID:', studentId);
                 showToastNotification('Student record structure error.', 'error');
                 return;
             }
-            console.log('🔵 APPROVE DEBUG: ✅ Row found');
             
             const studentName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Student';
-            console.log('🔵 APPROVE DEBUG: Student name:', studentName);
             
             const clearanceBadgeSelector = '.status-badge-compact.signatory-pending, .status-badge-compact.signatory-rejected';
-            console.log('🔵 APPROVE DEBUG: Looking for clearance badge with selector:', clearanceBadgeSelector);
             const clearanceBadge = row.querySelector(clearanceBadgeSelector);
-            const clearanceFormId = row.getAttribute('data-clearance-form-id');
-            const signatoryId = row.getAttribute('data-signatory-id');
-            
-            console.log('🔵 APPROVE DEBUG: Clearance badge found:', !!clearanceBadge);
-            console.log('🔵 APPROVE DEBUG: Clearance form ID:', clearanceFormId);
-            console.log('🔵 APPROVE DEBUG: Signatory ID:', signatoryId);
-            console.log('🔵 APPROVE DEBUG: Row data attributes:', {
-                'data-clearance-form-id': clearanceFormId,
-                'data-signatory-id': signatoryId,
-                'data-user-id': row.getAttribute('data-user-id')
-            });
 
             if (!clearanceBadge) {
-                console.warn('🔵 APPROVE DEBUG: ⚠️ No clearance badge found - cannot approve');
-                console.warn('🔵 APPROVE DEBUG: Available badges in row:', row.querySelectorAll('.status-badge').length);
-                console.warn('🔵 APPROVE DEBUG: Row HTML classes:', row.className);
                 showToastNotification('No clearance to approve', 'warning');
                 return;
             }
-            
-            const badgeText = clearanceBadge.textContent.trim();
-            const badgeClasses = clearanceBadge.className;
-            console.log('🔵 APPROVE DEBUG: Clearance badge text:', badgeText);
-            console.log('🔵 APPROVE DEBUG: Clearance badge classes:', badgeClasses);
             
             showConfirmationModal(
                 'Approve Student Clearance',
@@ -910,40 +840,24 @@ handleStudentManagementPageRequest('College');
                 'Approve',
                 'Cancel',
                 async () => {
-                    console.log('🔵 APPROVE DEBUG: Confirmation modal approved, starting approval process');
                     try {
-                        console.log('🔵 APPROVE DEBUG: Resolving user ID from student number:', studentId);
                         const uid = await resolveUserIdFromStudentNumber(studentId);
-                        console.log('🔵 APPROVE DEBUG: Resolved user ID:', uid);
                         
                         if (uid) {
-                            console.log('🔵 APPROVE DEBUG: Calling sendSignatoryAction with:', {
-                                userId: uid,
-                                action: 'Approved',
-                                remarks: 'Approved by ' + CURRENT_STAFF_POSITION,
-                                designation: CURRENT_STAFF_POSITION
-                            });
-                            
                             // Corrected: Pass remarks in the 4th argument, not concatenated with the designation.
                             const result = await sendSignatoryAction(uid, 'Approved', 'Approved by ' + CURRENT_STAFF_POSITION);
                             
-                            console.log('🔵 APPROVE DEBUG: API Response:', result);
-                            
                             if (result.success) {
-                                console.log('🔵 APPROVE DEBUG: ✅ Approval successful');
                                 showToastNotification('Student clearance approved successfully', 'success');
                                 fetchStudents(); // Refresh the table to update button states
                             } else {
-                                console.error('🔵 APPROVE DEBUG: ❌ Approval failed:', result.message);
                                 showToastNotification('Failed to approve: ' + (result.message || 'Unknown error'), 'error');
                             }
                         } else {
-                            console.error('🔵 APPROVE DEBUG: ❌ Could not resolve user ID from student number:', studentId);
                             showToastNotification('Could not identify user. Please try again.', 'error');
                         }
                     } catch (e) {
-                        console.error('🔵 APPROVE DEBUG: ❌ Exception during approval:', e);
-                        console.error('🔵 APPROVE DEBUG: Exception stack:', e.stack);
+                        console.error('Error during approval:', e);
                         showToastNotification('An error occurred during approval.', 'error');
                     }
                 },
@@ -952,104 +866,53 @@ handleStudentManagementPageRequest('College');
         }
 
         async function rejectStudentClearance(studentId) {
-            console.log('🔴 REJECT DEBUG: Function called with studentId:', studentId);
-            console.log('🔴 REJECT DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
-            
             // Check if signatory actions are allowed (uses global variable updated from API)
-            console.log('🔴 REJECT DEBUG: canPerformSignatoryActions:', canPerformSignatoryActions);
             if (!canPerformSignatoryActions) {
-                console.warn('🔴 REJECT DEBUG: Permission denied - canPerformSignatoryActions is false');
                 showToastNotification('View Only Mode: You are not assigned as a signatory for this clearance period.', 'warning');
                 return;
             }
             
             // Find the row element with null check
             const checkboxSelector = `.student-checkbox[data-id="${studentId}"]`;
-            console.log('🔴 REJECT DEBUG: Looking for checkbox with selector:', checkboxSelector);
             const checkbox = document.querySelector(checkboxSelector);
             if (!checkbox) {
-                console.error('🔴 REJECT DEBUG: ❌ Student checkbox not found for ID:', studentId);
-                console.error('🔴 REJECT DEBUG: Available checkboxes:', document.querySelectorAll('.student-checkbox').length);
                 showToastNotification('Student record not found in table.', 'error');
                 return;
             }
-            console.log('🔴 REJECT DEBUG: ✅ Checkbox found');
             
             const row = checkbox.closest('tr');
             if (!row) {
-                console.error('🔴 REJECT DEBUG: ❌ Table row not found for student ID:', studentId);
                 showToastNotification('Student record structure error.', 'error');
                 return;
             }
-            console.log('🔴 REJECT DEBUG: ✅ Row found');
             
             const studentName = row.querySelector('td:nth-child(3)')?.textContent || 'Unknown Student';
-            console.log('🔴 REJECT DEBUG: Student name:', studentName);
             
             const clearanceBadgeSelector = '.status-badge-compact.signatory-pending, .status-badge-compact.signatory-rejected';
-            console.log('🔴 REJECT DEBUG: Looking for clearance badge with selector:', clearanceBadgeSelector);
             const clearanceBadge = row.querySelector(clearanceBadgeSelector);
             const signatoryId = row.getAttribute('data-signatory-id');
-            const clearanceFormId = row.getAttribute('data-clearance-form-id');
-            
-            console.log('🔴 REJECT DEBUG: Clearance badge found:', !!clearanceBadge);
-            console.log('🔴 REJECT DEBUG: Signatory ID:', signatoryId);
-            console.log('🔴 REJECT DEBUG: Clearance form ID:', clearanceFormId);
-            console.log('🔴 REJECT DEBUG: Row data attributes:', {
-                'data-clearance-form-id': clearanceFormId,
-                'data-signatory-id': signatoryId,
-                'data-user-id': row.getAttribute('data-user-id')
-            });
             
             if (!clearanceBadge) {
-                console.warn('🔴 REJECT DEBUG: ⚠️ No clearance badge found - cannot reject');
-                console.warn('🔴 REJECT DEBUG: Available badges in row:', row.querySelectorAll('.status-badge').length);
-                console.warn('🔴 REJECT DEBUG: All badges in row:', Array.from(row.querySelectorAll('.status-badge')).map(b => ({
-                    text: b.textContent.trim(),
-                    classes: b.className
-                })));
-                console.warn('🔴 REJECT DEBUG: Row HTML classes:', row.className);
                 showToastNotification('Invalid clearance status to reject', 'warning');
                 return;
             }
-            
-            const badgeText = clearanceBadge.textContent.trim();
-            const badgeClasses = clearanceBadge.className;
-            console.log('🔴 REJECT DEBUG: Clearance badge text:', badgeText);
-            console.log('🔴 REJECT DEBUG: Clearance badge classes:', badgeClasses);
 
             let existingRemarks = '';
             let existingReasonId = '';
 
-            console.log('🔴 REJECT DEBUG: Fetching existing rejection details for signatory_id:', signatoryId);
             try {
                 const rejectionReasonsUrl = `../../api/clearance/rejection_reasons.php?signatory_id=${signatoryId}`;
-                console.log('🔴 REJECT DEBUG: Fetching from:', rejectionReasonsUrl);
                 const response = await fetch(rejectionReasonsUrl, { credentials: 'include' });
-                console.log('🔴 REJECT DEBUG: Rejection reasons response status:', response.status);
-                
                 const data = await response.json();
-                console.log('🔴 REJECT DEBUG: Rejection reasons response data:', data);
                 
                 if (data.success && data.details) {
                     existingRemarks = data.details.additional_remarks || '';
                     existingReasonId = data.details.reason_id || '';
-                    console.log('🔴 REJECT DEBUG: Found existing rejection details:', {
-                        remarks: existingRemarks,
-                        reasonId: existingReasonId
-                    });
-                } else {
-                    console.log('🔴 REJECT DEBUG: No existing rejection details found');
                 }
             } catch (error) {
-                console.error('🔴 REJECT DEBUG: ❌ Error fetching rejection details:', error);
-                console.error('🔴 REJECT DEBUG: Error stack:', error.stack);
+                console.error('Error fetching rejection details:', error);
                 showToastNotification('Could not load existing rejection details.', 'error');
             }
-        
-            console.log('🔴 REJECT DEBUG: Opening rejection modal for:', studentName);
-            console.log('🔴 REJECT DEBUG: Existing reason ID:', existingReasonId);
-            console.log('🔴 REJECT DEBUG: Existing remarks:', existingRemarks);
             
             // Open rejection remarks modal for individual rejection
             openRejectionRemarksModal(studentId, studentName, 'student', false, [], existingRemarks, existingReasonId);
@@ -1057,11 +920,6 @@ handleStudentManagementPageRequest('College');
 
         // --- Data Fetching and Rendering ---
         async function fetchStudents() {
-            console.log('📊 FETCH_STUDENTS DEBUG: Starting fetch...');
-            console.log('📊 FETCH_STUDENTS DEBUG: Current page:', currentPage);
-            console.log('📊 FETCH_STUDENTS DEBUG: Entries per page:', entriesPerPage);
-            console.log('📊 FETCH_STUDENTS DEBUG: CURRENT_STAFF_POSITION:', CURRENT_STAFF_POSITION);
-            
             const tableBody = document.getElementById('studentTableBody');
             tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;">Loading students...</td></tr>`;
 
@@ -1069,13 +927,6 @@ handleStudentManagementPageRequest('College');
             const accountStatus = document.getElementById('accountStatusFilter').value;
             const schoolTerm = document.getElementById('schoolTermFilter').value;
             const search = document.getElementById('searchInput').value;
-
-            console.log('📊 FETCH_STUDENTS DEBUG: Filters:', {
-                clearanceStatus,
-                accountStatus,
-                schoolTerm,
-                search
-            });
 
             const url = new URL('../../api/clearance/signatoryList.php', window.location.href);
 
@@ -1094,30 +945,17 @@ handleStudentManagementPageRequest('College');
             // Pass the current role/designation for filtering
             if (CURRENT_STAFF_POSITION) url.searchParams.append('designation_filter', CURRENT_STAFF_POSITION);
 
-            console.log('📊 FETCH_STUDENTS DEBUG: Fetching from URL:', url.toString());
-
             try {
                 const response = await fetch(url.toString(), { credentials: 'include' });
-                console.log('📊 FETCH_STUDENTS DEBUG: Response status:', response.status);
-                console.log('📊 FETCH_STUDENTS DEBUG: Response ok:', response.ok);
-                
                 const data = await response.json();
-                console.log('📊 FETCH_STUDENTS DEBUG: Response data:', data);
-                console.log('📊 FETCH_STUDENTS DEBUG: Students count:', data.students?.length || 0);
 
                 if (!data.success) {
-                    console.error('📊 FETCH_STUDENTS DEBUG: ❌ API returned success:false:', data.message);
                     tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:red;">Error: ${data.message}</td></tr>`;
                     return;
                 }
 
                 // Update canPerformSignatoryActions from API response
                 canPerformSignatoryActions = data.can_perform_actions === true;
-                console.log('📊 FETCH_STUDENTS DEBUG: can_perform_actions:', data.can_perform_actions, '-> canPerformSignatoryActions:', canPerformSignatoryActions);
-
-                if (data.students && data.students.length > 0) {
-                    console.log('📊 FETCH_STUDENTS DEBUG: Sample student data:', data.students[0]);
-                }
 
                 renderStudentTable(data.students);
                 renderPagination(data.total, data.page, data.limit);
@@ -1128,8 +966,7 @@ handleStudentManagementPageRequest('College');
                 updateViewOnlyIndicator();
 
             } catch (error) {
-                console.error('📊 FETCH_STUDENTS DEBUG: ❌ Exception:', error);
-                console.error('📊 FETCH_STUDENTS DEBUG: Exception stack:', error.stack);
+                console.error('Error fetching students:', error);
                 tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:red;">A network error occurred.</td></tr>`;
             }
         }
@@ -1165,32 +1002,12 @@ handleStudentManagementPageRequest('College');
                 
                 const accountStatusClass = `account-${(student.account_status || '').toLowerCase()}`;
                 
-                // Debug logging for first student only to avoid spam
-                if (students.indexOf(student) === 0) {
-                    console.log('🎨 RENDER DEBUG: Rendering student table with', students.length, 'students');
-                    console.log('🎨 RENDER DEBUG: canPerformSignatoryActions:', canPerformSignatoryActions);
-                }
-                
                 // Enable approve button for 'Pending' and 'Rejected' statuses.
                 let approveBtnDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
                 // Enable reject button for 'Pending' and 'Rejected' statuses to allow for edits.
                 let rejectBtnDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
                 // Disable checkbox for 'Unapplied' and 'Approved' statuses (same logic as buttons)
                 let checkboxDisabled = !canPerformSignatoryActions || !['Pending', 'Rejected'].includes(clearanceStatus) || !userExisted;
-                
-                // Debug button states for first student
-                if (students.indexOf(student) === 0) {
-                    console.log('🎨 RENDER DEBUG: Sample student button states:', {
-                        studentId: student.id,
-                        clearanceStatus,
-                        userExisted,
-                        canPerformSignatoryActions,
-                        approveBtnDisabled,
-                        rejectBtnDisabled,
-                        checkboxDisabled,
-                        clearanceStatusInList: ['Pending', 'Rejected'].includes(clearanceStatus)
-                    });
-                }
                 
                 let approveTitle = 'Approve Clearance';
                 // Change button title if the student is already rejected.
@@ -1348,9 +1165,6 @@ handleStudentManagementPageRequest('College');
                         // Check if the option exists before setting it
                         if (schoolTermFilter.querySelector(`option[value="${termValue}"]`)) {
                             schoolTermFilter.value = termValue;
-                            console.log('Default school term set to:', termValue);
-                        } else {
-                            console.warn('Default school term option not found in filter:', termValue);
                         }
                     }
                 }
@@ -1386,7 +1200,8 @@ handleStudentManagementPageRequest('College');
             const termText = selectedOption.text;
             
             // Check if this is a historical term (not current/ongoing)
-            const isHistorical = true; // TODO: Implement logic to check if term is historical
+            // For now, assume all selected terms are historical (not the current active period)
+            const isHistorical = true;
             
             banner.className = isHistorical ? 'term-indicator-banner historical' : 'term-indicator-banner';
             banner.innerHTML = `
@@ -1519,11 +1334,6 @@ handleStudentManagementPageRequest('College');
         async function loadAccountStatuses() {
             const url = `../../api/clearance/get_filter_options.php?type=enum&table=users&column=account_status&exclude=resigned`;
             await populateFilter('accountStatusFilter', url, 'All Account Statuses');
-        }
-
-        async function loadSchoolTerms() {
-            const url = `../../api/clearance/get_filter_options.php?type=school_terms`;
-            await populateFilter('schoolTermFilter', url, 'All School Terms');
         }
 
         // Initialize page
@@ -1792,61 +1602,31 @@ handleStudentManagementPageRequest('College');
             }
 
         async function resolveUserIdFromStudentNumber(studentNumber){
-            console.log('🟢 RESOLVE_USER DEBUG: Resolving user ID for student number:', studentNumber);
             try{
                 const apiUrl = `../../api/users/read.php?limit=5&search=${encodeURIComponent(studentNumber)}`;
-                console.log('🟢 RESOLVE_USER DEBUG: Fetching from:', apiUrl);
-                
                 const r = await fetch(apiUrl, { credentials:'include' });
-                console.log('🟢 RESOLVE_USER DEBUG: Response status:', r.status);
-                
                 const data = await r.json();
-                console.log('🟢 RESOLVE_USER DEBUG: Response data:', data);
-                
                 const arr = data.users || [];
-                console.log('🟢 RESOLVE_USER DEBUG: Users found:', arr.length);
-                console.log('🟢 RESOLVE_USER DEBUG: Users list:', arr.map(u => ({ username: u.username, user_id: u.user_id })));
-                
                 const match = arr.find(u => String(u.username) === String(studentNumber));
-                console.log('🟢 RESOLVE_USER DEBUG: Match found:', !!match);
-                if (match) {
-                    console.log('🟢 RESOLVE_USER DEBUG: ✅ Resolved user_id:', match.user_id);
-                } else {
-                    console.warn('🟢 RESOLVE_USER DEBUG: ⚠️ No match found for student number:', studentNumber);
-                }
-                
                 return match ? match.user_id : null;
             }catch(e){ 
-                console.error('🟢 RESOLVE_USER DEBUG: ❌ Exception:', e);
-                console.error('🟢 RESOLVE_USER DEBUG: Exception stack:', e.stack);
+                console.error('Error resolving user ID:', e);
                 return null; 
             }
         }
         
         async function sendSignatoryAction(applicantUserId, action, remarks, reasonId = null){
-            console.log('🟡 SEND_ACTION DEBUG: Function called with:', {
-                applicantUserId,
-                action,
-                remarks,
-                reasonId,
-                CURRENT_STAFF_POSITION
-            });
-            
             // Get the selected designation from the roleSelector dropdown
             const roleSelector = document.getElementById('roleSelector');
             let currentDesignation = CURRENT_STAFF_POSITION; // Fallback
             
             if (roleSelector) {
                 currentDesignation = roleSelector.value;
-                console.log('🟡 SEND_ACTION DEBUG: Using selected designation from dropdown:', currentDesignation);
-            } else {
-                console.warn('🟡 SEND_ACTION DEBUG: roleSelector not found, using fallback:', currentDesignation);
             }
 
             // Get the currently selected school term from the filter to ensure approval goes to the correct period
             const schoolTermFilter = document.getElementById('schoolTermFilter');
             const currentSchoolTerm = schoolTermFilter ? schoolTermFilter.value : '';
-            console.log('🟡 SEND_ACTION DEBUG: School term filter value:', currentSchoolTerm);
 
             const payload = { 
                 applicant_user_id: applicantUserId, 
@@ -1860,19 +1640,8 @@ handleStudentManagementPageRequest('College');
                 payload.school_term = currentSchoolTerm.trim();
             }
 
-            console.log('🟡 SEND_ACTION DEBUG: Final payload:', payload);
-            console.log('🟡 SEND_ACTION DEBUG: API endpoint: ../../api/clearance/signatory_action.php');
-
             try {
                 const apiUrl = '../../api/clearance/signatory_action.php';
-                console.log('🟡 SEND_ACTION DEBUG: Sending POST request to:', apiUrl);
-                console.log('🟡 SEND_ACTION DEBUG: Request options:', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(payload)
-                });
-                
                 const response = await fetch(apiUrl, {
                     method:'POST', 
                     headers:{'Content-Type':'application/json'}, 
@@ -1880,65 +1649,26 @@ handleStudentManagementPageRequest('College');
                     body: JSON.stringify(payload)
                 });
                 
-                console.log('🟡 SEND_ACTION DEBUG: Response received:', {
-                    status: response.status,
-                    statusText: response.statusText,
-                    ok: response.ok,
-                    headers: Object.fromEntries(response.headers.entries())
-                });
-                
                 // Check if response is OK (status 200-299)
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error('🟡 SEND_ACTION DEBUG: ❌ HTTP Error Response:', {
-                        status: response.status,
-                        statusText: response.statusText,
-                        body: errorText
-                    });
+                    console.error('HTTP error response:', response.status, errorText);
                     return {
                         success: false,
                         message: `Server error: ${response.status} ${response.statusText}`
                     };
                 }
                 
-                console.log('🟡 SEND_ACTION DEBUG: Parsing JSON response...');
                 const data = await response.json();
-                console.log('🟡 SEND_ACTION DEBUG: ✅ API Response data:', data);
-                
-                if (!data.success) {
-                    console.error('🟡 SEND_ACTION DEBUG: ❌ API returned success:false:', data.message);
-                } else {
-                    console.log('🟡 SEND_ACTION DEBUG: ✅ API returned success:true');
-                }
-                
                 return data;
             } catch (error) {
-                console.error('🟡 SEND_ACTION DEBUG: ❌ Exception caught:', error);
-                console.error('🟡 SEND_ACTION DEBUG: Exception name:', error.name);
-                console.error('🟡 SEND_ACTION DEBUG: Exception message:', error.message);
-                console.error('🟡 SEND_ACTION DEBUG: Exception stack:', error.stack);
+                console.error('Error sending signatory action:', error);
                 return {
                     success: false,
                     message: error.message || 'Network error: Failed to communicate with server'
                 };
             }
         }
-
-        // This function seems to be a duplicate and can be removed. The one above is more robust.
-        /* async function sendSignatoryAction(applicantUserId, designationName, action, remarks, reasonId = null){
-            const payload = { 
-                applicant_user_id: applicantUserId, 
-                designation_name: designationName, 
-                action: action 
-            };
-            if (remarks && remarks.length) payload.remarks = remarks;
-            if (reasonId) payload.reason_id = reasonId;
-
-            const response = await fetch('../../api/clearance/signatory_action.php', {
-                method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload)
-            });
-            return await response.json();
-        } */
 
         // Load current clearance period for banner
         async function loadCurrentPeriod() {

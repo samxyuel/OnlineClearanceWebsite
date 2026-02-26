@@ -1,7 +1,4 @@
 <?php
-// Authentication temporarily disabled for interface development
-// TODO: Re-enable authentication when login system is implemented
-
 $adminName = 'Admin User'; // Temporary admin name for testing
 ?>
 
@@ -57,36 +54,27 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                     <div class="stat-icon">
                         <i class="fas fa-users"></i>
                     </div>
-                                                        <div class="stat-content">
-                                        <h3>26</h3>
-                                        <p>Total Staff</p>
-                                    </div>
+                    <div class="stat-content">
+                        <h3 id="totalStaffCount">0</h3>
+                        <p>Total Staff</p>
+                    </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon active">
                         <i class="fas fa-user-check"></i>
                     </div>
-                                                        <div class="stat-content">
-                                        <h3>22</h3>
-                                        <p>Active Staff</p>
-                                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon">
-                        <i class="fas fa-lock"></i>
+                    <div class="stat-content">
+                        <h3 id="activeStaffCount">0</h3>
+                        <p>Active Staff</p>
                     </div>
-                                                        <div class="stat-content">
-                                        <h3>10</h3>
-                                        <p>Essential Staff</p>
-                                    </div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon">
-                        <i class="fas fa-unlock"></i>
+                        <i class="fas fa-users"></i>
                     </div>
                     <div class="stat-content">
-                        <h3>16</h3>
-                        <p>Optional Staff</p>
+                        <h3 id="regularStaffCount">0</h3>
+                        <p>Regular Staff</p>
                     </div>
                 </div>
             </div>
@@ -97,10 +85,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                     <button class="btn btn-primary add-staff-btn" onclick="openStaffRegistrationModal()">
                         <i class="fas fa-plus"></i> Register Staff
                     </button>
-                    <!-- Staff Import disabled - not implemented in bulk import system -->
-                    <!-- <button class="btn btn-secondary import-btn" onclick="openStaffImportModal()">
-                        <i class="fas fa-file-import"></i> Import Staff
-                    </button> -->
                 </div>
             </div>
 
@@ -215,8 +199,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
     <?php 
     include '../../Modals/StaffRegistryModal.php';
     include '../../Modals/EditStaffModal.php';
-    // Staff Import disabled - not implemented in bulk import system
-    // include '../../Modals/StaffImportModal.php';
     include '../../Modals/GeneratedCredentialsModal.php';
     ?>
 
@@ -259,6 +241,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                         name: fullName || '—',
                         position: r.designation_name || '',
                         staff_category: r.staff_category || '',
+                        role: r.role || r.user_role || '', // Add role field for regular-staff identification
                         department: '', // Legacy field for compatibility
                         departments: r.departments || [], // New structured departments array
                         sectors: r.sectors || [], // New sectors array
@@ -277,6 +260,29 @@ $adminName = 'Admin User'; // Temporary admin name for testing
             filteredData.length = 0;
             Array.prototype.push.apply(filteredData, staffData);
             currentPage = 1;
+            
+            // Update statistics after loading data
+            updateStaffStatistics();
+        }
+
+        // Update statistics dashboard
+        function updateStaffStatistics() {
+            const totalStaff = staffData.length;
+            const activeStaff = staffData.filter(s => s.status === 'active').length;
+            // Regular Staff = staff with staff_category 'Regular Staff' (personnel required for clearance)
+            const regularStaff = staffData.filter(s => {
+                // Check staff_category column from staff table for 'Regular Staff'
+                return s.staff_category === 'Regular Staff';
+            }).length;
+
+            // Update the stat cards
+            const totalEl = document.getElementById('totalStaffCount');
+            const activeEl = document.getElementById('activeStaffCount');
+            const regularEl = document.getElementById('regularStaffCount');
+
+            if (totalEl) totalEl.textContent = totalStaff;
+            if (activeEl) activeEl.textContent = activeStaff;
+            if (regularEl) regularEl.textContent = regularStaff;
         }
 
         // Listen for successful staff registration to add a card live
@@ -287,7 +293,9 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 id: d.employee_id || d.employeeId || '',
                 name: fullName || 'New Staff',
                 position: d.designation || d.position || '',
-                department: Array.isArray(d.departments) && d.departments.length ? d.departments.join(', ') : ''
+                department: Array.isArray(d.departments) && d.departments.length ? d.departments.join(', ') : '',
+                role: d.role || d.user_role || '', // Add role field
+                status: d.status || 'active'
             };
             if (!newStaff.id) return;
             staffData.push(newStaff);
@@ -295,6 +303,7 @@ $adminName = 'Admin User'; // Temporary admin name for testing
             currentPage = 1;
             renderStaffCards();
             updatePagination();
+            updateStaffStatistics(); // Update statistics when new staff is added
             showToastNotification('Staff registered. Card added.', 'success');
         });
 
@@ -731,15 +740,6 @@ $adminName = 'Admin User'; // Temporary admin name for testing
                 }
             }
         }
-
-        // Staff Import disabled - not implemented in bulk import system
-        // function openStaffImportModal() {
-        //     const modal = document.querySelector('.staff-import-modal-overlay');
-        //     if (modal) {
-        //         modal.style.display = 'flex';
-        //         document.body.classList.add('modal-open');
-        //     }
-        // }
 
         // Toggle sidebar
         function toggleSidebar() {

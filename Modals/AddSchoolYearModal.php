@@ -110,8 +110,19 @@
 
 <script>
 // Open add school year modal
-window.showAddSchoolYearModal = function() {
+window.showAddSchoolYearModal = async function() {
     try {
+        // Check if there's an active school year with non-ended terms before opening
+        const canCreate = await checkCanCreateSchoolYear();
+        if (!canCreate.allowed) {
+            if (typeof showToast === 'function') {
+                showToast(canCreate.message || 'Cannot create a new school year at this time.', 'warning');
+            } else if (typeof showToastNotification === 'function') {
+                showToastNotification(canCreate.message || 'Cannot create a new school year at this time.', 'warning');
+            }
+            return;
+        }
+        
         const modal = document.querySelector('.add-school-year-modal-overlay');
         if (!modal) {
             if (typeof showToastNotification === 'function') {
@@ -155,11 +166,92 @@ window.showAddSchoolYearModal = function() {
             addSchoolYearModalEventListeners();
         }
     } catch (error) {
+        console.error('Error opening add school year modal:', error);
         if (typeof showToastNotification === 'function') {
             showToastNotification('Unable to open add school year modal. Please try again.', 'error');
         }
     }
 };
+
+// Check if a new school year can be created
+async function checkCanCreateSchoolYear() {
+    try {
+        // Check for active academic year
+        const contextResponse = await fetch('../../api/clearance/context.php', {
+            credentials: 'include'
+        });
+        const contextData = await contextResponse.json();
+        
+        if (!contextData.success) {
+            return {
+                allowed: false,
+                message: 'Unable to verify school year status. Please try again.'
+            };
+        }
+        
+        // If no active academic year, allow creation
+        if (!contextData.academic_year) {
+            return { allowed: true };
+        }
+        
+        // Check for active/deactivated clearance periods
+        const periodsResponse = await fetch('../../api/clearance/sector-periods.php', {
+            credentials: 'include'
+        });
+        const periodsData = await periodsResponse.json();
+        
+        if (periodsData.success && periodsData.periods_by_sector) {
+            const sectors = ['College', 'Senior High School', 'Faculty'];
+            const activePeriods = [];
+            
+            for (const sector of sectors) {
+                const sectorPeriods = periodsData.periods_by_sector[sector] || [];
+                if (sectorPeriods.length > 0) {
+                    const latestPeriod = sectorPeriods[0];
+                    if (latestPeriod.status === 'Ongoing' || latestPeriod.status === 'Paused') {
+                        activePeriods.push(sector);
+                    }
+                }
+            }
+            
+            if (activePeriods.length > 0) {
+                return {
+                    allowed: false,
+                    message: `Cannot create a new school year while there are active clearance periods in: ${activePeriods.join(', ')}. End all active periods first.`
+                };
+            }
+        }
+        
+        // Check if all terms are ended
+        const terms = contextData.terms || [];
+        if (terms.length > 0) {
+            // Check if any term has non-closed periods
+            const allTermsEnded = terms.every(term => {
+                if (!periodsData.periods_by_sector) return true;
+                
+                const termPeriods = Object.values(periodsData.periods_by_sector).flat()
+                    .filter(p => p.semester_id === term.semester_id);
+                
+                return termPeriods.length === 0 || termPeriods.every(p => p.status === 'Closed');
+            });
+            
+            if (!allTermsEnded) {
+                return {
+                    allowed: false,
+                    message: 'Cannot create a new school year. End all terms in the current school year first.'
+                };
+            }
+        }
+        
+        return { allowed: true };
+    } catch (error) {
+        console.error('Error checking if school year can be created:', error);
+        return {
+            allowed: false,
+            message: 'Unable to verify school year status. Please refresh the page and try again.'
+        };
+    }
+}
 
 // Close add school year modal
 window.closeAddSchoolYearModal = function() {
@@ -287,7 +379,8 @@ window.createSchoolYear = async function() {
         const termCount = formData.get('termCount');
 
         // Validate form right before sending the request
-        if (!validateSchoolYearForm(formData)) {
+        const isValid = await validateSchoolYearForm(formData);
+        if (!isValid) {
             // Re-enable the button if validation fails
             throw new Error("Validation failed. Please check the form.");
         }
@@ -327,7 +420,7 @@ window.createSchoolYear = async function() {
 };
 
 // Validate school year form
-function validateSchoolYearForm(formData) {
+async function validateSchoolYearForm(formData) {
     const schoolYearName = formData.get('schoolYearName');
     const termCount = formData.get('termCount');
     
@@ -346,10 +439,19 @@ function validateSchoolYearForm(formData) {
         return false;
     }
     
-    // Check if school year already exists
-    const existingYear = schoolYears.find(year => year.name === schoolYearName);
-    if (existingYear) {
-        showToast('This school year already exists. You must end all terms in the current school year before creating a new one.', 'error');
+    // Check if school year already exists (using local schoolYears array if available)
+    if (typeof schoolYears !== 'undefined' && Array.isArray(schoolYears)) {
+        const existingYear = schoolYears.find(year => year.name === schoolYearName);
+        if (existingYear) {
+            showToast('This school year already exists. You must end all terms in the current school year before creating a new one.', 'error');
+            return false;
+        }
+    }
+    
+    // Final check: verify we can still create a school year (double-check before submission)
+    const canCreate = await checkCanCreateSchoolYear();
+    if (!canCreate.allowed) {
+        showToast(canCreate.message || 'Cannot create a new school year at this time. Please end all active terms first.', 'error');
         return false;
     }
     

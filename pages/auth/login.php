@@ -21,13 +21,6 @@
             margin-bottom: 20px;
         }
         
-        /*
-        .login-logo img:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 12px rgba(0, 123, 255, 0.3);
-        }
-        */
-        
         /* Responsive design for smaller screens */
         @media (max-width: 768px) {
             .login-logo img {
@@ -47,17 +40,6 @@
     </style>
 </head>
 <body>
-    <!-- Header --
-    <header class="navbar">
-        <div class="container">
-            <div class="header-content">
-                <div class="logo">
-                    <h1>goSTI</h1>
-                </div>
-            </div>
-        </div>
-    </header> -->
-
     <!-- Main Content -->
     <main class="login-container">
         <div class="login-card">
@@ -79,14 +61,6 @@
                     <input type="password" id="password" name="password" class="form-control" required>
                 </div>
                 
-            <!--    <div class="form-group checkbox-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="remember" id="remember">
-                        <span class="checkmark"></span>
-                        Remember Me
-                    </label>
-                </div>
-                -->
                 <div class="form-group login-button-group">
                     <button type="submit" class="btn btn-primary login-btn" id="loginBtn">
                         <span id="loginBtnText">Login</span>

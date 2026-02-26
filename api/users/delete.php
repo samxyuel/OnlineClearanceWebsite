@@ -40,7 +40,9 @@ if (!$auth->isLoggedIn()) {
 }
 
 // Check permission
-if (!$auth->hasPermission('delete_users')) {
+// Allow Admin with delete_users permission OR Program Head (with department restrictions)
+$hasPermission = $auth->hasPermission('delete_users') || $auth->getRoleName() === 'Program Head';
+if (!$hasPermission) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Insufficient permissions']);
     exit;
@@ -69,6 +71,93 @@ $userManager = new UserManager();
 $result = ['success' => false, 'message' => 'Unknown error'];
 
 try {
+    $roleName = $auth->getRoleName();
+    $currentUserId = $auth->getUserId();
+    
+    // For Program Heads, verify they can only delete users in their departments
+    if ($roleName === 'Program Head' && $roleName !== 'Admin') {
+        require_once '../../includes/helpers/department_helpers.php';
+        require_once '../../includes/config/database.php';
+        $pdo = Database::getInstance()->getConnection();
+        $programHeadDepartments = getCrossSectorDepartmentIds($pdo, $currentUserId);
+        
+        if (empty($programHeadDepartments)) {
+            http_response_code(403);
+            echo json_encode([
+                'success' => false, 
+                'message' => 'You are not assigned to any departments'
+            ]);
+            exit;
+        }
+        
+        // Get user IDs to check (single or bulk)
+        $userIdsToCheck = [];
+        if (isset($input['user_ids']) && is_array($input['user_ids'])) {
+            $userIdsToCheck = $input['user_ids'];
+        } elseif (isset($input['user_id'])) {
+            $userIdsToCheck = [(int)$input['user_id']];
+        }
+        
+        if (!empty($userIdsToCheck)) {
+            // Prevent Program Heads from deleting staff
+            if ($userType === 'staff') {
+                http_response_code(403);
+                echo json_encode([
+                    'success' => false, 
+                    'message' => 'Program Heads cannot delete staff members'
+                ]);
+                exit;
+            }
+            
+            // Verify users belong to Program Head's departments
+            $placeholders = implode(',', array_fill(0, count($userIdsToCheck), '?'));
+            $deptPlaceholders = implode(',', array_fill(0, count($programHeadDepartments), '?'));
+            
+            // Check for students
+            if ($userType === 'student') {
+                $checkStmt = $pdo->prepare("
+                    SELECT COUNT(*) 
+                    FROM students s
+                    WHERE s.user_id IN ($placeholders)
+                    AND s.department_id IN ($deptPlaceholders)
+                ");
+                $checkStmt->execute(array_merge($userIdsToCheck, $programHeadDepartments));
+                $validCount = $checkStmt->fetchColumn();
+                
+                if ($validCount != count($userIdsToCheck)) {
+                    http_response_code(403);
+                    echo json_encode([
+                        'success' => false, 
+                        'message' => 'You can only delete students in your assigned departments'
+                    ]);
+                    exit;
+                }
+            }
+            // Check for faculty
+            elseif ($userType === 'faculty') {
+                $checkStmt = $pdo->prepare("
+                    SELECT COUNT(DISTINCT f.user_id) 
+                    FROM faculty f
+                    JOIN user_department_assignments uda ON f.user_id = uda.user_id
+                    WHERE f.user_id IN ($placeholders)
+                    AND uda.department_id IN ($deptPlaceholders)
+                    AND uda.is_active = 1
+                ");
+                $checkStmt->execute(array_merge($userIdsToCheck, $programHeadDepartments));
+                $validCount = $checkStmt->fetchColumn();
+                
+                if ($validCount != count($userIdsToCheck)) {
+                    http_response_code(403);
+                    echo json_encode([
+                        'success' => false, 
+                        'message' => 'You can only delete faculty in your assigned departments'
+                    ]);
+                    exit;
+                }
+            }
+        }
+    }
+    
     switch ($userType) {
         case 'student':
             // Handle student deletion (single or bulk)

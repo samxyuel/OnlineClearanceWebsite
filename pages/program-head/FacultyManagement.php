@@ -182,15 +182,6 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                                     <p>Inactive</p>
                                 </div>
                             </div>
-                            <div class="stat-card">
-                                <div class="stat-icon graduated">
-                                    <i class="fas fa-user-slash"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h3 id="resignedFaculty">--</h3>
-                                    <p>Resigned</p>
-                                </div>
-                            </div>
                         </div>
 
                         <!-- Quick Actions Section -->
@@ -282,12 +273,6 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                                         </button>
                                         <button class="btn btn-danger" onclick="rejectSelected()" disabled>
                                             <i class="fas fa-times"></i> Reject
-                                        </button>
-                                        <button class="btn btn-info" onclick="markResigned()" disabled>
-                                            <i class="fas fa-user-slash"></i> Resigned
-                                        </button>
-                                        <button class="btn btn-outline-warning" onclick="resetClearanceForNewTerm()" disabled>
-                                            <i class="fas fa-redo"></i> Reset Clearance
                                         </button>
                                         <button class="btn btn-danger" onclick="deleteSelected()" disabled>
                                             <i class="fas fa-trash"></i> Delete
@@ -442,6 +427,9 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         // Updated dynamically from is_assigned.php API (primary source for Program Head)
         let canPerformSignatoryActions = false;
 
+        // Global flag to track if there's an active clearance period for this sector
+        let hasActiveClearancePeriod = false;
+
         async function fetchCanTakeActionFaculty() {
             try {
                 const resp = await fetch('../../api/program-head/is_assigned.php?clearance_type=Faculty', { credentials: 'include' });
@@ -499,6 +487,26 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 updateSelectAllCheckbox();
             }
         });
+        
+        // Select all functionality
+        function toggleSelectAll(checked) {
+            // Use the parameter if provided, otherwise get from checkbox
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const isChecked = checked !== undefined ? checked : (selectAllCheckbox ? selectAllCheckbox.checked : false);
+            const facultyCheckboxes = document.querySelectorAll('#facultyTableBody .faculty-checkbox:not(:disabled)');
+            
+            facultyCheckboxes.forEach(checkbox => {
+                const row = checkbox.closest('tr');
+                // Only toggle visible and enabled rows, respecting current filters
+                if (row && row.style.display !== 'none') {
+                    checkbox.checked = isChecked;
+                }
+            });
+            
+            updateBulkButtons();
+            updateSelectionCounter();
+        }
+        
         // Clear all selections functionality
         function clearAllSelections() {
             const facultyCheckboxes = document.querySelectorAll('.faculty-checkbox');
@@ -528,30 +536,55 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         function updateBulkStatistics(action, count) {
             const activeCountEl = document.getElementById('activeFaculty');
             const inactiveCountEl = document.getElementById('inactiveFaculty');
-            const resignedCountEl = document.getElementById('resignedFaculty');
             
             let currentActive = parseInt(activeCountEl.textContent.replace(/,/g, '')) || 0;
             let currentInactive = parseInt(inactiveCountEl.textContent.replace(/,/g, '')) || 0;
-            let currentResigned = parseInt(resignedCountEl.textContent.replace(/,/g, '')) || 0;
 
-            if (action === 'resigned') {
-                currentResigned += count;
-                // Assuming resigned faculty were previously active or inactive
-                // For simplicity, we can decrement from active, but a full refresh is better.
-                currentActive = Math.max(0, currentActive - count); 
+            if (action === 'activate') {
+                currentActive += count;
+                currentInactive -= count;
+            } else if (action === 'deactivate') {
+                currentActive -= count;
+                currentInactive += count;
             }
             
             activeCountEl.textContent = currentActive.toLocaleString();
             inactiveCountEl.textContent = currentInactive.toLocaleString();
-            resignedCountEl.textContent = currentResigned.toLocaleString();
         }
 
         function updateBulkButtons() {
             const checkedBoxes = document.querySelectorAll('.faculty-checkbox:checked');
+            const hasSelection = checkedBoxes.length > 0;
+            
+            // Get all bulk buttons
             const bulkButtons = document.querySelectorAll('.bulk-buttons button');
             
             bulkButtons.forEach(button => {
-                button.disabled = checkedBoxes.length === 0;
+                // Check if this is Approve or Reject button by checking onclick attribute
+                const onclickAttr = button.getAttribute('onclick') || '';
+                const isApproveOrReject = onclickAttr.includes('approveSelected') || 
+                                         onclickAttr.includes('rejectSelected');
+                
+                if (isApproveOrReject) {
+                    // Approve/Reject buttons: require selection, active period, AND permission
+                    const canEnable = hasSelection && hasActiveClearancePeriod && canPerformSignatoryActions;
+                    button.disabled = !canEnable;
+                    
+                    if (!canEnable && hasSelection) {
+                        // If there's selection but buttons are disabled, add tooltip
+                        if (!hasActiveClearancePeriod) {
+                            button.title = 'No active clearance period for this sector';
+                        } else if (!canPerformSignatoryActions) {
+                            button.title = 'You do not have permission to take action';
+                        }
+                    } else {
+                        button.title = '';
+                    }
+                } else {
+                    // Other buttons (Delete, etc.): only require selection
+                    button.disabled = !hasSelection;
+                    button.title = '';
+                }
             });
             
             updateSelectionCounter();
@@ -1072,6 +1105,9 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                         <button class="btn-icon view-progress-btn" onclick="viewClearanceProgress('${faculty.id}')" title="View Clearance Progress">
                             <i class="fas fa-tasks"></i>
                         </button>
+                        <button class="btn-icon edit-btn" onclick="editFaculty('${faculty.id}')" title="Edit Faculty">
+                            <i class="fas fa-edit"></i>
+                        </button>
                         <button class="btn-icon approve-btn" onclick="approveFacultyClearance('${faculty.id}')" title="${approveTitle}" ${approveBtnDisabled ? 'disabled' : ''}>
                             <i class="fas fa-check"></i>
                         </button>
@@ -1112,25 +1148,24 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
         // Explicitly enable/disable faculty action controls based on centralized permission
         function updateFacultyActionButtonsState() {
             // Separate administrative actions from clearance signatory actions
-            // Administrative actions - check department assignments for Add button
+            // Administrative actions - check sector assignment for Add button
             // Import/Export should always be enabled for Program Heads
             
-            // Check if Program Head has College department assignments (faculty are linked to college depts)
-            const hasCollegeDepartments = window.managedDepartments && 
-                Array.isArray(window.managedDepartments) && 
-                window.managedDepartments.length > 0;
+            // Check if Program Head has Faculty sector assignment
+            // Use canPerformSignatoryActions which is set by fetchCanTakeActionFaculty()
+            // This checks if the Program Head has departments in the Faculty sector
             
-            // Handle Add Faculty button separately (requires department assignment)
+            // Handle Add Faculty button separately (requires Faculty sector assignment)
             document.querySelectorAll('.add-faculty-btn').forEach(btn => {
                 try {
-                    if (hasCollegeDepartments) {
+                    if (canPerformSignatoryActions) {
                         btn.disabled = false;
                         btn.classList.remove('disabled');
                         btn.title = 'Add a new faculty member to the system';
                     } else {
                         btn.disabled = true;
                         btn.classList.add('disabled');
-                        btn.title = 'You are not assigned to any departments';
+                        btn.title = 'You are not assigned to the Faculty sector';
                     }
                 } catch (e) { /* ignore */ }
             });
@@ -1151,37 +1186,66 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 });
             });
             
-            // Clearance signatory actions - controlled by CAN_TAKE_ACTION
-            const bulkActionSelectors = [
-                '.bulk-selection-filters-btn',
-                '.bulk-controls .btn-success',
-                '.bulk-buttons button',
-                '.clear-selection-btn',
-                '.selection-counter-pill'
-            ];
-
-            const canAct = canPerformSignatoryActions;
+            // Clearance signatory actions - only Approve/Reject buttons require active period
+            // Other bulk actions (Delete, Selection Filters, Clear Selection) remain enabled
             
-            // Disable/enable clearance signatory controls based on permission
-            bulkActionSelectors.forEach(sel => {
-                document.querySelectorAll(sel).forEach(btn => {
-                    try {
+            // Only disable Approve/Reject buttons in bulk-buttons based on clearance period
+            const bulkApproveRejectButtons = document.querySelectorAll('.bulk-buttons button');
+            bulkApproveRejectButtons.forEach(btn => {
+                try {
+                    // Check if this is Approve or Reject button by checking onclick attribute
+                    const onclickAttr = btn.getAttribute('onclick') || '';
+                    const isApproveOrReject = onclickAttr.includes('approveSelected') || 
+                                             onclickAttr.includes('rejectSelected');
+                    
+                    if (isApproveOrReject) {
+                        // Approve/Reject buttons require active period AND permission
+                        const canAct = canPerformSignatoryActions && hasActiveClearancePeriod;
                         btn.disabled = !canAct;
+                        
                         if (!canAct) {
                             btn.classList.add('disabled');
+                            if (!hasActiveClearancePeriod) {
+                                btn.title = 'No active clearance period for this sector';
+                            } else if (!canPerformSignatoryActions) {
                             btn.title = 'You do not have permission to take action on this page.';
+                            }
                         } else {
                             btn.classList.remove('disabled');
-                            // Clear the permission-denied title when enabled
-                            if (btn.title === 'You do not have permission to take action on this page.') {
+                            if (btn.title && (btn.title.includes('permission') || btn.title.includes('clearance period'))) {
                                 btn.title = '';
                             }
                         }
+                    }
+                    // Other buttons (Delete, etc.) are handled by updateBulkButtons() based on selection only
                     } catch (e) { /* ignore */ }
                 });
+
+            // Explicitly enable bulk selection filters and clear selection buttons
+            // These should always be enabled regardless of clearance period status
+            document.querySelectorAll('.bulk-selection-filters-btn').forEach(btn => {
+                try {
+                    btn.disabled = false;
+                    btn.classList.remove('disabled');
+                    if (btn.title && btn.title.includes('clearance period')) {
+                        btn.title = '';
+                    }
+                } catch (e) { /* ignore */ }
+            });
+            
+            document.querySelectorAll('.clear-selection-btn, .btn-outline-secondary.clear-selection-btn').forEach(btn => {
+                try {
+                    // Clear selection button is enabled based on selection (handled by updateBulkButtons)
+                    // Just make sure it's not disabled due to clearance period
+                    if (btn.title && btn.title.includes('clearance period')) {
+                        btn.title = '';
+                    }
+                } catch (e) { /* ignore */ }
             });
 
-            // Disable/enable faculty row checkboxes and select-all based on permission
+            // Disable/enable faculty row checkboxes and select-all based on permission only (not clearance period)
+            // Checkboxes should remain functional even without active clearance period
+            const canAct = canPerformSignatoryActions;
             document.querySelectorAll('#facultyTableBody .faculty-checkbox').forEach(cb => cb.disabled = !canAct);
             const selectAll = document.getElementById('selectAllCheckbox');
             if (selectAll) selectAll.disabled = !canAct;
@@ -1232,7 +1296,6 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             document.getElementById('totalFaculty').textContent = stats.total || 0;
             document.getElementById('activeFaculty').textContent = stats.active || 0;
             document.getElementById('inactiveFaculty').textContent = stats.inactive || 0;
-            document.getElementById('resignedFaculty').textContent = stats.resigned || 0;
         }
 
         // Bulk selection functions
@@ -1293,7 +1356,6 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 partTimeFullLoad: document.getElementById('filterPartTimeFullLoad').checked,
                 active: document.getElementById('filterActive').checked,
                 inactive: document.getElementById('filterInactive').checked,
-                resigned: document.getElementById('filterResigned').checked,
                 pending: document.getElementById('filterPending').checked,
                 approved: document.getElementById('filterApproved').checked,
                 rejected: document.getElementById('filterRejected').checked
@@ -1368,11 +1430,10 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                 }
                 
                 // Check account status filters
-                const hasAccountFilter = filters.active || filters.inactive || filters.resigned;
+                const hasAccountFilter = filters.active || filters.inactive;
                 if (hasAccountFilter && accountBadge) {
                     if (filters.active && accountBadge.classList.contains('account-active')) accountMatch = true;
                     if (filters.inactive && accountBadge.classList.contains('account-inactive')) accountMatch = true;
-                    if (filters.resigned && accountBadge.classList.contains('account-resigned')) accountMatch = true;
                 } else if (!hasAccountFilter) {
                     accountMatch = true; // No account filter = wildcard
                 }
@@ -1404,7 +1465,6 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             document.getElementById('filterPartTimeFullLoad').checked = false;
             document.getElementById('filterActive').checked = false;
             document.getElementById('filterInactive').checked = false;
-            document.getElementById('filterResigned').checked = false;
             document.getElementById('filterPending').checked = false;
             document.getElementById('filterApproved').checked = false;
             document.getElementById('filterRejected').checked = false;
@@ -1414,36 +1474,6 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             clearAllSelections();
             resetBulkSelectionFilters();
         }
-
-        /* Resigned function temporarily disabled
-        function markResigned() {
-            const selectedCount = getSelectedCount();
-            if (selectedCount === 0) {
-                showToastNotification('Please select faculty to mark as resigned', 'warning');
-                return;
-            }
-            showConfirmationModal(
-                'Mark Faculty as Resigned',
-                `Are you sure you want to mark ${selectedCount} selected faculty as Resigned?`,
-                'Mark as Resigned',
-                'Cancel',
-                () => {
-                    const selectedCheckboxes = document.querySelectorAll('.faculty-checkbox:checked');
-                    selectedCheckboxes.forEach(checkbox => {
-                        const row = checkbox.closest('tr');
-                        const statusBadge = row.querySelector('.status-badge.account-active, .status-badge.account-inactive');
-                        if (statusBadge) {
-                            statusBadge.textContent = 'Resigned';
-                            statusBadge.classList.remove('account-active', 'account-inactive');
-                            statusBadge.classList.add('account-resigned');
-                        }
-                    });
-                    showToastNotification(`✓ Successfully marked ${selectedCount} faculty as Resigned`, 'success');
-                },
-                'info'
-            );
-        }
-        */
 
         function updateSelectionCounter() {
             const selectedCount = getSelectedCount();
@@ -1608,7 +1638,7 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             url.searchParams.append('type', 'enum');
             url.searchParams.append('table', 'users');
             url.searchParams.append('column', 'account_status');
-            url.searchParams.append('exclude', 'graduated');
+            url.searchParams.append('exclude', 'graduated,resigned');
             await populateFilter('accountStatusFilter', url.toString(), 'All Account Statuses');
         }
 
@@ -1680,26 +1710,61 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
             }
         }
 
+        // Load current clearance period for banner
+        async function loadCurrentPeriod() {
+            try {
+                const response = await fetch('../../api/clearance/periods.php', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                // Check if there's an active period for Faculty sector
+                if (data.success && data.active_periods && data.active_periods.length > 0) {
+                    const activePeriod = data.active_periods.find(p => p.sector === 'Faculty');
+                    hasActiveClearancePeriod = !!activePeriod;
+                    
+                    // Note: Faculty Management page doesn't have a banner to display period info
+                    // But we still need to track the active period status for button enabling
+                } else {
+                    hasActiveClearancePeriod = false;
+                }
+            } catch (error) {
+                console.error('Error loading current period:', error);
+                hasActiveClearancePeriod = false;
+            }
+            
+            // Update bulk buttons after period status is loaded
+            updateBulkButtons();
+            updateFacultyActionButtonsState();
+        }
+
         // Initialize page
         document.addEventListener('DOMContentLoaded', async function() {
             
             updateTermIndicatorBanner();
             
-            // Load Program Head profile FIRST to get department assignments
+            // 1. Fetch assignment status first so UI disabling can be applied consistently
+            await fetchCanTakeActionFaculty();
+            
+            // 2. Load Program Head profile to get department assignments
             await loadProgramHeadProfile();
             
+            // 3. Load all independent filter options and page data in parallel
             await Promise.all([
             loadRejectionReasons(),
             loadEmploymentStatuses(),
             loadAccountStatuses(),
             loadSchoolTermsFilter(),
-            loadCurrentStaffDesignation()
+            loadCurrentStaffDesignation(),
+            loadCurrentPeriod()
             ]);
 
+            // 4. Set default filter values and load the main table data
             await setDefaultSchoolTerm();
-            // Refresh permission from centralized API before rendering faculty list
-            await fetchCanTakeActionFaculty();
-            fetchFaculty();
+            await fetchFaculty();
+            
+            // 5. Update action buttons state after all permissions and data are loaded
+            updateFacultyActionButtonsState();
             
             // Add event listeners for checkboxes
             document.getElementById('facultyTableBody').addEventListener('change', function(e) {
@@ -2089,11 +2154,6 @@ $departmentIds = $GLOBALS['userDepartmentIds'] ?? [];
                                 <input type="checkbox" id="filterInactive" value="inactive">
                                 <span class="checkmark"></span>
                                 with "inactive"
-                            </label>
-                            <label class="custom-checkbox">
-                                <input type="checkbox" id="filterResigned" value="resigned">
-                                <span class="checkmark"></span>
-                                with "resigned"
                             </label>
                         </div>
                     </div>

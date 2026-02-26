@@ -82,7 +82,7 @@
             <div class="content-wrapper">
                 <!-- Page Header (Minimal) -->
                 <div class="page-header-compact">
-                    <h2><i class="fas fa-chart-line"></i><!-- < ?php echo ucfirst($user_type); ?> --> Dashboard - Welcome back, <?php echo $display_name; ?></h2>
+                    <h2><i class="fas fa-chart-line"></i> Dashboard - Welcome back, <?php echo $display_name; ?></h2>
                 </div>
 
                 <!-- User Clearance Status Card (Compact) -->
@@ -177,14 +177,18 @@
             const data = result.data;
 
             // Update Academic Info
+            const currentSemesterEl = document.getElementById('currentSemester');
+            const currentAcademicYearEl = document.getElementById('currentAcademicYear');
+            const termDurationEl = document.getElementById('termDuration');
+            
             if (data.period) {
-                document.getElementById('currentSemester').textContent = data.period.semester_name || '--';
-                document.getElementById('currentAcademicYear').textContent = data.period.academic_year || '--';
-                document.getElementById('termDuration').textContent = `Duration: ${data.period.start_date} to ${data.period.end_date}`;
+                if (currentSemesterEl) currentSemesterEl.textContent = data.period.semester_name || '--';
+                if (currentAcademicYearEl) currentAcademicYearEl.textContent = data.period.academic_year || '--';
+                if (termDurationEl) termDurationEl.textContent = `Duration: ${data.period.start_date} to ${data.period.end_date}`;
             } else {
-                document.getElementById('currentSemester').textContent = 'N/A';
-                document.getElementById('currentAcademicYear').textContent = 'No Active Period';
-                document.getElementById('termDuration').textContent = 'No active clearance period';
+                if (currentSemesterEl) currentSemesterEl.textContent = 'N/A';
+                if (currentAcademicYearEl) currentAcademicYearEl.textContent = 'No Active Period';
+                if (termDurationEl) termDurationEl.textContent = 'No active clearance period';
             }
 
             // Update User Identifiers
@@ -194,28 +198,38 @@
             const formIdIndicator = document.getElementById('formIdIndicator');
             const formIdValue = document.getElementById('clearanceFormId');
 
-            if (data.student_number) {
-                identifierLabel.textContent = 'Student #:';
-                identifierValue.textContent = data.student_number;
-                userIdentifier.style.display = 'flex';
-            } else if (data.employee_number) {
-                identifierLabel.textContent = 'Employee #:';
-                identifierValue.textContent = data.employee_number;
-                userIdentifier.style.display = 'flex';
-            } else {
-                userIdentifier.style.display = 'none';
+            if (userIdentifier && identifierLabel && identifierValue) {
+                if (data.student_number) {
+                    identifierLabel.textContent = 'Student #:';
+                    identifierValue.textContent = data.student_number;
+                    userIdentifier.style.display = 'flex';
+                } else if (data.employee_number) {
+                    identifierLabel.textContent = 'Employee #:';
+                    identifierValue.textContent = data.employee_number;
+                    userIdentifier.style.display = 'flex';
+                } else {
+                    userIdentifier.style.display = 'none';
+                }
             }
 
-            if (data.clearance_form_id) {
-                formIdValue.textContent = data.clearance_form_id;
-                formIdIndicator.style.display = 'flex';
-            } else {
-                formIdIndicator.style.display = 'none';
+            if (formIdIndicator && formIdValue) {
+                if (data.clearance_form_id) {
+                    formIdValue.textContent = data.clearance_form_id;
+                    formIdIndicator.style.display = 'flex';
+                } else {
+                    formIdIndicator.style.display = 'none';
+                }
             }
 
             // Update Status Cards
-            document.getElementById('clearanceStatus').textContent = data.clearance.status || 'Not Started';
-            document.getElementById('clearanceProgress').textContent = data.clearance.progress_text || '--/--';
+            const clearanceStatusEl = document.getElementById('clearanceStatus');
+            const clearanceProgressEl = document.getElementById('clearanceProgress');
+            if (clearanceStatusEl) {
+                clearanceStatusEl.textContent = data.clearance?.status || 'Not Started';
+            }
+            if (clearanceProgressEl) {
+                clearanceProgressEl.textContent = data.clearance?.progress_text || '--/--';
+            }
             
             // Update Main Action Button
             updateMainActionButton(data);
@@ -232,33 +246,45 @@
     function updateMainActionButton(data) {
         const btn = document.getElementById('applyClearanceBtn');
         const text = document.getElementById('applyBtnText');
-        const icon = btn.querySelector('i');
         const statusText = document.getElementById('actionStatusText');
+        
+        if (!btn || !text) return;
+        
+        const icon = btn.querySelector('i');
 
-        if (!data.period) { // No active period
-            btn.disabled = true;
-            text.textContent = 'Clearance Period Closed';
-            icon.className = 'fas fa-clock';
-            btn.title = 'There is no active clearance period.';
-            
-            // Simple text message
-            if (statusText) {
-                statusText.textContent = 'No active clearance period at this time';
+        // Check if there's an active period that has actually started
+        const hasActivePeriod = data.period && data.period.start_date;
+        let periodHasStarted = false;
+        
+        if (hasActivePeriod) {
+            // Check if the period has actually started by parsing the start_date
+            try {
+                const startDate = new Date(data.period.start_date);
+                const now = new Date();
+                // Check if start_date is valid and not in the far past (like -0001)
+                if (!isNaN(startDate.getTime()) && startDate.getFullYear() > 1900 && startDate <= now) {
+                    periodHasStarted = true;
+                }
+            } catch (e) {
+                // Invalid date, treat as not started
+                periodHasStarted = false;
             }
-        } else if (data.clearance.status !== 'Not Started' && data.clearance.status !== 'Unapplied') {
-            // Already applied
-            text.textContent = 'Go to My Clearance';
-            icon.className = 'fas fa-eye';
-            btn.title = 'View your clearance status and progress.';
+        }
+
+        if (!hasActivePeriod || !periodHasStarted) {
+            // No active period or period hasn't started yet
             btn.disabled = false;
+            text.textContent = 'See My Clearance page.';
+            if (icon) icon.className = 'fas fa-eye';
+            btn.title = 'View your clearance records.';
             
             if (statusText) {
-                statusText.textContent = 'You have an active clearance application';
+                statusText.textContent = 'View your Clearances';
             }
         } else {
-            // Can apply
+            // Active period exists and has started
             text.textContent = 'Apply for Clearance';
-            icon.className = 'fas fa-file-alt';
+            if (icon) icon.className = 'fas fa-file-alt';
             btn.title = 'Begin your clearance application for the current semester.';
             btn.disabled = false;
             
@@ -306,35 +332,6 @@
     function handleClearanceAction() {
         window.location.href = 'clearance.php';
     }
-
-    // Apply for student clearance function (mass apply)
-    function applyForStudentClearance() {
-        // This function is now deprecated. The main action button directly navigates
-        // to the clearance page.
-        console.warn('applyForStudentClearance() is deprecated. Navigating directly.');
-        window.location.href = 'clearance.php';
-    }
-    
-    // Navigation function
-    function navigateTo(page) {
-        const routes = {
-            'clearance': 'clearance.php',
-            'requirements': 'requirements.php',
-            'calendar': 'calendar.php',
-            'support': 'support.php',
-            'settings': 'settings.php',
-            'records': 'records.php'
-        };
-        
-        if (routes[page]) {
-            showToast(`Navigating to ${page}...`, 'info');
-            setTimeout(() => {
-                window.location.href = routes[page];
-            }, 500);
-        } else {
-            showToast('Page under development', 'info');
-        }
-    }
     
     // Toast notification function
     function showToast(message, type = 'info') {
@@ -361,40 +358,26 @@
     
     // Sidebar toggle function
     function toggleSidebar() {
-        const sidebar = document.getElementById('sidebar');
+        const sidebar = document.querySelector('.sidebar');
         const backdrop = document.getElementById('sidebar-backdrop');
         const mainContent = document.querySelector('.main-content');
         
-        const isMobile = window.innerWidth <= 768;
+        if (!sidebar || !mainContent) return;
         
-        if (isMobile) {
-            if (sidebar) {
-                sidebar.classList.toggle('active');
-                if (backdrop) {
-                    if (sidebar.classList.contains('active')) {
-                        backdrop.style.display = 'block';
-                    } else {
-                        backdrop.style.display = 'none';
-                    }
-                }
+        if (window.innerWidth <= 768) {
+            // Mobile: toggle active class and backdrop
+            sidebar.classList.toggle('active');
+            if (backdrop) {
+                backdrop.style.display = sidebar.classList.contains('active') ? 'block' : 'none';
             }
         } else {
-            if (sidebar.classList.contains('collapsed')) {
-                sidebar.classList.remove('collapsed');
-                if (backdrop) {
-                    backdrop.style.display = 'none';
-                }
-                if (mainContent) {
-                    mainContent.classList.remove('full-width');
-                }
-            } else {
-                sidebar.classList.add('collapsed');
-                if (backdrop) {
-                    backdrop.style.display = 'none';
-                }
-                if (mainContent) {
-                    mainContent.classList.add('full-width');
-                }
+            // Desktop: toggle collapsed class
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+            
+            // Ensure backdrop is hidden on desktop
+            if (backdrop) {
+                backdrop.style.display = 'none';
             }
         }
     }
@@ -402,6 +385,8 @@
     // Debug functions (only for faculty)
     async function testAPIs() {
         const debugOutput = document.getElementById('debugOutput');
+        if (!debugOutput) return;
+        
         debugOutput.innerHTML = '<p>Testing APIs...</p>';
         
         try {
@@ -418,6 +403,8 @@
     // Check period status specifically
     async function checkPeriodStatus() {
         const debugOutput = document.getElementById('debugOutput');
+        if (!debugOutput) return;
+        
         debugOutput.innerHTML = '<p>Checking period status...</p>';
         
         try {
@@ -448,27 +435,30 @@
     
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
-        const sidebar = document.getElementById('sidebar');
+        const sidebar = document.querySelector('.sidebar');
         const backdrop = document.getElementById('sidebar-backdrop');
         
         // Close sidebar when clicking backdrop
         if (backdrop) {
             backdrop.addEventListener('click', function() {
-                if (window.innerWidth <= 768) {
+                if (sidebar && window.innerWidth <= 768) {
                     sidebar.classList.remove('active');
                     this.style.display = 'none';
                 }
             });
         }
         
-        // Close sidebar on window resize
+        // Handle window resize for sidebar with debounce
+        let resizeTimer;
         window.addEventListener('resize', function() {
-            if (window.innerWidth > 768) {
-                sidebar.classList.remove('active');
-                if (backdrop) {
-                    backdrop.style.display = 'none';
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(function() {
+                if (window.innerWidth > 768) {
+                    // Desktop: ensure backdrop is hidden and sidebar is not active
+                    if (sidebar) sidebar.classList.remove('active');
+                    if (backdrop) backdrop.style.display = 'none';
                 }
-            }
+            }, 250);
         });
 
         // Initialize clearance button state
